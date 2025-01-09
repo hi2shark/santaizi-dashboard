@@ -48,6 +48,8 @@ jobs:
           distribution: goreleaser
           version: "~> v2"
           args: build --single-target --clean --skip=validate
+        env:
+          GORELEASER_CURRENT_TAG: ${{ env.VERSION_TAG }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
