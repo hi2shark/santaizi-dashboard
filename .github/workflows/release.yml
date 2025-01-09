@@ -84,4 +84,5 @@ jobs:
           push: true
           tags: |
             ${{ steps.image-name.outputs.GHCR_IMAGE_NAME }}:latest
+            ${{ steps.image-name.outputs.GHCR_IMAGE_NAME }}:v0.20.13
             ${{ steps.image-name.outputs.GHCR_IMAGE_NAME }}:${{ env.VERSION_TAG }}
