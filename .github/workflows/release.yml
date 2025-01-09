@@ -39,10 +39,12 @@ jobs:
           go-version: "1.23.x"
 
       - name: Generate version tag
+        id: generate_version_tag
         run: |
           timestamp=$(date +%s)
           hash=$(echo $timestamp | md5sum | cut -c1-8)
           echo "VERSION_TAG=v0.20.13-${hash}" >> $GITHUB_ENV
+          echo "VERSION_TAG=v0.20.13-${hash}" >> $GITHUB_OUTPUT
 
       - name: Build
         uses: goreleaser/goreleaser-action@v6
@@ -99,4 +101,4 @@ jobs:
           push: true
           tags: |
             ${{ steps.image-name.outputs.GHCR_IMAGE_NAME }}:latest
-            ${{ steps.image-name.outputs.GHCR_IMAGE_NAME }}:${{ env.VERSION_TAG }}
+            ${{ steps.image-name.outputs.GHCR_IMAGE_NAME }}:${{ needs.build.outputs.VERSION_TAG }}
