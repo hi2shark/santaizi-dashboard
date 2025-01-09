@@ -13,6 +13,10 @@ import (
 )
 
 var Version = "debug"
+func init() {
+	now := time.Now()
+	Version = "v0-final-" + now.Format("060102")
+}
 
 var (
 	Conf  *model.Config
