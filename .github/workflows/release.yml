@@ -1,16 +1,14 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_dispatch:    # 改为手动触发
 
 jobs:
   build:
     strategy:
       fail-fast: true
       matrix:
-        goos: [linux, windows]
+        goos: [linux]
         goarch: [amd64]
         include:
           - goos: linux
@@ -31,9 +29,10 @@ jobs:
     steps:
       - run: git config --global --add safe.directory /__w/nezha/nezha
       - uses: actions/checkout@v4
+        with:
+          ref: v0-final    # 指定使用 v0-final 分支
 
       - name: Fetch IPInfo GeoIP Database
-        if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
         env:
           IPINFO_TOKEN: ${{ secrets.IPINFO_TOKEN }}
         run: |
@@ -44,6 +43,12 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "1.23.x"
+
+      - name: Generate version tag
+        run: |
+          timestamp=$(date +%s)
+          hash=$(echo $timestamp | md5sum | cut -c1-8)
+          echo "VERSION_TAG=v0.20.13-${hash}" >> $GITHUB_ENV
 
       - name: Build
         uses: goreleaser/goreleaser-action@v6
@@ -131,20 +136,6 @@ jobs:
           echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
         id: extract_branch
 
-      - name: Log into GHCR
-        uses: docker/login-action@master
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ github.token }}
-
-      - name: Log in to the AliyunCS
-        uses: docker/login-action@master
-        with:
-          registry: registry.cn-shanghai.aliyuncs.com
-          username: ${{ secrets.ALI_USER }}
-          password: ${{ secrets.ALI_PAT }}
-
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -154,12 +145,7 @@ jobs:
       - name: Set up image name
         run: |
           GHCR_IMAGE_NAME=$(echo "ghcr.io/${{ github.repository_owner }}/nezha-dashboard" | tr '[:upper:]' '[:lower:]')
-          if [ ${{ github.repository_owner }} = "naiba" ]
-            then ALI_IMAGE_NAME=$(echo "registry.cn-shanghai.aliyuncs.com/naibahq/nezha-dashboard")
-            else ALI_IMAGE_NAME=$(echo "registry.cn-shanghai.aliyuncs.com/${{ github.repository_owner }}/nezha-dashboard" | tr '[:upper:]' '[:lower:]')
-          fi
           echo "GHCR_IMAGE_NAME=$GHCR_IMAGE_NAME" >> $GITHUB_OUTPUT
-          echo "ALI_IMAGE_NAME=$ALI_IMAGE_NAME" >> $GITHUB_OUTPUT
         id: image-name
 
       - name: Build dasbboard image And Push
@@ -171,6 +157,4 @@ jobs:
           push: true
           tags: |
             ${{ steps.image-name.outputs.GHCR_IMAGE_NAME }}:latest
-            ${{ steps.image-name.outputs.GHCR_IMAGE_NAME }}:${{ steps.extract_branch.outputs.tag }}
-            ${{ steps.image-name.outputs.ALI_IMAGE_NAME }}:latest
-            ${{ steps.image-name.outputs.ALI_IMAGE_NAME }}:${{ steps.extract_branch.outputs.tag }}
+            ${{ steps.image-name.outputs.GHCR_IMAGE_NAME }}:${{ env.VERSION_TAG }}
