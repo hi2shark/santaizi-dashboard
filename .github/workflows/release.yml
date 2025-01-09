@@ -55,31 +55,6 @@ jobs:
         env:
           GORELEASER_CURRENT_TAG: ${{ env.VERSION_TAG }}
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: dashboard-${{ env.GOOS }}-${{ env.GOARCH }}
-          path: |
-            ./dist/*/*
-
-  release-docker:
-    runs-on: ubuntu-latest
-    needs: build
-    name: Release Docker images
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: ./assets
-
-      - name: Fix permissions
-        run: |
-          chmod -R +x ./assets/*
-          mkdir dist
-          mv ./assets/*/*/* ./dist
-
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -101,4 +76,4 @@ jobs:
           push: true
           tags: |
             ${{ steps.image-name.outputs.GHCR_IMAGE_NAME }}:latest
-            ${{ steps.image-name.outputs.GHCR_IMAGE_NAME }}:${{ needs.build.outputs.VERSION_TAG }}
+            ${{ steps.image-name.outputs.GHCR_IMAGE_NAME }}:${{ env.VERSION_TAG }}
