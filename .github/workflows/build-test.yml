@@ -3,7 +3,7 @@ name: Build Test
 on:
   push:
     branches:
-      - v0-test
+      - feat/v0-update
     paths:
       - "**.go"
       - "go.mod"
@@ -32,7 +32,7 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
-          ref: v0-test
+          ref: feat/v0-update
 
       - name: Fetch IPInfo GeoIP Database
         env:
@@ -83,4 +83,4 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            ${{ steps.image-name.outputs.GHCR_IMAGE_NAME }}:test
+            ${{ steps.image-name.outputs.GHCR_IMAGE_NAME }}:v0-test
