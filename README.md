@@ -1,5 +1,6 @@
 # v0-final  
-## 版本区别  
+## 版本区别
+ - 尝试性修复了v0的BUG  
  - 来自ipinfo.io的GeoIP数据库只会Release时更新，因此，这里的v0-final会每周自动Release一次，并使用最新的GeoIP数据库。
  - 关于unpkg.com近期出现了不稳定的情况，因此，这里的v0-final下载了对应前端资源到项目中（目前覆盖控制台、默认主题、ServerStatus主题）。
  - 特别注意，本仓库只提供了docker镜像，不提供其它分发系统的构建内容，因为没有时间DEBUG。  
