@@ -59,8 +59,9 @@ func ServeWeb(port uint) *http.Server {
 	}
 	tmpl = loadThirdPartyTemplates(tmpl)
 	r.SetHTMLTemplate(tmpl)
-	r.Use(mygin.RecordPath)
 	r.StaticFS("/static", http.FS(resource.StaticFS))
+	r.Use(mygin.CSRF())
+	r.Use(mygin.RecordPath)
 	routers(r)
 	page404 := func(c *gin.Context) {
 		mygin.ShowErrorPage(c, mygin.ErrInfo{

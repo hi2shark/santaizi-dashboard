@@ -10,7 +10,8 @@
 <script src="/static/unpkg/semantic-ui@2.4.0/dist/semantic.min.js"></script>
 <script src="/static/semantic-ui-alerts.min.js"></script>
 <script src="/static/unpkg/vue@2.6.14/dist/vue.min.js"></script>
-<script src="/static/main.js?v20241011"></script>
+{{template "common/csrf" .}}
+<script src="/static/main.js?v20250616"></script>
 <script>
     (function () {
         updateLang({{.LANG }});

@@ -3,7 +3,7 @@
 {{template "common/menu" .}}
 <div class="nb-container">
     <div class="ui container">
-        <div class="ui grid">
+        <div class="ui grid server-actions">
             <div class="right floated right aligned twelve wide column">
                 <button class="ui right labeled nezha-primary-btn icon button" onclick="batchEditServerGroup()"><i
                         class="edit icon"></i> {{tr "BatchEditServerGroup"}}
@@ -14,12 +14,11 @@
                 <button class="ui right labeled nezha-primary-btn icon button" onclick="addOrEditServer()"><i
                         class="add icon"></i> {{tr "AddServer"}}
                 </button>
-                <button class="ui right labeled nezha-primary-btn icon button" onclick="forceUpdate()"><i
-                        class="arrow alternate circle up outline icon"></i> {{tr "ForceUpdate"}}
-                </button>
             </div>
         </div>
-        <table class="ui basic table">
+
+        <!-- Desktop table -->
+        <table class="ui basic table server-desktop-table">
             <thead>
                 <tr>
                     <th><button onclick="checkAllServer()" class="ui mini nezha-primary-btn button">{{tr "SelectAll"}}</button></th>
@@ -98,64 +97,94 @@
                 {{end}}
             </tbody>
         </table>
+
+        <!-- Mobile cards -->
+        <div class="server-mobile-cards">
+            {{range $server := .Servers}}
+            <div class="ui segment server-mobile-card">
+                <div class="server-mobile-header">
+                    <div class="server-mobile-title">
+                        <input type="checkbox" class="nezha-servers" value="{{$server.ID}}" />
+                        <span class="server-mobile-name" title="ID: {{$server.ID}}">{{$server.Name}}</span>
+                        {{if $server.Note}}
+                            <button class="ui icon green mini button" title="{{ $server.Note }}" onclick="addOrEditServer({{$server.MarshalForDashboard}})"><i class="sticky note icon"></i></button>
+                        {{end}}
+                        {{if $server.PublicNote}}
+                            <button class="ui icon green mini button" title="{{$server.PublicNote}}" onclick="addOrEditServer({{$server.MarshalForDashboard}})"><i class="sticky clipboard icon"></i></button>
+                        {{end}}
+                    </div>
+                    <div class="server-mobile-subtitle">
+                        <span class="server-mobile-tag">{{if $server.Tag}}{{$server.Tag}}{{else}}-{{end}}</span>
+                        <span class="server-mobile-ip">{{$server.Host.IP}}</span>
+                    </div>
+                </div>
+                <div class="server-mobile-meta">
+                    <div class="server-mobile-meta-item">
+                        <span class="server-mobile-meta-label">ID</span>
+                        <span class="server-mobile-meta-value">{{$server.ID}}({{$server.DisplayIndex}})</span>
+                    </div>
+                    <div class="server-mobile-meta-item">
+                        <span class="server-mobile-meta-label">{{tr "VersionNumber"}}</span>
+                        <span class="server-mobile-meta-value">{{$server.Host.Version}}</span>
+                    </div>
+                    <div class="server-mobile-meta-item">
+                        <span class="server-mobile-meta-label">{{tr "EnableDDNS"}}</span>
+                        <span class="server-mobile-meta-value">{{$server.EnableDDNS}}</span>
+                    </div>
+                    <div class="server-mobile-meta-item">
+                        <span class="server-mobile-meta-label">{{tr "HideForGuest"}}</span>
+                        <span class="server-mobile-meta-value">{{$server.HideForGuest}}</span>
+                    </div>
+                </div>
+                <div class="server-mobile-actions">
+                    <button class="ui icon green mini button" data-clipboard-text="{{$server.Secret}}" data-tooltip="{{tr "ClickToCopy"}}">
+                        <i class="copy icon"></i> {{tr "Secret"}}
+                    </button>
+                    <button class="ui icon green mini button"
+                        data-clipboard-text="{{if $.Conf.GRPCHost}}{{if eq $.Conf.Language "zh-CN"}}curl -L https://raw.githubusercontent.com/nezhahq/scripts/refs/heads/v0/install.sh{{else}}curl -L https://raw.githubusercontent.com/nezhahq/scripts/refs/heads/v0/install_en.sh{{end}} -o nezha.sh && chmod +x nezha.sh && ./nezha.sh install_agent {{$.Conf.GRPCHost}} {{if $.Conf.ProxyGRPCPort}}{{$.Conf.ProxyGRPCPort}}{{else}}{{$.Conf.GRPCPort}}{{end}} {{$server.Secret}}{{if $.Conf.TLS}} --tls{{end}}{{else}}{{tr "NoDomainAlert"}}{{end}}"
+                        data-tooltip="{{tr "ClickToCopy"}}">
+                        <i class="linux icon"></i>
+                    </button>
+                    <button class="ui icon green mini button"
+                        data-clipboard-text="{{if $.Conf.GRPCHost}}[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Ssl3 -bor [Net.SecurityProtocolType]::Tls -bor [Net.SecurityProtocolType]::Tls11 -bor [Net.SecurityProtocolType]::Tls12;set-ExecutionPolicy RemoteSigned;Invoke-WebRequest https://raw.githubusercontent.com/nezhahq/scripts/refs/heads/v0/extras/install.ps1 -OutFile C:\install.ps1;powershell.exe C:\install.ps1 {{$.Conf.GRPCHost}}:{{if $.Conf.ProxyGRPCPort}}{{$.Conf.ProxyGRPCPort}}{{else}}{{$.Conf.GRPCPort}}{{end}} {{$server.Secret}}{{if $.Conf.TLS}} --tls{{end}}{{else}}{{tr "NoDomainAlert"}}{{end}}"
+                        data-tooltip="{{tr "ClickToCopy"}}">
+                        <i class="windows icon"></i>
+                    </button>
+                    <button class="ui icon green mini button"
+                        data-clipboard-text="{{if $.Conf.GRPCHost}}curl -L https://raw.githubusercontent.com/nezhahq/scripts/refs/heads/v0/extras/install.command -o nezha.command && chmod +x nezha.command && sudo ./nezha.command install_agent {{$.Conf.GRPCHost}} {{if $.Conf.ProxyGRPCPort}}{{$.Conf.ProxyGRPCPort}}{{else}}{{$.Conf.GRPCPort}}{{end}} {{$server.Secret}}{{if $.Conf.TLS}} --tls{{end}}{{else}}{{tr "NoDomainAlert"}}{{end}}"
+                        data-tooltip="{{tr "ClickToCopy"}}">
+                        <i class="apple icon"></i>
+                    </button>
+                    <div class="server-mobile-admin-buttons">
+                        <button class="ui icon mini button" onclick="connectToServer({{$server.ID}})">
+                            <i class="terminal icon"></i>
+                        </button>
+                        <button class="ui icon mini button" onclick="addOrEditServer({{$server.MarshalForDashboard}})">
+                            <i class="edit icon"></i>
+                        </button>
+                        <button class="ui icon mini button"
+                            onclick="showConfirm('{{tr "DeleteServer"}}','{{tr "ConfirmToDeleteServer"}}',deleteRequest,'/api/server/'+{{$server.ID}})">
+                            <i class="trash alternate outline icon"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {{end}}
+        </div>
     </div>
 </div>
 {{template "component/server" .}}
 {{template "common/footer" .}}
-<script src="https://unpkg.com/clipboard@2.0.11/dist/clipboard.min.js"></script>
+<script src="/static/unpkg/clipboard@2.0.11/dist/clipboard.min.js"></script>
 <script>
     var clipboard = new ClipboardJS('.ui.icon.green.mini.button');
-    const checkBoxList = document.querySelectorAll('tbody > tr > td > input.nezha-servers[type=checkbox]')
+    const checkBoxList = document.querySelectorAll('input.nezha-servers[type=checkbox]')
     function checkAllServer() {
         checkBoxList.forEach(cb => {
-            cb.checked = true
-        })
-    }
-    function forceUpdate() {
-        const servers = []
-        checkBoxList.forEach(cb => {
-            if (cb.checked) {
-                servers.push(parseInt(cb.value))
+            if (cb.offsetParent !== null) {
+                cb.checked = true
             }
         })
-        if (servers.length == 0) {
-            $.suiAlert({
-                title: '{{tr "NoServerSelected"}}',
-                description: '',
-                type: 'warning',
-                time: '2',
-                position: 'top-center',
-            });
-            return
-        }
-        $.post('/api/force-update', JSON.stringify(servers))
-            .then((resp) => {
-                if (resp.code == 200) {
-                    $.suiAlert({
-                        title: '{{tr "ExecutionResults"}}',
-                        description: resp.message,
-                        type: 'success',
-                        time: '3',
-                        position: 'top-center',
-                    });
-                } else {
-                    $.suiAlert({
-                        title: '',
-                        description: resp.message,
-                        type: 'error',
-                        time: '3',
-                        position: 'top-center',
-                    });
-                }
-            }).catch(err => {
-                $.suiAlert({
-                    title: '',
-                    description: err,
-                    type: 'error',
-                    time: '3',
-                    position: 'top-center',
-                });
-            })
     }
     function batchEditServerGroup() {
         let groupName = prompt('{{tr "InputServerGroupName"}}')
@@ -164,7 +193,7 @@
         }
         const servers = []
         checkBoxList.forEach(cb => {
-            if (cb.checked) {
+            if (cb.checked && cb.offsetParent !== null) {
                 servers.push(parseInt(cb.value))
             }
         })
@@ -211,7 +240,7 @@
     function batchDeleteServer() {
         const servers = []
         checkBoxList.forEach(cb => {
-            if (cb.checked) {
+            if (cb.checked && cb.offsetParent !== null) {
                 servers.push(parseInt(cb.value))
             }
         })

@@ -16,7 +16,7 @@ var Version = "debug"
 func init() {
 	if Version == "debug" {
 		now := time.Now()
-		Version = "v0-final-" + now.Format("060102")
+		Version = "v0-next-" + now.Format("060102")
 	}
 }
 

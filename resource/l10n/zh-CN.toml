@@ -753,3 +753,213 @@ other = "自定义DDNS使用的公共DNS服务器（逗号分隔）"
 
 [Plan]
 other = "套餐"
+
+[PublicNoteEditor]
+other = "公开备注编辑器"
+
+[BillingInfo]
+other = "账单信息"
+
+[PlanInfo]
+other = "套餐信息"
+
+[CustomDataNazhua]
+other = "CustomData (Nazhua)"
+
+[CustomDataAobobo]
+other = "CustomData (AoBoBo)"
+
+[RawJSON]
+other = "原始 JSON"
+
+[StartDate]
+other = "开始日期"
+
+[EndDate]
+other = "结束日期"
+
+[AutoRenewal]
+other = "自动续费"
+
+[Amount]
+other = "金额"
+
+[Bandwidth]
+other = "带宽"
+
+[TrafficVol]
+other = "流量"
+
+[TrafficType]
+other = "流量类型"
+
+[NetworkRoute]
+other = "线路"
+
+[Extra]
+other = "额外信息"
+
+[LocationCode]
+other = "位置代码"
+
+[Slogan]
+other = "标语"
+
+[OrderLink]
+other = "购买链接"
+
+[BuyBtnText]
+other = "购买按钮文字"
+
+[BuyBtnIcon]
+other = "购买按钮图标"
+
+[Flag]
+other = "旗帜"
+
+[Latitude]
+other = "纬度"
+
+[Longitude]
+other = "经度"
+
+[LatLng]
+other = "经纬度"
+
+[LocationLabel]
+other = "位置标签"
+
+[AlertRuleEditor]
+other = "告警规则编辑器"
+
+[AddRule]
+other = "添加规则"
+
+[RuleType]
+other = "规则类型"
+
+[MinThreshold]
+other = "最小阈值"
+
+[MaxThreshold]
+other = "最大阈值"
+
+[CycleStart]
+other = "周期开始"
+
+[CycleInterval]
+other = "周期间隔"
+
+[CycleUnit]
+other = "周期单位"
+
+[Rule]
+other = "规则"
+
+[RemoveRule]
+other = "删除规则"
+
+[EditRawJSON]
+other = "编辑原始 JSON"
+
+[VisualEditor]
+other = "可视化编辑器"
+
+[PleaseEnterValidJSON]
+other = "请输入有效的 JSON"
+
+[ConfirmCloseModal]
+other = "确定要关闭吗？未保存的更改将丢失。"
+
+[Month]
+other = "月"
+
+[Cycle]
+other = "周期"
+
+[Yes]
+other = "是"
+
+[No]
+other = "否"
+
+[SupportsAllNazhuaFieldsAndExtraLocationFields]
+other = "支持 Nazhua 的所有字段，并额外包含 3D 地球定位相关字段"
+
+[RuleTypeCpu]
+other = "CPU"
+
+[RuleTypeMemory]
+other = "内存"
+
+[RuleTypeSwap]
+other = "交换"
+
+[RuleTypeDisk]
+other = "硬盘"
+
+[RuleTypeNetInSpeed]
+other = "入网速度"
+
+[RuleTypeNetOutSpeed]
+other = "出网速度"
+
+[RuleTypeNetAllSpeed]
+other = "全部网速"
+
+[RuleTypeTransferIn]
+other = "入网流量"
+
+[RuleTypeTransferOut]
+other = "出网流量"
+
+[RuleTypeTransferAll]
+other = "全部流量"
+
+[RuleTypeTransferInCycle]
+other = "入网周期流量"
+
+[RuleTypeTransferOutCycle]
+other = "出网周期流量"
+
+[RuleTypeTransferAllCycle]
+other = "全部周期流量"
+
+[RuleTypeOffline]
+other = "离线"
+
+[RuleTypeLoad1]
+other = "负载 1"
+
+[RuleTypeLoad5]
+other = "负载 5"
+
+[RuleTypeLoad15]
+other = "负载 15"
+
+[RuleTypeTcpConnCount]
+other = "TCP 连接数"
+
+[RuleTypeUdpConnCount]
+other = "UDP 连接数"
+
+[RuleTypeProcessCount]
+other = "进程数"
+
+[RuleTypeTemperatureMax]
+other = "最高温度"
+
+[CycleUnitHour]
+other = "小时"
+
+[CycleUnitDay]
+other = "天"
+
+[CycleUnitWeek]
+other = "周"
+
+[CycleUnitMonth]
+other = "月"
+
+[CycleUnitYear]
+other = "年"

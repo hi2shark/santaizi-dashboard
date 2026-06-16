@@ -3,7 +3,7 @@ name: Run Tests
 on:
   push:
     branches:
-      - v0-final
+      - v0-next
     paths:
       - "**.go"
       - "go.mod"
@@ -12,7 +12,7 @@ on:
       - ".github/workflows/test.yml"
   pull_request:
     branches:
-      - v0-final
+      - v0-next
 
 jobs:
   tests:

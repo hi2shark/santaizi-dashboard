@@ -753,3 +753,213 @@ other = "Custom Public DNS Nameservers for DDNS (separate with comma)"
 
 [Plan]
 other = "Plan"
+
+[PublicNoteEditor]
+other = "Public Note Editor"
+
+[BillingInfo]
+other = "Billing Info"
+
+[PlanInfo]
+other = "Plan Info"
+
+[CustomDataNazhua]
+other = "CustomData (Nazhua)"
+
+[CustomDataAobobo]
+other = "CustomData (AoBoBo)"
+
+[RawJSON]
+other = "Raw JSON"
+
+[StartDate]
+other = "Start Date"
+
+[EndDate]
+other = "End Date"
+
+[AutoRenewal]
+other = "Auto Renewal"
+
+[Amount]
+other = "Amount"
+
+[Bandwidth]
+other = "Bandwidth"
+
+[TrafficVol]
+other = "Traffic Volume"
+
+[TrafficType]
+other = "Traffic Type"
+
+[NetworkRoute]
+other = "Network Route"
+
+[Extra]
+other = "Extra"
+
+[LocationCode]
+other = "Location Code"
+
+[Slogan]
+other = "Slogan"
+
+[OrderLink]
+other = "Order Link"
+
+[BuyBtnText]
+other = "Buy Button Text"
+
+[BuyBtnIcon]
+other = "Buy Button Icon"
+
+[Flag]
+other = "Flag"
+
+[Latitude]
+other = "Latitude"
+
+[Longitude]
+other = "Longitude"
+
+[LatLng]
+other = "Lat/Lng"
+
+[LocationLabel]
+other = "Location Label"
+
+[AlertRuleEditor]
+other = "Alert Rule Editor"
+
+[AddRule]
+other = "Add Rule"
+
+[RuleType]
+other = "Rule Type"
+
+[MinThreshold]
+other = "Min Threshold"
+
+[MaxThreshold]
+other = "Max Threshold"
+
+[CycleStart]
+other = "Cycle Start"
+
+[CycleInterval]
+other = "Cycle Interval"
+
+[CycleUnit]
+other = "Cycle Unit"
+
+[Rule]
+other = "Rule"
+
+[RemoveRule]
+other = "Remove Rule"
+
+[EditRawJSON]
+other = "Edit Raw JSON"
+
+[VisualEditor]
+other = "Visual Editor"
+
+[PleaseEnterValidJSON]
+other = "Please enter valid JSON"
+
+[ConfirmCloseModal]
+other = "Are you sure you want to close? Unsaved changes will be lost."
+
+[Month]
+other = "Month"
+
+[Cycle]
+other = "Cycle"
+
+[Yes]
+other = "Yes"
+
+[No]
+other = "No"
+
+[SupportsAllNazhuaFieldsAndExtraLocationFields]
+other = "Supports all Nazhua fields plus extra 3D globe location fields"
+
+[RuleTypeCpu]
+other = "CPU"
+
+[RuleTypeMemory]
+other = "Memory"
+
+[RuleTypeSwap]
+other = "Swap"
+
+[RuleTypeDisk]
+other = "Disk"
+
+[RuleTypeNetInSpeed]
+other = "Net In Speed"
+
+[RuleTypeNetOutSpeed]
+other = "Net Out Speed"
+
+[RuleTypeNetAllSpeed]
+other = "Net All Speed"
+
+[RuleTypeTransferIn]
+other = "Transfer In"
+
+[RuleTypeTransferOut]
+other = "Transfer Out"
+
+[RuleTypeTransferAll]
+other = "Transfer All"
+
+[RuleTypeTransferInCycle]
+other = "Transfer In Cycle"
+
+[RuleTypeTransferOutCycle]
+other = "Transfer Out Cycle"
+
+[RuleTypeTransferAllCycle]
+other = "Transfer All Cycle"
+
+[RuleTypeOffline]
+other = "Offline"
+
+[RuleTypeLoad1]
+other = "Load 1"
+
+[RuleTypeLoad5]
+other = "Load 5"
+
+[RuleTypeLoad15]
+other = "Load 15"
+
+[RuleTypeTcpConnCount]
+other = "TCP Conn Count"
+
+[RuleTypeUdpConnCount]
+other = "UDP Conn Count"
+
+[RuleTypeProcessCount]
+other = "Process Count"
+
+[RuleTypeTemperatureMax]
+other = "Temperature Max"
+
+[CycleUnitHour]
+other = "Hour"
+
+[CycleUnitDay]
+other = "Day"
+
+[CycleUnitWeek]
+other = "Week"
+
+[CycleUnitMonth]
+other = "Month"
+
+[CycleUnitYear]
+other = "Year"

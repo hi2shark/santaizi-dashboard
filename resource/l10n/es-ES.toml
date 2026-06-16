@@ -753,3 +753,213 @@ other = "Servidores DNS públicos personalizados para DDNS (separar con coma)"
 
 [Plan]
 other = "Plan"
+
+[PublicNoteEditor]
+other = "Editor de Nota Pública"
+
+[BillingInfo]
+other = "Información de Facturación"
+
+[PlanInfo]
+other = "Información del Plan"
+
+[CustomDataNazhua]
+other = "CustomData (Nazhua)"
+
+[CustomDataAobobo]
+other = "CustomData (AoBoBo)"
+
+[RawJSON]
+other = "JSON Crudo"
+
+[StartDate]
+other = "Fecha de Inicio"
+
+[EndDate]
+other = "Fecha de Fin"
+
+[AutoRenewal]
+other = "Renovación Automática"
+
+[Amount]
+other = "Monto"
+
+[Bandwidth]
+other = "Ancho de Banda"
+
+[TrafficVol]
+other = "Volumen de Tráfico"
+
+[TrafficType]
+other = "Tipo de Tráfico"
+
+[NetworkRoute]
+other = "Ruta de Red"
+
+[Extra]
+other = "Extra"
+
+[LocationCode]
+other = "Código de Ubicación"
+
+[Slogan]
+other = "Eslogan"
+
+[OrderLink]
+other = "Enlace de Compra"
+
+[BuyBtnText]
+other = "Texto del Botón de Compra"
+
+[BuyBtnIcon]
+other = "Icono del Botón de Compra"
+
+[Flag]
+other = "Bandera"
+
+[Latitude]
+other = "Latitud"
+
+[Longitude]
+other = "Longitud"
+
+[LatLng]
+other = "Lat/Lng"
+
+[LocationLabel]
+other = "Etiqueta de Ubicación"
+
+[AlertRuleEditor]
+other = "Editor de Reglas de Alerta"
+
+[AddRule]
+other = "Añadir Regla"
+
+[RuleType]
+other = "Tipo de Regla"
+
+[MinThreshold]
+other = "Umbral Mínimo"
+
+[MaxThreshold]
+other = "Umbral Máximo"
+
+[CycleStart]
+other = "Inicio del Ciclo"
+
+[CycleInterval]
+other = "Intervalo del Ciclo"
+
+[CycleUnit]
+other = "Unidad del Ciclo"
+
+[Rule]
+other = "Regla"
+
+[RemoveRule]
+other = "Eliminar Regla"
+
+[EditRawJSON]
+other = "Editar JSON Crudo"
+
+[VisualEditor]
+other = "Editor Visual"
+
+[PleaseEnterValidJSON]
+other = "Por favor ingrese JSON válido"
+
+[ConfirmCloseModal]
+other = "¿Estás seguro de que quieres cerrar? Los cambios no guardados se perderán."
+
+[Month]
+other = "Mes"
+
+[Cycle]
+other = "Ciclo"
+
+[Yes]
+other = "Sí"
+
+[No]
+other = "No"
+
+[SupportsAllNazhuaFieldsAndExtraLocationFields]
+other = "Admite todos los campos de Nazhua más campos adicionales de ubicación del globo 3D"
+
+[RuleTypeCpu]
+other = "CPU"
+
+[RuleTypeMemory]
+other = "Memoria"
+
+[RuleTypeSwap]
+other = "Swap"
+
+[RuleTypeDisk]
+other = "Disco"
+
+[RuleTypeNetInSpeed]
+other = "Velocidad de Entrada"
+
+[RuleTypeNetOutSpeed]
+other = "Velocidad de Salida"
+
+[RuleTypeNetAllSpeed]
+other = "Velocidad Total"
+
+[RuleTypeTransferIn]
+other = "Transferencia de Entrada"
+
+[RuleTypeTransferOut]
+other = "Transferencia de Salida"
+
+[RuleTypeTransferAll]
+other = "Transferencia Total"
+
+[RuleTypeTransferInCycle]
+other = "Transferencia de Entrada Ciclo"
+
+[RuleTypeTransferOutCycle]
+other = "Transferencia de Salida Ciclo"
+
+[RuleTypeTransferAllCycle]
+other = "Transferencia Total Ciclo"
+
+[RuleTypeOffline]
+other = "Fuera de Línea"
+
+[RuleTypeLoad1]
+other = "Carga 1"
+
+[RuleTypeLoad5]
+other = "Carga 5"
+
+[RuleTypeLoad15]
+other = "Carga 15"
+
+[RuleTypeTcpConnCount]
+other = "Conexiones TCP"
+
+[RuleTypeUdpConnCount]
+other = "Conexiones UDP"
+
+[RuleTypeProcessCount]
+other = "Procesos"
+
+[RuleTypeTemperatureMax]
+other = "Temperatura Máx"
+
+[CycleUnitHour]
+other = "Hora"
+
+[CycleUnitDay]
+other = "Día"
+
+[CycleUnitWeek]
+other = "Semana"
+
+[CycleUnitMonth]
+other = "Mes"
+
+[CycleUnitYear]
+other = "Año"

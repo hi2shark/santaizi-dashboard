@@ -1,6 +1,8 @@
 package model
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/naiba/nezha/pkg/utils"
@@ -72,6 +74,30 @@ func (r *AlertRule) AfterFind(tx *gorm.DB) error {
 
 func (r *AlertRule) Enabled() bool {
 	return r.Enable != nil && *r.Enable
+}
+
+// RulesSummary returns a short human-readable summary of the alert rules
+func (r *AlertRule) RulesSummary() string {
+	var parts []string
+	for _, rule := range r.Rules {
+		var thresholds []string
+		if rule.Min > 0 {
+			thresholds = append(thresholds, fmt.Sprintf("min: %.2f", rule.Min))
+		}
+		if rule.Max > 0 {
+			thresholds = append(thresholds, fmt.Sprintf("max: %.2f", rule.Max))
+		}
+		t := rule.Type
+		if rule.IsTransferDurationRule() {
+			t = fmt.Sprintf("%s (%d %s)", t, rule.CycleInterval, rule.CycleUnit)
+		}
+		if len(thresholds) > 0 {
+			parts = append(parts, fmt.Sprintf("%s %s", t, strings.Join(thresholds, ", ")))
+		} else {
+			parts = append(parts, t)
+		}
+	}
+	return strings.Join(parts, "; ")
 }
 
 // Snapshot 对传入的Server进行该报警规则下所有type的检查 返回包含每项检查结果的空接口

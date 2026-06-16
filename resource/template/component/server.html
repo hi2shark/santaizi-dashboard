@@ -1,5 +1,5 @@
 {{define "component/server"}}
-<div class="ui tiny server modal transition hidden">
+<div class="ui small server modal transition hidden">
     <div class="header">{{tr "AddServer"}}</div>
     <div class="content">
         <form id="serverForm" class="ui form">
@@ -45,9 +45,248 @@
                 <label>{{tr "Note"}}</label>
                 <textarea name="Note"></textarea>
             </div>
-            <div class="field">
+            <div class="field public-note-field">
                 <label>{{tr "PublicNote"}}</label>
-                <textarea name="PublicNote"></textarea>
+                <div class="ui top attached tabular menu public-note-editor-menu">
+                    <a class="item active" data-tab="pn-billing">{{tr "BillingInfo"}}</a>
+                    <a class="item" data-tab="pn-plan">{{tr "PlanInfo"}}</a>
+                    <a class="item" data-tab="pn-custom-nazhua">{{tr "CustomDataNazhua"}}</a>
+                    <a class="item" data-tab="pn-custom-aobobo">{{tr "CustomDataAobobo"}}</a>
+                    <a class="item" data-tab="pn-raw">{{tr "RawJSON"}}</a>
+                </div>
+                <div class="ui bottom attached tab segment active" data-tab="pn-billing">
+                    <div class="two fields">
+                        <div class="field">
+                            <label>{{tr "StartDate"}}</label>
+                            <div class="ui right icon input">
+                                <input type="date" class="pn-billing" data-key="startDate">
+                                <i class="times link icon pn-clear-input"></i>
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label>{{tr "EndDate"}}</label>
+                            <div class="ui right icon input">
+                                <input type="date" class="pn-billing" data-key="endDate">
+                                <i class="times link icon pn-clear-input"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="two fields">
+                        <div class="field">
+                            <label>{{tr "Cycle"}}</label>
+                            <div class="ui right icon input">
+                                <input type="text" class="pn-billing" data-key="cycle" placeholder="{{tr "Month"}}">
+                                <i class="times link icon pn-clear-input"></i>
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label>{{tr "Amount"}}</label>
+                            <div class="ui right icon input">
+                                <input type="text" class="pn-billing" data-key="amount" placeholder="$3.99">
+                                <i class="times link icon pn-clear-input"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label>{{tr "AutoRenewal"}}</label>
+                        <select class="pn-billing ui clearable dropdown" data-key="autoRenewal">
+                            <option value=""></option>
+                            <option value="1">{{tr "Yes"}}</option>
+                            <option value="0">{{tr "No"}}</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="ui bottom attached tab segment" data-tab="pn-plan">
+                    <div class="two fields">
+                        <div class="field">
+                            <label>{{tr "Bandwidth"}}</label>
+                            <div class="ui right icon input">
+                                <input type="text" class="pn-plan" data-key="bandwidth" placeholder="30Mbps">
+                                <i class="times link icon pn-clear-input"></i>
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label>{{tr "TrafficVol"}}</label>
+                            <div class="ui right icon input">
+                                <input type="text" class="pn-plan" data-key="trafficVol" placeholder="1TB/{{tr "Month"}}">
+                                <i class="times link icon pn-clear-input"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label>{{tr "TrafficType"}}</label>
+                        <select class="pn-plan ui clearable dropdown" data-key="trafficType">
+                            <option value=""></option>
+                            <option value="1">{{tr "UpNetTransfer"}}</option>
+                            <option value="2">{{tr "DownNetTransfer"}}</option>
+                            <option value="3">{{tr "NetTransfer"}}</option>
+                        </select>
+                    </div>
+                    <div class="two fields">
+                        <div class="field">
+                            <label>IPv4</label>
+                            <select class="pn-plan ui clearable dropdown" data-key="IPv4">
+                                <option value=""></option>
+                                <option value="1">{{tr "Yes"}}</option>
+                                <option value="0">{{tr "No"}}</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label>IPv6</label>
+                            <select class="pn-plan ui clearable dropdown" data-key="IPv6">
+                                <option value=""></option>
+                                <option value="1">{{tr "Yes"}}</option>
+                                <option value="0">{{tr "No"}}</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label>{{tr "NetworkRoute"}}</label>
+                        <div class="ui right icon input">
+                            <input type="text" class="pn-plan" data-key="networkRoute" placeholder="CN2,GIA">
+                            <i class="times link icon pn-clear-input"></i>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label>{{tr "Extra"}}</label>
+                        <div class="ui right icon input">
+                            <input type="text" class="pn-plan" data-key="extra" placeholder="{{tr "Extra"}}">
+                            <i class="times link icon pn-clear-input"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="ui bottom attached tab segment" data-tab="pn-custom-nazhua">
+                    <div class="two fields">
+                        <div class="field">
+                            <label>{{tr "LocationCode"}}</label>
+                            <div class="ui right icon input">
+                                <input type="text" class="pn-custom" data-key="location" placeholder="HKG">
+                                <i class="times link icon pn-clear-input"></i>
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label>{{tr "Flag"}}</label>
+                            <div class="ui right icon input">
+                                <input type="text" class="pn-custom" data-key="flag" placeholder="cn">
+                                <i class="times link icon pn-clear-input"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label>{{tr "Slogan"}}</label>
+                        <div class="ui right icon input">
+                            <input type="text" class="pn-custom" data-key="slogan" placeholder="{{tr "Slogan"}}">
+                            <i class="times link icon pn-clear-input"></i>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label>{{tr "OrderLink"}}</label>
+                        <div class="ui right icon input">
+                            <input type="text" class="pn-custom" data-key="orderLink" placeholder="https://buy.example.com">
+                            <i class="times link icon pn-clear-input"></i>
+                        </div>
+                    </div>
+                    <div class="two fields">
+                        <div class="field">
+                            <label>{{tr "BuyBtnText"}}</label>
+                            <div class="ui right icon input">
+                                <input type="text" class="pn-custom" data-key="buyBtnText" placeholder="{{tr "BuyBtnText"}}">
+                                <i class="times link icon pn-clear-input"></i>
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label>{{tr "BuyBtnIcon"}}</label>
+                            <div class="ui right icon input">
+                                <input type="text" class="pn-custom" data-key="buyBtnIcon" placeholder="ri-gift-2-line">
+                                <i class="times link icon pn-clear-input"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="ui bottom attached tab segment" data-tab="pn-custom-aobobo">
+                    <div class="ui info message">
+                        {{tr "CustomDataAobobo"}} {{tr "SupportsAllNazhuaFieldsAndExtraLocationFields"}}
+                    </div>
+                    <div class="two fields">
+                        <div class="field">
+                            <label>{{tr "LocationCode"}}</label>
+                            <div class="ui right icon input">
+                                <input type="text" class="pn-custom-aobobo" data-key="location" placeholder="HKG">
+                                <i class="times link icon pn-clear-input"></i>
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label>{{tr "Flag"}}</label>
+                            <div class="ui right icon input">
+                                <input type="text" class="pn-custom-aobobo" data-key="flag" placeholder="cn">
+                                <i class="times link icon pn-clear-input"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label>{{tr "Slogan"}}</label>
+                        <div class="ui right icon input">
+                            <input type="text" class="pn-custom-aobobo" data-key="slogan" placeholder="{{tr "Slogan"}}">
+                            <i class="times link icon pn-clear-input"></i>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label>{{tr "OrderLink"}}</label>
+                        <div class="ui right icon input">
+                            <input type="text" class="pn-custom-aobobo" data-key="orderLink" placeholder="https://buy.example.com">
+                            <i class="times link icon pn-clear-input"></i>
+                        </div>
+                    </div>
+                    <div class="two fields">
+                        <div class="field">
+                            <label>{{tr "BuyBtnText"}}</label>
+                            <div class="ui right icon input">
+                                <input type="text" class="pn-custom-aobobo" data-key="buyBtnText" placeholder="{{tr "BuyBtnText"}}">
+                                <i class="times link icon pn-clear-input"></i>
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label>{{tr "BuyBtnIcon"}}</label>
+                            <div class="ui right icon input">
+                                <input type="text" class="pn-custom-aobobo" data-key="buyBtnIcon" placeholder="ri-gift-2-line">
+                                <i class="times link icon pn-clear-input"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="two fields">
+                        <div class="field">
+                            <label>{{tr "Latitude"}}</label>
+                            <div class="ui right icon input">
+                                <input type="number" step="any" class="pn-custom-aobobo" data-key="lat" placeholder="22.3193">
+                                <i class="times link icon pn-clear-input"></i>
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label>{{tr "Longitude"}}</label>
+                            <div class="ui right icon input">
+                                <input type="number" step="any" class="pn-custom-aobobo" data-key="lng" placeholder="114.1694">
+                                <i class="times link icon pn-clear-input"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label>{{tr "LatLng"}}</label>
+                        <div class="ui right icon input">
+                            <input type="text" class="pn-custom-aobobo" data-key="latlng" placeholder="22.3193,114.1694">
+                            <i class="times link icon pn-clear-input"></i>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label>{{tr "LocationLabel"}}</label>
+                        <div class="ui right icon input">
+                            <input type="text" class="pn-custom-aobobo" data-key="locationLabel" placeholder="{{tr "LocationLabel"}}">
+                            <i class="times link icon pn-clear-input"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="ui bottom attached tab segment" data-tab="pn-raw">
+                    <textarea name="PublicNote" rows="8" placeholder="{}"></textarea>
+                </div>
             </div>
             <div class="command field">
                 <label>{{tr "LinuxOneKeyInstall"}}</label>
@@ -70,4 +309,167 @@
         </button>
     </div>
 </div>
+<script>
+(function () {
+    const publicNoteEditor = {
+        billingKeys: ['startDate', 'endDate', 'cycle', 'amount', 'autoRenewal'],
+        planKeys: ['bandwidth', 'trafficVol', 'trafficType', 'IPv4', 'IPv6', 'networkRoute', 'extra'],
+        customNazhuaKeys: ['location', 'flag', 'slogan', 'orderLink', 'buyBtnText', 'buyBtnIcon'],
+        customAoboboKeys: ['location', 'flag', 'slogan', 'orderLink', 'buyBtnText', 'buyBtnIcon', 'lat', 'lng', 'latlng', 'locationLabel'],
+
+        getRawTextarea() {
+            return document.querySelector('#serverForm textarea[name="PublicNote"]');
+        },
+
+        parseJSON() {
+            const raw = this.getRawTextarea().value.trim();
+            if (!raw) return {};
+            try {
+                return JSON.parse(raw);
+            } catch (e) {
+                return { __rawInvalid: true };
+            }
+        },
+
+        setRawJSON(obj) {
+            this.getRawTextarea().value = JSON.stringify(obj, null, 2);
+        },
+
+        setFieldValue(selector, key, value) {
+            const el = document.querySelector('#serverForm ' + selector + '[data-key="' + key + '"]');
+            if (!el) return;
+            const val = value === undefined || value === null ? '' : value;
+            if (el.tagName === 'SELECT') {
+                $(el).dropdown({ clearable: true }).dropdown('set selected', val.toString());
+            } else {
+                el.value = val;
+            }
+        },
+
+        getFieldValue(selector, key) {
+            const el = document.querySelector('#serverForm ' + selector + '[data-key="' + key + '"]');
+            if (!el) return undefined;
+            return el.value.trim() === '' ? undefined : el.value.trim();
+        },
+
+        loadFromRaw() {
+            const data = this.parseJSON();
+            const billing = data.billingDataMod || {};
+            this.billingKeys.forEach(k => this.setFieldValue('.pn-billing', k, billing[k]));
+
+            const plan = data.planDataMod || {};
+            this.planKeys.forEach(k => this.setFieldValue('.pn-plan', k, plan[k]));
+
+            const custom = data.customData || {};
+            this.customNazhuaKeys.forEach(k => this.setFieldValue('.pn-custom', k, custom[k]));
+            this.customAoboboKeys.forEach(k => this.setFieldValue('.pn-custom-aobobo', k, custom[k]));
+        },
+
+        buildObject() {
+            const obj = {};
+            const billing = {};
+            let hasBilling = false;
+            this.billingKeys.forEach(k => {
+                const v = this.getFieldValue('.pn-billing', k);
+                if (v !== undefined) {
+                    billing[k] = v;
+                    hasBilling = true;
+                }
+            });
+            if (hasBilling) obj.billingDataMod = billing;
+
+            const plan = {};
+            let hasPlan = false;
+            this.planKeys.forEach(k => {
+                const v = this.getFieldValue('.pn-plan', k);
+                if (v !== undefined) {
+                    plan[k] = v;
+                    hasPlan = true;
+                }
+            });
+            if (hasPlan) obj.planDataMod = plan;
+
+            const custom = {};
+            let hasCustom = false;
+            this.customNazhuaKeys.forEach(k => {
+                const v = this.getFieldValue('.pn-custom', k);
+                if (v !== undefined) {
+                    custom[k] = v;
+                    hasCustom = true;
+                }
+            });
+            this.customAoboboKeys.forEach(k => {
+                const v = this.getFieldValue('.pn-custom-aobobo', k);
+                if (v !== undefined) {
+                    if (k === 'lat' || k === 'lng') {
+                        const num = parseFloat(v);
+                        custom[k] = isNaN(num) ? v : num;
+                    } else {
+                        custom[k] = v;
+                    }
+                    hasCustom = true;
+                }
+            });
+            if (hasCustom) obj.customData = custom;
+
+            return obj;
+        },
+
+        syncToRaw() {
+            this.setRawJSON(this.buildObject());
+        },
+
+        syncFromRaw() {
+            const raw = this.getRawTextarea().value.trim();
+            if (!raw) {
+                this.loadFromRaw();
+                return true;
+            }
+            try {
+                JSON.parse(raw);
+                this.loadFromRaw();
+                return true;
+            } catch (e) {
+                alert('{{tr "PleaseEnterValidJSON"}}');
+                return false;
+            }
+        },
+
+        init() {
+            const self = this;
+            // Tab switching
+            $('.public-note-editor-menu .item').tab({
+                onVisible: function (tabPath) {
+                    if (tabPath === 'pn-raw') {
+                        self.syncToRaw();
+                    } else {
+                        self.syncFromRaw();
+                    }
+                }
+            });
+
+            // Bind field change events
+            $('#serverForm').on('input change', '.pn-billing, .pn-plan, .pn-custom, .pn-custom-aobobo', function () {
+                self.syncToRaw();
+            });
+
+            // Clear individual input
+            $('#serverForm').on('click', '.pn-clear-input', function () {
+                const input = $(this).siblings('input')[0];
+                if (input) {
+                    input.value = '';
+                    $(input).trigger('input');
+                }
+            });
+
+            $('#serverForm textarea[name="PublicNote"]').on('blur', function () {
+                self.syncFromRaw();
+            });
+        }
+    };
+
+    // Expose for addOrEditServer to call
+    window.publicNoteEditor = publicNoteEditor;
+})();
+</script>
 {{end}}

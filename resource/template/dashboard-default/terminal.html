@@ -138,7 +138,8 @@
             if (!fileListVisible) {
                 // 显示文件列表
                 const params = new URLSearchParams({
-                    id: "{{.ServerID}}"
+                    id: "{{.ServerID}}",
+                    _csrf: "{{.CSRFToken}}"
                 }).toString();
                 fileListIframe.src = `/file?${params}`;
                 fileListIframe.style.display = 'block';

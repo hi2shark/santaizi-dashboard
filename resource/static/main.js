@@ -69,9 +69,25 @@ function postJson(url, data) {
 }
 
 function showFormModal(modelSelector, formID, URL, getData) {
-  $(modelSelector)
+  const $modal = $(modelSelector);
+
+  function dimmerClickHandler(e) {
+    if ($(e.target).closest(".ui.modal").length === 0) {
+      if (confirm(LANG.ConfirmCloseModal || "确定要关闭吗？未保存的更改将丢失。")) {
+        $modal.modal("hide");
+      }
+    }
+  }
+
+  $modal
     .modal({
-      closable: true,
+      closable: false,
+      onVisible: function () {
+        $(document).on("click.dimmerConfirm", ".ui.dimmer", dimmerClickHandler);
+      },
+      onHidden: function () {
+        $(document).off("click.dimmerConfirm");
+      },
       onApprove: function () {
         let success = false;
         const btn = $(modelSelector + " .nezha-primary-btn.button");
@@ -183,6 +199,9 @@ function addOrEditAlertRule(rule) {
   modal.find("input[name=ID]").val(rule ? rule.ID : null);
   modal.find("input[name=Name]").val(rule ? rule.Name : null);
   modal.find("textarea[name=RulesRaw]").val(rule ? rule.RulesRaw : null);
+  if (window.ruleEditor) {
+    window.ruleEditor.loadFromRaw();
+  }
   modal.find("select[name=TriggerMode]").val(rule ? rule.TriggerMode : 0);
   modal.find("input[name=NotificationTag]").val(rule ? rule.NotificationTag : null);
   if (rule && rule.Enable) {
@@ -352,6 +371,14 @@ function post(path, params, method = 'post') {
   form.action = path;
   form.target = "_blank";
 
+  if (window.NEZHA_CSRF_TOKEN && !/^(get|head|options|trace)$/i.test(method)) {
+    const csrfField = document.createElement('input');
+    csrfField.type = 'hidden';
+    csrfField.name = '_csrf';
+    csrfField.value = window.NEZHA_CSRF_TOKEN;
+    form.appendChild(csrfField);
+  }
+
   for (const key in params) {
     if (params.hasOwnProperty(key)) {
       const hiddenField = document.createElement('input');
@@ -421,6 +448,9 @@ function addOrEditServer(server, conf) {
     .val(server ? server.DisplayIndex : null);
   modal.find("textarea[name=Note]").val(server ? server.Note : null);
   modal.find("textarea[name=PublicNote]").val(server ? server.PublicNote : null);
+  if (window.publicNoteEditor) {
+    window.publicNoteEditor.loadFromRaw();
+  }
   if (server) {
     modal.find(".secret.field").attr("style", "");
     modal.find(".command.field").attr("style", "");
@@ -612,7 +642,7 @@ function deleteRequest(api) {
 function manualTrigger(btn, cronId) {
   $(btn).toggleClass("loading");
   $.ajax({
-    url: "/api/cron/" + cronId + "/manual",
+    url: "/api/cron/" + cronId + "/manual?_csrf=" + encodeURIComponent(window.NEZHA_CSRF_TOKEN || ""),
     type: "GET",
   })
     .done((resp) => {
@@ -713,5 +743,16 @@ $(document).ready(() => {
         cache: false,
       },
     });
+  } catch (error) { }
+});
+
+$(document).ready(() => {
+  try {
+    if (window.publicNoteEditor) {
+      window.publicNoteEditor.init();
+    }
+    if (window.ruleEditor) {
+      window.ruleEditor.init();
+    }
   } catch (error) { }
 });

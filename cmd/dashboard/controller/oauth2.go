@@ -130,6 +130,30 @@ func (oa *oauth2controller) getRedirectURL(c *gin.Context) string {
 }
 
 func (oa *oauth2controller) login(c *gin.Context) {
+	// mock 模式：本地开发一键登录，直接以 Admin 第一个用户身份登录
+	// if singleton.Conf.Oauth2.Type == model.ConfigTypeMock {
+	// 	adminLogin := "dev"
+	// 	for _, admin := range strings.Split(singleton.Conf.Oauth2.Admin, ",") {
+	// 		if admin != "" {
+	// 			adminLogin = admin
+	// 			break
+	// 		}
+	// 	}
+	// 	user := model.User{
+	// 		Login:      adminLogin,
+	// 		Name:       adminLogin,
+	// 		SuperAdmin: true,
+	// 	}
+	// 	if err := oauth2MockLogin(c, &user); err != nil {
+	// 		mygin.ShowErrorPage(c, mygin.ErrInfo{
+	// 			Code:  http.StatusBadRequest,
+	// 			Title: "Mock Login Failed",
+	// 			Msg:   err.Error(),
+	// 		}, true)
+	// 	}
+	// 	return
+	// }
+
 	randomString, err := utils.GenerateRandomString(32)
 	if err != nil {
 		mygin.ShowErrorPage(c, mygin.ErrInfo{
@@ -281,6 +305,21 @@ func (oa *oauth2controller) callback(c *gin.Context) {
 		"URL": "/",
 	}))
 }
+
+// func oauth2MockLogin(c *gin.Context, user *model.User) error {
+// 	token, err := utils.GenerateRandomString(32)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	user.Token = token
+// 	user.TokenExpired = time.Now().AddDate(0, 2, 0)
+// 	singleton.DB.Save(user)
+// 	c.SetCookie(singleton.Conf.Site.CookieName, user.Token, 60*60*24, "", "", false, true)
+// 	c.HTML(http.StatusOK, "dashboard-"+singleton.Conf.Site.DashboardTheme+"/redirect", mygin.CommonEnvironment(c, gin.H{
+// 		"URL": "/",
+// 	}))
+// 	return nil
+// }
 
 func removeDuplicates(elements []string) []string {
 	encountered := map[string]bool{}

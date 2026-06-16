@@ -10,9 +10,11 @@
                 </div>
             </h2>
             <a href="/oauth2/login" class="ui fluid large nezha-primary-btn submit button">{{tr "Login"}}</a>
+            {{if .RegistrationLink}}
             <div class="ui message">
                 {{tr "DontHaveAnAccount"}} <a href="{{.RegistrationLink}}" target="_blank" rel="noopener noreferrer">{{tr "SignUp"}}</a>
             </div>
+            {{end}}
         </div>
     </div>
 </div>

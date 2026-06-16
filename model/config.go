@@ -43,6 +43,7 @@ const (
 	ConfigTypeGitea      = "gitea"
 	ConfigTypeCloudflare = "cloudflare"
 	ConfigTypeOidc       = "oidc"
+	// ConfigTypeMock       = "mock" // 本地开发模拟登录，切勿用于生产环境
 )
 
 const (
@@ -147,6 +148,10 @@ func (c *Config) Read(path string) error {
 	if c.Oauth2.Type == "" || c.Oauth2.Admin == "" || c.Oauth2.ClientID == "" || c.Oauth2.ClientSecret == "" {
 		return errors.New("missing oauth2 config")
 	}
+	// mock 模式仅用于本地开发，不需要真实的 ClientID/ClientSecret
+	// if c.Oauth2.Type != ConfigTypeMock && (c.Oauth2.ClientID == "" || c.Oauth2.ClientSecret == "") {
+	// 	return errors.New("missing oauth2 config")
+	// }
 
 	if c.Site.Brand == "" {
 		c.Site.Brand = "Nezha Monitoring"

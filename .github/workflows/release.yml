@@ -24,7 +24,7 @@ jobs:
       - run: git config --global --add safe.directory /__w/nezha/nezha
       - uses: actions/checkout@v4
         with:
-          ref: v0-final    # 指定使用 v0-final 分支
+          ref: v0-next    # 指定使用 v0-next 分支
 
       - name: Fetch IPInfo GeoIP Database
         env:

@@ -73,7 +73,7 @@
                     <td>{{$rule.Name}}</td>
                     <td>{{$rule.NotificationTag}}</td>
                     <td>{{if eq $rule.TriggerMode  0}}{{tr "ModeAlwaysTrigger"}}{{else}}{{tr "ModeOnetimeTrigger"}}{{end}}
-                    <td>{{$rule.RulesRaw}}</td>
+                    <td title="{{$rule.RulesRaw}}">{{$rule.RulesSummary}}</td>
                     <td>{{$rule.FailTriggerTasksRaw}}</td>
                     <td>{{$rule.RecoverTriggerTasksRaw}}</td>
                     <td>{{$rule.Enable}}</td>

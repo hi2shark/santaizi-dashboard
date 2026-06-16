@@ -1,0 +1,27 @@
+{{define "common/csrf"}}
+<script>
+    window.NEZHA_CSRF_TOKEN = "{{.CSRFToken}}";
+    (function () {
+        function csrfSafeMethod(method) {
+            return /^(GET|HEAD|OPTIONS|TRACE)$/i.test(method || "GET");
+        }
+        if (window.jQuery) {
+            window.jQuery.ajaxSetup({
+                beforeSend: function (xhr, settings) {
+                    const method = settings.type || settings.method || "GET";
+                    if (!csrfSafeMethod(method) && window.NEZHA_CSRF_TOKEN) {
+                        xhr.setRequestHeader("X-CSRF-Token", window.NEZHA_CSRF_TOKEN);
+                    }
+                }
+            });
+        }
+        window.nezhaCSRFHeaders = function (headers) {
+            headers = headers || {};
+            if (window.NEZHA_CSRF_TOKEN) {
+                headers["X-CSRF-Token"] = window.NEZHA_CSRF_TOKEN;
+            }
+            return headers;
+        };
+    })();
+</script>
+{{end}}
