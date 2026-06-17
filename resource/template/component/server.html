@@ -293,6 +293,11 @@
                 <div class="ui bottom attached tab segment" data-tab="pn-raw">
                     <textarea name="PublicNote" rows="8" placeholder="{}"></textarea>
                 </div>
+                <div class="field public-note-preview-field">
+                    <label>{{tr "FinalJSONPreview"}}</label>
+                    <textarea class="pn-json-preview" rows="8" readonly spellcheck="false"></textarea>
+                    <div class="ui tiny negative message pn-json-error" style="display:none">{{tr "PleaseEnterValidJSON"}}</div>
+                </div>
             </div>
             <div class="command field">
                 <label>{{tr "LinuxOneKeyInstall"}}</label>
@@ -332,6 +337,14 @@
             return document.querySelector('#serverForm textarea[name="PublicNote"]');
         },
 
+        getPreviewTextarea() {
+            return document.querySelector('#serverForm .pn-json-preview');
+        },
+
+        getPreviewError() {
+            return document.querySelector('#serverForm .pn-json-error');
+        },
+
         parseJSON() {
             const raw = this.getRawTextarea().value.trim();
             if (!raw) return {};
@@ -343,7 +356,51 @@
         },
 
         setRawJSON(obj) {
-            this.getRawTextarea().value = JSON.stringify(obj, null, 2);
+            const json = JSON.stringify(obj, null, 2);
+            this.getRawTextarea().value = json;
+            this.setPreviewJSON(obj);
+        },
+
+        setPreviewValue(value, isInvalid) {
+            const preview = this.getPreviewTextarea();
+            const error = this.getPreviewError();
+            if (preview) preview.value = value;
+            if (error) {
+                error.style.display = isInvalid ? '' : 'none';
+            }
+        },
+
+        setPreviewJSON(obj) {
+            this.setPreviewValue(JSON.stringify(obj, null, 2), false);
+        },
+
+        updatePreviewFromRaw() {
+            const raw = this.getRawTextarea().value.trim();
+            if (!raw) {
+                this.setPreviewValue('', false);
+                return true;
+            }
+
+            try {
+                this.setPreviewJSON(JSON.parse(raw));
+                return true;
+            } catch (e) {
+                this.setPreviewValue(this.getRawTextarea().value, true);
+                return false;
+            }
+        },
+
+        ensureDropdown(el) {
+            const dropdown = $(el);
+            if (!dropdown.data('module-dropdown')) {
+                dropdown.dropdown({
+                    clearable: true,
+                    onChange: () => {
+                        if (!this.isLoading) this.syncToRaw();
+                    }
+                });
+            }
+            return dropdown;
         },
 
         setFieldValue(selector, key, value) {
@@ -351,12 +408,13 @@
             if (!el) return;
             const val = value === undefined || value === null ? '' : value;
             if (el.tagName === 'SELECT') {
-                const dropdown = $(el).dropdown({ clearable: true });
+                const dropdown = this.ensureDropdown(el);
                 if (val === '') {
                     dropdown.dropdown('clear');
                 } else {
                     dropdown.dropdown('set selected', val.toString());
                 }
+                el.value = val.toString();
             } else {
                 el.value = val;
             }
@@ -365,7 +423,8 @@
         getFieldValue(selector, key) {
             const el = document.querySelector('#serverForm ' + selector + '[data-key="' + key + '"]');
             if (!el) return undefined;
-            return el.value.trim() === '' ? undefined : el.value.trim();
+            const val = el.tagName === 'SELECT' ? this.ensureDropdown(el).dropdown('get value') : el.value;
+            return val === undefined || val === null || val.toString().trim() === '' ? undefined : val.toString().trim();
         },
 
         getActiveTab() {
@@ -443,6 +502,7 @@
                 this.customAoboboKeys.forEach(k => this.setFieldValue('.pn-custom-aobobo', k, custom[k]));
             } finally {
                 this.isLoading = false;
+                this.updatePreviewFromRaw();
             }
         },
 
@@ -486,24 +546,34 @@
             return true;
         },
 
-        syncFromRaw() {
+        syncFromRaw(showAlert) {
+            showAlert = showAlert !== false;
             const raw = this.getRawTextarea().value.trim();
             if (!raw) {
                 this.loadFromRaw();
+                this.updatePreviewFromRaw();
                 return true;
             }
             try {
                 JSON.parse(raw);
                 this.loadFromRaw();
+                this.updatePreviewFromRaw();
                 return true;
             } catch (e) {
-                alert('{{tr "PleaseEnterValidJSON"}}');
+                this.updatePreviewFromRaw();
+                if (showAlert) {
+                    alert('{{tr "PleaseEnterValidJSON"}}');
+                }
                 return false;
             }
         },
 
         init() {
             const self = this;
+            $('#serverForm select.pn-billing, #serverForm select.pn-plan').each(function () {
+                self.ensureDropdown(this);
+            });
+
             // Tab switching
             $('.public-note-editor-menu .item').tab({
                 onVisible: function (tabPath) {
@@ -536,8 +606,12 @@
                 }
             });
 
+            $('#serverForm textarea[name="PublicNote"]').on('input', function () {
+                self.updatePreviewFromRaw();
+            });
+
             $('#serverForm textarea[name="PublicNote"]').on('blur', function () {
-                self.syncFromRaw();
+                self.syncFromRaw(false);
             });
         }
     };

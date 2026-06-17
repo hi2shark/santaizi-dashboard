@@ -16,8 +16,30 @@ Nezha面板所有版权归属原作者，本仓库仅为自己个人使用方便
 
 支持交互式填写配置，未安装 Docker 时会询问是否自动安装。
 
+root 用户可一键运行：
+
 ```bash
-curl -fsSL https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install_dashboard.sh | sudo bash
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install_dashboard.sh)"
+```
+
+普通用户且系统已安装 `sudo` 时可一键运行：
+
+```bash
+sudo sh -c "$(curl -fsSL https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install_dashboard.sh)"
+```
+
+未安装 `sudo` 的系统，可先切换到 root 后运行：
+
+```bash
+su -
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install_dashboard.sh)"
+```
+
+也可以先下载脚本再执行：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install_dashboard.sh -o install_dashboard.sh
+sh install_dashboard.sh
 ```
 
 脚本会引导填写：工作目录、Web 端口、gRPC 端口、OAuth2 登录信息、站点标题与主题，然后自动生成 `docker-compose.yml` 和 `data/config.yaml` 并启动 Dashboard。

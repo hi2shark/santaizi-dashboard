@@ -781,6 +781,9 @@ other = "CustomData (AoBoBo)"
 [RawJSON]
 other = "JSON Crudo"
 
+[FinalJSONPreview]
+other = "Vista previa final de JSON"
+
 [StartDate]
 other = "Fecha de Inicio"
 

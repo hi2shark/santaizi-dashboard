@@ -41,11 +41,11 @@ sudo() {
 prompt() {
     message=$1
     default=$2
-    printf "%s" "$message"
+    printf "%s" "$message" >&2
     if [ -n "$default" ]; then
-        printf " (默认: %s)" "$default"
+        printf " (默认: %s)" "$default" >&2
     fi
-    printf ": "
+    printf ": " >&2
     read -r val
     if [ -z "$val" ]; then
         val=$default
@@ -77,6 +77,27 @@ prompt_yn() {
             *) err "请输入 y 或 n。" ;;
         esac
     done
+}
+
+prompt_port() {
+    while true; do
+        val=$(prompt "$1" "$2")
+        case "$val" in
+            ''|*[!0-9]*)
+                err "端口必须是 1-65535 之间的数字。"
+                continue
+                ;;
+        esac
+        if [ "$val" -ge 1 ] 2>/dev/null && [ "$val" -le 65535 ] 2>/dev/null; then
+            printf "%s\n" "$val"
+            return
+        fi
+        err "端口必须是 1-65535 之间的数字。"
+    done
+}
+
+yaml_escape() {
+    printf "%s" "$1" | sed "s/'/''/g"
 }
 
 detect_linux_distro() {
@@ -202,21 +223,28 @@ EOF
 
 write_config() {
     mkdir -p "$1/data"
+    oauth2_type=$(yaml_escape "$OAUTH2_TYPE")
+    oauth2_admin=$(yaml_escape "$OAUTH2_ADMIN")
+    oauth2_clientid=$(yaml_escape "$OAUTH2_CLIENTID")
+    oauth2_clientsecret=$(yaml_escape "$OAUTH2_CLIENTSECRET")
+    oauth2_endpoint=$(yaml_escape "$OAUTH2_ENDPOINT")
+    site_brand=$(yaml_escape "$SITE_BRAND")
+    site_theme=$(yaml_escape "$SITE_THEME")
     cat > "$1/data/config.yaml" <<EOF
 debug: false
 httpport: 80
-language: nz_language
+language: zh-CN
 grpcport: 5555
 oauth2:
-  type: "${OAUTH2_TYPE}"
-  admin: "${OAUTH2_ADMIN}"
-  clientid: "${OAUTH2_CLIENTID}"
-  clientsecret: "${OAUTH2_CLIENTSECRET}"
-  endpoint: "${OAUTH2_ENDPOINT}"
+  type: '${oauth2_type}'
+  admin: '${oauth2_admin}'
+  clientid: '${oauth2_clientid}'
+  clientsecret: '${oauth2_clientsecret}'
+  endpoint: '${oauth2_endpoint}'
 site:
-  brand: "${SITE_BRAND}"
+  brand: '${site_brand}'
   cookiename: "nezha-dashboard"
-  theme: "${SITE_THEME}"
+  theme: '${site_theme}'
 EOF
 }
 
@@ -241,9 +269,11 @@ main() {
 
     if ! [ -t 0 ]; then
         err "检测到脚本通过管道执行（如 curl ... | bash），但本脚本需要交互式输入。"
-        err "请先下载脚本再执行，例如："
-        err "  curl -fsSL https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install_dashboard.sh -o install_dashboard.sh"
-        err "  sudo bash install_dashboard.sh"
+        err "请改用以下一键运行方式："
+        err "  sh -c \"\$(curl -fsSL https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install_dashboard.sh)\""
+        err "普通用户且系统已安装 sudo 时可用："
+        err "  sudo sh -c \"\$(curl -fsSL https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install_dashboard.sh)\""
+        err "未安装 sudo 的系统，请先使用 su - 切换到 root 用户。"
         exit 1
     fi
 
@@ -260,10 +290,8 @@ main() {
         exit 1
     }
 
-    WEB_PORT=$(prompt "请输入面板 Web 端口" "80")
-    WEB_PORT=${WEB_PORT:-80}
-    GRPC_PORT=$(prompt "请输入 Agent gRPC 端口" "5555")
-    GRPC_PORT=${GRPC_PORT:-5555}
+    WEB_PORT=$(prompt_port "请输入面板 Web 端口" "80")
+    GRPC_PORT=$(prompt_port "请输入 Agent gRPC 端口" "5555")
 
     info "请配置 OAuth2 登录（首次登录必须使用 OAuth2）"
     OAUTH2_TYPE=$(prompt "OAuth2 类型 (github/gitlab/jihulab/gitee/gitea)" "github")

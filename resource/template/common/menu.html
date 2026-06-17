@@ -1,8 +1,9 @@
 {{define "common/menu"}}
 <div class="ui large top fixed menu nb-menu">
     <div class="ui container">
-        <a class="item" href="/">
+        <a class="item dashboard-brand" href="/">
             <img src="/static/logo.svg?v20210804">
+            {{if .IsAdminPage}}<span>{{.Conf.Site.Brand}}</span>{{end}}
         </a>
         {{if .IsAdminPage}}
         <a class='item{{if eq .MatchedPath "/server"}} active{{end}}' href="/server"><i class="server icon"></i>{{tr "Server"}}</a>
@@ -20,6 +21,14 @@
         <a class='item{{if eq .MatchedPath "/network"}} active{{end}}' href="/network"><i class="server icon"></i>{{tr "NetworkSpiter"}}</a>
         {{end}}
         <div class="right menu">
+            {{if .IsAdminPage}}
+            <div class="item dashboard-theme-item">
+                <button class="ui icon button dashboard-theme-toggle" type="button" onclick="toggleDashboardTheme()" aria-label="Toggle color theme" data-tooltip="{{tr "Theme"}}" data-position="bottom center">
+                    <i class="moon outline icon dashboard-theme-dark-icon"></i>
+                    <i class="sun outline icon dashboard-theme-light-icon"></i>
+                </button>
+            </div>
+            {{end}}
             <div class="item">
                 {{if .Admin}}
                 <div class="ui simple dropdown">

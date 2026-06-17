@@ -781,6 +781,9 @@ other = "CustomData (AoBoBo)"
 [RawJSON]
 other = "原始 JSON"
 
+[FinalJSONPreview]
+other = "最终 JSON 预览"
+
 [StartDate]
 other = "开始日期"
 

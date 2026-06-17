@@ -11,12 +11,65 @@
     <link rel="stylesheet" type="text/css" href="/static/unpkg/semantic-ui@2.4.0/dist/semantic.min.css">
     <link rel="stylesheet" type="text/css" href="/static/unpkg/font-logos@0.17.0/assets/font-logos.css">
     <link rel="stylesheet" type="text/css" href="/static/semantic-ui-alerts.min.css">
-    <link rel="stylesheet" type="text/css" href="/static/main.css?v20250616">
-    <link rel="stylesheet" type="text/css" href="/static/darkmode.css?v20240813">
+    <link rel="stylesheet" type="text/css" href="/static/main.css?v20260617">
+    <link rel="stylesheet" type="text/css" href="/static/darkmode.css?v20260617">
     <script>
-        document.documentElement.setAttribute('nz-theme', window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        (function () {
+            var storageKey = "nezha-dashboard-theme";
+            var dashboardPage = {{if or .IsAdminPage (eq .MatchedPath "/login")}}true{{else}}false{{end}};
+            var mediaQuery = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+
+            function systemTheme() {
+                return mediaQuery && mediaQuery.matches ? "dark" : "light";
+            }
+
+            function storedTheme() {
+                try {
+                    var theme = localStorage.getItem(storageKey);
+                    return theme === "dark" || theme === "light" ? theme : "";
+                } catch (error) {
+                    return "";
+                }
+            }
+
+            function applyTheme(theme, persist) {
+                document.documentElement.setAttribute("nz-theme", theme);
+                document.documentElement.style.colorScheme = theme;
+                if (persist) {
+                    try {
+                        localStorage.setItem(storageKey, theme);
+                    } catch (error) {}
+                }
+            }
+
+            window.setDashboardTheme = function (theme) {
+                if (theme === "dark" || theme === "light") {
+                    applyTheme(theme, true);
+                }
+            };
+
+            window.toggleDashboardTheme = function () {
+                var currentTheme = document.documentElement.getAttribute("nz-theme") || systemTheme();
+                applyTheme(currentTheme === "dark" ? "light" : "dark", true);
+            };
+
+            var dashboardStoredTheme = dashboardPage ? storedTheme() : "";
+            applyTheme(dashboardStoredTheme || systemTheme(), false);
+
+            if (!dashboardStoredTheme && mediaQuery && mediaQuery.addEventListener) {
+                mediaQuery.addEventListener("change", function (event) {
+                    applyTheme(event.matches ? "dark" : "light", false);
+                });
+            }
+        })();
     </script>
 </head>
 {{if ts .CustomCodeDashboard}} {{.CustomCodeDashboard|safe}} {{end}}
-<body>
+<body class="{{if .IsAdminPage}}dashboard-layout{{else if eq .MatchedPath "/login"}}dashboard-layout dashboard-auth-layout{{end}}">
+{{if and (not .IsAdminPage) (eq .MatchedPath "/login")}}
+<button class="dashboard-floating-theme-toggle" type="button" onclick="toggleDashboardTheme()" aria-label="Toggle color theme">
+    <i class="moon outline icon dashboard-theme-dark-icon"></i>
+    <i class="sun outline icon dashboard-theme-light-icon"></i>
+</button>
+{{end}}
 {{end}}
