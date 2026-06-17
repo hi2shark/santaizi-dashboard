@@ -841,6 +841,66 @@ other = "经纬度"
 [LocationLabel]
 other = "位置标签"
 
+[ServerBasicInfo]
+other = "基础信息"
+
+[AccessAndVisibility]
+other = "接入与可见性"
+
+[InternalNote]
+other = "内部备注"
+
+[UnlimitedDuration]
+other = "无限时长"
+
+[BillingCycle]
+other = "账单周期"
+
+[AmountPlaceholder]
+other = "格式如 $9.99、€19.92、¥199、19.99HKD、9.99USD、49.99CNY"
+
+[BillingCyclePlaceholder]
+other = "请输入账单周期；不执行自动续费时可任意填写"
+
+[BandwidthPlaceholder]
+other = "格式如 30Mbps、1Gbps、Unlimited"
+
+[TrafficVolPlaceholder]
+other = "格式如 1TB/月、500GB/月、Unlimited"
+
+[NetworkRoutePlaceholder]
+other = "输入网络标签后按回车添加"
+
+[ExtraPlaceholder]
+other = "输入其他标签后按回车添加"
+
+[LocationCodePlaceholder]
+other = "请输入位置代码"
+
+[FlagPlaceholder]
+other = "请输入旗帜代码，可使用国家/地区 code 或英文名称"
+
+[OrderLinkPlaceholder]
+other = "请输入购买链接，无需执行 encodeURIComponent"
+
+[BuyBtnTextPlaceholder]
+other = "留空默认为：购买"
+
+[BuyBtnIconPlaceholder]
+other = "适配 Remix Icon 图标库"
+
+[SloganPlaceholder]
+other = "介绍服务器的标语，支持简单 HTML"
+
+[TrafficOutboundOnly]
+other = "单向出流量"
+
+[TrafficBidirectional]
+other = "双向流量"
+
+[TrafficMaxInOut]
+other = "入出取最大"
+
 [AlertRuleEditor]
 other = "告警规则编辑器"
 
@@ -867,6 +927,69 @@ other = "周期单位"
 
 [Rule]
 other = "规则"
+
+[RuleTypeDesc_cpu]
+other = "CPU 使用率"
+
+[RuleTypeDesc_memory]
+other = "内存使用率"
+
+[RuleTypeDesc_swap]
+other = "Swap 使用率"
+
+[RuleTypeDesc_disk]
+other = "磁盘使用率"
+
+[RuleTypeDesc_net_in_speed]
+other = "下载速度"
+
+[RuleTypeDesc_net_out_speed]
+other = "上传速度"
+
+[RuleTypeDesc_net_all_speed]
+other = "总网速"
+
+[RuleTypeDesc_transfer_in]
+other = "入站流量"
+
+[RuleTypeDesc_transfer_out]
+other = "出站流量"
+
+[RuleTypeDesc_transfer_all]
+other = "总流量"
+
+[RuleTypeDesc_transfer_in_cycle]
+other = "周期内入站流量"
+
+[RuleTypeDesc_transfer_out_cycle]
+other = "周期内出站流量"
+
+[RuleTypeDesc_transfer_all_cycle]
+other = "周期内总流量"
+
+[RuleTypeDesc_offline]
+other = "离线"
+
+[RuleTypeDesc_load1]
+other = "1 分钟负载"
+
+[RuleTypeDesc_load5]
+other = "5 分钟负载"
+
+[RuleTypeDesc_load15]
+other = "15 分钟负载"
+
+[RuleTypeDesc_tcp_conn_count]
+other = "TCP 连接数"
+
+[RuleTypeDesc_udp_conn_count]
+other = "UDP 连接数"
+
+[RuleTypeDesc_process_count]
+other = "进程数"
+
+[RuleTypeDesc_temperature_max]
+other = "最大温度"
 
 [RemoveRule]
 other = "删除规则"
@@ -975,3 +1098,15 @@ other = "月"
 
 [CycleUnitYear]
 other = "年"
+
+[PleaseSelect]
+other = "请选择"
+
+[Loading]
+other = "加载中"
+
+[NoData]
+other = "无数据"
+
+[NoMatch]
+other = "无匹配数据"

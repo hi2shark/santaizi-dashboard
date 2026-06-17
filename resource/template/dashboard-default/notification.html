@@ -1,17 +1,20 @@
 {{define "dashboard-default/notification"}}
 {{template "common/header" .}}
 {{template "common/menu" .}}
-<div class="nb-container">
-    <div class="ui container">
-        <div class="ui grid">
-            <div class="right floated right aligned twelve wide column">
-                <button class="ui right labeled nezha-primary-btn icon button" onclick="addOrEditNotification()"><i
-                        class="add icon"></i> {{tr "AddNotificationMethod"}}
-                </button>
-            </div>
+<main class="dashboard-page">
+    <div class="dashboard-page-header">
+        <div>
+            <h1>{{tr "Notification"}}</h1>
+            <p>{{tr "AddNotificationMethod"}}</p>
         </div>
-        <table class="ui basic table">
-            <thead>
+        <div class="dashboard-toolbar">
+            <button class="dashboard-button dashboard-button-primary" type="button" onclick="addOrEditNotification()"><i class="ri-add-line"></i>{{tr "AddNotificationMethod"}}</button>
+        </div>
+    </div>
+    <section class="dashboard-table-card">
+        <div class="dashboard-table-scroll">
+            <table class="dashboard-table">
+                <thead>
                 <tr>
                     <th>ID</th>
                     <th>{{tr "Name"}}</th>
@@ -20,40 +23,41 @@
                     <th>{{tr "VerifySSL"}}</th>
                     <th>{{tr "Administration"}}</th>
                 </tr>
-            </thead>
-            <tbody>
+                </thead>
+                <tbody>
                 {{range $notification := .Notifications}}
                 <tr>
                     <td>{{$notification.ID}}</td>
                     <td>{{$notification.Name}}</td>
                     <td>{{$notification.Tag}}</td>
-                    <td>{{$notification.URL}}</td>
+                    <td class="dashboard-mono">{{$notification.URL}}</td>
                     <td>{{$notification.VerifySSL}}</td>
                     <td>
-                        <div class="ui mini icon buttons">
-                            <button class="ui button" onclick="addOrEditNotification({{$notification}})">
-                                <i class="edit icon"></i>
-                            </button>
-                            <button class="ui button"
-                                onclick="showConfirm('{{tr "DeleteNotificationMethod"}}','{{tr "ConfirmToDeleteThisNotificationMethod"}}',deleteRequest,'/api/notification/'+{{$notification.ID}})">
-                                <i class="trash alternate outline icon"></i>
-                            </button>
+                        <div class="dashboard-inline-actions">
+                            <button class="dashboard-icon-button" type="button" onclick="addOrEditNotification({{json $notification}})"><i class="ri-edit-2-line"></i></button>
+                            <button class="dashboard-icon-button dashboard-icon-button-danger" type="button" onclick="showConfirm('{{tr "DeleteNotificationMethod"}}','{{tr "ConfirmToDeleteThisNotificationMethod"}}',deleteRequest,'/api/notification/'+{{$notification.ID}})"><i class="ri-delete-bin-6-line"></i></button>
                         </div>
                     </td>
                 </tr>
                 {{end}}
-            </tbody>
-        </table>
-        <div class="ui grid">
-            <div class="right floated right aligned twelve wide column">
-                <button class="ui right labeled nezha-primary-btn icon button" onclick="addOrEditAlertRule()"><i
-                        class="add icon"></i>
-                    {{tr "AddNotificationRule"}}
-                </button>
-            </div>
+                </tbody>
+            </table>
         </div>
-        <table class="ui basic table">
-            <thead>
+    </section>
+
+    <div class="dashboard-page-header dashboard-section-header">
+        <div>
+            <h2>{{tr "AddNotificationRule"}}</h2>
+            <p>{{tr "Rules"}}</p>
+        </div>
+        <div class="dashboard-toolbar">
+            <button class="dashboard-button dashboard-button-primary" type="button" onclick="addOrEditAlertRule()"><i class="ri-add-line"></i>{{tr "AddNotificationRule"}}</button>
+        </div>
+    </div>
+    <section class="dashboard-table-card">
+        <div class="dashboard-table-scroll">
+            <table class="dashboard-table">
+                <thead>
                 <tr>
                     <th>ID</th>
                     <th>{{tr "Name"}}</th>
@@ -65,39 +69,32 @@
                     <th>{{tr "Enable"}}</th>
                     <th>{{tr "Administration"}}</th>
                 </tr>
-            </thead>
-            <tbody>
+                </thead>
+                <tbody>
                 {{range $rule := .AlertRules}}
                 <tr>
                     <td>{{$rule.ID}}</td>
                     <td>{{$rule.Name}}</td>
                     <td>{{$rule.NotificationTag}}</td>
-                    <td>{{if eq $rule.TriggerMode  0}}{{tr "ModeAlwaysTrigger"}}{{else}}{{tr "ModeOnetimeTrigger"}}{{end}}
+                    <td>{{if eq $rule.TriggerMode 0}}{{tr "ModeAlwaysTrigger"}}{{else}}{{tr "ModeOnetimeTrigger"}}{{end}}</td>
                     <td title="{{$rule.RulesRaw}}">{{$rule.RulesSummary}}</td>
                     <td>{{$rule.FailTriggerTasksRaw}}</td>
                     <td>{{$rule.RecoverTriggerTasksRaw}}</td>
                     <td>{{$rule.Enable}}</td>
                     <td>
-                        <div class="ui mini icon buttons">
-                            <button class="ui button" onclick="addOrEditAlertRule({{$rule}})">
-                                <i class="edit icon"></i>
-                            </button>
-                            <button class="ui button"
-                                onclick="showConfirm('{{tr "DeleteNotificationMethod"}}','{{tr "ConfirmToDeleteThisNotificationMethod"}}',deleteRequest,'/api/alert-rule/'+{{$rule.ID}})">
-                                <i class="trash alternate outline icon"></i>
-                            </button>
+                        <div class="dashboard-inline-actions">
+                            <button class="dashboard-icon-button" type="button" onclick="addOrEditAlertRule({{json $rule}})"><i class="ri-edit-2-line"></i></button>
+                            <button class="dashboard-icon-button dashboard-icon-button-danger" type="button" onclick="showConfirm('{{tr "DeleteNotificationMethod"}}','{{tr "ConfirmToDeleteThisNotificationMethod"}}',deleteRequest,'/api/alert-rule/'+{{$rule.ID}})"><i class="ri-delete-bin-6-line"></i></button>
                         </div>
                     </td>
                 </tr>
                 {{end}}
-            </tbody>
-        </table>
-    </div>
-</div>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
 {{template "component/notification"}}
 {{template "component/rule"}}
 {{template "common/footer" .}}
-<script>
-    $('.checkbox').checkbox()
-</script>
 {{end}}

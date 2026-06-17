@@ -1,17 +1,20 @@
 {{define "dashboard-default/ddns"}}
 {{template "common/header" .}}
 {{template "common/menu" .}}
-<div class="nb-container">
-    <div class="ui container">
-        <div class="ui grid">
-            <div class="right floated right aligned twelve wide column">
-                <button class="ui right labeled nezha-primary-btn icon button" onclick="addOrEditDDNS()"><i
-                        class="add icon"></i> {{tr "AddDDNSProfile"}}
-                </button>
-            </div>
+<main class="dashboard-page">
+    <div class="dashboard-page-header">
+        <div>
+            <h1>{{tr "DDNS"}}</h1>
+            <p>{{tr "DDNSProfiles"}}</p>
         </div>
-        <table class="ui basic table">
-            <thead>
+        <div class="dashboard-toolbar">
+            <button class="dashboard-button dashboard-button-primary" type="button" onclick="addOrEditDDNS()"><i class="ri-add-line"></i>{{tr "AddDDNSProfile"}}</button>
+        </div>
+    </div>
+    <section class="dashboard-table-card">
+        <div class="dashboard-table-scroll">
+            <table class="dashboard-table">
+                <thead>
                 <tr>
                     <th>ID</th>
                     <th>{{tr "Name"}}</th>
@@ -22,8 +25,8 @@
                     <th>{{tr "MaxRetries"}}</th>
                     <th>{{tr "Administration"}}</th>
                 </tr>
-            </thead>
-            <tbody>
+                </thead>
+                <tbody>
                 {{range $item := .DDNS}}
                 <tr>
                     <td>{{$item.ID}}</td>
@@ -34,25 +37,23 @@
                     <td>{{$item.DomainsRaw}}</td>
                     <td>{{$item.MaxRetries}}</td>
                     <td>
-                        <div class="ui mini icon buttons">
-                            <button class="ui button" onclick="addOrEditDDNS({{$item}})">
-                                <i class="edit icon"></i>
-                            </button>
-                            <button class="ui button"
-                                onclick="showConfirm('确定删除DDNS配置？','确认删除',deleteRequest,'/api/ddns/'+{{$item.ID}})">
-                                <i class="trash alternate outline icon"></i>
-                            </button>
+                        <div class="dashboard-inline-actions">
+                            <button class="dashboard-icon-button" type="button" onclick="addOrEditDDNS({{json $item}})"><i class="ri-edit-2-line"></i></button>
+                            <button class="dashboard-icon-button dashboard-icon-button-danger" type="button" onclick="showConfirm('确定删除DDNS配置？','确认删除',deleteRequest,'/api/ddns/'+{{$item.ID}})"><i class="ri-delete-bin-6-line"></i></button>
                         </div>
                     </td>
                 </tr>
                 {{end}}
-            </tbody>
-        </table>
-    </div>
-</div>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+<script>
+window.NEZHA_DASHBOARD_CONTEXT = Object.assign(window.NEZHA_DASHBOARD_CONTEXT || {}, {
+    providers: {{json .ProviderList}}
+});
+</script>
 {{template "component/ddns" .}}
 {{template "common/footer" .}}
-<script>
-    $('.checkbox').checkbox()
-</script>
 {{end}}

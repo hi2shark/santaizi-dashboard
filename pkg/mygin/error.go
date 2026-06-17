@@ -20,11 +20,12 @@ type ErrInfo struct {
 func ShowErrorPage(c *gin.Context, i ErrInfo, isPage bool) {
 	if isPage {
 		c.HTML(i.Code, "dashboard-"+singleton.Conf.Site.DashboardTheme+"/error", CommonEnvironment(c, gin.H{
-			"Code":  i.Code,
-			"Title": i.Title,
-			"Msg":   i.Msg,
-			"Link":  i.Link,
-			"Btn":   i.Btn,
+			"Code":            i.Code,
+			"Title":           i.Title,
+			"Msg":             i.Msg,
+			"Link":            i.Link,
+			"Btn":             i.Btn,
+			"IsDashboardPage": true,
 		}))
 	} else {
 		c.JSON(http.StatusOK, model.Response{

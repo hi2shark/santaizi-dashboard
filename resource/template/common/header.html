@@ -8,15 +8,22 @@
     <meta content="telephone=no" name="format-detection">
     <title>{{.Title}}</title>
     <link rel="shortcut icon" type="image/png" href="/static/logo.svg?v20210804" />
+    {{if .IsDashboardPage}}
+    <link rel="stylesheet" type="text/css" href="/static/vendor/element-plus/index.css?v20260617">
+    <link rel="stylesheet" type="text/css" href="/static/vendor/element-plus/dark.css?v20260617">
+    <link rel="stylesheet" type="text/css" href="/static/vendor/remixicon/fonts/remixicon.css?v20260617">
+    <link rel="stylesheet" type="text/css" href="/static/dashboard.css?v20260617-layout16">
+    {{else}}
     <link rel="stylesheet" type="text/css" href="/static/unpkg/semantic-ui@2.4.0/dist/semantic.min.css">
     <link rel="stylesheet" type="text/css" href="/static/unpkg/font-logos@0.17.0/assets/font-logos.css">
     <link rel="stylesheet" type="text/css" href="/static/semantic-ui-alerts.min.css">
-    <link rel="stylesheet" type="text/css" href="/static/main.css?v20260617">
+    <link rel="stylesheet" type="text/css" href="/static/main.css?v20260617-pn1">
+    {{end}}
     <link rel="stylesheet" type="text/css" href="/static/darkmode.css?v20260617">
     <script>
         (function () {
             var storageKey = "nezha-dashboard-theme";
-            var dashboardPage = {{if or .IsAdminPage (eq .MatchedPath "/login")}}true{{else}}false{{end}};
+            var dashboardPage = {{if .IsDashboardPage}}true{{else}}false{{end}};
             var mediaQuery = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
 
             function systemTheme() {
@@ -65,11 +72,11 @@
     </script>
 </head>
 {{if ts .CustomCodeDashboard}} {{.CustomCodeDashboard|safe}} {{end}}
-<body class="{{if .IsAdminPage}}dashboard-layout{{else if eq .MatchedPath "/login"}}dashboard-layout dashboard-auth-layout{{end}}">
-{{if and (not .IsAdminPage) (eq .MatchedPath "/login")}}
+<body class="{{if .IsDashboardPage}}dashboard-layout{{if not .IsAdminPage}} dashboard-auth-layout{{end}}{{end}}">
+{{if and .IsDashboardPage (not .IsAdminPage)}}
 <button class="dashboard-floating-theme-toggle" type="button" onclick="toggleDashboardTheme()" aria-label="Toggle color theme">
-    <i class="moon outline icon dashboard-theme-dark-icon"></i>
-    <i class="sun outline icon dashboard-theme-light-icon"></i>
+    <i class="ri-moon-line dashboard-theme-dark-icon"></i>
+    <i class="ri-sun-line dashboard-theme-light-icon"></i>
 </button>
 {{end}}
 {{end}}

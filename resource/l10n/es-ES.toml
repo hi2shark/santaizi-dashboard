@@ -841,6 +841,66 @@ other = "Lat/Lng"
 [LocationLabel]
 other = "Etiqueta de Ubicación"
 
+[ServerBasicInfo]
+other = "Información Básica"
+
+[AccessAndVisibility]
+other = "Acceso y Visibilidad"
+
+[InternalNote]
+other = "Nota Interna"
+
+[UnlimitedDuration]
+other = "Ilimitado"
+
+[BillingCycle]
+other = "Ciclo de Facturación"
+
+[AmountPlaceholder]
+other = "Ejemplos: $9.99, €19.92, ¥199, 19.99HKD, 9.99USD, 49.99CNY"
+
+[BillingCyclePlaceholder]
+other = "Introduce un ciclo de facturación; cualquier valor sirve si la renovación automática está desactivada"
+
+[BandwidthPlaceholder]
+other = "Ejemplos: 30Mbps, 1Gbps, Unlimited"
+
+[TrafficVolPlaceholder]
+other = "Ejemplos: 1TB/mes, 500GB/mes, Unlimited"
+
+[NetworkRoutePlaceholder]
+other = "Escribe una etiqueta de red y pulsa Enter"
+
+[ExtraPlaceholder]
+other = "Escribe una etiqueta extra y pulsa Enter"
+
+[LocationCodePlaceholder]
+other = "Introduce un código de ubicación"
+
+[FlagPlaceholder]
+other = "Introduce un código de bandera, código de país/región o nombre en inglés"
+
+[OrderLinkPlaceholder]
+other = "Introduce el enlace de compra; no hace falta encodeURIComponent"
+
+[BuyBtnTextPlaceholder]
+other = "Déjalo vacío para usar: Comprar"
+
+[BuyBtnIconPlaceholder]
+other = "Usa un nombre de Remix Icon"
+
+[SloganPlaceholder]
+other = "Un eslogan corto del servidor; se admite HTML simple"
+
+[TrafficOutboundOnly]
+other = "Solo salida"
+
+[TrafficBidirectional]
+other = "Bidireccional"
+
+[TrafficMaxInOut]
+other = "Máximo de entrada/salida"
+
 [AlertRuleEditor]
 other = "Editor de Reglas de Alerta"
 
@@ -867,6 +927,69 @@ other = "Unidad del Ciclo"
 
 [Rule]
 other = "Regla"
+
+[RuleTypeDesc_cpu]
+other = "Uso de CPU"
+
+[RuleTypeDesc_memory]
+other = "Uso de memoria"
+
+[RuleTypeDesc_swap]
+other = "Uso de swap"
+
+[RuleTypeDesc_disk]
+other = "Uso de disco"
+
+[RuleTypeDesc_net_in_speed]
+other = "Velocidad de red entrante"
+
+[RuleTypeDesc_net_out_speed]
+other = "Velocidad de red saliente"
+
+[RuleTypeDesc_net_all_speed]
+other = "Velocidad total de red"
+
+[RuleTypeDesc_transfer_in]
+other = "Tráfico entrante"
+
+[RuleTypeDesc_transfer_out]
+other = "Tráfico saliente"
+
+[RuleTypeDesc_transfer_all]
+other = "Tráfico total"
+
+[RuleTypeDesc_transfer_in_cycle]
+other = "Tráfico entrante en ciclo"
+
+[RuleTypeDesc_transfer_out_cycle]
+other = "Tráfico saliente en ciclo"
+
+[RuleTypeDesc_transfer_all_cycle]
+other = "Tráfico total en ciclo"
+
+[RuleTypeDesc_offline]
+other = "Desconectado"
+
+[RuleTypeDesc_load1]
+other = "Carga promedio de 1 minuto"
+
+[RuleTypeDesc_load5]
+other = "Carga promedio de 5 minutos"
+
+[RuleTypeDesc_load15]
+other = "Carga promedio de 15 minutos"
+
+[RuleTypeDesc_tcp_conn_count]
+other = "Conexiones TCP"
+
+[RuleTypeDesc_udp_conn_count]
+other = "Conexiones UDP"
+
+[RuleTypeDesc_process_count]
+other = "Cantidad de procesos"
+
+[RuleTypeDesc_temperature_max]
+other = "Temperatura máxima"
 
 [RemoveRule]
 other = "Eliminar Regla"
@@ -975,3 +1098,15 @@ other = "Mes"
 
 [CycleUnitYear]
 other = "Año"
+
+[PleaseSelect]
+other = "Seleccione"
+
+[Loading]
+other = "Cargando"
+
+[NoData]
+other = "Sin datos"
+
+[NoMatch]
+other = "Sin coincidencias"

@@ -41,10 +41,11 @@ func (gp *guestPage) login(c *gin.Context) {
 	}
 	LoginType := "GitHub"
 	RegistrationLink := "https://github.com/join"
+	// mock 模式已注释，避免误用；本地开发需要时可取消注释
 	// if singleton.Conf.Oauth2.Type == model.ConfigTypeMock {
 	// 	LoginType = "Development"
 	// 	RegistrationLink = ""
-	// } else if singleton.Conf.Oauth2.Type == model.ConfigTypeGitee {
+	// } else
 	if singleton.Conf.Oauth2.Type == model.ConfigTypeGitee {
 		LoginType = "Gitee"
 		RegistrationLink = "https://gitee.com/signup"

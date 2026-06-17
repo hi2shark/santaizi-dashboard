@@ -736,12 +736,69 @@ html body.dashboard-layout .ui.inverted.vertical.footer.segment * {
 }
 
 /* Public note & alert rule visual editors */
-.public-note-field .ui.tabular.menu {
+.public-note-tabs {
+  display: flex;
   flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0;
+  border-bottom: 1px solid var(--dash-border, rgba(34, 36, 38, 0.15));
 }
 
-.public-note-field .ui.tabular.menu .item {
-  padding: 0.6em 0.9em;
+.public-note-tab {
+  appearance: none;
+  margin: 0 0 -1px;
+  padding: 0.62rem 0.9rem;
+  border: 1px solid transparent;
+  border-radius: 7px 7px 0 0;
+  background: transparent;
+  color: var(--dash-muted, rgba(0, 0, 0, 0.6));
+  font: inherit;
+  font-size: 0.95em;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.public-note-tab:hover {
+  background: var(--dash-surface-soft, rgba(0, 0, 0, 0.04));
+  color: var(--dash-text, rgba(0, 0, 0, 0.87));
+}
+
+.public-note-tab.active {
+  background: var(--dash-surface, #ffffff);
+  color: var(--dash-text, rgba(0, 0, 0, 0.87));
+  border-color: var(--dash-border, rgba(34, 36, 38, 0.15));
+  border-bottom-color: var(--dash-surface, #ffffff);
+}
+
+.public-note-panel {
+  display: none;
+  padding: 1rem;
+  background: var(--dash-surface, #ffffff);
+  color: var(--dash-text, rgba(0, 0, 0, 0.87));
+  border: 1px solid var(--dash-border, rgba(34, 36, 38, 0.15));
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
+}
+
+.public-note-panel.active {
+  display: block;
+}
+
+.public-note-field .pn-native-select {
+  width: 100%;
+  min-height: 38px;
+  padding: 0.67857143em 1em;
+  line-height: 1.21428571em;
+  background: var(--dash-input, #ffffff);
+  color: var(--dash-text, rgba(0, 0, 0, 0.87));
+  border: 1px solid var(--dash-border-strong, rgba(34, 36, 38, 0.15));
+  border-radius: 7px;
+  outline: 0;
+}
+
+.public-note-field .pn-native-select:focus {
+  border-color: var(--dash-primary, #12599a);
+  box-shadow: 0 0 0 3px var(--dash-focus-ring, rgba(18, 89, 154, 0.16));
 }
 
 .rule-list {
@@ -777,7 +834,7 @@ html body.dashboard-layout .ui.inverted.vertical.footer.segment * {
 }
 
 .rule-editor-menu .item,
-.public-note-editor-menu .item {
+.public-note-editor-menu .public-note-tab {
   font-size: 0.95em;
 }
 

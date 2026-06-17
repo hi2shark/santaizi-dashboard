@@ -194,6 +194,13 @@ var funcMap = template.FuncMap{
 	"safe": func(s string) template.HTML {
 		return template.HTML(s) // #nosec
 	},
+	"json": func(v interface{}) template.JS {
+		data, err := utils.Json.Marshal(v)
+		if err != nil {
+			return template.JS("null") // #nosec G203 -- static fallback
+		}
+		return template.JS(data) // #nosec G203 -- JSON-encoded before template injection
+	},
 	"tag": func(s string) template.HTML {
 		return template.HTML(`<` + s + `>`) // #nosec
 	},

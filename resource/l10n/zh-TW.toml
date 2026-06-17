@@ -841,6 +841,66 @@ other = "經緯度"
 [LocationLabel]
 other = "位置標籤"
 
+[ServerBasicInfo]
+other = "基礎資訊"
+
+[AccessAndVisibility]
+other = "接入與可見性"
+
+[InternalNote]
+other = "內部備註"
+
+[UnlimitedDuration]
+other = "無限時長"
+
+[BillingCycle]
+other = "帳單週期"
+
+[AmountPlaceholder]
+other = "格式如 $9.99、€19.92、¥199、19.99HKD、9.99USD、49.99CNY"
+
+[BillingCyclePlaceholder]
+other = "請輸入帳單週期；不執行自動續費時可任意填寫"
+
+[BandwidthPlaceholder]
+other = "格式如 30Mbps、1Gbps、Unlimited"
+
+[TrafficVolPlaceholder]
+other = "格式如 1TB/月、500GB/月、Unlimited"
+
+[NetworkRoutePlaceholder]
+other = "輸入網路標籤後按 Enter 新增"
+
+[ExtraPlaceholder]
+other = "輸入其他標籤後按 Enter 新增"
+
+[LocationCodePlaceholder]
+other = "請輸入位置代碼"
+
+[FlagPlaceholder]
+other = "請輸入旗幟代碼，可使用國家/地區 code 或英文名稱"
+
+[OrderLinkPlaceholder]
+other = "請輸入購買連結，無需執行 encodeURIComponent"
+
+[BuyBtnTextPlaceholder]
+other = "留空預設為：購買"
+
+[BuyBtnIconPlaceholder]
+other = "適配 Remix Icon 圖示庫"
+
+[SloganPlaceholder]
+other = "介紹伺服器的標語，支援簡單 HTML"
+
+[TrafficOutboundOnly]
+other = "單向出流量"
+
+[TrafficBidirectional]
+other = "雙向流量"
+
+[TrafficMaxInOut]
+other = "入出取最大"
+
 [AlertRuleEditor]
 other = "告警規則編輯器"
 
@@ -867,6 +927,69 @@ other = "週期單位"
 
 [Rule]
 other = "規則"
+
+[RuleTypeDesc_cpu]
+other = "CPU 使用率"
+
+[RuleTypeDesc_memory]
+other = "記憶體使用率"
+
+[RuleTypeDesc_swap]
+other = "Swap 使用率"
+
+[RuleTypeDesc_disk]
+other = "磁碟使用率"
+
+[RuleTypeDesc_net_in_speed]
+other = "下載速度"
+
+[RuleTypeDesc_net_out_speed]
+other = "上傳速度"
+
+[RuleTypeDesc_net_all_speed]
+other = "總網速"
+
+[RuleTypeDesc_transfer_in]
+other = "入站流量"
+
+[RuleTypeDesc_transfer_out]
+other = "出站流量"
+
+[RuleTypeDesc_transfer_all]
+other = "總流量"
+
+[RuleTypeDesc_transfer_in_cycle]
+other = "週期內入站流量"
+
+[RuleTypeDesc_transfer_out_cycle]
+other = "週期內出站流量"
+
+[RuleTypeDesc_transfer_all_cycle]
+other = "週期內總流量"
+
+[RuleTypeDesc_offline]
+other = "離線"
+
+[RuleTypeDesc_load1]
+other = "1 分鐘負載"
+
+[RuleTypeDesc_load5]
+other = "5 分鐘負載"
+
+[RuleTypeDesc_load15]
+other = "15 分鐘負載"
+
+[RuleTypeDesc_tcp_conn_count]
+other = "TCP 連線數"
+
+[RuleTypeDesc_udp_conn_count]
+other = "UDP 連線數"
+
+[RuleTypeDesc_process_count]
+other = "程序數"
+
+[RuleTypeDesc_temperature_max]
+other = "最大溫度"
 
 [RemoveRule]
 other = "刪除規則"
@@ -975,3 +1098,15 @@ other = "月"
 
 [CycleUnitYear]
 other = "年"
+
+[PleaseSelect]
+other = "請選擇"
+
+[Loading]
+other = "載入中"
+
+[NoData]
+other = "無資料"
+
+[NoMatch]
+other = "無匹配資料"

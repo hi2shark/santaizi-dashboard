@@ -841,6 +841,66 @@ other = "Lat/Lng"
 [LocationLabel]
 other = "Location Label"
 
+[ServerBasicInfo]
+other = "Basic Info"
+
+[AccessAndVisibility]
+other = "Access & Visibility"
+
+[InternalNote]
+other = "Internal Note"
+
+[UnlimitedDuration]
+other = "Unlimited"
+
+[BillingCycle]
+other = "Billing Cycle"
+
+[AmountPlaceholder]
+other = "Examples: $9.99, €19.92, ¥199, 19.99HKD, 9.99USD, 49.99CNY"
+
+[BillingCyclePlaceholder]
+other = "Enter a billing cycle; any value is fine when auto renewal is off"
+
+[BandwidthPlaceholder]
+other = "Examples: 30Mbps, 1Gbps, Unlimited"
+
+[TrafficVolPlaceholder]
+other = "Examples: 1TB/month, 500GB/month, Unlimited"
+
+[NetworkRoutePlaceholder]
+other = "Type a network tag and press Enter"
+
+[ExtraPlaceholder]
+other = "Type an extra tag and press Enter"
+
+[LocationCodePlaceholder]
+other = "Enter a location code"
+
+[FlagPlaceholder]
+other = "Enter a flag code, country/region code, or English name"
+
+[OrderLinkPlaceholder]
+other = "Enter the order link; encodeURIComponent is not needed"
+
+[BuyBtnTextPlaceholder]
+other = "Leave blank to use: Buy"
+
+[BuyBtnIconPlaceholder]
+other = "Use a Remix Icon name"
+
+[SloganPlaceholder]
+other = "A short server slogan; simple HTML is supported"
+
+[TrafficOutboundOnly]
+other = "Outbound only"
+
+[TrafficBidirectional]
+other = "Bidirectional"
+
+[TrafficMaxInOut]
+other = "Max of inbound/outbound"
+
 [AlertRuleEditor]
 other = "Alert Rule Editor"
 
@@ -867,6 +927,69 @@ other = "Cycle Unit"
 
 [Rule]
 other = "Rule"
+
+[RuleTypeDesc_cpu]
+other = "CPU usage"
+
+[RuleTypeDesc_memory]
+other = "Memory usage"
+
+[RuleTypeDesc_swap]
+other = "Swap usage"
+
+[RuleTypeDesc_disk]
+other = "Disk usage"
+
+[RuleTypeDesc_net_in_speed]
+other = "Incoming network speed"
+
+[RuleTypeDesc_net_out_speed]
+other = "Outgoing network speed"
+
+[RuleTypeDesc_net_all_speed]
+other = "Total network speed"
+
+[RuleTypeDesc_transfer_in]
+other = "Incoming traffic"
+
+[RuleTypeDesc_transfer_out]
+other = "Outgoing traffic"
+
+[RuleTypeDesc_transfer_all]
+other = "Total traffic"
+
+[RuleTypeDesc_transfer_in_cycle]
+other = "Incoming traffic in cycle"
+
+[RuleTypeDesc_transfer_out_cycle]
+other = "Outgoing traffic in cycle"
+
+[RuleTypeDesc_transfer_all_cycle]
+other = "Total traffic in cycle"
+
+[RuleTypeDesc_offline]
+other = "Offline"
+
+[RuleTypeDesc_load1]
+other = "1-minute load average"
+
+[RuleTypeDesc_load5]
+other = "5-minute load average"
+
+[RuleTypeDesc_load15]
+other = "15-minute load average"
+
+[RuleTypeDesc_tcp_conn_count]
+other = "TCP connection count"
+
+[RuleTypeDesc_udp_conn_count]
+other = "UDP connection count"
+
+[RuleTypeDesc_process_count]
+other = "Process count"
+
+[RuleTypeDesc_temperature_max]
+other = "Maximum temperature"
 
 [RemoveRule]
 other = "Remove Rule"
@@ -975,3 +1098,15 @@ other = "Month"
 
 [CycleUnitYear]
 other = "Year"
+
+[PleaseSelect]
+other = "Please select"
+
+[Loading]
+other = "Loading"
+
+[NoData]
+other = "No data"
+
+[NoMatch]
+other = "No matching data"

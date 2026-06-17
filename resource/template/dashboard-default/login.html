@@ -1,22 +1,14 @@
 {{define "dashboard-default/login"}}
 {{template "common/header" .}}
-<div class="login nb-container">
-    <div class="ui center aligned grid">
-        <div class="column">
-            <h2 class="ui image header">
-                <img src="static/logo.svg?v20210804" class="image">
-                <div class="content">
-                    {{tr "Use"}} {{.LoginType}} {{tr "AccountToLogin"}}
-                </div>
-            </h2>
-            <a href="/oauth2/login" class="ui fluid large nezha-primary-btn submit button">{{tr "Login"}}</a>
-            {{if .RegistrationLink}}
-            <div class="ui message">
-                {{tr "DontHaveAnAccount"}} <a href="{{.RegistrationLink}}" target="_blank" rel="noopener noreferrer">{{tr "SignUp"}}</a>
-            </div>
-            {{end}}
-        </div>
-    </div>
-</div>
+<main class="dashboard-auth-page">
+    <section class="dashboard-auth-panel">
+        <img src="/static/logo.svg?v20210804" alt="{{.Conf.Site.Brand}}">
+        <h1>{{tr "Use"}} {{.LoginType}} {{tr "AccountToLogin"}}</h1>
+        <a href="/oauth2/login" class="dashboard-button dashboard-button-primary dashboard-auth-button"><i class="ri-login-box-line"></i>{{tr "Login"}}</a>
+        {{if .RegistrationLink}}
+        <p class="dashboard-auth-note">{{tr "DontHaveAnAccount"}} <a href="{{.RegistrationLink}}" target="_blank" rel="noopener noreferrer">{{tr "SignUp"}}</a></p>
+        {{end}}
+    </section>
+</main>
 {{template "common/footer" .}}
 {{end}}

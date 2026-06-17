@@ -29,8 +29,13 @@ sudo() {
     if [ "$myEUID" -ne 0 ]; then
         if command -v sudo > /dev/null 2>&1; then
             command sudo "$@"
+        elif command -v doas > /dev/null 2>&1; then
+            command doas "$@"
         else
-            err "ERROR: 当前非 root 且未安装 sudo，无法继续。"
+            err "ERROR: 当前非 root，且未安装 sudo/doas，无法继续。"
+            err "请先切换到 root 后运行："
+            err "  su -"
+            err "  sh -c \"\$(curl -fsSL https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install_dashboard.sh)\""
             exit 1
         fi
     else
@@ -271,9 +276,7 @@ main() {
         err "检测到脚本通过管道执行（如 curl ... | bash），但本脚本需要交互式输入。"
         err "请改用以下一键运行方式："
         err "  sh -c \"\$(curl -fsSL https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install_dashboard.sh)\""
-        err "普通用户且系统已安装 sudo 时可用："
-        err "  sudo sh -c \"\$(curl -fsSL https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install_dashboard.sh)\""
-        err "未安装 sudo 的系统，请先使用 su - 切换到 root 用户。"
+        err "如果当前不是 root，请先使用 sudo、doas 或 su - 提权后再运行上面的命令。"
         exit 1
     fi
 

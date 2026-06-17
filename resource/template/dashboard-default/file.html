@@ -8,30 +8,76 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>File List</title>
     <link rel="shortcut icon" type="image/png" href="/static/logo.svg?v20210804" />
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="https://unpkg.com/mdui@2/mdui.css" />
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
-    <script src="https://unpkg.com/mdui@2/mdui.global.js"></script>
+    <link rel="stylesheet" type="text/css" href="/static/vendor/remixicon/fonts/remixicon.css" />
 </head>
 <style>
+    :root {
+        --file-bg: #f5f7fb;
+        --file-surface: #ffffff;
+        --file-border: #d9e2ef;
+        --file-text: #172033;
+        --file-muted: #65748b;
+        --file-primary: #12599a;
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
     body {
-        font-family: 'Roboto', sans-serif;
+        margin: 0;
+        background: var(--file-bg);
+        color: var(--file-text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
     .file-list {
         list-style-type: none;
-        padding: 0;
+        padding: 10px;
+        margin: 0;
     }
 
     .file-item {
-        margin: 5px 0;
-        border: 1px solid #ccc;
-        border-radius: 5px;
+        margin: 8px 0;
+        border: 1px solid var(--file-border);
+        border-radius: 8px;
+        background: var(--file-surface);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        width: 100%;
+        min-height: 44px;
+        padding: 8px 10px;
+    }
+
+    .file-item-main {
+        min-width: 0;
+        flex: 1;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        text-align: left;
+    }
+
+    .file-item-main span {
         overflow: hidden;
         text-overflow: ellipsis;
-        display: block;
-        width: 100%;
-        box-sizing: border-box;
+        white-space: nowrap;
+    }
+
+    .file-item-main i {
+        color: var(--file-primary);
+        font-size: 20px;
+    }
+
+    button.file-item-main,
+    .file-action-button {
+        cursor: pointer;
     }
 
     #top-app-bar {
@@ -39,48 +85,138 @@
         align-items: center;
         justify-content: space-between;
         padding: 10px;
+        gap: 10px;
+        border-bottom: 1px solid var(--file-border);
+        background: var(--file-surface);
+    }
+
+    .file-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 6px;
     }
 
     #current-directory {
         font-size: 1rem;
         font-weight: normal;
-        margin: 0 15px;
+        margin: 0;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        max-width: calc(100% - 100px);
-        box-sizing: border-box;
+        flex: 1;
+        min-width: 0;
+        text-align: center;
+        font-family: "SFMono-Regular", Consolas, monospace;
+        color: var(--file-muted);
+    }
+
+    .file-action-button {
+        width: 36px;
+        height: 36px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--file-border);
+        border-radius: 7px;
+        background: var(--file-surface);
+        color: var(--file-text);
+        font-size: 18px;
+    }
+
+    .file-action-button:hover {
+        border-color: var(--file-primary);
+        color: var(--file-primary);
+    }
+
+    .file-dialog {
+        width: min(92vw, 420px);
+        border: 1px solid var(--file-border);
+        border-radius: 8px;
+        color: var(--file-text);
+        background: var(--file-surface);
+    }
+
+    .file-dialog::backdrop {
+        background: rgba(15, 23, 42, 0.32);
+    }
+
+    .file-dialog h2 {
+        margin: 0 0 14px;
+        font-size: 18px;
+    }
+
+    .file-dialog input {
+        width: 100%;
+        min-height: 38px;
+        padding: 8px 10px;
+        border: 1px solid var(--file-border);
+        border-radius: 7px;
+        font: inherit;
+    }
+
+    .file-dialog-actions {
+        margin-top: 16px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+    }
+
+    .file-text-button {
+        min-height: 36px;
+        padding: 0 12px;
+        border: 1px solid var(--file-border);
+        border-radius: 7px;
+        background: var(--file-surface);
+        color: var(--file-text);
+        font: inherit;
+        cursor: pointer;
+    }
+
+    .file-text-button.primary {
+        border-color: var(--file-primary);
+        background: var(--file-primary);
+        color: #fff;
+    }
+
+    #upd-progress {
+        width: 100%;
     }
 </style>
 
 <body>
     <div id="top-app-bar">
-        <mdui-dropdown>
-            <mdui-button-icon slot="trigger" icon="menu"></mdui-button-icon>
-            <mdui-menu>
-                <mdui-menu-item id="refresh">{{tr "Refresh"}}</mdui-menu-item>
-                <mdui-menu-item id="copy">{{tr "CopyPath"}}</mdui-menu-item>
-                <mdui-menu-item id="goto">{{tr "Goto"}}</mdui-menu-item>
-            </mdui-menu>
-        </mdui-dropdown>
+        <div class="file-toolbar">
+            <button class="file-action-button" id="refresh" type="button" title="{{tr "Refresh"}}"><i class="ri-refresh-line"></i></button>
+            <button class="file-action-button" id="copy" type="button" title="{{tr "CopyPath"}}"><i class="ri-file-copy-line"></i></button>
+            <button class="file-action-button" id="goto" type="button" title="{{tr "Goto"}}"><i class="ri-folder-open-line"></i></button>
+        </div>
         <span id="current-directory"></span>
-        <mdui-button-icon id="upload" icon="upload"></mdui-button-icon>
+        <button class="file-action-button" id="upload" type="button" title="Upload"><i class="ri-upload-cloud-2-line"></i></button>
     </div>
 
-    <mdui-list id="file-list" class="file-list"></mdui-list>
+    <ul id="file-list" class="file-list"></ul>
 
-    <mdui-dialog id="error-dialog" headline="Error"
-        description="{{tr "FMError"}}"></mdui-dialog>
+    <dialog id="error-dialog" class="file-dialog">
+        <h2>Error</h2>
+        <p>{{tr "FMError"}}</p>
+        <div class="file-dialog-actions">
+            <button class="file-text-button primary" id="error-close" type="button">{{tr "Confirm"}}</button>
+        </div>
+    </dialog>
 
-    <mdui-dialog id="upd-modal" class="modal">
-        <mdui-linear-progress id="upd-progress"></mdui-linear-progress>
-    </mdui-dialog>
+    <dialog id="upd-modal" class="file-dialog">
+        <h2 id="upd-title">Working...</h2>
+        <progress id="upd-progress"></progress>
+    </dialog>
 
-    <mdui-dialog id="goto-dialog" headline="{{tr "GotoHeadline"}}" close-on-overlay-click>
-        <mdui-text-field id="goto-text" variant="outlined" value=""></mdui-text-field>
-        <mdui-button id="goto-go" slot="action" variant="text">{{tr "GotoGo"}}</mdui-button>
-        <mdui-button id="goto-close" slot="action" variant="tonal">{{tr "GotoClose"}}</mdui-button>
-    </mdui-dialog>
+    <dialog id="goto-dialog" class="file-dialog">
+        <h2>{{tr "GotoHeadline"}}</h2>
+        <input id="goto-text" value="">
+        <div class="file-dialog-actions">
+            <button class="file-text-button" id="goto-close" type="button">{{tr "GotoClose"}}</button>
+            <button class="file-text-button primary" id="goto-go" type="button">{{tr "GotoGo"}}</button>
+        </div>
+    </dialog>
 
     <script>
         let currentPath = '/opt/nezha/';
@@ -98,20 +234,52 @@
             directoryTitle.textContent = `${currentPath}`;
         }
 
+        function openDialog(dialog) {
+            if (dialog.showModal && !dialog.open) {
+                dialog.showModal();
+            } else {
+                dialog.open = true;
+            }
+        }
+
+        function closeDialog(dialog) {
+            if (dialog.close && dialog.open) {
+                dialog.close();
+            } else {
+                dialog.open = false;
+            }
+        }
+
+        function appendFileIcon(parent, iconClass) {
+            const icon = document.createElement('i');
+            icon.className = iconClass;
+            parent.appendChild(icon);
+        }
+
+        function appendFileName(parent, name) {
+            const label = document.createElement('span');
+            label.textContent = name;
+            parent.appendChild(label);
+        }
+
         function updateFileList(items) {
             const fileListElement = document.getElementById('file-list');
             fileListElement.innerHTML = '';
 
             if (currentPath !== '/') {
-                const upItem = document.createElement('mdui-list-item');
+                const upItem = document.createElement('li');
                 upItem.className = 'file-item up-directory';
-                upItem.setAttribute('icon', 'arrow_back');
-                upItem.textContent = "..";
-                upItem.onclick = function () {
+                const upButton = document.createElement('button');
+                upButton.className = 'file-item-main';
+                upButton.type = 'button';
+                appendFileIcon(upButton, 'ri-arrow-left-up-line');
+                appendFileName(upButton, '..');
+                upButton.onclick = function () {
                     const lastSlashIndex = currentPath.lastIndexOf('/', currentPath.length - 2);
                     currentPath = currentPath.substring(0, lastSlashIndex + 1) || '/';
                     listFile();
                 };
+                upItem.appendChild(upButton);
                 fileListElement.appendChild(upItem);
             }
 
@@ -126,24 +294,30 @@
             });
 
             items.forEach(item => {
-                const listItem = document.createElement('mdui-list-item');
+                const listItem = document.createElement('li');
                 listItem.className = `file-item ${item.fileType.toLowerCase()}`;
-                listItem.setAttribute('nonclickable', 'true');
-                listItem.setAttribute('icon', 'insert_drive_file');
-                listItem.textContent = `${item.name}`;
+                const main = document.createElement(item.fileType === 'dir' ? 'button' : 'div');
+                main.className = 'file-item-main';
+                if (item.fileType === 'dir') {
+                    main.type = 'button';
+                    appendFileIcon(main, 'ri-folder-3-line');
+                } else {
+                    appendFileIcon(main, 'ri-file-line');
+                }
+                appendFileName(main, item.name);
+                listItem.appendChild(main);
 
                 if (item.fileType === 'dir') {
-                    listItem.setAttribute('nonclickable', 'false');
-                    listItem.setAttribute('icon', 'folder');
-                    listItem.style.cursor = 'pointer';
-                    listItem.onclick = function () {
+                    main.onclick = function () {
                         currentPath += `${item.name}/`;
                         listFile();
                     };
                 } else {
-                    const downloadButton = document.createElement('mdui-button-icon');
-                    downloadButton.setAttribute('slot', 'end-icon');
-                    downloadButton.setAttribute('icon', 'download');
+                    const downloadButton = document.createElement('button');
+                    downloadButton.className = 'file-action-button';
+                    downloadButton.type = 'button';
+                    downloadButton.title = 'Download';
+                    downloadButton.innerHTML = '<i class="ri-download-cloud-2-line"></i>';
                     downloadButton.onclick = function () {
                         const filePath = currentPath + item.name;
                         fileName = item.name;
@@ -310,7 +484,7 @@
                 console.error('Received error: ', errMsg);
                 hideUpdModal();
                 const errorDialog = document.getElementById('error-dialog');
-                errorDialog.open = true;
+                openDialog(errorDialog);
                 if (socket.readyState === WebSocket.OPEN) {
                     socket.close(1000, 'Closing due to error');
                 }
@@ -321,17 +495,18 @@
 
         function showUpdModal(operation) {
             const modal = document.getElementById('upd-modal');
-            modal.open = true;
+            const title = document.getElementById('upd-title');
             if (operation === 'd') {
-                modal.setAttribute('headline', 'Downloading...');
+                title.textContent = 'Downloading...';
             } else if (operation === 'u') {
-                modal.setAttribute('headline', 'Uploading...');
+                title.textContent = 'Uploading...';
             }
+            openDialog(modal);
         }
 
         function hideUpdModal() {
             const modal = document.getElementById('upd-modal');
-            modal.open = false;
+            closeDialog(modal);
         }
 
         function waitForHandleReady() {
@@ -444,7 +619,7 @@
             const goButton = document.getElementById('goto-go');
             const closeButton = document.getElementById('goto-close');
 
-            dialog.open = true;
+            openDialog(dialog);
 
             // Ensure the path ends with a separator
             const updateText = function (event) {
@@ -459,7 +634,7 @@
                 let text = updateText({ target: textField });
                 currentPath = text;
                 listFile();
-                dialog.open = false;
+                closeDialog(dialog);
             };
 
             textField.removeEventListener('change', updateText);
@@ -468,7 +643,11 @@
             goButton.removeEventListener('click', handleGoClick);
             goButton.addEventListener('click', handleGoClick);
 
-            closeButton.addEventListener("click", () => dialog.open = false);
+            closeButton.addEventListener("click", () => closeDialog(dialog));
+        });
+
+        document.getElementById('error-close').addEventListener('click', function () {
+            closeDialog(document.getElementById('error-dialog'));
         });
 
         document.getElementById('upload').addEventListener('click', async function () {

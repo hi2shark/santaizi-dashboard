@@ -27,6 +27,12 @@ const confirmBtn = $(".mini.confirm.modal .nezha-primary-btn.button");
 
 function showConfirm(title, content, callFn, extData) {
   const modal = $(".mini.confirm.modal");
+  if (!modal.length) {
+    if (confirm(title + "\n" + content)) {
+      callFn(extData);
+    }
+    return;
+  }
   modal.children(".header").text(title);
   modal.children(".content").text(content);
   if (confirmBtn.hasClass("loading")) {
@@ -474,6 +480,7 @@ function addOrEditServer(server, conf) {
   modal.find("textarea[name=PublicNote]").val(server ? server.PublicNote : null);
   if (window.publicNoteEditor) {
     window.publicNoteEditor.loadFromRaw();
+    window.publicNoteEditor.showTab("pn-billing");
   }
   if (server) {
     modal.find(".secret.field").attr("style", "");

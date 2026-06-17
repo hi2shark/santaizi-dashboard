@@ -1,34 +1,60 @@
 {{define "common/menu"}}
+{{if .IsAdminPage}}
+<header class="dashboard-topbar">
+    <div class="dashboard-topbar-inner">
+        <a class="dashboard-brand" href="/">
+            <img src="/static/logo.svg?v20210804" alt="{{.Conf.Site.Brand}}">
+            <span>{{.Conf.Site.Brand}}</span>
+        </a>
+        <button class="dashboard-mobile-nav-toggle" id="dashboard-mobile-nav-toggle" type="button" aria-label="Toggle navigation">
+            <i class="ri-menu-line"></i>
+        </button>
+        <nav class="dashboard-nav" id="dashboard-nav">
+            <a class='dashboard-nav-item{{if eq .MatchedPath "/server"}} active{{end}}' href="/server"><i class="ri-server-line"></i>{{tr "Server"}}</a>
+            <a class='dashboard-nav-item{{if eq .MatchedPath "/monitor"}} active{{end}}' href="/monitor"><i class="ri-rss-line"></i>{{tr "Services"}}</a>
+            <a class='dashboard-nav-item{{if eq .MatchedPath "/cron"}} active{{end}}' href="/cron"><i class="ri-time-line"></i>{{tr "Task"}}</a>
+            <a class='dashboard-nav-item{{if eq .MatchedPath "/notification"}} active{{end}}' href="/notification"><i class="ri-notification-3-line"></i>{{tr "Notification"}}</a>
+            <a class='dashboard-nav-item{{if eq .MatchedPath "/ddns"}} active{{end}}' href="/ddns"><i class="ri-global-line"></i>{{tr "DDNS"}}</a>
+            <a class='dashboard-nav-item{{if eq .MatchedPath "/nat"}} active{{end}}' href="/nat"><i class="ri-arrow-left-right-line"></i>{{tr "NAT"}}</a>
+            <a class='dashboard-nav-item{{if eq .MatchedPath "/setting"}} active{{end}}' href="/setting"><i class="ri-settings-3-line"></i>{{tr "Settings"}}</a>
+        </nav>
+        <div class="dashboard-topbar-actions">
+            <button class="dashboard-icon-button dashboard-theme-toggle" type="button" onclick="toggleDashboardTheme()" aria-label="Toggle color theme" title="{{tr "Theme"}}">
+                <i class="ri-moon-line dashboard-theme-dark-icon"></i>
+                <i class="ri-sun-line dashboard-theme-light-icon"></i>
+            </button>
+            {{if .Admin}}
+            <details class="dashboard-user-menu">
+                <summary>
+                    <img class="dashboard-avatar" src="{{.Admin.AvatarURL}}" alt="">
+                    <span>{{.Admin.Name}}</span>
+                    <i class="ri-arrow-down-s-line"></i>
+                </summary>
+                <div class="dashboard-user-menu-list">
+                    <a href="/"><i class="ri-home-3-line"></i>{{tr "BackToHomepage"}}</a>
+                    <a href="/api"><i class="ri-key-2-line"></i>API Token</a>
+                    <button type="button" onclick="showConfirm('{{tr "ConfirmLogout"}}','{{tr "AfterLoggingOutYouHaveToLoginAgain"}}',logout,{{.Admin.ID}})">
+                        <i class="ri-logout-box-r-line"></i>{{tr "Logout"}}
+                    </button>
+                </div>
+            </details>
+            {{else}}
+            <a href="/login" class="dashboard-button dashboard-button-primary"><i class="ri-login-box-line"></i>{{tr "Login"}}</a>
+            {{end}}
+        </div>
+    </div>
+</header>
+{{else}}
 <div class="ui large top fixed menu nb-menu">
     <div class="ui container">
         <a class="item dashboard-brand" href="/">
             <img src="/static/logo.svg?v20210804">
-            {{if .IsAdminPage}}<span>{{.Conf.Site.Brand}}</span>{{end}}
+            <span>{{.Conf.Site.Brand}}</span>
         </a>
-        {{if .IsAdminPage}}
-        <a class='item{{if eq .MatchedPath "/server"}} active{{end}}' href="/server"><i class="server icon"></i>{{tr "Server"}}</a>
-        <a class='item{{if eq .MatchedPath "/monitor"}} active{{end}}' href="/monitor"><i class="rss icon"></i>{{tr "Services"}}</a>
-        <a class='item{{if eq .MatchedPath "/cron"}} active{{end}}' href="/cron"><i class="clock icon"></i>{{tr "Task"}}</a>
-        <a class='item{{if eq .MatchedPath "/notification"}} active{{end}}' href="/notification"><i class="bell icon"></i>{{tr "Notification"}}</a>
-        <a class='item{{if eq .MatchedPath "/ddns"}} active{{end}}' href="/ddns"><i class="globe icon"></i>{{tr "DDNS"}}</a>
-        <a class='item{{if eq .MatchedPath "/nat"}} active{{end}}' href="/nat"><i class="exchange icon"></i>{{tr "NAT"}}</a>
-        <a class='item{{if eq .MatchedPath "/setting"}} active{{end}}' href="/setting">
-            <i class="settings icon"></i>{{tr "Settings"}}
-        </a>
-        {{else}}
         <a class='item{{if eq .MatchedPath "/"}} active{{end}}' href="/"><i class="home icon"></i>{{tr "Home"}}</a>
         <a class='item{{if eq .MatchedPath "/service"}} active{{end}}' href="/service"><i class="rss icon"></i>{{tr "Services"}}</a>
         <a class='item{{if eq .MatchedPath "/network"}} active{{end}}' href="/network"><i class="server icon"></i>{{tr "NetworkSpiter"}}</a>
-        {{end}}
         <div class="right menu">
-            {{if .IsAdminPage}}
-            <div class="item dashboard-theme-item">
-                <button class="ui icon button dashboard-theme-toggle" type="button" onclick="toggleDashboardTheme()" aria-label="Toggle color theme" data-tooltip="{{tr "Theme"}}" data-position="bottom center">
-                    <i class="moon outline icon dashboard-theme-dark-icon"></i>
-                    <i class="sun outline icon dashboard-theme-light-icon"></i>
-                </button>
-            </div>
-            {{end}}
             <div class="item">
                 {{if .Admin}}
                 <div class="ui simple dropdown">
@@ -37,18 +63,9 @@
                     </div>
                     <i class="dropdown icon"></i>
                     <div class="menu">
-                        {{if .IsAdminPage}}
-                        <a class="item" href="/">
-                            <i class="chart area icon"></i>{{tr "BackToHomepage"}}
-                        </a>
-                        <a class="item" href="/api">
-                            <i class="chart key icon"></i>API Token
-                        </a>
-                        {{else}}
                         <a class="item" href="/server">
                             <i class="terminal icon"></i>{{tr "AdminPanel"}}
                         </a>
-                        {{end}}
                         <button class="item" onclick="showConfirm('{{tr "ConfirmLogout"}}','{{tr "AfterLoggingOutYouHaveToLoginAgain"}}',logout,{{.Admin.ID}})">
                             <i class="logout icon"></i>{{tr "Logout"}}
                         </button>
@@ -62,4 +79,5 @@
     </div>
 </div>
 {{template "component/confirm" .}}
+{{end}}
 {{end}}
