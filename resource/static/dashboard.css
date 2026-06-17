@@ -367,7 +367,7 @@ html[nz-theme="dark"] .dashboard-theme-light-icon {
 }
 
 .server-table-col-name {
-  width: min(260px, 28vw);
+  width: min(160px, 18vw);
 }
 
 .server-table-col-group {
@@ -375,7 +375,7 @@ html[nz-theme="dark"] .dashboard-theme-light-icon {
 }
 
 .server-table-col-ip {
-  width: 150px;
+  width: min(280px, 26vw);
 }
 
 .server-table-col-connection {
