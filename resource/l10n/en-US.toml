@@ -316,6 +316,12 @@ other = "Delete Server"
 [ConfirmToDeleteServer]
 other = "Confirm Deleting This Server?"
 
+[ResetSecret]
+other = "Reset Secret"
+
+[ConfirmToResetSecret]
+other = "Confirm resetting the secret? The old secret will be invalidated immediately and the agent must reconnect using the new secret."
+
 [NoServerSelected]
 other = "No Server Selected"
 

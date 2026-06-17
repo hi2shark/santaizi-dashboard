@@ -316,6 +316,12 @@ other = "Eliminar Servidor"
 [ConfirmToDeleteServer]
 other = "¿Confirmar para eliminar este Servidor?"
 
+[ResetSecret]
+other = "Restablecer Secreto"
+
+[ConfirmToResetSecret]
+other = "¿Confirmar restablecimiento del secreto? El secreto anterior quedará invalidado inmediatamente y el agente debe reconectarse con el nuevo secreto."
+
 [NoServerSelected]
 other = "No hay Servidores Seleccionados"
 

@@ -41,6 +41,7 @@ func (ma *memberAPI) serve() {
 	mr.GET("/search-tasks", ma.searchTask)
 	mr.GET("/search-ddns", ma.searchDDNS)
 	mr.POST("/server", ma.addOrEditServer)
+	mr.POST("/server/:id/reset-secret", ma.resetServerSecret)
 	mr.POST("/monitor", ma.addOrEditMonitor)
 	mr.POST("/cron", ma.addOrEditCron)
 	mr.GET("/cron/:id/manual", ma.manualTrigger)
@@ -423,6 +424,58 @@ func (ma *memberAPI) addOrEditServer(c *gin.Context) {
 	singleton.ReSortServer()
 	c.JSON(http.StatusOK, model.Response{
 		Code: http.StatusOK,
+	})
+}
+
+// resetServerSecret 重置服务器密钥
+func (ma *memberAPI) resetServerSecret(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusOK, model.Response{
+			Code:    http.StatusBadRequest,
+			Message: fmt.Sprintf("请求错误：%s", err),
+		})
+		return
+	}
+
+	singleton.ServerLock.RLock()
+	server, ok := singleton.ServerList[id]
+	singleton.ServerLock.RUnlock()
+	if !ok {
+		c.JSON(http.StatusOK, model.Response{
+			Code:    http.StatusBadRequest,
+			Message: "服务器不存在",
+		})
+		return
+	}
+
+	newSecret, err := utils.GenerateRandomString(18)
+	if err != nil {
+		c.JSON(http.StatusOK, model.Response{
+			Code:    http.StatusBadRequest,
+			Message: fmt.Sprintf("请求错误：%s", err),
+		})
+		return
+	}
+
+	if err = singleton.DB.Model(&model.Server{}).Where("id = ?", id).Update("secret", newSecret).Error; err != nil {
+		c.JSON(http.StatusOK, model.Response{
+			Code:    http.StatusBadRequest,
+			Message: fmt.Sprintf("请求错误：%s", err),
+		})
+		return
+	}
+
+	singleton.ServerLock.Lock()
+	oldSecret := server.Secret
+	server.Secret = newSecret
+	singleton.SecretToID[newSecret] = id
+	delete(singleton.SecretToID, oldSecret)
+	singleton.ServerLock.Unlock()
+
+	c.JSON(http.StatusOK, model.Response{
+		Code:    http.StatusOK,
+		Message: newSecret,
 	})
 }
 

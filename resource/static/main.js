@@ -68,6 +68,24 @@ function postJson(url, data) {
     });
 }
 
+function resetServerSecret(serverId) {
+  return $.ajax({
+    url: "/api/server/" + serverId + "/reset-secret",
+    type: "POST",
+  }).done((resp) => {
+    if (resp.code == 200) {
+      alert("密钥已重置：" + resp.message);
+      window.location.reload();
+    } else {
+      alert("密钥重置失败 " + resp.code + "：" + resp.message);
+      confirmBtn.toggleClass("loading");
+    }
+  })
+    .fail((err) => {
+      alert("网络错误：" + err.responseText);
+    });
+}
+
 function showFormModal(modelSelector, formID, URL, getData) {
   const $modal = $(modelSelector);
 

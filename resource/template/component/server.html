@@ -19,6 +19,10 @@
             <div class="secret field">
                 <label>{{tr "Secret"}}</label>
                 <input type="text" name="secret">
+                <button type="button" class="ui mini button"
+                    onclick="showConfirm('{{tr "ResetSecret"}}','{{tr "ConfirmToResetSecret"}}',resetServerSecret,parseInt($('.server.modal input[name=id]').val()))">
+                    <i class="key icon"></i> {{tr "ResetSecret"}}
+                </button>
             </div>
             <div class="field">
                 <label>{{tr "DDNSProfiles"}}</label>
@@ -295,7 +299,7 @@
                     curl -L https://raw.githubusercontent.com/nezhahq/scripts/refs/heads/v0/install.sh -o nezha.sh && chmod
                     +x nezha.sh && ./nezha.sh install_agent <code class="command">{{.Conf.GRPCHost}}</code> <code
                         class="command">{{if .Conf.ProxyGRPCPort}}{{.Conf.ProxyGRPCPort}}{{else}}{{.Conf.GRPCPort}}{{end}}</code> <code
-                        class="command hostSecret"></code> <code class="command">{{if .Conf.TLS}}--tls{{end}}</code>
+                        class="command hostSecret"></code> <code class="command">{{if .Conf.TLS}}--tls{{end}}</code> <code class="command">--disable-auto-update --disable-force-update --disable-command-execute</code>
                     {{else}}
                     {{tr "NoDomainAlert"}}
                     {{end}}

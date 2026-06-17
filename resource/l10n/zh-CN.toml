@@ -316,6 +316,12 @@ other = "删除服务器"
 [ConfirmToDeleteServer]
 other = "确认删除服务器？"
 
+[ResetSecret]
+other = "重置密钥"
+
+[ConfirmToResetSecret]
+other = "确认重置密钥？原密钥将立即失效，该服务器需要重新使用新密钥连接。"
+
 [NoServerSelected]
 other = "当前没有选中的服务器"
 
