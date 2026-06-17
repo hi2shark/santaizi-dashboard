@@ -356,7 +356,15 @@
             return el.value.trim() === '' ? undefined : el.value.trim();
         },
 
+        reset() {
+            this.billingKeys.forEach(k => this.setFieldValue('.pn-billing', k, ''));
+            this.planKeys.forEach(k => this.setFieldValue('.pn-plan', k, ''));
+            this.customNazhuaKeys.forEach(k => this.setFieldValue('.pn-custom', k, ''));
+            this.customAoboboKeys.forEach(k => this.setFieldValue('.pn-custom-aobobo', k, ''));
+        },
+
         loadFromRaw() {
+            this.reset();
             const data = this.parseJSON();
             const billing = data.billingDataMod || {};
             this.billingKeys.forEach(k => this.setFieldValue('.pn-billing', k, billing[k]));
