@@ -1200,6 +1200,10 @@ body.el-popup-parent--hidden {
 .dashboard-server-transfer .el-transfer__buttons {
   width: 60px;
   padding: 0 6px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
 }
 
 @media (max-width: 900px) {
