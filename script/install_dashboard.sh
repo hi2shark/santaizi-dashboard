@@ -181,6 +181,7 @@ run_compose() {
 }
 
 write_compose() {
+    mkdir -p "$1"
     cat > "$1/docker-compose.yml" <<EOF
 services:
   nezha-dashboard:
@@ -200,6 +201,7 @@ EOF
 }
 
 write_config() {
+    mkdir -p "$1/data"
     cat > "$1/data/config.yaml" <<EOF
 debug: false
 httpport: 80
@@ -234,6 +236,14 @@ main() {
 
     if [ "$(uname -s)" != "Linux" ]; then
         err "本脚本目前仅支持 Linux 系统。"
+        exit 1
+    fi
+
+    if ! [ -t 0 ]; then
+        err "检测到脚本通过管道执行（如 curl ... | bash），但本脚本需要交互式输入。"
+        err "请先下载脚本再执行，例如："
+        err "  curl -fsSL https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install_dashboard.sh -o install_dashboard.sh"
+        err "  sudo bash install_dashboard.sh"
         exit 1
     fi
 
