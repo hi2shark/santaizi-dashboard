@@ -9,8 +9,17 @@
 {{if .IsDashboardPage}}
 <script src="/static/vendor/vue/vue.global.prod.js?v20260617"></script>
 <script src="/static/vendor/element-plus/index.full.min.js?v20260617"></script>
+{{if eq .Conf.Language "zh-CN"}}
+<script src="/static/vendor/element-plus/locale/zh-cn.js?v20260617"></script>
+{{else if eq .Conf.Language "zh-TW"}}
+<script src="/static/vendor/element-plus/locale/zh-tw.js?v20260617"></script>
+{{else if eq .Conf.Language "es-ES"}}
+<script src="/static/vendor/element-plus/locale/es.js?v20260617"></script>
+{{else}}
+<script src="/static/vendor/element-plus/locale/en.js?v20260617"></script>
+{{end}}
 {{template "common/csrf" .}}
-<script src="/static/dashboard.js?v20260617-layout22"></script>
+<script src="/static/dashboard.js?v20260617-layout28"></script>
 {{else}}
 <script src="/static/unpkg/jquery@3.7.1/dist/jquery.min.js"></script>
 <script src="/static/unpkg/semantic-ui@2.4.0/dist/semantic.min.js"></script>

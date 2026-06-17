@@ -244,6 +244,48 @@ html[nz-theme="dark"] .dashboard-theme-light-icon {
   background: var(--dash-surface-soft);
 }
 
+.dashboard-theme-menu {
+  position: relative;
+}
+
+.dashboard-theme-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.dashboard-theme-menu-list {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  min-width: 150px;
+  padding: 8px;
+  border: 1px solid var(--dash-border);
+  border-radius: 8px;
+  background: var(--dash-surface);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+}
+
+.dashboard-theme-menu-list button {
+  width: 100%;
+  min-height: 36px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dash-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dashboard-theme-menu-list button:hover,
+.dashboard-theme-menu-list button.active {
+  background: var(--dash-surface-soft);
+  color: var(--dash-primary);
+}
+
 .dashboard-page {
   flex: 1;
   width: min(100%, 1440px);
@@ -1109,21 +1151,55 @@ body.el-popup-parent--hidden {
   height: 28px;
 }
 
-.dashboard-rule-type-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.dashboard-rule-type-select {
+  width: 100%;
 }
 
-.dashboard-rule-type-row .el-select {
-  flex: 0 0 auto;
-  width: 180px;
+.dashboard-rule-type-option-label {
+  display: inline-block;
+  min-width: 140px;
 }
 
-.dashboard-rule-type-desc {
+.dashboard-rule-type-option-desc {
   color: var(--dash-muted);
   font-size: 13px;
-  line-height: 1.4;
+}
+
+.dashboard-threshold-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dashboard-threshold-row .el-input-number {
+  flex: 1;
+}
+
+.dashboard-threshold-unit {
+  width: 90px;
+  flex-shrink: 0;
+}
+
+.dashboard-threshold-unit-text {
+  flex-shrink: 0;
+  min-width: 36px;
+  color: var(--dash-muted);
+  font-size: 13px;
+  text-align: right;
+}
+
+.dashboard-server-transfer {
+  width: 100%;
+}
+
+.dashboard-server-transfer .el-transfer-panel {
+  width: calc(50% - 42px);
+  min-width: 0;
+}
+
+.dashboard-server-transfer .el-transfer__buttons {
+  width: 60px;
+  padding: 0 6px;
 }
 
 @media (max-width: 900px) {

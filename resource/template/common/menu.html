@@ -19,10 +19,23 @@
             <a class='dashboard-nav-item{{if eq .MatchedPath "/setting"}} active{{end}}' href="/setting"><i class="ri-settings-3-line"></i>{{tr "Settings"}}</a>
         </nav>
         <div class="dashboard-topbar-actions">
-            <button class="dashboard-icon-button dashboard-theme-toggle" type="button" onclick="toggleDashboardTheme()" aria-label="Toggle color theme" title="{{tr "Theme"}}">
-                <i class="ri-moon-line dashboard-theme-dark-icon"></i>
-                <i class="ri-sun-line dashboard-theme-light-icon"></i>
-            </button>
+            <details class="dashboard-theme-menu">
+                <summary class="dashboard-icon-button" aria-label="{{tr "Theme"}}" title="{{tr "Theme"}}">
+                    <i class="ri-moon-line dashboard-theme-dark-icon"></i>
+                    <i class="ri-sun-line dashboard-theme-light-icon"></i>
+                </summary>
+                <div class="dashboard-theme-menu-list">
+                    <button type="button" class="dashboard-theme-menu-item" data-mode="auto" onclick="setDashboardTheme('auto'); this.closest('details').removeAttribute('open')">
+                        <i class="ri-contrast-line"></i>{{tr "Auto"}}
+                    </button>
+                    <button type="button" class="dashboard-theme-menu-item" data-mode="light" onclick="setDashboardTheme('light'); this.closest('details').removeAttribute('open')">
+                        <i class="ri-sun-line"></i>{{tr "LightMode"}}
+                    </button>
+                    <button type="button" class="dashboard-theme-menu-item" data-mode="dark" onclick="setDashboardTheme('dark'); this.closest('details').removeAttribute('open')">
+                        <i class="ri-moon-line"></i>{{tr "DarkMode"}}
+                    </button>
+                </div>
+            </details>
             {{if .Admin}}
             <details class="dashboard-user-menu">
                 <summary>

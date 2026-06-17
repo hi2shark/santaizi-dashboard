@@ -379,9 +379,17 @@
       return;
     }
     function elementLocale() {
-      return {
-        name: "nezha",
-        el: {
+      const lang = document.documentElement.lang || "en-US";
+      const localeMap = {
+        "zh-CN": window.ElementPlusLocaleZhCn,
+        "zh-TW": window.ElementPlusLocaleZhTw,
+        "en-US": window.ElementPlusLocaleEn,
+        "es-ES": window.ElementPlusLocaleEs,
+      };
+      const base = localeMap[lang] || window.ElementPlusLocaleEn || {};
+      return Object.assign({}, base, {
+        name: base.name || "nezha",
+        el: Object.assign({}, base.el || {}, {
           select: {
             loading: t("Loading"),
             noMatch: t("NoMatch"),
@@ -392,8 +400,8 @@
             confirm: t("Confirm"),
             cancel: t("Cancel"),
           },
-        },
-      };
+        }),
+      });
     }
 
     function emptyPublicNoteState() {
@@ -403,6 +411,84 @@
         customData: { location: "", slogan: "", orderLink: "", buyBtnText: "", buyBtnIcon: "", flag: "", lat: "", lng: "", latlng: "", locationLabel: "" },
       };
     }
+
+    const RULE_UNIT_FACTORS = {
+      B: 1,
+      KB: 1024,
+      MB: 1048576,
+      GB: 1073741824,
+      TB: 1099511627776,
+      PB: 1125899906842624,
+      "B/s": 1,
+      "KB/s": 1024,
+      "MB/s": 1048576,
+      "GB/s": 1073741824,
+    };
+
+    function ruleUnitMeta(type) {
+      if (["cpu", "memory", "swap", "disk"].includes(type)) {
+        return { category: "ratio", defaultUnit: "%", units: [{ value: "%", label: "%", factor: 1 }] };
+      }
+      if (["net_in_speed", "net_out_speed", "net_all_speed"].includes(type)) {
+        const units = ["B/s", "KB/s", "MB/s", "GB/s"].map(function (u) {
+          return { value: u, label: u, factor: RULE_UNIT_FACTORS[u] };
+        });
+        return { category: "speed", defaultUnit: "MB/s", units: units };
+      }
+      if (type && type.startsWith("transfer_")) {
+        const units = ["B", "KB", "MB", "GB", "TB", "PB"].map(function (u) {
+          return { value: u, label: u, factor: RULE_UNIT_FACTORS[u] };
+        });
+        return { category: "traffic", defaultUnit: "GB", units: units };
+      }
+      return null;
+    }
+
+    function ruleAutoUnit(type, raw) {
+      const meta = ruleUnitMeta(type);
+      if (!meta) {
+        return "";
+      }
+      if (raw === null || raw === undefined || raw === "" || Number(raw) === 0) {
+        return meta.defaultUnit;
+      }
+      const absRaw = Math.abs(Number(raw));
+      for (let i = meta.units.length - 1; i >= 0; i--) {
+        if (absRaw >= meta.units[i].factor) {
+          return meta.units[i].value;
+        }
+      }
+      return meta.units[0].value;
+    }
+
+    function ruleToDisplay(type, raw, unit) {
+      if (raw === null || raw === undefined || raw === "") {
+        return null;
+      }
+      const meta = ruleUnitMeta(type);
+      if (!meta) {
+        return Number(raw);
+      }
+      const factor = (meta.units.find(function (u) { return u.value === unit; }) || meta.units[0]).factor;
+      return Number((Number(raw) / factor).toFixed(6));
+    }
+
+    function ruleToRaw(type, display, unit) {
+      if (display === null || display === undefined || display === "") {
+        return undefined;
+      }
+      const meta = ruleUnitMeta(type);
+      if (!meta) {
+        return Number(display);
+      }
+      const factor = (meta.units.find(function (u) { return u.value === unit; }) || meta.units[0]).factor;
+      const raw = Number(display) * factor;
+      if (meta.category === "speed" || meta.category === "traffic") {
+        return Math.round(raw);
+      }
+      return Number(raw.toFixed(6));
+    }
+
     const mount = document.createElement("div");
     mount.id = "dashboard-modal-root";
     mount.setAttribute("v-cloak", "");
@@ -558,6 +644,9 @@
           } else if (kind === "server") {
             this.loadPublicNote("");
           }
+          if (["cron", "monitor", "rule"].includes(kind)) {
+            this.loadServerOptions();
+          }
           this.visible = true;
         },
         applyItem: function (kind, item) {
@@ -641,6 +730,22 @@
             });
           } catch (error) {
             this.remote[type] = [];
+          }
+        },
+        loadServerOptions: async function () {
+          const ids = [];
+          if (this.kind === "cron") {
+            ids.push.apply(ids, this.form.Servers || []);
+          } else if (this.kind === "monitor") {
+            ids.push.apply(ids, this.form.SkipServers || []);
+          } else if (this.kind === "rule") {
+            this.rules.forEach(function (rule) {
+              ids.push.apply(ids, rule.ignoreIds || []);
+            });
+          }
+          await this.remoteSearch("servers", "");
+          if (ids.length) {
+            this.seedOptions("servers", ids);
           }
         },
         loadPublicNote: function (raw) {
@@ -768,10 +873,12 @@
         },
         normalizeRule: function (rule) {
           const ignoreIds = rule && rule.ignore ? Object.keys(rule.ignore).map(Number).filter(Number.isFinite) : [];
+          const unit = ruleAutoUnit(rule.type, rule.max !== undefined ? rule.max : rule.min);
           return {
             type: rule.type || "cpu",
-            min: rule.min || null,
-            max: rule.max || null,
+            unit: unit,
+            min: ruleToDisplay(rule.type, rule.min, unit),
+            max: ruleToDisplay(rule.type, rule.max, unit),
             duration: rule.duration || 60,
             cover: rule.cover || 0,
             ignoreIds: ignoreIds,
@@ -791,6 +898,54 @@
         },
         isCycleRule: function (type) {
           return type && type.endsWith("_cycle");
+        },
+        ruleUnitMeta: ruleUnitMeta,
+        ruleUnitOptions: function (type) {
+          const meta = ruleUnitMeta(type);
+          return meta ? meta.units : [];
+        },
+        ruleUnitLabel: function (type) {
+          const meta = ruleUnitMeta(type);
+          return meta && meta.units.length === 1 ? meta.units[0].label : "";
+        },
+        onThresholdUnitChange: function (rule) {
+          const meta = ruleUnitMeta(rule.type);
+          const prev = rule._prevUnit;
+          if (!meta || !prev || prev === rule.unit) {
+            return;
+          }
+          const prevUnit = meta.units.find(function (u) { return u.value === prev; });
+          const newUnit = meta.units.find(function (u) { return u.value === rule.unit; });
+          if (!prevUnit || !newUnit) {
+            return;
+          }
+          const ratio = prevUnit.factor / newUnit.factor;
+          if (rule.min !== null && rule.min !== "" && rule.min !== undefined) {
+            rule.min = Number((Number(rule.min) * ratio).toFixed(6));
+          }
+          if (rule.max !== null && rule.max !== "" && rule.max !== undefined) {
+            rule.max = Number((Number(rule.max) * ratio).toFixed(6));
+          }
+        },
+        onRuleTypeChange: function (rule) {
+          const prevType = rule._prevType;
+          if (!prevType || prevType === rule.type) {
+            return;
+          }
+          const prevMeta = ruleUnitMeta(prevType);
+          const prevUnit = rule._prevUnit || "";
+          let rawMin, rawMax;
+          if (prevMeta) {
+            rawMin = ruleToRaw(prevType, rule.min, prevUnit);
+            rawMax = ruleToRaw(prevType, rule.max, prevUnit);
+          } else {
+            rawMin = rule.min;
+            rawMax = rule.max;
+          }
+          const unit = ruleAutoUnit(rule.type, rawMax !== undefined ? rawMax : rawMin);
+          rule.unit = unit;
+          rule.min = ruleToDisplay(rule.type, rawMin, unit);
+          rule.max = ruleToDisplay(rule.type, rawMax, unit);
         },
         localToRFC3339: function (value) {
           if (!value) {
@@ -825,8 +980,8 @@
               cover: Number(rule.cover || 0),
               ignore: toIDMap(rule.ignoreIds),
             };
-            if (rule.min !== null && rule.min !== "" && rule.min !== undefined) item.min = Number(rule.min);
-            if (rule.max !== null && rule.max !== "" && rule.max !== undefined) item.max = Number(rule.max);
+            if (rule.min !== null && rule.min !== "" && rule.min !== undefined) item.min = ruleToRaw(rule.type, rule.min, rule.unit);
+            if (rule.max !== null && rule.max !== "" && rule.max !== undefined) item.max = ruleToRaw(rule.type, rule.max, rule.unit);
             if (this.isCycleRule(rule.type)) {
               item.cycle_start = this.localToRFC3339(rule.cycle_start);
               item.cycle_interval = Number(rule.cycle_interval || 1);
@@ -1014,7 +1169,7 @@
                 <el-form-item :label="t('Scheduler')"><el-input v-model="form.Scheduler" placeholder="0 0 3 * * *" /></el-form-item>
                 <el-form-item :label="t('Coverage')"><el-select v-model="form.Cover"><el-option :label="t('IgnoreAllAndExecuteOnlyThroughSpecificServers')" :value="0" /><el-option :label="t('AllIncludedOnlySpecificServersAreNotExecuted')" :value="1" /><el-option :label="t('ExecuteByTriggerServer')" :value="2" /></el-select></el-form-item>
                 <el-form-item class="dashboard-dialog-grid-full" :label="t('Command')"><el-input v-model="form.Command" type="textarea" :rows="5" /></el-form-item>
-                <el-form-item :label="t('SpecificServers')"><el-select v-model="form.Servers" multiple filterable remote clearable :remote-method="q => remoteSearch('servers', q)"><el-option v-for="item in remote.servers" :key="item.value" :label="item.label" :value="item.value" /></el-select></el-form-item>
+                <el-form-item class="dashboard-dialog-grid-full" :label="t('SpecificServers')"><el-transfer v-model="form.Servers" :data="remote.servers" :props="{key:'value', label:'label'}" filterable :titles="[t('Server'), t('SpecificServers')]" class="dashboard-server-transfer" /></el-form-item>
                 <el-form-item :label="t('NotificationMethodGroup')"><el-input v-model="form.NotificationTag" placeholder="default" /></el-form-item>
                 <el-form-item :label="t('PushSuccessMessages')"><el-switch v-model="form.PushSuccessful" active-value="on" inactive-value="" /></el-form-item>
               </div>
@@ -1036,7 +1191,7 @@
                   <div class="dashboard-dialog-grid">
                     <el-form-item :label="t('Duration')"><el-input-number v-model="form.Duration" :min="1" /></el-form-item>
                     <el-form-item :label="t('Coverage')"><el-select v-model="form.Cover"><el-option :label="t('AllIncludedOnlySpecificServersAreNotRequest')" :value="0" /><el-option :label="t('IgnoreAllRequestOnlyThroughSpecificServers')" :value="1" /></el-select></el-form-item>
-                    <el-form-item class="dashboard-dialog-grid-full" :label="t('SpecificServers')"><el-select v-model="form.SkipServers" multiple filterable remote clearable :remote-method="q => remoteSearch('servers', q)"><el-option v-for="item in remote.servers" :key="item.value" :label="item.label" :value="item.value" /></el-select></el-form-item>
+                    <el-form-item class="dashboard-dialog-grid-full" :label="t('SpecificServers')"><el-transfer v-model="form.SkipServers" :data="remote.servers" :props="{key:'value', label:'label'}" filterable :titles="[t('Server'), t('SpecificServers')]" class="dashboard-server-transfer" /></el-form-item>
                   </div>
                 </section>
 
@@ -1083,14 +1238,32 @@
                       </div>
                       <div class="dashboard-dialog-grid">
                         <el-form-item :label="t('RuleType')">
-                          <div class="dashboard-rule-type-row">
-                            <el-select v-model="rule.type"><el-option v-for="type in ruleTypes" :key="type" :label="type" :value="type" /></el-select>
-                            <span class="dashboard-rule-type-desc">{{ruleTypeDesc(rule.type)}}</span>
-                          </div>
+                          <el-select v-model="rule.type" class="dashboard-rule-type-select" @focus="rule._prevType = rule.type; rule._prevUnit = rule.unit" @change="onRuleTypeChange(rule)">
+                            <el-option v-for="type in ruleTypes" :key="type" :label="type" :value="type">
+                              <span class="dashboard-rule-type-option-label">{{type}}</span>
+                              <span class="dashboard-rule-type-option-desc">{{ruleTypeDesc(type)}}</span>
+                            </el-option>
+                          </el-select>
                         </el-form-item>
                         <el-form-item :label="t('Coverage')"><el-select v-model="rule.cover"><el-option :label="t('AllIncludedOnlySpecificServersAreNotAlerted')" :value="0" /><el-option :label="t('IgnoreAllOnlyAlertSpecificServers')" :value="1" /></el-select></el-form-item>
-                        <el-form-item :label="t('MinThreshold')"><el-input-number v-model="rule.min" /></el-form-item>
-                        <el-form-item :label="t('MaxThreshold')"><el-input-number v-model="rule.max" /></el-form-item>
+                        <el-form-item :label="t('MinThreshold')">
+                          <div class="dashboard-threshold-row">
+                            <el-input-number v-model="rule.min" />
+                            <template v-if="ruleUnitMeta(rule.type)">
+                              <el-select v-if="ruleUnitOptions(rule.type).length > 1" v-model="rule.unit" class="dashboard-threshold-unit" @focus="rule._prevUnit = rule.unit" @change="onThresholdUnitChange(rule)"><el-option v-for="u in ruleUnitOptions(rule.type)" :key="u.value" :label="u.label" :value="u.value" /></el-select>
+                              <span v-else class="dashboard-threshold-unit-text">{{ruleUnitLabel(rule.type)}}</span>
+                            </template>
+                          </div>
+                        </el-form-item>
+                        <el-form-item :label="t('MaxThreshold')">
+                          <div class="dashboard-threshold-row">
+                            <el-input-number v-model="rule.max" />
+                            <template v-if="ruleUnitMeta(rule.type)">
+                              <el-select v-if="ruleUnitOptions(rule.type).length > 1" v-model="rule.unit" class="dashboard-threshold-unit" @focus="rule._prevUnit = rule.unit" @change="onThresholdUnitChange(rule)"><el-option v-for="u in ruleUnitOptions(rule.type)" :key="u.value" :label="u.label" :value="u.value" /></el-select>
+                              <span v-else class="dashboard-threshold-unit-text">{{ruleUnitLabel(rule.type)}}</span>
+                            </template>
+                          </div>
+                        </el-form-item>
                         <template v-if="isCycleRule(rule.type)">
                           <el-form-item :label="t('CycleStart')"><el-date-picker v-model="rule.cycle_start" type="datetime" value-format="YYYY-MM-DD HH:mm" format="YYYY-MM-DD HH:mm" /></el-form-item>
                           <el-form-item :label="t('CycleInterval')"><el-input-number v-model="rule.cycle_interval" :min="1" /></el-form-item>
@@ -1099,7 +1272,7 @@
                         <template v-else>
                           <el-form-item :label="t('Duration')"><el-input-number v-model="rule.duration" :min="3" /></el-form-item>
                         </template>
-                        <el-form-item class="dashboard-dialog-grid-full" :label="t('SpecificServers')"><el-select v-model="rule.ignoreIds" multiple filterable remote clearable :remote-method="q => remoteSearch('servers', q)"><el-option v-for="item in remote.servers" :key="item.value" :label="item.label" :value="item.value" /></el-select></el-form-item>
+                        <el-form-item class="dashboard-dialog-grid-full" :label="t('SpecificServers')"><el-transfer v-model="rule.ignoreIds" :data="remote.servers" :props="{key:'value', label:'label'}" filterable :titles="[t('Server'), t('SpecificServers')]" class="dashboard-server-transfer" /></el-form-item>
                       </div>
                     </div>
                     <button type="button" class="dashboard-button dashboard-button-small" @click="addRule"><i class="ri-add-line"></i>{{t('AddRule')}}</button>

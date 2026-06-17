@@ -340,6 +340,9 @@ other = "管理员列表"
 [Theme]
 other = "前台界面主题"
 
+[Auto]
+other = "自动"
+
 [CustomCodes]
 other = "自定义代码（包括 style 和 script）"
 

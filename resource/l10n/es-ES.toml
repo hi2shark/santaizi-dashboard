@@ -340,6 +340,9 @@ other = "Lista de Administradores"
 [Theme]
 other = "Tema de Frontend"
 
+[Auto]
+other = "Auto"
+
 [CustomCodes]
 other = "Códigos Personalizados (Incluye style y script)"
 
