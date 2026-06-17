@@ -9,7 +9,7 @@ builds:
       - CC=x86_64-linux-gnu-gcc
     ldflags:
       - -s -w
-      - -X github.com/hi2shark/nezha/service/singleton.Version=v0-next-{{time "250109"}}
+      - -X github.com/hi2shark/nezha-next/service/singleton.Version=v0-next-{{time "250109"}}
       - -extldflags "-static -fpic"
     flags:
       - -trimpath
