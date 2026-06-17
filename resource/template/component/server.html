@@ -325,6 +325,8 @@
         planKeys: ['bandwidth', 'trafficVol', 'trafficType', 'IPv4', 'IPv6', 'networkRoute', 'extra'],
         customNazhuaKeys: ['location', 'flag', 'slogan', 'orderLink', 'buyBtnText', 'buyBtnIcon'],
         customAoboboKeys: ['location', 'flag', 'slogan', 'orderLink', 'buyBtnText', 'buyBtnIcon', 'lat', 'lng', 'latlng', 'locationLabel'],
+        customAoboboExtraKeys: ['lat', 'lng', 'latlng', 'locationLabel'],
+        isLoading: false,
 
         getRawTextarea() {
             return document.querySelector('#serverForm textarea[name="PublicNote"]');
@@ -349,7 +351,12 @@
             if (!el) return;
             const val = value === undefined || value === null ? '' : value;
             if (el.tagName === 'SELECT') {
-                $(el).dropdown({ clearable: true }).dropdown('set selected', val.toString());
+                const dropdown = $(el).dropdown({ clearable: true });
+                if (val === '') {
+                    dropdown.dropdown('clear');
+                } else {
+                    dropdown.dropdown('set selected', val.toString());
+                }
             } else {
                 el.value = val;
             }
@@ -361,6 +368,58 @@
             return el.value.trim() === '' ? undefined : el.value.trim();
         },
 
+        getActiveTab() {
+            const active = document.querySelector('.public-note-editor-menu .item.active');
+            return active ? active.getAttribute('data-tab') : '';
+        },
+
+        syncSharedCustomField(sourceSelector, key, value) {
+            if (this.customNazhuaKeys.indexOf(key) === -1) return;
+            const targetSelector = sourceSelector === '.pn-custom' ? '.pn-custom-aobobo' : '.pn-custom';
+            this.setFieldValue(targetSelector, key, value);
+        },
+
+        syncActiveCustomFields() {
+            const activeTab = this.getActiveTab();
+            if (activeTab === 'pn-custom-nazhua') {
+                this.customNazhuaKeys.forEach(k => {
+                    const el = document.querySelector('#serverForm .pn-custom[data-key="' + k + '"]');
+                    if (el) this.syncSharedCustomField('.pn-custom', k, el.value);
+                });
+            } else if (activeTab === 'pn-custom-aobobo') {
+                this.customNazhuaKeys.forEach(k => {
+                    const el = document.querySelector('#serverForm .pn-custom-aobobo[data-key="' + k + '"]');
+                    if (el) this.syncSharedCustomField('.pn-custom-aobobo', k, el.value);
+                });
+            }
+        },
+
+        getBaseObject() {
+            const data = this.parseJSON();
+            if (!data || data.__rawInvalid || Array.isArray(data) || typeof data !== 'object') {
+                return {};
+            }
+            return JSON.parse(JSON.stringify(data));
+        },
+
+        applyGroupValues(obj, groupName, keys, selector, formatter) {
+            const current = obj[groupName];
+            const group = current && typeof current === 'object' && !Array.isArray(current) ? current : {};
+            keys.forEach(k => {
+                const v = this.getFieldValue(selector, k);
+                if (v !== undefined) {
+                    group[k] = formatter ? formatter(k, v) : v;
+                } else {
+                    delete group[k];
+                }
+            });
+            if (Object.keys(group).length > 0) {
+                obj[groupName] = group;
+            } else {
+                delete obj[groupName];
+            }
+        },
+
         reset() {
             this.billingKeys.forEach(k => this.setFieldValue('.pn-billing', k, ''));
             this.planKeys.forEach(k => this.setFieldValue('.pn-plan', k, ''));
@@ -369,71 +428,50 @@
         },
 
         loadFromRaw() {
-            this.reset();
-            const data = this.parseJSON();
-            const billing = data.billingDataMod || {};
-            this.billingKeys.forEach(k => this.setFieldValue('.pn-billing', k, billing[k]));
+            const data = this.getBaseObject();
+            this.isLoading = true;
+            try {
+                this.reset();
+                const billing = data.billingDataMod || {};
+                this.billingKeys.forEach(k => this.setFieldValue('.pn-billing', k, billing[k]));
 
-            const plan = data.planDataMod || {};
-            this.planKeys.forEach(k => this.setFieldValue('.pn-plan', k, plan[k]));
+                const plan = data.planDataMod || {};
+                this.planKeys.forEach(k => this.setFieldValue('.pn-plan', k, plan[k]));
 
-            const custom = data.customData || {};
-            this.customNazhuaKeys.forEach(k => this.setFieldValue('.pn-custom', k, custom[k]));
-            this.customAoboboKeys.forEach(k => this.setFieldValue('.pn-custom-aobobo', k, custom[k]));
+                const custom = data.customData || {};
+                this.customNazhuaKeys.forEach(k => this.setFieldValue('.pn-custom', k, custom[k]));
+                this.customAoboboKeys.forEach(k => this.setFieldValue('.pn-custom-aobobo', k, custom[k]));
+            } finally {
+                this.isLoading = false;
+            }
         },
 
         buildObject() {
-            const obj = {};
-            const billing = {};
-            let hasBilling = false;
-            this.billingKeys.forEach(k => {
-                const v = this.getFieldValue('.pn-billing', k);
-                if (v !== undefined) {
-                    billing[k] = v;
-                    hasBilling = true;
+            const obj = this.getBaseObject();
+            this.applyGroupValues(obj, 'billingDataMod', this.billingKeys, '.pn-billing');
+            this.applyGroupValues(obj, 'planDataMod', this.planKeys, '.pn-plan');
+            this.applyGroupValues(obj, 'customData', this.customNazhuaKeys, '.pn-custom');
+            this.applyGroupValues(obj, 'customData', this.customAoboboExtraKeys, '.pn-custom-aobobo', function (k, v) {
+                if (k === 'lat' || k === 'lng') {
+                    const num = parseFloat(v);
+                    return isNaN(num) ? v : num;
                 }
+                return v;
             });
-            if (hasBilling) obj.billingDataMod = billing;
-
-            const plan = {};
-            let hasPlan = false;
-            this.planKeys.forEach(k => {
-                const v = this.getFieldValue('.pn-plan', k);
-                if (v !== undefined) {
-                    plan[k] = v;
-                    hasPlan = true;
-                }
-            });
-            if (hasPlan) obj.planDataMod = plan;
-
-            const custom = {};
-            let hasCustom = false;
-            this.customNazhuaKeys.forEach(k => {
-                const v = this.getFieldValue('.pn-custom', k);
-                if (v !== undefined) {
-                    custom[k] = v;
-                    hasCustom = true;
-                }
-            });
-            this.customAoboboKeys.forEach(k => {
-                const v = this.getFieldValue('.pn-custom-aobobo', k);
-                if (v !== undefined) {
-                    if (k === 'lat' || k === 'lng') {
-                        const num = parseFloat(v);
-                        custom[k] = isNaN(num) ? v : num;
-                    } else {
-                        custom[k] = v;
-                    }
-                    hasCustom = true;
-                }
-            });
-            if (hasCustom) obj.customData = custom;
-
             return obj;
         },
 
         syncToRaw() {
             this.setRawJSON(this.buildObject());
+        },
+
+        prepareSubmit() {
+            if (this.getActiveTab() === 'pn-raw') {
+                return this.syncFromRaw();
+            }
+            this.syncActiveCustomFields();
+            this.syncToRaw();
+            return true;
         },
 
         syncFromRaw() {
@@ -467,6 +505,13 @@
 
             // Bind field change events
             $('#serverForm').on('input change', '.pn-billing, .pn-plan, .pn-custom, .pn-custom-aobobo', function () {
+                if (self.isLoading) return;
+                const key = this.getAttribute('data-key');
+                if ($(this).hasClass('pn-custom')) {
+                    self.syncSharedCustomField('.pn-custom', key, this.value);
+                } else if ($(this).hasClass('pn-custom-aobobo')) {
+                    self.syncSharedCustomField('.pn-custom-aobobo', key, this.value);
+                }
                 self.syncToRaw();
             });
 

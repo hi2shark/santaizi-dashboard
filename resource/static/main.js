@@ -86,6 +86,70 @@ function resetServerSecret(serverId) {
     });
 }
 
+function serializeForm(formID) {
+  return $(formID)
+    .serializeArray()
+    .reduce(function (obj, item) {
+      // ID 类的数据
+      if (
+        item.name.endsWith("_id") ||
+        item.name === "id" ||
+        item.name === "ID" ||
+        item.name === "ServerID" ||
+        item.name === "RequestType" ||
+        item.name === "RequestMethod" ||
+        item.name === "TriggerMode" ||
+        item.name === "TaskType" ||
+        item.name === "DisplayIndex" ||
+        item.name === "Type" ||
+        item.name === "Cover" ||
+        item.name === "Duration" ||
+        item.name === "MaxRetries" ||
+        item.name === "Provider" ||
+        item.name === "WebhookMethod" ||
+        item.name === "WebhookRequestType"
+      ) {
+        obj[item.name] = parseInt(item.value);
+      } else if (item.name.endsWith("Latency")) {
+        obj[item.name] = parseFloat(item.value);
+      } else {
+        obj[item.name] = item.value;
+      }
+
+      if (item.name.endsWith("ServersRaw")) {
+        if (item.value.length > 2) {
+          obj[item.name] = JSON.stringify(
+            [...item.value.matchAll(/\d+/gm)].map((k) =>
+              parseInt(k[0])
+            )
+          );
+        }
+      }
+
+      if (item.name.endsWith("TasksRaw")) {
+        if (item.value.length > 2) {
+          obj[item.name] = JSON.stringify(
+            [...item.value.matchAll(/\d+/gm)].map((k) =>
+              parseInt(k[0])
+            )
+          );
+        }
+      }
+
+      if (item.name.endsWith("DDNSProfilesRaw")) {
+        if (item.value.length > 2) {
+          obj[item.name] = JSON.stringify(
+            [...item.value.matchAll(/\d+/gm)].map((k) =>
+              parseInt(k[0])
+            )
+          );
+        }
+      }
+
+      return obj;
+    }, {});
+}
+
 function showFormModal(modelSelector, formID, URL, getData) {
   const $modal = $(modelSelector);
 
@@ -115,69 +179,11 @@ function showFormModal(modelSelector, formID, URL, getData) {
         }
         form.children(".message").remove();
         btn.toggleClass("loading");
-        const data = getData
-          ? getData()
-          : $(formID)
-            .serializeArray()
-            .reduce(function (obj, item) {
-              // ID 类的数据
-              if (
-                item.name.endsWith("_id") ||
-                item.name === "id" ||
-                item.name === "ID" ||
-                item.name === "ServerID" ||
-                item.name === "RequestType" ||
-                item.name === "RequestMethod" ||
-                item.name === "TriggerMode" ||
-                item.name === "TaskType" ||
-                item.name === "DisplayIndex" ||
-                item.name === "Type" ||
-                item.name === "Cover" ||
-                item.name === "Duration" ||
-                item.name === "MaxRetries" ||
-                item.name === "Provider" ||
-                item.name === "WebhookMethod" ||
-                item.name === "WebhookRequestType"
-              ) {
-                obj[item.name] = parseInt(item.value);
-              } else if (item.name.endsWith("Latency")) {
-                obj[item.name] = parseFloat(item.value);
-              } else {
-                obj[item.name] = item.value;
-              }
-
-              if (item.name.endsWith("ServersRaw")) {
-                if (item.value.length > 2) {
-                  obj[item.name] = JSON.stringify(
-                    [...item.value.matchAll(/\d+/gm)].map((k) =>
-                      parseInt(k[0])
-                    )
-                  );
-                }
-              }
-
-              if (item.name.endsWith("TasksRaw")) {
-                if (item.value.length > 2) {
-                  obj[item.name] = JSON.stringify(
-                    [...item.value.matchAll(/\d+/gm)].map((k) =>
-                      parseInt(k[0])
-                    )
-                  );
-                }
-              }
-
-              if (item.name.endsWith("DDNSProfilesRaw")) {
-                if (item.value.length > 2) {
-                  obj[item.name] = JSON.stringify(
-                    [...item.value.matchAll(/\d+/gm)].map((k) =>
-                      parseInt(k[0])
-                    )
-                  );
-                }
-              }
-
-              return obj;
-            }, {});
+        const data = getData ? getData() : serializeForm(formID);
+        if (data === false) {
+          btn.toggleClass("loading");
+          return success;
+        }
         $.post(URL, JSON.stringify(data))
           .done(function (resp) {
             if (resp.code == 200) {
@@ -490,7 +496,12 @@ function addOrEditServer(server, conf) {
     modal.find(".ui.hideforguest.checkbox").checkbox("set unchecked");
   }
 
-  showFormModal(".server.modal", "#serverForm", "/api/server");
+  showFormModal(".server.modal", "#serverForm", "/api/server", function () {
+    if (window.publicNoteEditor && !window.publicNoteEditor.prepareSubmit()) {
+      return false;
+    }
+    return serializeForm("#serverForm");
+  });
 }
 
 function addOrEditMonitor(monitor) {
