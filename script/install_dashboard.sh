@@ -1,0 +1,290 @@
+#!/bin/sh
+
+#========================================================
+#   Nezha Dashboard 一键安装脚本
+#   支持交互式配置；若未安装 Docker，可询问后自动安装
+#========================================================
+
+red='\033[0;31m'
+green='\033[0;32m'
+yellow='\033[0;33m'
+plain='\033[0m'
+
+GHCR_IMAGE="ghcr.io/hi2shark/nezha-next-dashboard"
+
+err() {
+    printf "${red}%s${plain}\n" "$*" >&2
+}
+
+info() {
+    printf "${yellow}%s${plain}\n" "$*"
+}
+
+success() {
+    printf "${green}%s${plain}\n" "$*"
+}
+
+sudo() {
+    myEUID=$(id -ru)
+    if [ "$myEUID" -ne 0 ]; then
+        if command -v sudo > /dev/null 2>&1; then
+            command sudo "$@"
+        else
+            err "ERROR: 当前非 root 且未安装 sudo，无法继续。"
+            exit 1
+        fi
+    else
+        "$@"
+    fi
+}
+
+prompt() {
+    message=$1
+    default=$2
+    printf "%s" "$message"
+    if [ -n "$default" ]; then
+        printf " (默认: %s)" "$default"
+    fi
+    printf ": "
+    read -r val
+    if [ -z "$val" ]; then
+        val=$default
+    fi
+    printf "%s\n" "$val"
+}
+
+prompt_required() {
+    while true; do
+        val=$(prompt "$1" "$2")
+        if [ -n "$val" ]; then
+            printf "%s\n" "$val"
+            return
+        fi
+        err "该项不能为空，请重新输入。"
+    done
+}
+
+prompt_yn() {
+    message=$1
+    default=${2:-y}
+    while true; do
+        printf "%s (y/n, 默认: %s): " "$message" "$default"
+        read -r val
+        val=${val:-$default}
+        case "$val" in
+            [Yy]|[Yy][Ee][Ss]) return 0 ;;
+            [Nn]|[Nn][Oo]) return 1 ;;
+            *) err "请输入 y 或 n。" ;;
+        esac
+    done
+}
+
+detect_linux_distro() {
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        printf "%s\n" "$ID"
+    else
+        printf "unknown\n"
+    fi
+}
+
+install_docker() {
+    info "正在安装 Docker..."
+    distro=$(detect_linux_distro)
+    case "$distro" in
+        debian|ubuntu|linuxmint|raspbian)
+            sudo apt-get update
+            sudo apt-get install -y ca-certificates curl gnupg
+            sudo install -m 0755 -d /etc/apt/keyrings
+            curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg || \
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+            . /etc/os-release
+            printf "deb [arch=%s signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/%s %s stable\n" "$(dpkg --print-architecture)" "$ID" "$VERSION_CODENAME" | sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
+            sudo apt-get update
+            sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+            ;;
+        centos|rhel|almalinux|rocky)
+            sudo yum install -y yum-utils
+            sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+            sudo yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+            sudo systemctl start docker
+            sudo systemctl enable docker
+            ;;
+        fedora)
+            sudo dnf -y install dnf-plugins-core
+            sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+            sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+            sudo systemctl start docker
+            sudo systemctl enable docker
+            ;;
+        alpine)
+            sudo apk add --no-cache docker docker-cli-compose
+            sudo rc-update add docker default
+            sudo service docker start
+            ;;
+        *)
+            err "暂不支持的 Linux 发行版: $distro，请手动安装 Docker。"
+            exit 1
+            ;;
+    esac
+    success "Docker 安装完成。"
+}
+
+install_docker_compose_plugin() {
+    info "正在安装 Docker Compose 插件..."
+    sudo mkdir -p /usr/local/lib/docker/cli-plugins
+    compose_version=$(curl -fsSL -m 10 https://api.github.com/repos/docker/compose/releases/latest | grep '"tag_name":' | head -n 1 | sed 's/.*"tag_name": "\(.*\)",.*/\1/')
+    if [ -z "$compose_version" ]; then
+        err "获取 Docker Compose 版本失败，请检查网络。"
+        exit 1
+    fi
+    arch=$(uname -m)
+    case "$arch" in
+        x86_64) arch="x86_64" ;;
+        aarch64|arm64) arch="aarch64" ;;
+        armv7l) arch="armv7" ;;
+        *) err "不支持的架构: $arch" ; exit 1 ;;
+    esac
+    sudo curl -fsSL -o /usr/local/lib/docker/cli-plugins/docker-compose "https://github.com/docker/compose/releases/download/${compose_version}/docker-compose-linux-${arch}"
+    sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+    success "Docker Compose 插件安装完成。"
+}
+
+check_docker() {
+    if ! command -v docker >/dev/null 2>&1; then
+        err "未检测到 Docker。"
+        if prompt_yn "是否自动安装 Docker？" "y"; then
+            install_docker
+        else
+            err "请先手动安装 Docker 后重新运行脚本。"
+            exit 1
+        fi
+    fi
+
+    if ! docker compose version >/dev/null 2>&1 && ! command -v docker-compose >/dev/null 2>&1; then
+        err "未检测到 Docker Compose。"
+        if prompt_yn "是否自动安装 Docker Compose 插件？" "y"; then
+            install_docker_compose_plugin
+        else
+            err "请先手动安装 Docker Compose 后重新运行脚本。"
+            exit 1
+        fi
+    fi
+}
+
+run_compose() {
+    if docker compose version >/dev/null 2>&1; then
+        sudo docker compose "$@"
+    else
+        sudo docker-compose "$@"
+    fi
+}
+
+write_compose() {
+    cat > "$1/docker-compose.yml" <<EOF
+services:
+  nezha-dashboard:
+    image: ${GHCR_IMAGE}:latest
+    container_name: nezha-dashboard
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT}:80"
+      - "${GRPC_PORT}:5555"
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - ./data:/dashboard/data
+    environment:
+      - TZ=Asia/Shanghai
+EOF
+}
+
+write_config() {
+    cat > "$1/data/config.yaml" <<EOF
+debug: false
+httpport: 80
+language: nz_language
+grpcport: 5555
+oauth2:
+  type: "${OAUTH2_TYPE}"
+  admin: "${OAUTH2_ADMIN}"
+  clientid: "${OAUTH2_CLIENTID}"
+  clientsecret: "${OAUTH2_CLIENTSECRET}"
+  endpoint: "${OAUTH2_ENDPOINT}"
+site:
+  brand: "${SITE_BRAND}"
+  cookiename: "nezha-dashboard"
+  theme: "${SITE_THEME}"
+EOF
+}
+
+get_server_ip() {
+    ip=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src") {print $(i+1); exit}}')
+    if [ -z "$ip" ]; then
+        ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+    fi
+    if [ -z "$ip" ]; then
+        ip="<服务器IP>"
+    fi
+    printf "%s\n" "$ip"
+}
+
+main() {
+    info "欢迎使用 Nezha Dashboard 一键安装脚本"
+
+    if [ "$(uname -s)" != "Linux" ]; then
+        err "本脚本目前仅支持 Linux 系统。"
+        exit 1
+    fi
+
+    check_docker
+
+    WORK_DIR=$(prompt "请输入 Dashboard 工作目录" "/opt/nezha")
+    WORK_DIR=${WORK_DIR:-/opt/nezha}
+    if ! mkdir -p "$WORK_DIR"; then
+        err "创建工作目录失败: $WORK_DIR"
+        exit 1
+    fi
+    cd "$WORK_DIR" || {
+        err "无法进入工作目录: $WORK_DIR"
+        exit 1
+    }
+
+    WEB_PORT=$(prompt "请输入面板 Web 端口" "80")
+    WEB_PORT=${WEB_PORT:-80}
+    GRPC_PORT=$(prompt "请输入 Agent gRPC 端口" "5555")
+    GRPC_PORT=${GRPC_PORT:-5555}
+
+    info "请配置 OAuth2 登录（首次登录必须使用 OAuth2）"
+    OAUTH2_TYPE=$(prompt "OAuth2 类型 (github/gitlab/jihulab/gitee/gitea)" "github")
+    OAUTH2_TYPE=${OAUTH2_TYPE:-github}
+    OAUTH2_ADMIN=$(prompt_required "管理员账号（多个用半角逗号隔开）")
+    OAUTH2_CLIENTID=$(prompt_required "OAuth2 Client ID")
+    OAUTH2_CLIENTSECRET=$(prompt_required "OAuth2 Client Secret")
+    OAUTH2_ENDPOINT=$(prompt "OAuth2 Endpoint（仅自建 Gitea 需要）" "")
+
+    SITE_BRAND=$(prompt "站点标题" "哪吒监控")
+    SITE_BRAND=${SITE_BRAND:-哪吒监控}
+    SITE_THEME=$(prompt "主题 (default/daynight/hotaru/mdui/angel-kanade/server-status)" "default")
+    SITE_THEME=${SITE_THEME:-default}
+
+    info "正在生成配置文件..."
+    mkdir -p data
+    write_compose "$WORK_DIR"
+    write_config "$WORK_DIR"
+
+    info "正在拉取镜像并启动 Dashboard..."
+    if ! run_compose up -d; then
+        err "启动 Dashboard 失败，请检查 Docker 与网络。"
+        exit 1
+    fi
+
+    SERVER_IP=$(get_server_ip)
+    success "Nezha Dashboard 安装完成！"
+    success "访问地址: http://${SERVER_IP}:${WEB_PORT}"
+    success "工作目录: ${WORK_DIR}"
+    success "配置文件: ${WORK_DIR}/data/config.yaml"
+    info "安装 Agent：进入后台 → 服务器 → 添加服务器 → 使用一键安装命令。"
+}
+
+main
