@@ -310,6 +310,9 @@ other = "Instalación con Un Solo Clic"
 [ClickToCopy]
 other = "Hacer Clic para Copiar"
 
+[InstallScriptNotConfigured]
+other = "Script de instalación no configurado"
+
 [DeleteServer]
 other = "Eliminar Servidor"
 

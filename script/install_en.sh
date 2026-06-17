@@ -1,14 +1,17 @@
 #!/bin/sh
 
 #========================================================
-# v0 script redirect to new repository
+# Install script wrapper
+# Reads the actual install script URL from NEZHA_SCRIPT_URL
+# Defaults to this repo's agent-only install script
 #========================================================
 
-# new address https://raw.githubusercontent.com/nezhahq/scripts/refs/heads/v0/install.sh
+shell_url="${NEZHA_SCRIPT_URL:-https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install_agent_en.sh}"
+
 if command -v wget >/dev/null 2>&1; then
-    wget -O nezha_v0.sh https://raw.githubusercontent.com/nezhahq/scripts/refs/heads/v0/install_en.sh
+    wget -O nezha_v0.sh "$shell_url"
 elif command -v curl >/dev/null 2>&1; then
-    curl -o nezha_v0.sh https://raw.githubusercontent.com/nezhahq/scripts/refs/heads/v0/install_en.sh
+    curl -fsSL -o nezha_v0.sh "$shell_url"
 else
     echo "Error: wget or curl not found, please install one of them first"
     exit 1

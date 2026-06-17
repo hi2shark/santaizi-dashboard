@@ -5,5 +5,6 @@
  - 关于unpkg.com近期出现了不稳定的情况，因此，这里的v0-next下载了对应前端资源到项目中（目前覆盖控制台、默认主题、ServerStatus主题）。
  - 特别注意，本仓库只提供了docker镜像，不提供其它分发系统的构建内容，因为没有时间DEBUG。  
 
---原版Readme内容--
-[Readme](./README-OLD.md)
+【版本声明】  
+Nezha面板所有版权归属原作者，本仓库仅为自己个人使用方便，进行调整修改。  
+[README](./README-OLD.md)

@@ -310,6 +310,9 @@ other = "Installation commands"
 [ClickToCopy]
 other = "Click To Copy"
 
+[InstallScriptNotConfigured]
+other = "Install script not configured"
+
 [DeleteServer]
 other = "Delete Server"
 

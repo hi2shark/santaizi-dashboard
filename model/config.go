@@ -70,12 +70,21 @@ type PublicConfig struct {
 	DisableSwitchTemplateInFrontend bool
 }
 
+// InstallScriptConfig 一键安装脚本源配置
+type InstallScriptConfig struct {
+	Linux   string // Linux 中文安装脚本 URL
+	LinuxEn string // Linux 英文安装脚本 URL
+	Windows string // Windows 安装脚本 URL
+	MacOS   string // macOS 安装脚本 URL
+}
+
 // Config 站点配置
 type Config struct {
-	Debug    bool   // debug模式开关
-	Language string // 系统语言，默认 zh-CN
-	Site     SiteConfig
-	Oauth2   struct {
+	Debug         bool   // debug模式开关
+	Language      string // 系统语言，默认 zh-CN
+	Site          SiteConfig
+	InstallScript InstallScriptConfig
+	Oauth2        struct {
 		Type            string
 		Admin           string // 管理员用户名列表
 		AdminGroups     string // 管理员用户组列表
@@ -185,6 +194,19 @@ func (c *Config) Read(path string) error {
 	}
 	if c.AvgPingCount == 0 {
 		c.AvgPingCount = 2
+	}
+	// 默认使用本仓库 script/ 目录下的 Agent 专用安装脚本
+	if c.InstallScript.Linux == "" {
+		c.InstallScript.Linux = "https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install_agent.sh"
+	}
+	if c.InstallScript.LinuxEn == "" {
+		c.InstallScript.LinuxEn = "https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install_agent_en.sh"
+	}
+	if c.InstallScript.Windows == "" {
+		c.InstallScript.Windows = "https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install.ps1"
+	}
+	if c.InstallScript.MacOS == "" {
+		c.InstallScript.MacOS = "https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install.command"
 	}
 	if c.Oauth2.OidcScopes == "" {
 		c.Oauth2.OidcScopes = "openid,profile,email"

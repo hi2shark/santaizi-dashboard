@@ -53,21 +53,39 @@
                         </button>
                     </td>
                     <td>
+                        {{if $.Conf.InstallScript.Linux}}
                         <button class="ui icon green mini button"
-                            data-clipboard-text="{{if $.Conf.GRPCHost}}{{if eq $.Conf.Language "zh-CN"}}curl -L https://raw.githubusercontent.com/nezhahq/scripts/refs/heads/v0/install.sh{{else}}curl -L https://raw.githubusercontent.com/nezhahq/scripts/refs/heads/v0/install_en.sh{{end}} -o nezha.sh && chmod +x nezha.sh && ./nezha.sh install_agent {{$.Conf.GRPCHost}} {{if $.Conf.ProxyGRPCPort}}{{$.Conf.ProxyGRPCPort}}{{else}}{{$.Conf.GRPCPort}}{{end}} {{$server.Secret}}{{if $.Conf.TLS}} --tls{{end}} --disable-auto-update --disable-force-update --disable-command-execute{{else}}{{tr "NoDomainAlert"}}{{end}}"
+                            data-clipboard-text="{{if $.Conf.GRPCHost}}{{if eq $.Conf.Language "zh-CN"}}curl -fSL {{$.Conf.InstallScript.Linux}}{{else}}curl -fSL {{$.Conf.InstallScript.LinuxEn}}{{end}} | bash -s -- install_agent {{$.Conf.GRPCHost}} {{if $.Conf.ProxyGRPCPort}}{{$.Conf.ProxyGRPCPort}}{{else}}{{$.Conf.GRPCPort}}{{end}} {{$server.Secret}}{{if $.Conf.TLS}} --tls{{end}} --disable-auto-update --disable-force-update --disable-command-execute{{else}}{{tr "NoDomainAlert"}}{{end}}"
                             data-tooltip="{{tr "ClickToCopy"}}">
                             <i class="linux icon"></i>
                         </button>
+                        {{else}}
+                        <button class="ui icon green mini disabled button" data-tooltip="{{tr "InstallScriptNotConfigured"}}">
+                            <i class="linux icon"></i>
+                        </button>
+                        {{end}}
+                        {{if $.Conf.InstallScript.Windows}}
                         <button class="ui icon green mini button"
-                            data-clipboard-text="{{if $.Conf.GRPCHost}}[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Ssl3 -bor [Net.SecurityProtocolType]::Tls -bor [Net.SecurityProtocolType]::Tls11 -bor [Net.SecurityProtocolType]::Tls12;set-ExecutionPolicy RemoteSigned;Invoke-WebRequest https://raw.githubusercontent.com/nezhahq/scripts/refs/heads/v0/extras/install.ps1 -OutFile C:\install.ps1;powershell.exe C:\install.ps1 {{$.Conf.GRPCHost}}:{{if $.Conf.ProxyGRPCPort}}{{$.Conf.ProxyGRPCPort}}{{else}}{{$.Conf.GRPCPort}}{{end}} {{$server.Secret}}{{if $.Conf.TLS}} --tls{{end}} --disable-auto-update --disable-force-update --disable-command-execute{{else}}{{tr "NoDomainAlert"}}{{end}}"
+                            data-clipboard-text="{{if $.Conf.GRPCHost}}powershell -NoProfile -ExecutionPolicy Bypass -Command &quot;&amp; ([ScriptBlock]::Create((Invoke-WebRequest '{{$.Conf.InstallScript.Windows}}' -UseBasicParsing).Content)) '{{$.Conf.GRPCHost}}:{{if $.Conf.ProxyGRPCPort}}{{$.Conf.ProxyGRPCPort}}{{else}}{{$.Conf.GRPCPort}}{{end}}' '{{$server.Secret}}' '{{if $.Conf.TLS}}--tls{{end}}' '--disable-auto-update' '--disable-force-update' '--disable-command-execute'&quot;{{else}}{{tr "NoDomainAlert"}}{{end}}"
                             data-tooltip="{{tr "ClickToCopy"}}">
                             <i class="windows icon"></i>
                         </button>
+                        {{else}}
+                        <button class="ui icon green mini disabled button" data-tooltip="{{tr "InstallScriptNotConfigured"}}">
+                            <i class="windows icon"></i>
+                        </button>
+                        {{end}}
+                        {{if $.Conf.InstallScript.MacOS}}
                         <button class="ui icon green mini button"
-                            data-clipboard-text="{{if $.Conf.GRPCHost}}curl -L https://raw.githubusercontent.com/nezhahq/scripts/refs/heads/v0/extras/install.command -o nezha.command && chmod +x nezha.command && sudo ./nezha.command install_agent {{$.Conf.GRPCHost}} {{if $.Conf.ProxyGRPCPort}}{{$.Conf.ProxyGRPCPort}}{{else}}{{$.Conf.GRPCPort}}{{end}} {{$server.Secret}}{{if $.Conf.TLS}} --tls{{end}} --disable-auto-update --disable-force-update --disable-command-execute{{else}}{{tr "NoDomainAlert"}}{{end}}"
+                            data-clipboard-text="{{if $.Conf.GRPCHost}}curl -fSL {{$.Conf.InstallScript.MacOS}} | sudo bash -s -- install_agent {{$.Conf.GRPCHost}} {{if $.Conf.ProxyGRPCPort}}{{$.Conf.ProxyGRPCPort}}{{else}}{{$.Conf.GRPCPort}}{{end}} {{$server.Secret}}{{if $.Conf.TLS}} --tls{{end}} --disable-auto-update --disable-force-update --disable-command-execute{{else}}{{tr "NoDomainAlert"}}{{end}}"
                             data-tooltip="{{tr "ClickToCopy"}}">
                             <i class="apple icon"></i>
                         </button>
+                        {{else}}
+                        <button class="ui icon green mini disabled button" data-tooltip="{{tr "InstallScriptNotConfigured"}}">
+                            <i class="apple icon"></i>
+                        </button>
+                        {{end}}
                     </td>
                     <td>
                         {{if $server.Note}}
@@ -144,21 +162,39 @@
                     <button class="ui icon green mini button" data-clipboard-text="{{$server.Secret}}" data-tooltip="{{tr "ClickToCopy"}}">
                         <i class="copy icon"></i> {{tr "Secret"}}
                     </button>
+                    {{if $.Conf.InstallScript.Linux}}
                     <button class="ui icon green mini button"
-                        data-clipboard-text="{{if $.Conf.GRPCHost}}{{if eq $.Conf.Language "zh-CN"}}curl -L https://raw.githubusercontent.com/nezhahq/scripts/refs/heads/v0/install.sh{{else}}curl -L https://raw.githubusercontent.com/nezhahq/scripts/refs/heads/v0/install_en.sh{{end}} -o nezha.sh && chmod +x nezha.sh && ./nezha.sh install_agent {{$.Conf.GRPCHost}} {{if $.Conf.ProxyGRPCPort}}{{$.Conf.ProxyGRPCPort}}{{else}}{{$.Conf.GRPCPort}}{{end}} {{$server.Secret}}{{if $.Conf.TLS}} --tls{{end}} --disable-auto-update --disable-force-update --disable-command-execute{{else}}{{tr "NoDomainAlert"}}{{end}}"
+                        data-clipboard-text="{{if $.Conf.GRPCHost}}{{if eq $.Conf.Language "zh-CN"}}curl -fSL {{$.Conf.InstallScript.Linux}}{{else}}curl -fSL {{$.Conf.InstallScript.LinuxEn}}{{end}} | bash -s -- install_agent {{$.Conf.GRPCHost}} {{if $.Conf.ProxyGRPCPort}}{{$.Conf.ProxyGRPCPort}}{{else}}{{$.Conf.GRPCPort}}{{end}} {{$server.Secret}}{{if $.Conf.TLS}} --tls{{end}} --disable-auto-update --disable-force-update --disable-command-execute{{else}}{{tr "NoDomainAlert"}}{{end}}"
                         data-tooltip="{{tr "ClickToCopy"}}">
                         <i class="linux icon"></i>
                     </button>
+                    {{else}}
+                    <button class="ui icon green mini disabled button" data-tooltip="{{tr "InstallScriptNotConfigured"}}">
+                        <i class="linux icon"></i>
+                    </button>
+                    {{end}}
+                    {{if $.Conf.InstallScript.Windows}}
                     <button class="ui icon green mini button"
-                        data-clipboard-text="{{if $.Conf.GRPCHost}}[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Ssl3 -bor [Net.SecurityProtocolType]::Tls -bor [Net.SecurityProtocolType]::Tls11 -bor [Net.SecurityProtocolType]::Tls12;set-ExecutionPolicy RemoteSigned;Invoke-WebRequest https://raw.githubusercontent.com/nezhahq/scripts/refs/heads/v0/extras/install.ps1 -OutFile C:\install.ps1;powershell.exe C:\install.ps1 {{$.Conf.GRPCHost}}:{{if $.Conf.ProxyGRPCPort}}{{$.Conf.ProxyGRPCPort}}{{else}}{{$.Conf.GRPCPort}}{{end}} {{$server.Secret}}{{if $.Conf.TLS}} --tls{{end}} --disable-auto-update --disable-force-update --disable-command-execute{{else}}{{tr "NoDomainAlert"}}{{end}}"
+                        data-clipboard-text="{{if $.Conf.GRPCHost}}powershell -NoProfile -ExecutionPolicy Bypass -Command &quot;&amp; ([ScriptBlock]::Create((Invoke-WebRequest '{{$.Conf.InstallScript.Windows}}' -UseBasicParsing).Content)) '{{$.Conf.GRPCHost}}:{{if $.Conf.ProxyGRPCPort}}{{$.Conf.ProxyGRPCPort}}{{else}}{{$.Conf.GRPCPort}}{{end}}' '{{$server.Secret}}' '{{if $.Conf.TLS}}--tls{{end}}' '--disable-auto-update' '--disable-force-update' '--disable-command-execute'&quot;{{else}}{{tr "NoDomainAlert"}}{{end}}"
                         data-tooltip="{{tr "ClickToCopy"}}">
                         <i class="windows icon"></i>
                     </button>
+                    {{else}}
+                    <button class="ui icon green mini disabled button" data-tooltip="{{tr "InstallScriptNotConfigured"}}">
+                        <i class="windows icon"></i>
+                    </button>
+                    {{end}}
+                    {{if $.Conf.InstallScript.MacOS}}
                     <button class="ui icon green mini button"
-                        data-clipboard-text="{{if $.Conf.GRPCHost}}curl -L https://raw.githubusercontent.com/nezhahq/scripts/refs/heads/v0/extras/install.command -o nezha.command && chmod +x nezha.command && sudo ./nezha.command install_agent {{$.Conf.GRPCHost}} {{if $.Conf.ProxyGRPCPort}}{{$.Conf.ProxyGRPCPort}}{{else}}{{$.Conf.GRPCPort}}{{end}} {{$server.Secret}}{{if $.Conf.TLS}} --tls{{end}} --disable-auto-update --disable-force-update --disable-command-execute{{else}}{{tr "NoDomainAlert"}}{{end}}"
+                        data-clipboard-text="{{if $.Conf.GRPCHost}}curl -fSL {{$.Conf.InstallScript.MacOS}} | sudo bash -s -- install_agent {{$.Conf.GRPCHost}} {{if $.Conf.ProxyGRPCPort}}{{$.Conf.ProxyGRPCPort}}{{else}}{{$.Conf.GRPCPort}}{{end}} {{$server.Secret}}{{if $.Conf.TLS}} --tls{{end}} --disable-auto-update --disable-force-update --disable-command-execute{{else}}{{tr "NoDomainAlert"}}{{end}}"
                         data-tooltip="{{tr "ClickToCopy"}}">
                         <i class="apple icon"></i>
                     </button>
+                    {{else}}
+                    <button class="ui icon green mini disabled button" data-tooltip="{{tr "InstallScriptNotConfigured"}}">
+                        <i class="apple icon"></i>
+                    </button>
+                    {{end}}
                     <div class="server-mobile-admin-buttons">
                         <button class="ui icon mini button" onclick="connectToServer({{$server.ID}})">
                             <i class="terminal icon"></i>

@@ -310,6 +310,9 @@ other = "一鍵安裝"
 [ClickToCopy]
 other = "點擊複製"
 
+[InstallScriptNotConfigured]
+other = "未配置安裝腳本"
+
 [DeleteServer]
 other = "刪除伺服器"
 

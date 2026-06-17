@@ -192,6 +192,24 @@ td {
   gap: 0.3em;
 }
 
+/* Server edit modal secret field */
+.secret-input-group {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.5em;
+  align-items: center;
+}
+
+.secret-input-group input[type="text"] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.secret-input-group .button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 /* Server list mobile responsive */
 .server-mobile-cards {
   display: none;
@@ -315,5 +333,9 @@ td {
   .server-mobile-admin-buttons .ui.button {
     flex: 1 1 0;
     margin: 0;
+  }
+
+  .secret-input-group {
+    flex-wrap: wrap;
   }
 }

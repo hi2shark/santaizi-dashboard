@@ -3,7 +3,8 @@
 #========================================================
 #   System Required: macOS 10.13+
 #   Description: Nezha Agent Install Script (macOS)
-#   Github: https://github.com/naiba/nezha
+#   Github: https://github.com/hi2shark/nezha-next
+#   Agent repo can be overridden via NEZHA_AGENT_REPO (default: hi2shark/agent)
 #========================================================
 
 NZ_BASE_PATH="/opt/nezha"
@@ -14,6 +15,8 @@ green='\033[0;32m'
 yellow='\033[0;33m'
 plain='\033[0m'
 export PATH=$PATH:/usr/local/bin
+
+NEZHA_AGENT_REPO="${NEZHA_AGENT_REPO:-hi2shark/agent}"
 
 pre_check() {
     # check root
@@ -26,49 +29,13 @@ pre_check() {
         os_arch="arm64"
     fi
 
-    ## China_IP
-    if [[ -z "${CN}" ]]; then
-        if [[ $(curl -m 10 -s http://ip-api.com/json |grep 'country' |grep -q 'China') != "" ]]; then
-            echo "According to the information provided by ip-api.com, the current IP may be in China"
-            read -e -r -p "Is the installation done with a Chinese Mirror? [Y/n] (Custom Mirror Input 3):" input
-            case $input in
-            [yY][eE][sS] | [yY])
-                echo "Use Chinese Mirror"
-                CN=true
-                ;;
-
-            [nN][oO] | [nN])
-                echo "No Use Chinese Mirror"
-                ;;
-
-            [3])
-                echo "Use Custom Mirror"
-                read -e -r -p "Please enter a custom image (e.g. :dn-dao-github-mirror.daocloud.io), leave blank to nouse: " input
-                case $input in
-                *)
-                    CUSTOM_MIRROR=$input
-                    ;;
-                esac
-
-                ;;
-            *)
-                echo "No Use Chinese Mirror"
-                ;;
-            esac
-        fi
-    fi
-
+    # 支持通过环境变量 CUSTOM_MIRROR / CN 指定镜像，避免管道执行时读取 stdin
     if [[ -n "${CUSTOM_MIRROR}" ]]; then
-        GITHUB_RAW_URL="gitee.com/naibahq/nezha/raw/master"
         GITHUB_URL=$CUSTOM_MIRROR
+    elif [[ "${CN}" == "true" ]]; then
+        GITHUB_URL="gitee.com"
     else
-        if [[ -z "${CN}" ]]; then
-            GITHUB_RAW_URL="raw.githubusercontent.com/naiba/nezha/master"
-            GITHUB_URL="github.com"
-        else
-            GITHUB_RAW_URL="gitee.com/naibahq/nezha/raw/master"
-            GITHUB_URL="gitee.com"
-        fi
+        GITHUB_URL="github.com"
     fi
 }
 
@@ -82,19 +49,16 @@ install_agent() {
 
     echo -e "Obtaining Agent version"
 
-    local version=$(curl -m 10 -sL "https://api.github.com/repos/nezhahq/agent/releases/latest" | grep "tag_name" | head -n 1 | awk -F ":" '{print $2}' | sed 's/\"//g;s/,//g;s/ //g')
+    local version=$(curl -m 10 -sL "https://api.github.com/repos/${NEZHA_AGENT_REPO}/releases/latest" | grep "tag_name" | head -n 1 | awk -F ":" '{print $2}' | sed 's/\"//g;s/,//g;s/ //g')
     if [ ! -n "$version" ]; then
-        version=$(curl -m 10 -sL "https://gitee.com/api/v5/repos/naibahq/agent/releases/latest" | awk -F '"' '{for(i=1;i<=NF;i++){if($i=="tag_name"){print $(i+2)}}}')
+        version=$(curl -m 10 -sL "https://fastly.jsdelivr.net/gh/${NEZHA_AGENT_REPO}/" | grep "option\.value" | awk -F "'" '{print $2}' | sed 's/.*@/v/g')
     fi
     if [ ! -n "$version" ]; then
-        version=$(curl -m 10 -sL "https://fastly.jsdelivr.net/gh/nezhahq/agent/" | grep "option\.value" | awk -F "'" '{print $2}' | sed 's/nezhahq\/agent@/v/g')
-    fi
-    if [ ! -n "$version" ]; then
-        version=$(curl -m 10 -sL "https://gcore.jsdelivr.net/gh/nezhahq/agent/" | grep "option\.value" | awk -F "'" '{print $2}' | sed 's/nezhahq\/agent@/v/g')
+        version=$(curl -m 10 -sL "https://gcore.jsdelivr.net/gh/${NEZHA_AGENT_REPO}/" | grep "option\.value" | awk -F "'" '{print $2}' | sed 's/.*@/v/g')
     fi
 
     if [ ! -n "$version" ]; then
-        echo -e "Fail to obtaine agent version, please check if the network can link https://api.github.com/repos/nezhahq/agent/releases/latest"
+        echo -e "Fail to obtain agent version, please check if the network can link https://api.github.com/repos/${NEZHA_AGENT_REPO}/releases/latest"
         return 0
     else
         echo -e "The current latest version is: ${version}"
@@ -105,11 +69,7 @@ install_agent() {
     chmod -R 777 $NZ_AGENT_PATH
 
     echo -e "Downloading Agent"
-    if [[ -z $CN ]]; then
-        NZ_AGENT_URL="https://${GITHUB_URL}/nezhahq/agent/releases/download/${version}/nezha-agent_darwin_${os_arch}.zip"
-    else
-        NZ_AGENT_URL="https://${GITHUB_URL}/naibahq/agent/releases/download/${version}/nezha-agent_darwin_${os_arch}.zip"
-    fi
+    NZ_AGENT_URL="https://${GITHUB_URL}/${NEZHA_AGENT_REPO}/releases/download/${version}/nezha-agent_darwin_${os_arch}.zip"
     curl -o nezha-agent_darwin_${os_arch}.zip -L -f --retry 2 --retry-max-time 60 $NZ_AGENT_URL >/dev/null 2>&1
     if [[ $? != 0 ]]; then
         echo -e "${red}Fail to download agent, please check if the network can link ${GITHUB_URL}${plain}"
@@ -227,7 +187,7 @@ show_usage() {
 show_menu() {
     echo -e "
     ${green}Nezha Agent Management Script${plain} ${red}macOS${plain}
-    --- https://github.com/naiba/nezha ---
+    --- https://github.com/hi2shark/nezha-next ---
     ${green}1.${plain}  Install Agent
     ${green}2.${plain}  Modify Agent Configuration
     ${green}3.${plain}  View Agent Log
