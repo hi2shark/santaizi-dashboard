@@ -448,8 +448,20 @@
 
         buildObject() {
             const obj = this.getBaseObject();
-            this.applyGroupValues(obj, 'billingDataMod', this.billingKeys, '.pn-billing');
-            this.applyGroupValues(obj, 'planDataMod', this.planKeys, '.pn-plan');
+            this.applyGroupValues(obj, 'billingDataMod', this.billingKeys, '.pn-billing', function (k, v) {
+                if (k === 'autoRenewal') {
+                    const num = parseInt(v, 10);
+                    return isNaN(num) ? v : num;
+                }
+                return v;
+            });
+            this.applyGroupValues(obj, 'planDataMod', this.planKeys, '.pn-plan', function (k, v) {
+                if (k === 'trafficType' || k === 'IPv4' || k === 'IPv6') {
+                    const num = parseInt(v, 10);
+                    return isNaN(num) ? v : num;
+                }
+                return v;
+            });
             this.applyGroupValues(obj, 'customData', this.customNazhuaKeys, '.pn-custom');
             this.applyGroupValues(obj, 'customData', this.customAoboboExtraKeys, '.pn-custom-aobobo', function (k, v) {
                 if (k === 'lat' || k === 'lng') {

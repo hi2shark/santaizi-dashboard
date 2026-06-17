@@ -824,32 +824,55 @@
                     return elementName in obj ? obj[elementName] : null;
                 }
             },
-            getBillingCycle(billingCycle) { 
+            getBillingCycle(billingCycle) {
+                if (!billingCycle) return "M";
+
                 // 统一转换为小写进行比较
-                const cycle = billingCycle.toLowerCase();
+                const cycle = billingCycle.toString().trim().toLowerCase();
 
                 switch (cycle) {
                     case '月':
+                    case '每月':
+                    case '月付':
+                    case '个月':
                     case 'mo':
                     case 'month':
+                    case 'months':
                     case 'monthly':
                     case 'm':
+                    case '1m':
                         return "M";
                     case '季':
+                    case '季度':
+                    case '季付':
+                    case 'quarter':
                     case 'quarterly':
                     case 'q':
+                    case '3m':
                         return "Q";                        
                     case '半':
                     case '半年':
+                    case '半年付':
+                    case 'half-year':
                     case 'half':
+                    case 'semiannual':
+                    case 'semiannually':
+                    case 'semiannualy':
                     case 'semi-annually':
                     case 'h':
+                    case '6m':
                         return "H";                        
                     case '年':
+                    case '年度':
+                    case '年付':
                     case 'yr':
                     case 'year':
+                    case 'years':
+                    case 'yearly':
                     case 'annually':
                     case 'y':
+                    case '12m':
+                    case '1y':
                         return "Y";
                     default:
                         return null;
@@ -891,7 +914,7 @@
                 let nextExpiration = new Date(expiration); // 初始化为原到期时间
                 let newExpirationMonth = expiration.getMonth(); // 获取expiration初始月份
 
-                switch (billingCycle.toUpperCase()) {
+                switch ((billingCycle || "M").toUpperCase()) {
                     case 'M': // 月度
                         nextExpiration.setFullYear(current.getFullYear());
 
