@@ -157,10 +157,11 @@ func (c *Config) Read(path string) error {
 	if c.Oauth2.Type == "" || c.Oauth2.Admin == "" {
 		return errors.New("missing oauth2 config")
 	}
-	// mock 模式仅用于本地开发，不需要真实的 ClientID/ClientSecret
-	// 已注释，避免误用；本地开发需要时可取消注释
-	// if c.Oauth2.Type != ConfigTypeMock && (c.Oauth2.ClientID == "" || c.Oauth2.ClientSecret == "") {
-	if c.Oauth2.ClientID == "" || c.Oauth2.ClientSecret == "" {
+	// mock 模式仅用于本地开发，不需要真实的 ClientID/ClientSecret，且必须同时开启 Debug
+	if c.Oauth2.Type == ConfigTypeMock && !c.Debug {
+		return errors.New("mock oauth2 can only be used in debug mode")
+	}
+	if c.Oauth2.Type != ConfigTypeMock && (c.Oauth2.ClientID == "" || c.Oauth2.ClientSecret == "") {
 		return errors.New("missing oauth2 config")
 	}
 
