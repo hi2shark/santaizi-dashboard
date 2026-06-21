@@ -13,6 +13,7 @@ import (
 )
 
 var Version = "debug"
+
 func init() {
 	if Version == "debug" {
 		now := time.Now()
@@ -71,7 +72,8 @@ func InitDBFromPath(path string) {
 	err = DB.AutoMigrate(model.Server{}, model.User{},
 		model.Notification{}, model.AlertRule{}, model.Monitor{},
 		model.MonitorHistory{}, model.Cron{}, model.Transfer{},
-		model.ApiToken{}, model.NAT{}, model.DDNSProfile{})
+		model.ApiToken{}, model.NAT{}, model.DDNSProfile{},
+		model.ServerRuntime{}, model.ServerOfflineHistory{})
 	if err != nil {
 		panic(err)
 	}
@@ -93,7 +95,7 @@ func RecordTransferHourlyUsage() {
 		if tx.In == 0 && tx.Out == 0 {
 			continue
 		}
-		server.PrevTransferInSnapshot = int64(server.State.NetInTransfer) // #nosec G115 -- network transfer fits in int64
+		server.PrevTransferInSnapshot = int64(server.State.NetInTransfer)   // #nosec G115 -- network transfer fits in int64
 		server.PrevTransferOutSnapshot = int64(server.State.NetOutTransfer) // #nosec G115 -- network transfer fits in int64
 		tx.CreatedAt = nowTrimSeconds
 		txs = append(txs, tx)

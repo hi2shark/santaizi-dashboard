@@ -2,6 +2,7 @@ package controller
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/naiba/nezha/model"
@@ -24,6 +25,7 @@ func (mp *memberPage) serve() {
 		Redirect:   "/login",
 	}))
 	mr.GET("/server", mp.server)
+	mr.GET("/server/offline-history", mp.serverOfflineHistory)
 	mr.GET("/monitor", mp.monitor)
 	mr.GET("/cron", mp.cron)
 	mr.GET("/notification", mp.notification)
@@ -39,6 +41,19 @@ func (mp *memberPage) api(c *gin.Context) {
 	c.HTML(http.StatusOK, "dashboard-"+singleton.Conf.Site.DashboardTheme+"/api", mygin.CommonEnvironment(c, gin.H{
 		"title":  singleton.Localizer.MustLocalize(&i18n.LocalizeConfig{MessageID: "ApiManagement"}),
 		"Tokens": singleton.ApiTokenList,
+	}))
+}
+
+func (mp *memberPage) serverOfflineHistory(c *gin.Context) {
+	serverID, _ := strconv.ParseUint(c.Query("server_id"), 10, 64)
+	var server model.Server
+	if serverID > 0 {
+		singleton.DB.First(&server, serverID)
+	}
+	c.HTML(http.StatusOK, "dashboard-"+singleton.Conf.Site.DashboardTheme+"/server-offline-history", mygin.CommonEnvironment(c, gin.H{
+		"Title":    "服务器可用性历史",
+		"ServerID": serverID,
+		"Server":   server,
 	}))
 }
 

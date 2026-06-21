@@ -99,6 +99,10 @@
     });
   }
 
+  window.requestJSON = requestJSON;
+  window.ensureOK = ensureOK;
+  window.deleteJSON = deleteJSON;
+
   function ensureOK(resp) {
     if (resp && resp.code && resp.code !== 200) {
       throw new Error(resp.message || ("Error " + resp.code));

@@ -1,10 +1,10 @@
 package main
 
 import (
-	"os"
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"time"
 	_ "time/tzdata"
 
@@ -44,6 +44,11 @@ func initSystem() {
 		panic(err)
 	}
 
+	// 每天对超过保留期的离线历史进行清理
+	if _, err := singleton.Cron.AddFunc("0 30 3 * * *", singleton.CleanOfflineHistory); err != nil {
+		panic(err)
+	}
+
 	// 每小时对流量记录进行打点
 	if _, err := singleton.Cron.AddFunc("0 0 * * * *", singleton.RecordTransferHourlyUsage); err != nil {
 		panic(err)
@@ -71,6 +76,7 @@ func main() {
 	go rpc.DispatchKeepalive()
 	go singleton.AlertSentinelStart()
 	singleton.NewServiceSentinel(serviceSentinelDispatchBus)
+	go singleton.StartOfflineDetector()
 	srv := controller.ServeWeb(singleton.Conf.HTTPPort)
 	go dispatchReportInfoTask()
 	if err := graceful.Graceful(func() error {

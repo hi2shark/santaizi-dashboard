@@ -12,14 +12,15 @@ import (
 )
 
 var adminPage = map[string]bool{
-	"/server":       true,
-	"/monitor":      true,
-	"/setting":      true,
-	"/notification": true,
-	"/ddns":         true,
-	"/nat":          true,
-	"/cron":         true,
-	"/api":          true,
+	"/server":                 true,
+	"/server/offline-history": true,
+	"/monitor":                true,
+	"/setting":                true,
+	"/notification":           true,
+	"/ddns":                   true,
+	"/nat":                    true,
+	"/cron":                   true,
+	"/api":                    true,
 }
 
 var dashboardLangMessageIDs = []string{
@@ -247,7 +248,7 @@ func CommonEnvironment(c *gin.Context, data map[string]interface{}) gin.H {
 }
 
 func RecordPath(c *gin.Context) {
-	url := c.Request.URL.String()
+	url := c.Request.URL.Path
 	for _, p := range c.Params {
 		url = strings.Replace(url, p.Value, ":"+p.Key, 1)
 	}

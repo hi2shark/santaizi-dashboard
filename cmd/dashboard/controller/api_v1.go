@@ -1,8 +1,11 @@
 package controller
 
 import (
+	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -29,6 +32,10 @@ func (v *apiV1) serve() {
 	r.GET("/server/list", v.serverList)
 	r.GET("/server/details", v.serverDetails)
 	r.POST("/server/register", v.RegisterServer)
+	r.GET("/offline-history", v.offlineHistory)
+	r.GET("/offline-history/summary", v.offlineSummary)
+	r.POST("/offline-history/cleanup", v.cleanupOfflineHistory)
+	r.DELETE("/offline-history/:id", v.deleteOfflineHistory)
 	// 不强制认证的 API
 	mr := v.r.Group("monitor")
 	mr.Use(mygin.Authorize(mygin.AuthorizeOption{
@@ -148,4 +155,237 @@ func (v *apiV1) monitorHistoriesById(c *gin.Context) {
 	}
 
 	c.JSON(200, singleton.MonitorAPI.GetMonitorHistories(map[string]any{"server_id": server.ID}))
+}
+
+
+// offlineHistory 获取服务器离线历史列表
+// header: Authorization: Token
+// query: server_id (必填)
+// query: page (默认 1)
+// query: page_size (默认 20, 最大 100)
+func (v *apiV1) offlineHistory(c *gin.Context) {
+	serverID, err := strconv.ParseUint(c.Query("server_id"), 10, 64)
+	if err != nil || serverID == 0 {
+		c.JSON(http.StatusOK, model.Response{
+			Code:    http.StatusBadRequest,
+			Message: "server_id 参数错误",
+		})
+		return
+	}
+
+	singleton.ServerLock.RLock()
+	_, ok := singleton.ServerList[serverID]
+	singleton.ServerLock.RUnlock()
+	if !ok {
+		c.JSON(http.StatusOK, model.Response{
+			Code:    http.StatusBadRequest,
+			Message: "服务器不存在",
+		})
+		return
+	}
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+
+	var histories []model.ServerOfflineHistory
+	var total int64
+	singleton.DB.Model(&model.ServerOfflineHistory{}).Where("server_id = ?", serverID).Count(&total)
+	singleton.DB.Where("server_id = ?", serverID).Order("started_at DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&histories)
+
+	items := make([]offlineHistoryItem, len(histories))
+	for i, h := range histories {
+		items[i] = offlineHistoryItem{
+			ID:                h.ID,
+			ServerID:          h.ServerID,
+			StartedAt:         h.StartedAt,
+			DetectedAt:        h.DetectedAt,
+			EndedAt:           h.EndedAt,
+			DurationSeconds:   h.DurationSeconds,
+			Reason:            h.Reason,
+			Status:            h.Status,
+			ThresholdSeconds:  h.ThresholdSeconds,
+			LastSeenAt:        h.LastSeenAt,
+			LastBootTime:      h.LastBootTime,
+			RecoveredBootTime: h.RecoveredBootTime,
+			LastIP:            h.LastIP,
+			RecoveredIP:       h.RecoveredIP,
+		}
+	}
+
+	c.JSON(http.StatusOK, model.Response{
+		Code:   http.StatusOK,
+		Result: offlineHistoryResponse{Items: items, Total: total},
+	})
+}
+
+// offlineSummary 获取服务器离线统计摘要
+// header: Authorization: Token
+// query: server_id (必填)
+// query: days (默认 30, 最大 3660)
+func (v *apiV1) offlineSummary(c *gin.Context) {
+	serverID, err := strconv.ParseUint(c.Query("server_id"), 10, 64)
+	if err != nil || serverID == 0 {
+		c.JSON(http.StatusOK, model.Response{
+			Code:    http.StatusBadRequest,
+			Message: "server_id 参数错误",
+		})
+		return
+	}
+
+	singleton.ServerLock.RLock()
+	_, ok := singleton.ServerList[serverID]
+	singleton.ServerLock.RUnlock()
+	if !ok {
+		c.JSON(http.StatusOK, model.Response{
+			Code:    http.StatusBadRequest,
+			Message: "服务器不存在",
+		})
+		return
+	}
+
+	days, _ := strconv.Atoi(c.DefaultQuery("days", "30"))
+	if days < 1 {
+		days = 30
+	}
+	if days > maxOfflineSummaryDays {
+		days = maxOfflineSummaryDays
+	}
+
+	end := time.Now()
+	start := end.AddDate(0, 0, -days)
+
+	var histories []model.ServerOfflineHistory
+	singleton.DB.Where("server_id = ? AND started_at >= ? AND started_at <= ?", serverID, start, end).Find(&histories)
+
+	var totalSeconds uint64
+	var longestSeconds uint64
+	var rebootCount, networkCount, unknownCount int
+	for _, h := range histories {
+		duration := h.DurationSeconds
+		if h.Status == model.OfflineHistoryStatusOpen {
+			duration = uint64(end.Sub(h.StartedAt).Seconds())
+		}
+		totalSeconds += duration
+		if duration > longestSeconds {
+			longestSeconds = duration
+		}
+		switch h.Reason {
+		case model.OfflineReasonMachineReboot:
+			rebootCount++
+		case model.OfflineReasonNetworkDisconnect:
+			networkCount++
+		case model.OfflineReasonUnknown:
+			unknownCount++
+		}
+	}
+
+	offlineCount := len(histories)
+	availability := 100.0
+	if offlineCount > 0 {
+		periodSeconds := uint64(end.Sub(start).Seconds())
+		if totalSeconds < periodSeconds {
+			availability = (1 - float64(totalSeconds)/float64(periodSeconds)) * 100
+		} else {
+			availability = 0
+		}
+	}
+
+	c.JSON(http.StatusOK, model.Response{
+		Code: http.StatusOK,
+		Result: offlineSummaryResponse{
+			ServerID:               serverID,
+			Days:                   days,
+			OfflineCount:           offlineCount,
+			TotalOfflineSeconds:    totalSeconds,
+			LongestOfflineSeconds:  longestSeconds,
+			AvailabilityPercent:    availability,
+			RebootCount:            rebootCount,
+			NetworkDisconnectCount: networkCount,
+			UnknownCount:           unknownCount,
+		},
+	})
+}
+
+// cleanupOfflineHistory 手动清理离线历史
+// header: Authorization: Token
+// body: { "before_days": 365 }
+func (v *apiV1) cleanupOfflineHistory(c *gin.Context) {
+	u := c.MustGet(model.CtxKeyAuthorizedUser).(*model.User)
+	if !u.SuperAdmin {
+		c.JSON(http.StatusOK, model.Response{
+			Code:    http.StatusForbidden,
+			Message: "无权操作",
+		})
+		return
+	}
+
+	var req cleanupOfflineHistoryRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusOK, model.Response{
+			Code:    http.StatusBadRequest,
+			Message: fmt.Sprintf("请求错误：%s", err),
+		})
+		return
+	}
+	if req.BeforeDays == 0 {
+		req.BeforeDays = singleton.Conf.OfflineHistoryRetentionDays
+	}
+	if req.BeforeDays < 1 {
+		req.BeforeDays = 1
+	}
+
+	before := time.Now().AddDate(0, 0, -int(req.BeforeDays))
+	res := singleton.DB.Unscoped().Delete(&model.ServerOfflineHistory{}, "started_at < ?", before)
+	if res.Error != nil {
+		c.JSON(http.StatusOK, model.Response{
+			Code:    http.StatusBadRequest,
+			Message: fmt.Sprintf("数据库错误：%s", res.Error),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.Response{
+		Code:   http.StatusOK,
+		Result: map[string]int64{"deleted": res.RowsAffected},
+	})
+}
+
+// deleteOfflineHistory 删除单条离线历史
+// header: Authorization: Token
+func (v *apiV1) deleteOfflineHistory(c *gin.Context) {
+	u := c.MustGet(model.CtxKeyAuthorizedUser).(*model.User)
+	if !u.SuperAdmin {
+		c.JSON(http.StatusOK, model.Response{
+			Code:    http.StatusForbidden,
+			Message: "无权操作",
+		})
+		return
+	}
+
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || id == 0 {
+		c.JSON(http.StatusOK, model.Response{
+			Code:    http.StatusBadRequest,
+			Message: "错误的记录 ID",
+		})
+		return
+	}
+
+	if err := singleton.DB.Unscoped().Delete(&model.ServerOfflineHistory{}, "id = ?", id).Error; err != nil {
+		c.JSON(http.StatusOK, model.Response{
+			Code:    http.StatusBadRequest,
+			Message: fmt.Sprintf("数据库错误：%s", err),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.Response{
+		Code: http.StatusOK,
+	})
 }

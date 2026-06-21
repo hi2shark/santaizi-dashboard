@@ -124,6 +124,15 @@ type Config struct {
 
 	DNSServers string
 
+	// 服务器离线历史配置
+	EnableOfflineHistory        bool
+	OfflineThresholdSeconds     uint64
+	OfflineCheckIntervalSeconds uint64
+	OfflineMergeGapSeconds      uint64
+	OfflineHistoryRetentionDays uint64
+	EnableOfflineNotification   bool
+	EnableRecoveryNotification  bool
+
 	k        *koanf.Koanf
 	filePath string
 }
@@ -224,8 +233,37 @@ func (c *Config) Read(path string) error {
 		c.Oauth2.OidcGroupClaim = "groups"
 	}
 
+	c.NormalizeOfflineConfig()
 	c.updateIgnoredIPNotificationID()
 	return nil
+}
+
+// NormalizeOfflineConfig 设置离线历史配置的默认值并校验边界。
+func (c *Config) NormalizeOfflineConfig() {
+	if c.OfflineThresholdSeconds == 0 {
+		c.OfflineThresholdSeconds = 30
+	}
+	if c.OfflineThresholdSeconds < 10 {
+		c.OfflineThresholdSeconds = 10
+	}
+	if c.OfflineCheckIntervalSeconds == 0 {
+		c.OfflineCheckIntervalSeconds = 10
+	}
+	if c.OfflineCheckIntervalSeconds < 5 {
+		c.OfflineCheckIntervalSeconds = 5
+	}
+	if c.OfflineCheckIntervalSeconds > c.OfflineThresholdSeconds {
+		c.OfflineCheckIntervalSeconds = c.OfflineThresholdSeconds
+	}
+	if c.OfflineMergeGapSeconds == 0 {
+		c.OfflineMergeGapSeconds = 10
+	}
+	if c.OfflineHistoryRetentionDays == 0 {
+		c.OfflineHistoryRetentionDays = 365
+	}
+	if c.OfflineHistoryRetentionDays < 1 {
+		c.OfflineHistoryRetentionDays = 1
+	}
 }
 
 // updateIgnoredIPNotificationID 更新用于判断服务器ID是否属于特定服务器的map

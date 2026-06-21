@@ -1,0 +1,206 @@
+{{define "dashboard-default/server-offline-history"}}
+{{template "common/header" .}}
+{{template "common/menu" .}}
+<main class="dashboard-page dashboard-page-narrow">
+    <div class="dashboard-page-header">
+        <div>
+            <h1>{{.Title}}</h1>
+            <p>ID: {{.ServerID}} {{if .Server.Name}}- {{.Server.Name}}{{end}}</p>
+        </div>
+        <div class="dashboard-toolbar">
+            <a class="dashboard-button" href="/server"><i class="ri-arrow-left-line"></i>返回</a>
+        </div>
+    </div>
+
+    <div id="offline-history-app" v-cloak>
+        <section class="dashboard-offline-summary">
+            <div class="dashboard-offline-summary-grid">
+                <div class="dashboard-offline-summary-card">
+                    <div class="dashboard-offline-summary-label">最近 24 小时离线次数</div>
+                    <div class="dashboard-offline-summary-value">[[summary24.offline_count]]</div>
+                </div>
+                <div class="dashboard-offline-summary-card">
+                    <div class="dashboard-offline-summary-label">最近 7 天离线次数</div>
+                    <div class="dashboard-offline-summary-value">[[summary7.offline_count]]</div>
+                </div>
+                <div class="dashboard-offline-summary-card">
+                    <div class="dashboard-offline-summary-label">最近 30 天离线次数</div>
+                    <div class="dashboard-offline-summary-value">[[summary30.offline_count]]</div>
+                </div>
+                <div class="dashboard-offline-summary-card">
+                    <div class="dashboard-offline-summary-label">最近 30 天总离线时长</div>
+                    <div class="dashboard-offline-summary-value">[[formatDurationValue(summary30.total_offline_seconds)]]</div>
+                </div>
+                <div class="dashboard-offline-summary-card">
+                    <div class="dashboard-offline-summary-label">最近 30 天可用率</div>
+                    <div class="dashboard-offline-summary-value">[[summary30.availability_percent.toFixed(2)]]%</div>
+                </div>
+                <div class="dashboard-offline-summary-card">
+                    <div class="dashboard-offline-summary-label">最长离线时长</div>
+                    <div class="dashboard-offline-summary-value">[[formatDurationValue(summary30.longest_offline_seconds)]]</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="dashboard-table-card">
+            <el-table :data="items" v-loading="loading" style="width: 100%" size="default">
+                <el-table-column prop="started_at" label="开始时间" :formatter="formatTime"></el-table-column>
+                <el-table-column prop="ended_at" label="恢复时间" :formatter="formatEndedAt"></el-table-column>
+                <el-table-column prop="duration_seconds" label="持续时间" :formatter="formatDuration"></el-table-column>
+                <el-table-column prop="reason" label="原因" :formatter="formatReason"></el-table-column>
+                <el-table-column prop="threshold_seconds" label="离线阈值（秒）"></el-table-column>
+                <el-table-column prop="last_ip" label="离线前 IP"></el-table-column>
+                <el-table-column prop="recovered_ip" label="恢复后 IP"></el-table-column>
+                <el-table-column label="操作" v-if="isAdmin" width="90">
+                    <template #default="scope">
+                        <button class="dashboard-icon-button dashboard-icon-button-danger" type="button" @click="deleteItem(scope.row.id)" title="删除"><i class="ri-delete-bin-6-line"></i></button>
+                    </template>
+                </el-table-column>
+            </el-table>
+            <div class="dashboard-pagination-wrap">
+                <el-pagination layout="prev, pager, next" :total="total" :page-size="pageSize" v-model:current-page="page" :hide-on-single-page="true"></el-pagination>
+            </div>
+        </section>
+    </div>
+    <style>
+        [v-cloak] { display: none; }
+        .dashboard-offline-summary { margin-bottom: 1.5rem; }
+        .dashboard-offline-summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; }
+        .dashboard-offline-summary-card { background: var(--dashboard-card-bg, #fff); border: 1px solid var(--dashboard-border-color, #ebeef5); border-radius: 8px; padding: 1rem; }
+        .dashboard-offline-summary-label { font-size: .85rem; color: var(--dashboard-text-secondary, #606266); margin-bottom: .5rem; }
+        .dashboard-offline-summary-value { font-size: 1.5rem; font-weight: 600; color: var(--dashboard-text-main, #303133); }
+        .dashboard-pagination-wrap { margin-top: 1rem; display: flex; justify-content: center; }
+    </style>
+</main>
+{{template "common/footer" .}}
+<script>
+(function () {
+    const serverID = {{.ServerID}};
+    const isAdmin = {{if .Admin.SuperAdmin}}true{{else}}false{{end}};
+
+    function formatDuration(seconds) {
+        if (!seconds || seconds < 0) return "-";
+        const s = Number(seconds);
+        const parts = [];
+        const days = Math.floor(s / 86400);
+        if (days) parts.push(days + "天");
+        const hours = Math.floor((s % 86400) / 3600);
+        if (hours) parts.push(hours + "小时");
+        const minutes = Math.floor((s % 3600) / 60);
+        if (minutes) parts.push(minutes + "分");
+        const secs = Math.floor(s % 60);
+        if (secs || parts.length === 0) parts.push(secs + "秒");
+        return parts.join("");
+    }
+
+    function formatDateTime(value) {
+        if (!value) return "-";
+        const d = new Date(value);
+        if (Number.isNaN(d.getTime())) return value;
+        const pad = function (n) { return String(n).padStart(2, "0"); };
+        return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds());
+    }
+
+    function formatReasonText(reason) {
+        const map = {
+            "machine_reboot": "机器重启",
+            "network_disconnect": "网络断线 / 上报中断",
+            "unknown": "原因未知",
+            "agent_restart": "Agent 重启",
+            "dashboard_restart": "Dashboard 重启",
+            "manual": "手动标记"
+        };
+        return map[reason] || reason || "原因未知";
+    }
+
+    const { createApp } = Vue;
+    const app = createApp({
+        data: function () {
+            return {
+                serverID: serverID,
+                isAdmin: isAdmin,
+                loading: false,
+                items: [],
+                total: 0,
+                page: 1,
+                pageSize: 20,
+                summary24: { offline_count: 0, total_offline_seconds: 0, availability_percent: 100 },
+                summary7: { offline_count: 0, total_offline_seconds: 0, availability_percent: 100 },
+                summary30: { offline_count: 0, total_offline_seconds: 0, availability_percent: 100, longest_offline_seconds: 0 }
+            };
+        },
+        watch: {
+            page: function () {
+                this.loadHistory();
+            }
+        },
+        mounted: function () {
+            this.loadHistory();
+            this.loadSummary(1, "summary24");
+            this.loadSummary(7, "summary7");
+            this.loadSummary(30, "summary30");
+        },
+        methods: {
+            loadHistory: async function () {
+                this.loading = true;
+                try {
+                    const resp = await requestJSON("/api/offline-history?server_id=" + this.serverID + "&page=" + this.page + "&page_size=" + this.pageSize, {
+                        headers: nezhaCSRFHeaders({ Accept: "application/json" })
+                    });
+                    ensureOK(resp);
+                    this.items = resp.result.items || [];
+                    this.total = resp.result.total || 0;
+                } catch (error) {
+                    if (window.ElementPlus && ElementPlus.ElMessage) {
+                        ElementPlus.ElMessage.error(error.message || String(error));
+                    }
+                } finally {
+                    this.loading = false;
+                }
+            },
+            loadSummary: async function (days, key) {
+                try {
+                    const resp = await requestJSON("/api/offline-history/summary?server_id=" + this.serverID + "&days=" + days, {
+                        headers: nezhaCSRFHeaders({ Accept: "application/json" })
+                    });
+                    ensureOK(resp);
+                    this[key] = resp.result;
+                } catch (error) {
+                    console.error(error);
+                }
+            },
+            deleteItem: async function (id) {
+                if (!confirm("确定要删除这条离线记录吗？")) return;
+                try {
+                    const resp = await deleteJSON("/api/offline-history/" + id);
+                    ensureOK(resp);
+                    this.loadHistory();
+                } catch (error) {
+                    if (window.ElementPlus && ElementPlus.ElMessage) {
+                        ElementPlus.ElMessage.error(error.message || String(error));
+                    }
+                }
+            },
+            formatTime: function (row, column, value) {
+                return formatDateTime(value);
+            },
+            formatEndedAt: function (row, column, value) {
+                return formatDateTime(value);
+            },
+            formatDuration: function (row, column, value) {
+                return formatDuration(value);
+            },
+            formatDurationValue: function (value) {
+                return formatDuration(value);
+            },
+            formatReason: function (row, column, value) {
+                return formatReasonText(value);
+            }
+        }
+    });
+    app.config.compilerOptions = { delimiters: ['[[', ']]'] };
+    app.use(ElementPlus);
+    app.mount("#offline-history-app");
+})();
+</script>
+{{end}}

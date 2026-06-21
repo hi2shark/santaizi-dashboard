@@ -83,6 +83,33 @@
                 <span>{{tr "Enable"}}</span>
             </label>
         </fieldset>
+        <fieldset class="dashboard-fieldset">
+            <legend>服务器离线历史</legend>
+            <label class="dashboard-checkbox">
+                <input name="EnableOfflineHistory" type="checkbox" {{if .Conf.EnableOfflineHistory}}checked{{end}}>
+                <span>启用离线历史记录</span>
+            </label>
+            <label>
+                <span>离线判定阈值（秒）</span>
+                <input type="number" name="OfflineThresholdSeconds" min="10" value="{{.Conf.OfflineThresholdSeconds}}">
+            </label>
+            <label>
+                <span>离线检测间隔（秒）</span>
+                <input type="number" name="OfflineCheckIntervalSeconds" min="5" value="{{.Conf.OfflineCheckIntervalSeconds}}">
+            </label>
+            <label>
+                <span>历史保留天数</span>
+                <input type="number" name="OfflineHistoryRetentionDays" min="1" value="{{.Conf.OfflineHistoryRetentionDays}}">
+            </label>
+            <label class="dashboard-checkbox">
+                <input name="EnableOfflineNotification" type="checkbox" {{if .Conf.EnableOfflineNotification}}checked{{end}}>
+                <span>启用离线通知</span>
+            </label>
+            <label class="dashboard-checkbox">
+                <input name="EnableRecoveryNotification" type="checkbox" {{if .Conf.EnableRecoveryNotification}}checked{{end}}>
+                <span>启用恢复通知</span>
+            </label>
+        </fieldset>
         <label class="dashboard-checkbox">
             <input name="EnablePlainIPInNotification" type="checkbox" {{if .Conf.EnablePlainIPInNotification}}checked{{end}}>
             <span>{{tr "NotificationMessagesDoNotHideIP"}}</span>
