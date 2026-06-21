@@ -218,7 +218,13 @@ func CommonEnvironment(c *gin.Context, data map[string]interface{}) gin.H {
 		data["Conf"] = singleton.Conf
 	} else {
 		data["Conf"] = model.PublicConfig{
-			Site:                            singleton.Conf.Site,
+			Site: model.PublicSiteConfig{
+				Brand:               singleton.Conf.Site.Brand,
+				Theme:               singleton.Conf.Site.Theme,
+				DashboardTheme:      singleton.Conf.Site.DashboardTheme,
+				CustomCode:          singleton.Conf.Site.CustomCode,
+				CustomCodeDashboard: singleton.Conf.Site.CustomCodeDashboard,
+			},
 			Language:                        singleton.Conf.Language,
 			MaxTCPPingValue:                 singleton.Conf.MaxTCPPingValue,
 			DisableSwitchTemplateInFrontend: singleton.Conf.DisableSwitchTemplateInFrontend,

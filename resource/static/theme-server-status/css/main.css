@@ -636,3 +636,19 @@ footer p {
         padding-left: unset !important;
     }
 }
+/* 服务器可用性摘要 */
+.node-cell-expand .nezha-availability {
+  display: inline-block;
+  vertical-align: top;
+  max-width: calc(100% - 60px);
+  font-size: 12px;
+  color: #666;
+}
+.node-cell-expand .nezha-availability-bar {
+  display: block;
+  max-width: 100%;
+  margin-top: 4px;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+}

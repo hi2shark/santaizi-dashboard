@@ -9,7 +9,7 @@
   <link rel="shortcut icon" type="image/png" href="/static/logo.svg?v20210804" />
 
   <!-- MDUI CSS -->
-  <link rel="stylesheet" href="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-1-y/mdui/1.0.2/css/mdui.min.css"/>
+  <link rel="stylesheet" href="/static/vendor/mdui@1.0.2/css/mdui.min.css"/>
   <link rel="stylesheet" href="/static/theme-mdui/mdui.css" type="text/css">
   <style>
 	.mdui-table td, .mdui-table th{padding: 6px;}
@@ -34,10 +34,10 @@
     </button>
     <div v-if="showCard" class="mdui-row-xs-1 mdui-row-sm-2 mdui-row-md-3 mdui-row-lg-4">
       <div id="servers">
-        <div class="mdui-col" v-for='server in servers' :id="server.ID">
+        <div class="mdui-col" v-for='server in servers' :id="server.ID" :data-server-id="server.ID">
           <div :class="'mdui-card mt' + (server.live?'':' offline')">
             <div class="mdui-card-header">
-	      <img class="mdui-card-header-avatar" :src="'https://lf6-cdn-tos.bytecdntp.com/cdn/expire-1-y/flag-icon-css/4.1.5/flags/1x1/' + (server.Host.CountryCode?server.Host.CountryCode:'cn') + '.svg'"/>
+	      <img class="mdui-card-header-avatar" :src="'/static/unpkg/flag-icons@7.2.3/flags/1x1/' + (server.Host.CountryCode?server.Host.CountryCode:'cn') + '.svg'"/>
 	      <div class="mdui-card-header-title">@#server.Name#@</div>
 	      <div class="mdui-card-header-subtitle">@#server.Host.CountryCode.toUpperCase()#@ | @#server.Host.Platform#@ @#server.Host.PlatformVersion#@</div>
             </div>
@@ -98,6 +98,9 @@
                   </div>
                 </li>
               </ul>
+              <div class="mdui-card-content-availability" style="padding: 0 16px 16px;">
+                <div class="nezha-availability nezha-availability-bar" :data-availability-id="server.ID">可用性数据加载中...</div>
+              </div>
             </div>
           </div>
         </div>
@@ -120,9 +123,11 @@
 		  </tr>
 		</thead>
 		<tbody>
-		  <tr :class="(server.live?'':'offline')" v-for="server in servers">
+		  <tr :class="(server.live?'':'offline')" v-for="server in servers" :data-server-id="server.ID">
 		    <td class="mdui-text-center">@#server.ID#@</td>
-		    <td class="mdui-text-center">@#server.Name#@</td>
+		    <td class="mdui-text-center" :data-availability-id="server.ID" title="可用性数据加载中...">
+		      @#server.Name#@
+		    </td>
 		    <td class="mdui-text-center"><at>@#formatNetByteSize(server.State.NetOutSpeed)#@</at></td>
 		    <td class="mdui-text-center"><st>@#formatNetByteSize(server.State.NetInSpeed)#@</st></td>
 		    <td class="mdui-text-center"><at>@#formatByteSize(server.State.NetOutTransfer)#@</at></td>
@@ -153,10 +158,10 @@
 {{template "theme-mdui/footer" .}}
 
   <script src="/static/theme-mdui/mdui.js"></script>
-  <script src="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-1-y/mdui/1.0.2/js/mdui.min.js"></script>
-  <script src="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-1-y/jquery/3.6.0/jquery.min.js"></script>
+  <script src="/static/vendor/mdui@1.0.2/js/mdui.min.js"></script>
+  <script src="/static/unpkg/jquery@3.7.1/dist/jquery.min.js"></script>
   {{template "common/csrf" .}}
-  <script src="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-1-y/vue/2.6.14/vue.min.js"></script>
+  <script src="/static/unpkg/vue@2.6.14/dist/vue.min.js"></script>
 
   <script>
     var container=document.querySelector("#container");
@@ -304,6 +309,7 @@
     }
     connect();
   </script>
+  <script src="/static/availability.js?v20260617"></script>
 </body>
 </html>
 {{end}}

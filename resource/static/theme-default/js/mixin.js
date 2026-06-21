@@ -3,15 +3,12 @@ const mixinsVue = {
     data: {
         preferredTemplate: null,
         isMobile: false,
-        adaptedTemplates: [
-            { key: 'default', name: 'Default', icon: 'th large' },
-            { key: 'angel-kanade', name: 'AngelKanade', icon: 'square' },
-            { key: 'server-status', name: 'ServerStatus', icon: 'list' }
-        ]
+        adaptedTemplates: []
     },
     created() {
         this.isMobile = this.checkIsMobile();
         this.preferredTemplate = this.getCookie('preferred_theme') ? this.getCookie('preferred_theme') : this.$root.defaultTemplate;
+        this.adaptedTemplates = this.buildTemplates();
     },
     mounted() {
         this.initDropdown();
@@ -24,6 +21,22 @@ const mixinsVue = {
                 duration: 100,
                 direction: 'direction'
             });
+        },
+        buildTemplates() {
+            const iconMap = {
+                'default': 'th large',
+                'daynight': 'moon',
+                'mdui': 'dashboard',
+                'hotaru': 'sun',
+                'angel-kanade': 'square',
+                'server-status': 'list'
+            };
+            const templates = (this.$root && this.$root.templates) || {};
+            return Object.keys(templates).map(key => ({
+                key: key,
+                name: templates[key],
+                icon: iconMap[key] || 'circle'
+            }));
         },
         toggleTemplate(template) {
             if( template != this.preferredTemplate){

@@ -62,9 +62,18 @@ type SiteConfig struct {
 	ViewPassword        string // 前台查看密码
 }
 
+// PublicSiteConfig 仅包含未登录页面所需的站点配置字段（去除敏感信息）
+type PublicSiteConfig struct {
+	Brand               string // 站点名称
+	Theme               string
+	DashboardTheme      string
+	CustomCode          string
+	CustomCodeDashboard string
+}
+
 // PublicConfig 仅包含未登录页面所需的公开配置字段
 type PublicConfig struct {
-	Site                            SiteConfig
+	Site                            PublicSiteConfig
 	Language                        string
 	MaxTCPPingValue                 int32
 	DisableSwitchTemplateInFrontend bool
@@ -132,6 +141,7 @@ type Config struct {
 	OfflineHistoryRetentionDays uint64
 	EnableOfflineNotification   bool
 	EnableRecoveryNotification  bool
+	ShowAvailabilityToGuest     bool // 是否向前台访客展示服务器可用性摘要
 
 	k        *koanf.Koanf
 	filePath string

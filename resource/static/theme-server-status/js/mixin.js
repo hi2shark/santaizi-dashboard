@@ -10,11 +10,7 @@ const mixinsVue = {
         preferredTemplate: null,
         semiTransparent: false,
         staticUrl: '/static/theme-server-status',
-        adaptedTemplates: [
-            { key: 'default', name: 'Default', icon: 'th large' },
-            { key: 'angel-kanade', name: 'AngelKanade', icon: 'square' },
-            { key: 'server-status', name: 'ServerStatus', icon: 'list' }
-        ],
+        adaptedTemplates: [],
         colors: [],
         colorsDark: ['#4992FF', '#08C091', '#FDDD5F', '#FF6E76', '#58D9F9', '#7CFFB2', '#FF8A44', '#8D48E3', '#DD79FF', '#5470C6', '#3BA272', '#FAC758', '#EE6666', '#72C0DE', '#91CC76', '#FB8352', '#9A60B4', '#EA7BCC'],
         colorsLight: ['#5470C6', '#3BA272', '#FAC758', '#EE6666', '#72C0DE', '#91CC76', '#FB8352', '#9A60B4', '#EA7BCC', '#4992FF', '#08C091', '#FDDD5F', '#FF6E76', '#58D9F9', '#7CFFB2', '#FF8A44', '#8D48E3', '#DD79FF'],
@@ -26,6 +22,7 @@ const mixinsVue = {
         this.semiTransparent = this.initSemiTransparent();
         this.preferredTemplate = this.getCookie('preferred_theme') ? this.getCookie('preferred_theme') : this.$root.defaultTemplate;
         this.colors = this.theme == "dark" ? this.colorsDark : this.colorsLight;
+        this.adaptedTemplates = this.buildTemplates();
         this.setBenchmarkHeight();
         window.addEventListener('scroll', this.handleScroll);
         window.addEventListener('resize', this.setBenchmarkHeight());
@@ -40,6 +37,22 @@ const mixinsVue = {
                 this.updateCookie("preferred_theme", template);
                 window.location.reload();
             }
+        },
+        buildTemplates() {
+            const iconMap = {
+                'default': 'th large',
+                'daynight': 'moon',
+                'mdui': 'dashboard',
+                'hotaru': 'sun',
+                'angel-kanade': 'square',
+                'server-status': 'list'
+            };
+            const templates = (this.$root && this.$root.templates) || {};
+            return Object.keys(templates).map(key => ({
+                key: key,
+                name: templates[key],
+                icon: iconMap[key] || 'circle'
+            }));
         },
         toggleShowTools() {
             this.showTools = !this.showTools;

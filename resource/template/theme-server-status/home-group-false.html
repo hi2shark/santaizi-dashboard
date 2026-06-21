@@ -19,7 +19,7 @@
     </thead>
     <tbody id="servers">
     <template v-for="(node,index) in nodesNoTag">
-        <tr :id="'r'+node.ID" data-toggle="collapse" :data-target="'#rt'+node.ID" class="accordion-toggle" :class="index % 2 === 0 ? 'odd': 'even'" 
+        <tr :id="'r'+node.ID" :data-server-id="node.ID" data-toggle="collapse" :data-target="'#rt'+node.ID" class="accordion-toggle" :class="index % 2 === 0 ? 'odd': 'even'" 
         aria-expanded="false" @click="showCharts(node.ID)">
             <td class="node-cell status center">
                 <div class="status-container">
@@ -205,6 +205,10 @@
                         <span class="node-echarts-expand">
                             <div class="chartbox" :id="`chart-${node.ID}`" chartbox-show="0" :key="node.ID" style="width: 100%; height: auto;"></div>
                         </span>
+                        <div class="node-cell-expand" style="display: block;">
+                            <span class="node-cell-expand-label">可用性:</span>
+                            <div class="nezha-availability nezha-availability-bar" :data-availability-id="node.ID">可用性数据加载中...</div>
+                        </div>
                     </div>
                 </div>
             </td>

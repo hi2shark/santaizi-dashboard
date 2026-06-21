@@ -14,8 +14,8 @@
     <meta http-equiv="Content-Language" content="zh" />
 
     <!-- Styles -->
-    <link rel="stylesheet" type="text/css" href="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-1-y/semantic-ui/2.4.1/semantic.min.css">
-    <link rel="stylesheet" type="text/css" href="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-1-y/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" type="text/css" href="/static/unpkg/semantic-ui@2.4.0/dist/semantic.min.css">
+    <link rel="stylesheet" type="text/css" href="/static/vendor/font-awesome@6.0.0/css/all.min.css">
     <link rel="stylesheet" type="text/css" href="/static/semantic-ui-alerts.min.css">
     <link rel="stylesheet" href="/static/theme-hotaru/css/core.css?v202012121912" type="text/css">
     <link rel="stylesheet" href="/static/theme-hotaru/css/main.css?v202101171153" type="text/css">
@@ -52,7 +52,7 @@
                     </tr>
                 </thead>
                 <tbody id="servers" style="text-align:center;">
-                    <tr v-for='server in servers' :id="server.ID">
+                    <tr v-for='server in servers' :id="server.ID" :data-server-id="server.ID">
                         <td>
                             <div class="progress">
                                 <div :class="'state-'+ (server.live?'online':'offline')">
@@ -60,7 +60,9 @@
                                 </div>
                             </div>
                         </td>
-                        <td>@#server.Name#@</td>
+                        <td :data-availability-id="server.ID" title="可用性数据加载中...">
+                            @#server.Name#@
+                        </td>
                         <td>@#server.Host?server.Host.Platform:'-'#@</td>
                         <td>@#server.Host?server.Host.CountryCode:'-'#@</td>
                         <td>@#server.State?secondToDate(server.State.Uptime):'-'#@</td>
@@ -101,7 +103,7 @@
         <div class="page-section">
             <div class="container">
                 <div class="row">
-                    <div class="col-lg-4 col-md-4 col-sm-4" v-for='server in servers' :id="server.ID">
+                    <div class="col-lg-4 col-md-4 col-sm-4" v-for='server in servers' :id="server.ID" :data-server-id="server.ID">
                         <div class="panel panel-block panel-block-sm panel-location">
                             <div class="location-header">
                                 <h3 class="h4"><img
@@ -122,6 +124,7 @@
                                     @#server.State?formatByteSize(server.State.NetInSpeed)+'/s|'+formatByteSize(server.State.NetOutSpeed)+'/s':'-'#@
                                 </li>
                             </ul>
+                            <div class="nezha-availability nezha-availability-bar" :data-availability-id="server.ID">可用性数据加载中...</div>
                         </div>
                     </div>
                 </div>
@@ -141,10 +144,10 @@
             <a href="/server">{{tr "AdminPanel"}}</a>
         </p>
     </footer>
-    <script src="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-1-y/jquery/3.6.0/jquery.min.js"></script>
-    <script src="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-1-y/semantic-ui/2.4.1/semantic.min.js"></script>
+    <script src="/static/unpkg/jquery@3.7.1/dist/jquery.min.js"></script>
+    <script src="/static/unpkg/semantic-ui@2.4.0/dist/semantic.min.js"></script>
     <script src="/static/semantic-ui-alerts.min.js"></script>
-    <script src="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-1-y/vue/2.6.14/vue.min.js"></script>
+    <script src="/static/unpkg/vue@2.6.14/dist/vue.min.js"></script>
     <script>
         const initData = JSON.parse('{{.Servers}}').servers;
         var statusCards = new Vue({
@@ -293,6 +296,7 @@
         }
         connect()
     </script>
+    <script src="/static/availability.js?v20260617"></script>
 </body>
 
 </html>

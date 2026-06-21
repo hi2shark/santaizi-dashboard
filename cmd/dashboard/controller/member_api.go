@@ -1089,6 +1089,7 @@ type settingForm struct {
 	OfflineHistoryRetentionDays uint64
 	EnableOfflineNotification   string
 	EnableRecoveryNotification  string
+	ShowAvailabilityToGuest     string
 }
 
 func (ma *memberAPI) updateSetting(c *gin.Context) {
@@ -1164,6 +1165,7 @@ func (ma *memberAPI) updateSetting(c *gin.Context) {
 	singleton.Conf.OfflineHistoryRetentionDays = sf.OfflineHistoryRetentionDays
 	singleton.Conf.EnableOfflineNotification = sf.EnableOfflineNotification == "on"
 	singleton.Conf.EnableRecoveryNotification = sf.EnableRecoveryNotification == "on"
+	singleton.Conf.ShowAvailabilityToGuest = sf.ShowAvailabilityToGuest == "on"
 	singleton.Conf.EnablePlainIPInNotification = sf.EnablePlainIPInNotification == "on"
 	singleton.Conf.DisableSwitchTemplateInFrontend = sf.DisableSwitchTemplateInFrontend == "on"
 	singleton.Conf.Cover = sf.Cover

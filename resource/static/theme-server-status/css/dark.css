@@ -184,3 +184,10 @@ body[theme="dark"] .toolbox i {
 body[theme="dark"] .network-box .network-box-header {
     border-bottom-color: rgba(110, 112, 121, 0.25);
 }
+/* 服务器可用性摘要 */
+body[theme="dark"] .node-cell-expand .nezha-availability {
+  color: #aaa;
+}
+body[theme="dark"] .node-cell-expand .nezha-availability-bar {
+  background: rgba(255, 255, 255, 0.08);
+}

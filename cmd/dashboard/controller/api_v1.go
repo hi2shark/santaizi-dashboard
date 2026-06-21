@@ -51,6 +51,21 @@ func (v *apiV1) serve() {
 		AbortWhenFail: true,
 	}))
 	mr.GET("/:id", v.monitorHistoriesById)
+
+	sr := v.r.Group("server")
+	sr.Use(mygin.Authorize(mygin.AuthorizeOption{
+		MemberOnly: false,
+		IsPage:     false,
+		AllowAPI:   true,
+		Msg:        "访问此接口需要认证",
+		Btn:        "点此登录",
+		Redirect:   "/login",
+	}))
+	sr.Use(mygin.ValidateViewPassword(mygin.ValidateViewPasswordOption{
+		IsPage:        false,
+		AbortWhenFail: true,
+	}))
+	sr.GET("/availability", v.serverAvailability)
 }
 
 // serverList 获取服务器列表 不传入Query参数则获取全部
@@ -155,6 +170,90 @@ func (v *apiV1) monitorHistoriesById(c *gin.Context) {
 	}
 
 	c.JSON(200, singleton.MonitorAPI.GetMonitorHistories(map[string]any{"server_id": server.ID}))
+}
+
+// serverAvailability 获取服务器可用性摘要（聚合统计，供前台展示）。
+// query: id 服务器 ID，多个用逗号分隔；为空则返回所有可见服务器。
+// query: days 统计天数，默认 30，最大 3660。
+func (v *apiV1) serverAvailability(c *gin.Context) {
+	if !singleton.Conf.ShowAvailabilityToGuest {
+		c.AbortWithStatusJSON(403, gin.H{"code": 403, "message": "前台可用性展示已关闭"})
+		return
+	}
+
+	_, isMember := c.Get(model.CtxKeyAuthorizedUser)
+	_, isViewPasswordVerfied := c.Get(model.CtxKeyViewPasswordVerified)
+	authorized := isMember || isViewPasswordVerfied
+
+	days, _ := strconv.Atoi(c.DefaultQuery("days", "30"))
+	if days < 1 {
+		days = 30
+	}
+	if days > maxOfflineSummaryDays {
+		days = maxOfflineSummaryDays
+	}
+
+	idStr := c.Query("id")
+	var requestedIDs []uint64
+	if idStr != "" {
+		for _, s := range strings.Split(idStr, ",") {
+			id, err := strconv.ParseUint(strings.TrimSpace(s), 10, 64)
+			if err == nil && id > 0 {
+				requestedIDs = append(requestedIDs, id)
+			}
+		}
+	}
+
+	var serverList []*model.Server
+	singleton.SortedServerLock.RLock()
+	if authorized {
+		serverList = singleton.SortedServerList
+	} else {
+		serverList = singleton.SortedServerListForGuest
+	}
+	singleton.SortedServerLock.RUnlock()
+
+	visibleIDs := make([]uint64, 0, len(serverList))
+	visibleSet := make(map[uint64]bool, len(serverList))
+	for _, server := range serverList {
+		visibleIDs = append(visibleIDs, server.ID)
+		visibleSet[server.ID] = true
+	}
+
+	var queryIDs []uint64
+	if len(requestedIDs) > 0 {
+		queryIDs = make([]uint64, 0, len(requestedIDs))
+		for _, id := range requestedIDs {
+			if visibleSet[id] {
+				queryIDs = append(queryIDs, id)
+			}
+		}
+	} else {
+		queryIDs = visibleIDs
+	}
+
+	if len(queryIDs) == 0 {
+		c.JSON(http.StatusOK, gin.H{"code": 200, "result": []interface{}{}})
+		return
+	}
+
+	summaries, _, err := singleton.GetServerAvailabilitySummaries(queryIDs, days)
+	if err != nil {
+		c.AbortWithStatusJSON(500, gin.H{"code": 500, "message": "查询可用性数据失败"})
+		return
+	}
+
+	items := make([]*singleton.ServerAvailability, 0, len(summaries))
+	for _, id := range queryIDs {
+		if summary, ok := summaries[id]; ok {
+			items = append(items, summary)
+		}
+	}
+
+	c.JSON(http.StatusOK, model.Response{
+		Code:   http.StatusOK,
+		Result: items,
+	})
 }
 
 

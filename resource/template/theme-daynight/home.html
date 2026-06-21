@@ -10,8 +10,8 @@
     <link rel="shortcut icon" type="image/png" href="/static/logo.svg?v20210804" />
 
     <link rel="stylesheet" href="/static/theme-daynight/css/main.css?v202108042286">
-    <link href="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-1-y/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <script src="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-1-y/jquery/3.6.0/jquery.min.js"></script>
+    <link href="/static/vendor/font-awesome@6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="/static/unpkg/jquery@3.7.1/dist/jquery.min.js"></script>
 
     {{if ts .CustomCode}}
     {{.CustomCode|safe}}
@@ -52,7 +52,7 @@
 
     <main>
         <div id="app">
-            <div class="server-info-container" v-for='server in servers' :id="server.ID">
+            <div class="server-info-container" v-for='server in servers' :id="server.ID" :data-server-id="server.ID">
                 <div class="info-body">
                     <ul class="server-info-body-container">
                         <li>
@@ -128,6 +128,7 @@
                             </div>
                         </li>
                     </ul>
+                    <div class="nezha-availability nezha-availability-bar" :data-availability-id="server.ID">可用性数据加载中...</div>
                 </div>
             </div>
         </div>
@@ -166,8 +167,8 @@
     </footer>
 
     <script src="/static/theme-daynight/js/main.js?v202102012266"></script>
-    <script src="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-1-y/vue/2.6.14/vue.min.js"></script>
-    <script src="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-1-y/limonte-sweetalert2/11.4.4/sweetalert2.all.min.js"></script>
+    <script src="/static/unpkg/vue@2.6.14/dist/vue.min.js"></script>
+    <script src="/static/vendor/sweetalert2@11.4.4/dist/sweetalert2.all.min.js"></script>
 
     <script>
         const initData = JSON.parse('{{.Servers}}').servers;
@@ -310,6 +311,7 @@
         }
         connect();
     </script>
+    <script src="/static/availability.js?v20260617"></script>
 </body>
 
 </html>

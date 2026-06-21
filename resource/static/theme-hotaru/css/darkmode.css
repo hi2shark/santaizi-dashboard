@@ -235,3 +235,11 @@ body.dark .page-section {
     }
 }
 
+
+/* 服务器可用性摘要 */
+body.dark .location-info .nezha-availability {
+    color: #bbb;
+}
+body.dark .panel-location .nezha-availability-bar {
+    background: rgba(255, 255, 255, 0.06);
+}

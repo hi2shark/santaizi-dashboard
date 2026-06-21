@@ -12,7 +12,7 @@
                 </div>
                 <div class="active content">
                     <div class="ui four stackable status cards">
-                        <div v-for="server in group.data" :id="server.ID" class="ui card">
+                        <div v-for="server in group.data" :id="server.ID" :data-server-id="server.ID" class="ui card">
                             <div class="content" v-if="server.Host" style="margin-top: 10px; padding-bottom: 5px">
                                 <div class="header">
                                     <i style="width: 22px;border-radius: 4px;" :class="'fi fi-' + server.Host.CountryCode"></i>                                    
@@ -73,7 +73,6 @@
                                         {{tr "Version"}}: @#server.Host.Version#@
                                         <div class="chartbox" :key="server.ID" :ref="`chart${server.ID}`" style="width: 100%; height: auto; margin-bottom: 2px;"></div>
                                     </div>
-                                    <div class="ui divider" style="margin-bottom: 5px"></div>
                                 </div>
                                 <div class="description">
                                     <div class="ui grid">
@@ -149,6 +148,9 @@
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                            <div class="extra content" v-if="server.Host" style="padding-top: 8px; padding-bottom: 10px;">
+                                <div class="nezha-availability nezha-availability-bar" :data-availability-id="server.ID">可用性数据加载中...</div>
                             </div>
                             <div class="content" v-else>
                                 <p>@#server.Name#@</p>
@@ -632,4 +634,5 @@
   
     $('.ui.accordion').accordion({ "exclusive": false });
 </script>
+<script src="/static/availability.js?v20260617"></script>
 {{end}}

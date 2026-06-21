@@ -52,6 +52,7 @@ site:
 | `offlinehistoryretentiondays` | uint64 | `365` | 离线历史保留天数 |
 | `enableofflinenotification` | bool | `false` | 离线时发送通知 |
 | `enablerecoverynotification` | bool | `false` | 恢复时发送通知 |
+| `showavailabilitytoguest` | bool | `false` | 是否向前台访客展示服务器可用性摘要（30 天可用率、离线次数等） |
 
 ---
 
