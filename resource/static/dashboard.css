@@ -1190,20 +1190,34 @@ body.el-popup-parent--hidden {
 
 .dashboard-server-transfer {
   width: 100%;
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
 }
 
 .dashboard-server-transfer .el-transfer-panel {
-  width: calc(50% - 42px);
+  width: auto;
+  flex: 1 1 0;
   min-width: 0;
 }
 
 .dashboard-server-transfer .el-transfer__buttons {
-  width: 60px;
-  padding: 0 6px;
+  width: 44px;
+  flex: 0 0 44px;
+  padding: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
+}
+
+.dashboard-server-transfer .el-transfer__button {
+  margin: 0;
+}
+
+.dashboard-server-transfer .el-transfer__button + .el-transfer__button {
+  margin-left: 0;
+  margin-top: 8px;
 }
 
 @media (max-width: 900px) {
@@ -1311,6 +1325,28 @@ body.el-popup-parent--hidden {
 
   .dashboard-date-row {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .dashboard-server-transfer {
+    flex-direction: column;
+  }
+
+  .dashboard-server-transfer .el-transfer-panel {
+    width: 100%;
+  }
+
+  .dashboard-server-transfer .el-transfer__buttons {
+    width: 100%;
+    flex-basis: auto;
+    flex-direction: row;
+    padding: 4px 0;
+  }
+
+  .dashboard-server-transfer .el-transfer__button + .el-transfer__button {
+    margin-left: 8px;
+    margin-top: 0;
   }
 }
 
