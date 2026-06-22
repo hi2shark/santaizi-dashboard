@@ -255,6 +255,12 @@ tr.accordion-toggle{
     max-width: 65px;    
 }
 
+.node-cell.availability {
+    min-width: 110px;
+    max-width: 140px;
+    vertical-align: middle;
+}
+
 .node-cell.remaining .additional {
     position: absolute;
     left: 0; 

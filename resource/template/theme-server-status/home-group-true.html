@@ -11,6 +11,9 @@
         <th class="node-cell location center">{{tr "Location"}}</th>
         <th v-if="group.data.some(item => item.additional && item.additional.price && Object.keys(item.additional.price).length > 0)" class="node-cell price center">{{tr "Price"}}</th>
         <th class="node-cell uptime center">{{tr "Uptime"}}</th>
+        {{if .Conf.ShowAvailabilityToGuest}}
+        <th class="node-cell availability center">{{tr "Availability"}}</th>
+        {{end}}
         <th class="node-cell load center">{{tr "Load"}}</th>
         <th class="node-cell network center">{{tr "NetSpeed"}}↓|↑</th>
         <th class="node-cell traffic center">{{tr "NetTransfer"}}↓|↑</th>
@@ -49,6 +52,11 @@
                 </template>
             </td>
             <td style="text-align: center;" class="node-cell uptime">@#node.uptime#@</td>
+            {{if .Conf.ShowAvailabilityToGuest}}
+            <td class="node-cell availability center">
+                <div class="nezha-availability nezha-availability-bar" :data-availability-id="node.ID">可用性数据加载中...</div>
+            </td>
+            {{end}}
             <td style="text-align: center;" class="node-cell load">@#node.load#@</td>
             <td style="text-align: center;" class="node-cell network">@#node.network#@</td>
             <td style="text-align: center;" class="node-cell traffic">@#node.traffic#@</td>
