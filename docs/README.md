@@ -17,6 +17,7 @@
 - [内网穿透 (NAT)](nat.md)
 - [API 文档](api.md)
 - [主题与自定义](themes.md)
+- [主题开发对接指南](theme-development.md)
 - [常见问题](faq.md)
 
 ## 核心概念

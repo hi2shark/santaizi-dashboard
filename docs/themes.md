@@ -1,5 +1,7 @@
 # 主题与自定义
 
+> 如果你想开发自己的主题，请阅读 [主题开发对接指南](theme-development.md)。
+
 ## 前台主题
 
 前台主题目录位于 `resource/template/theme-<name>/`，内置主题包括：
