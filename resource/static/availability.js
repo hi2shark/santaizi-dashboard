@@ -56,6 +56,12 @@
     return "danger";
   }
 
+  function renderPercent(el, summary) {
+    var percent = formatAvailabilityPercent(summary.availability_percent);
+    el.textContent = percent + "%";
+    el.setAttribute("title", buildText(summary));
+  }
+
   function buildText(summary) {
     var percent = formatAvailabilityPercent(summary.availability_percent);
     var count = summary.offline_count || 0;
@@ -99,6 +105,8 @@
       el.setAttribute("title", title);
       if (el.classList.contains('nezha-availability-bar')) {
         renderBar(el, summary);
+      } else if (el.classList.contains('nezha-availability-percent')) {
+        renderPercent(el, summary);
       } else if (el.classList.contains('nezha-availability')) {
         el.textContent = text;
       }

@@ -256,9 +256,7 @@ tr.accordion-toggle{
 }
 
 .node-cell.availability {
-    min-width: 110px;
-    max-width: 140px;
-    vertical-align: middle;
+    white-space: nowrap;
 }
 
 .node-cell.remaining .additional {
