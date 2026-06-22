@@ -1195,6 +1195,8 @@ func (ma *memberAPI) updateSetting(c *gin.Context) {
 	singleton.InitLocalizer()
 	// 更新DNS服务器
 	singleton.OnNameserverUpdate()
+	// 重新启动离线检测器，使离线历史相关配置立即生效
+	singleton.StartOfflineDetector()
 	c.JSON(http.StatusOK, model.Response{
 		Code: http.StatusOK,
 	})

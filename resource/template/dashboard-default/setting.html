@@ -89,6 +89,7 @@
                 <input name="EnableOfflineHistory" type="checkbox" {{if .Conf.EnableOfflineHistory}}checked{{end}}>
                 <span>启用离线历史记录</span>
             </label>
+            <p style="color: #666; font-size: 0.85em; margin: 0.25rem 0 0.75rem;">保存后立即生效，无需重启 Dashboard。</p>
             <label>
                 <span>离线判定阈值（秒）</span>
                 <input type="number" name="OfflineThresholdSeconds" min="10" value="{{.Conf.OfflineThresholdSeconds}}">

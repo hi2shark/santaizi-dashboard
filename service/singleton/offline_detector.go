@@ -1,6 +1,7 @@
 package singleton
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -14,20 +15,35 @@ import (
 
 var (
 	offlineDetectorStartTime time.Time
-	offlineDetectorOnce      sync.Once
+	offlineDetectorMu        sync.Mutex
+	offlineDetectorCancel    context.CancelFunc
 )
 
-// StartOfflineDetector 启动离线检测任务。
+// StartOfflineDetector 启动或重启离线检测任务。
+// 当配置变更（如启用/禁用离线历史、修改检测间隔）时，可重复调用以应用新配置。
 func StartOfflineDetector() {
+	offlineDetectorMu.Lock()
+	defer offlineDetectorMu.Unlock()
+
+	// 如果已有检测循环在跑，先停止它，以便应用新的配置
+	if offlineDetectorCancel != nil {
+		offlineDetectorCancel()
+		offlineDetectorCancel = nil
+	}
+
 	if !Conf.EnableOfflineHistory {
 		return
 	}
-	offlineDetectorOnce.Do(func() {
-		// 为旧版本升级后的已有服务器初始化运行态，避免重启瞬间误判离线
+
+	// 只在首次启动时初始化运行态并记录启动时间（用于宽限期）
+	if offlineDetectorStartTime.IsZero() {
 		InitServerRuntimes()
 		offlineDetectorStartTime = time.Now()
-		go offlineDetectorLoop()
-	})
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	offlineDetectorCancel = cancel
+	go offlineDetectorLoop(ctx)
 }
 
 // InitServerRuntimes 为所有已存在但尚无运行态记录的服务器创建初始运行态。
@@ -63,15 +79,20 @@ func InitServerRuntimes() {
 	}
 }
 
-func offlineDetectorLoop() {
+func offlineDetectorLoop(ctx context.Context) {
 	interval := time.Duration(Conf.OfflineCheckIntervalSeconds) * time.Second
 	if interval < time.Second*5 {
 		interval = time.Second * 5
 	}
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
-	for range ticker.C {
-		DetectOfflineServers()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			DetectOfflineServers()
+		}
 	}
 }
 

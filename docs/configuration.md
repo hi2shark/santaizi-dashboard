@@ -54,6 +54,8 @@ site:
 | `enablerecoverynotification` | bool | `false` | 恢复时发送通知 |
 | `showavailabilitytoguest` | bool | `false` | 是否向前台访客展示服务器可用性摘要（30 天可用率、离线次数等） |
 
+> 离线历史相关配置在后台设置页面保存后立即生效，无需重启 Dashboard。
+
 ---
 
 ## `site` 站点配置
