@@ -1,10 +1,23 @@
 package singleton
 
 import (
+	"math"
 	"time"
 
 	"github.com/naiba/nezha/model"
 )
+
+// FormatAvailabilityPercent 将可用率按“保留两位小数并向下取整”的方式格式化，
+// 避免出现少量离线时间后四舍五入显示为 100.00% 的问题。
+func FormatAvailabilityPercent(percent float64) float64 {
+	if percent <= 0 {
+		return 0
+	}
+	if percent >= 100 {
+		return 100
+	}
+	return math.Floor(percent*100) / 100
+}
 
 // ServerAvailability 服务器可用性聚合摘要（适合前台展示）。
 type ServerAvailability struct {
@@ -77,7 +90,7 @@ func GetServerAvailabilitySummaries(serverIDs []uint64, days int) (map[uint64]*S
 		if item.TotalOfflineSeconds >= periodSeconds {
 			item.AvailabilityPercent = 0.0
 		} else {
-			item.AvailabilityPercent = (1.0 - float64(item.TotalOfflineSeconds)/float64(periodSeconds)) * 100
+			item.AvailabilityPercent = FormatAvailabilityPercent((1.0 - float64(item.TotalOfflineSeconds)/float64(periodSeconds)) * 100)
 		}
 	}
 

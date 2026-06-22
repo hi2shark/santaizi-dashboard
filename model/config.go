@@ -77,6 +77,7 @@ type PublicConfig struct {
 	Language                        string
 	MaxTCPPingValue                 int32
 	DisableSwitchTemplateInFrontend bool
+	ShowAvailabilityToGuest         bool
 }
 
 // InstallScriptConfig 一键安装脚本源配置

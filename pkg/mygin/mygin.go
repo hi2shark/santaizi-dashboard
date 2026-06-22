@@ -228,6 +228,7 @@ func CommonEnvironment(c *gin.Context, data map[string]interface{}) gin.H {
 			Language:                        singleton.Conf.Language,
 			MaxTCPPingValue:                 singleton.Conf.MaxTCPPingValue,
 			DisableSwitchTemplateInFrontend: singleton.Conf.DisableSwitchTemplateInFrontend,
+			ShowAvailabilityToGuest:         singleton.Conf.ShowAvailabilityToGuest,
 		}
 	}
 	data["Themes"] = model.Themes

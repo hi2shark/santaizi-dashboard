@@ -41,6 +41,15 @@
     return parts.join("");
   }
 
+  function formatAvailabilityPercent(value) {
+    if (value == null) return "100.00";
+    var n = Number(value);
+    if (!Number.isFinite(n)) return "100.00";
+    if (n >= 100) return "100.00";
+    if (n <= 0) return "0.00";
+    return (Math.floor(n * 100) / 100).toFixed(2);
+  }
+
   function availabilityClass(percent) {
     if (percent >= 99) return "good";
     if (percent >= 95) return "warning";
@@ -48,7 +57,7 @@
   }
 
   function buildText(summary) {
-    var percent = summary.availability_percent != null ? summary.availability_percent.toFixed(2) : "100.00";
+    var percent = formatAvailabilityPercent(summary.availability_percent);
     var count = summary.offline_count || 0;
     var duration = formatDuration(summary.total_offline_seconds);
     var longest = formatDuration(summary.longest_offline_seconds);
@@ -62,7 +71,7 @@
   }
 
   function renderBar(el, summary) {
-    var percent = summary.availability_percent != null ? summary.availability_percent.toFixed(2) : "100.00";
+    var percent = formatAvailabilityPercent(summary.availability_percent);
     var count = summary.offline_count || 0;
     var duration = formatDuration(summary.total_offline_seconds);
     var longest = formatDuration(summary.longest_offline_seconds);

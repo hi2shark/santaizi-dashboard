@@ -128,7 +128,9 @@
                             </div>
                         </li>
                     </ul>
+                    {{if .Conf.ShowAvailabilityToGuest}}
                     <div class="nezha-availability nezha-availability-bar" :data-availability-id="server.ID">可用性数据加载中...</div>
+                    {{end}}
                 </div>
             </div>
         </div>
@@ -311,7 +313,9 @@
         }
         connect();
     </script>
-    <script src="/static/availability.js?v20260617"></script>
+    {{if .Conf.ShowAvailabilityToGuest}}
+    <script src="/static/availability.js?v20260623"></script>
+    {{end}}
 </body>
 
 </html>

@@ -98,9 +98,11 @@
                   </div>
                 </li>
               </ul>
+              {{if .Conf.ShowAvailabilityToGuest}}
               <div class="mdui-card-content-availability" style="padding: 0 16px 16px;">
                 <div class="nezha-availability nezha-availability-bar" :data-availability-id="server.ID">可用性数据加载中...</div>
               </div>
+              {{end}}
             </div>
           </div>
         </div>
@@ -125,9 +127,15 @@
 		<tbody>
 		  <tr :class="(server.live?'':'offline')" v-for="server in servers" :data-server-id="server.ID">
 		    <td class="mdui-text-center">@#server.ID#@</td>
+          {{if .Conf.ShowAvailabilityToGuest}}
 		    <td class="mdui-text-center" :data-availability-id="server.ID" title="可用性数据加载中...">
 		      @#server.Name#@
 		    </td>
+          {{else}}
+		    <td class="mdui-text-center">
+		      @#server.Name#@
+		    </td>
+          {{end}}
 		    <td class="mdui-text-center"><at>@#formatNetByteSize(server.State.NetOutSpeed)#@</at></td>
 		    <td class="mdui-text-center"><st>@#formatNetByteSize(server.State.NetInSpeed)#@</st></td>
 		    <td class="mdui-text-center"><at>@#formatByteSize(server.State.NetOutTransfer)#@</at></td>
@@ -309,7 +317,9 @@
     }
     connect();
   </script>
-  <script src="/static/availability.js?v20260617"></script>
+  {{if .Conf.ShowAvailabilityToGuest}}
+  <script src="/static/availability.js?v20260623"></script>
+  {{end}}
 </body>
 </html>
 {{end}}

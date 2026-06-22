@@ -208,10 +208,12 @@
                         <span class="node-echarts-expand">
                             <div class="chartbox" :id="`chart-${node.ID}`" chartbox-show="0" :key="node.ID" style="width: 100%; height: auto;"></div>
                         </span>
+                        {{if .Conf.ShowAvailabilityToGuest}}
                         <div class="node-cell-expand" style="display: block;">
                             <span class="node-cell-expand-label">可用性:</span>
                             <div class="nezha-availability nezha-availability-bar" :data-availability-id="node.ID">可用性数据加载中...</div>
                         </div>
+                        {{end}}
                     </div>
                 </div>
             </td>

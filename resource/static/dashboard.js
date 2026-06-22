@@ -217,6 +217,64 @@
     });
   };
 
+  // PC 端以弹窗形式打开服务器可用性历史，弹窗内可独立页面打开；移动端直接打开独立页面。
+  window.openServerOfflineHistory = function (serverId) {
+    const url = "/server/offline-history?server_id=" + encodeURIComponent(serverId);
+    const isMobile = window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
+    if (isMobile) {
+      window.open(url, "_blank");
+      return;
+    }
+    if (!window.Vue || !window.ElementPlus) {
+      window.open(url, "_blank");
+      return;
+    }
+
+    const mount = document.createElement("div");
+    mount.id = "offline-history-modal-" + Date.now();
+    document.body.appendChild(mount);
+
+    const app = Vue.createApp({
+      data: function () {
+        return { visible: true, url: url };
+      },
+      mounted: function () {
+        document.documentElement.classList.add("dashboard-modal-open");
+        document.body.classList.add("dashboard-modal-open");
+      },
+      beforeUnmount: function () {
+        document.documentElement.classList.remove("dashboard-modal-open");
+        document.body.classList.remove("dashboard-modal-open");
+      },
+      watch: {
+        visible: function (value) {
+          if (!value) {
+            this.$nextTick(function () {
+              try {
+                app.unmount();
+              } catch (error) {}
+              if (mount.parentNode) {
+                mount.parentNode.removeChild(mount);
+              }
+            });
+          }
+        },
+      },
+      template:
+        '<el-dialog v-model="visible" width="min(1100px, 96vw)" top="4vh" :close-on-click-modal="false" destroy-on-close append-to-body>' +
+        '  <template #header>' +
+        '    <div style="display:flex;justify-content:space-between;align-items:center;width:100%;padding-right:28px;box-sizing:border-box;">' +
+        '      <span style="font-weight:600;font-size:16px;">服务器可用性历史</span>' +
+        '      <a class="dashboard-button dashboard-button-small" :href="url" target="_blank"><i class="ri-external-link-line"></i> 新窗口打开</a>' +
+        '    </div>' +
+        '  </template>' +
+        '  <iframe :src="url" style="width:100%;height:70vh;border:none;display:block;"></iframe>' +
+        '</el-dialog>',
+    });
+    app.use(ElementPlus);
+    app.mount(mount);
+  };
+
   function postForm(path, params, method) {
     const form = document.createElement("form");
     form.method = method || "post";

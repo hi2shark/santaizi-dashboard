@@ -93,7 +93,7 @@
                     <td>
                         <div class="dashboard-inline-actions">
                             <button class="dashboard-icon-button" type="button" onclick="connectToServer({{$server.ID}})" title="Terminal"><i class="ri-terminal-line"></i></button>
-                            <button class="dashboard-icon-button" type="button" onclick="window.open('/server/offline-history?server_id={{$server.ID}}', '_blank')" title="可用性历史"><i class="ri-history-line"></i></button>
+                            <button class="dashboard-icon-button" type="button" onclick="openServerOfflineHistory({{$server.ID}})" title="可用性历史"><i class="ri-history-line"></i></button>
                             <button class="dashboard-icon-button" type="button" onclick="addOrEditServer({{$server.MarshalForDashboard}})" title="{{tr "Edit"}}"><i class="ri-edit-2-line"></i></button>
                             <button class="dashboard-icon-button" type="button" onclick="showConfirm('{{tr "ResetSecret"}}','{{tr "ConfirmToResetSecret"}}',resetServerSecret,{{$server.ID}})" title="{{tr "ResetSecret"}}"><i class="ri-key-2-line"></i></button>
                             <button class="dashboard-icon-button dashboard-icon-button-danger" type="button" onclick="showConfirm('{{tr "DeleteServer"}}','{{tr "ConfirmToDeleteServer"}}',deleteRequest,'/api/server/'+{{$server.ID}})" title="{{tr "DeleteServer"}}"><i class="ri-delete-bin-6-line"></i></button>
@@ -135,7 +135,7 @@
                 <button class="dashboard-icon-button dashboard-icon-button-success" type="button" data-copy="{{if $.Conf.GRPCHost}}curl -fSL {{$.Conf.InstallScript.MacOS}} | sudo bash -s -- install_agent {{$.Conf.GRPCHost}} {{if $.Conf.ProxyGRPCPort}}{{$.Conf.ProxyGRPCPort}}{{else}}{{$.Conf.GRPCPort}}{{end}} {{$server.Secret}}{{if $.Conf.TLS}} --tls{{end}} --disable-auto-update --disable-force-update --disable-command-execute{{else}}{{tr "NoDomainAlert"}}{{end}}"><i class="ri-apple-line"></i></button>
                 {{end}}
                 <button class="dashboard-icon-button" type="button" onclick="connectToServer({{$server.ID}})"><i class="ri-terminal-line"></i></button>
-                <button class="dashboard-icon-button" type="button" onclick="window.open('/server/offline-history?server_id={{$server.ID}}', '_blank')"><i class="ri-history-line"></i></button>
+                <button class="dashboard-icon-button" type="button" onclick="openServerOfflineHistory({{$server.ID}})"><i class="ri-history-line"></i></button>
                 <button class="dashboard-icon-button" type="button" onclick="addOrEditServer({{$server.MarshalForDashboard}})"><i class="ri-edit-2-line"></i></button>
                 <button class="dashboard-icon-button" type="button" onclick="showConfirm('{{tr "ResetSecret"}}','{{tr "ConfirmToResetSecret"}}',resetServerSecret,{{$server.ID}})"><i class="ri-key-2-line"></i></button>
                 <button class="dashboard-icon-button dashboard-icon-button-danger" type="button" onclick="showConfirm('{{tr "DeleteServer"}}','{{tr "ConfirmToDeleteServer"}}',deleteRequest,'/api/server/'+{{$server.ID}})"><i class="ri-delete-bin-6-line"></i></button>

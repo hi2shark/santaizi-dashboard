@@ -389,7 +389,7 @@ func (v *apiV1) offlineSummary(c *gin.Context) {
 	if offlineCount > 0 {
 		periodSeconds := uint64(end.Sub(start).Seconds())
 		if totalSeconds < periodSeconds {
-			availability = (1 - float64(totalSeconds)/float64(periodSeconds)) * 100
+			availability = singleton.FormatAvailabilityPercent((1 - float64(totalSeconds)/float64(periodSeconds)) * 100)
 		} else {
 			availability = 0
 		}

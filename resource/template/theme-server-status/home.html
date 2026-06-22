@@ -1186,5 +1186,7 @@
         }
     })
 </script>
-<script src="/static/availability.js?v20260617"></script>
+{{if .Conf.ShowAvailabilityToGuest}}
+<script src="/static/availability.js?v20260623"></script>
+{{end}}
 {{end}}

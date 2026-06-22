@@ -33,7 +33,7 @@
                 </div>
                 <div class="dashboard-offline-summary-card">
                     <div class="dashboard-offline-summary-label">最近 30 天可用率</div>
-                    <div class="dashboard-offline-summary-value">[[summary30.availability_percent.toFixed(2)]]%</div>
+                    <div class="dashboard-offline-summary-value">[[formatAvailabilityPercent(summary30.availability_percent)]]%</div>
                 </div>
                 <div class="dashboard-offline-summary-card">
                     <div class="dashboard-offline-summary-label">最长离线时长</div>
@@ -77,6 +77,15 @@
 (function () {
     const serverID = {{.ServerID}};
     const isAdmin = {{if .Admin.SuperAdmin}}true{{else}}false{{end}};
+
+    function formatAvailabilityPercent(value) {
+        if (value == null) return "100.00";
+        var n = Number(value);
+        if (!Number.isFinite(n)) return "100.00";
+        if (n >= 100) return "100.00";
+        if (n <= 0) return "0.00";
+        return (Math.floor(n * 100) / 100).toFixed(2);
+    }
 
     function formatDuration(seconds) {
         if (!seconds || seconds < 0) return "-";
@@ -192,6 +201,9 @@
             },
             formatDurationValue: function (value) {
                 return formatDuration(value);
+            },
+            formatAvailabilityPercent: function (value) {
+                return formatAvailabilityPercent(value);
             },
             formatReason: function (row, column, value) {
                 return formatReasonText(value);

@@ -113,7 +113,9 @@
               </div>
             </div>
             <div class="extra content" v-if="server.Host" style="padding-top: 8px; padding-bottom: 10px;">
+              {{if .Conf.ShowAvailabilityToGuest}}
               <div class="nezha-availability nezha-availability-bar" :data-availability-id="server.ID">可用性数据加载中...</div>
+              {{end}}
             </div>
             <div class="content" v-else>
               <p>@#server.Name#@</p>
@@ -377,5 +379,7 @@
 
   $('.ui.accordion').accordion({ "exclusive": false });
 </script>
-<script src="/static/availability.js?v20260617"></script>
+{{if .Conf.ShowAvailabilityToGuest}}
+<script src="/static/availability.js?v20260623"></script>
+{{end}}
 {{end}}
