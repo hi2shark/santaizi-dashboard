@@ -42,27 +42,36 @@
   }
 
   function formatAvailabilityPercent(value) {
-    if (value == null) return "100.00";
+    if (value == null) return null;
     var n = Number(value);
-    if (!Number.isFinite(n)) return "100.00";
+    if (!Number.isFinite(n)) return null;
     if (n >= 100) return "100.00";
     if (n <= 0) return "0.00";
     return (Math.floor(n * 100) / 100).toFixed(2);
   }
 
   function availabilityClass(percent) {
+    if (percent == null) return "";
     if (percent >= 99) return "good";
     if (percent >= 95) return "warning";
     return "danger";
   }
 
   function renderPercent(el, summary) {
+    if (summary.availability_percent == null) {
+      el.textContent = "—";
+      el.setAttribute("title", "该服务器尚未上报数据");
+      return;
+    }
     var percent = formatAvailabilityPercent(summary.availability_percent);
     el.textContent = percent + "%";
     el.setAttribute("title", buildText(summary));
   }
 
   function buildText(summary) {
+    if (summary.availability_percent == null) {
+      return "尚未上报数据";
+    }
     var percent = formatAvailabilityPercent(summary.availability_percent);
     var count = summary.offline_count || 0;
     var duration = formatDuration(summary.total_offline_seconds);
@@ -77,6 +86,18 @@
   }
 
   function renderBar(el, summary) {
+    if (summary.availability_percent == null) {
+      el.innerHTML =
+        '<div class="availability-row">' +
+          '<span class="availability-label">可用性</span>' +
+          '<span class="availability-percent">—</span>' +
+        '</div>' +
+        '<div class="availability-bar-bg">' +
+          '<div class="availability-bar-fill" style="width:0%;"></div>' +
+        '</div>' +
+        '<div class="availability-detail">尚未上报</div>';
+      return;
+    }
     var percent = formatAvailabilityPercent(summary.availability_percent);
     var count = summary.offline_count || 0;
     var duration = formatDuration(summary.total_offline_seconds);

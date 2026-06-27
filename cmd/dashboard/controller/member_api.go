@@ -1086,6 +1086,7 @@ type settingForm struct {
 	EnableOfflineHistory        string
 	OfflineThresholdSeconds     uint64
 	OfflineCheckIntervalSeconds uint64
+	OfflineMergeGapSeconds      uint64
 	OfflineHistoryRetentionDays uint64
 	EnableOfflineNotification   string
 	EnableRecoveryNotification  string
@@ -1137,6 +1138,9 @@ func (ma *memberAPI) updateSetting(c *gin.Context) {
 	singleton.Conf.Language = sf.Language
 	singleton.Conf.EnableIPChangeNotification = sf.EnableIPChangeNotification == "on"
 
+	// 记录离线历史开关的旧值，用于决定保存后是结构性重启检测器还是仅热重载配置
+	offlineHistoryWasEnabled := singleton.Conf.EnableOfflineHistory
+
 	// 离线历史配置校验与保存
 	if sf.OfflineThresholdSeconds < 10 {
 		c.JSON(http.StatusOK, model.Response{
@@ -1159,9 +1163,20 @@ func (ma *memberAPI) updateSetting(c *gin.Context) {
 		})
 		return
 	}
+	if sf.OfflineMergeGapSeconds > 3600 {
+		c.JSON(http.StatusOK, model.Response{
+			Code:    http.StatusBadRequest,
+			Message: "离线合并间隔需小于等于 3600 秒",
+		})
+		return
+	}
 	singleton.Conf.EnableOfflineHistory = sf.EnableOfflineHistory == "on"
 	singleton.Conf.OfflineThresholdSeconds = sf.OfflineThresholdSeconds
 	singleton.Conf.OfflineCheckIntervalSeconds = sf.OfflineCheckIntervalSeconds
+	// 离线合并间隔：未提交（0）时保留现有值，兼容未更新该字段的旧主题/客户端
+	if sf.OfflineMergeGapSeconds >= 1 {
+		singleton.Conf.OfflineMergeGapSeconds = sf.OfflineMergeGapSeconds
+	}
 	singleton.Conf.OfflineHistoryRetentionDays = sf.OfflineHistoryRetentionDays
 	singleton.Conf.EnableOfflineNotification = sf.EnableOfflineNotification == "on"
 	singleton.Conf.EnableRecoveryNotification = sf.EnableRecoveryNotification == "on"
@@ -1195,8 +1210,12 @@ func (ma *memberAPI) updateSetting(c *gin.Context) {
 	singleton.InitLocalizer()
 	// 更新DNS服务器
 	singleton.OnNameserverUpdate()
-	// 重新启动离线检测器，使离线历史相关配置立即生效
-	singleton.StartOfflineDetector()
+	// 离线检测器：仅当离线历史开关翻转时才结构性重启；否则热重载配置（如检测间隔）
+	if offlineHistoryWasEnabled != singleton.Conf.EnableOfflineHistory {
+		singleton.StartOfflineDetector()
+	} else {
+		singleton.ReloadOfflineDetectorConfig()
+	}
 	c.JSON(http.StatusOK, model.Response{
 		Code: http.StatusOK,
 	})
@@ -1348,15 +1367,15 @@ func (ma *memberAPI) offlineHistory(c *gin.Context) {
 }
 
 type offlineSummaryResponse struct {
-	ServerID               uint64  `json:"server_id"`
-	Days                   int     `json:"days"`
-	OfflineCount           int     `json:"offline_count"`
-	TotalOfflineSeconds    uint64  `json:"total_offline_seconds"`
-	LongestOfflineSeconds  uint64  `json:"longest_offline_seconds"`
-	AvailabilityPercent    float64 `json:"availability_percent"`
-	RebootCount            int     `json:"reboot_count"`
-	NetworkDisconnectCount int     `json:"network_disconnect_count"`
-	UnknownCount           int     `json:"unknown_count"`
+	ServerID               uint64   `json:"server_id"`
+	Days                   int      `json:"days"`
+	OfflineCount           int      `json:"offline_count"`
+	TotalOfflineSeconds    uint64   `json:"total_offline_seconds"`
+	LongestOfflineSeconds  uint64   `json:"longest_offline_seconds"`
+	AvailabilityPercent    *float64 `json:"availability_percent"`
+	RebootCount            int      `json:"reboot_count"`
+	NetworkDisconnectCount int      `json:"network_disconnect_count"`
+	UnknownCount           int      `json:"unknown_count"`
 }
 
 const maxOfflineSummaryDays = 3660 // 最多允许查询 10 年，防止大查询拖垮服务
@@ -1434,13 +1453,20 @@ func (ma *memberAPI) offlineSummary(c *gin.Context) {
 		}
 	}
 
-	availability := 100.0
-	if periodSeconds > 0 {
-		if totalOfflineSeconds >= periodSeconds {
-			availability = 0.0
-		} else {
-			availability = singleton.FormatAvailabilityPercent((1.0 - float64(totalOfflineSeconds)/float64(periodSeconds)) * 100)
+	// 可用率：服务器从未上报过数据（LastSeenAt 为空）时为空值（nil），
+	// 与前台可用性口径一致；否则按离线时长折算（已上报且无离线为 100）。
+	var availability *float64
+	var rt model.ServerRuntime
+	if err := singleton.DB.Select("last_seen_at").Where("server_id = ?", serverID).First(&rt).Error; err == nil && rt.LastSeenAt != nil {
+		pct := 100.0
+		if periodSeconds > 0 {
+			if totalOfflineSeconds >= periodSeconds {
+				pct = 0.0
+			} else {
+				pct = singleton.FormatAvailabilityPercent((1.0 - float64(totalOfflineSeconds)/float64(periodSeconds)) * 100)
+			}
 		}
+		availability = &pct
 	}
 
 	c.JSON(http.StatusOK, model.Response{

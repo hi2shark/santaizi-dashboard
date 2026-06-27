@@ -385,14 +385,21 @@ func (v *apiV1) offlineSummary(c *gin.Context) {
 	}
 
 	offlineCount := len(histories)
-	availability := 100.0
-	if offlineCount > 0 {
-		periodSeconds := uint64(end.Sub(start).Seconds())
-		if totalSeconds < periodSeconds {
-			availability = singleton.FormatAvailabilityPercent((1 - float64(totalSeconds)/float64(periodSeconds)) * 100)
-		} else {
-			availability = 0
+	// 可用率：服务器从未上报过数据（LastSeenAt 为空）时为空值（nil），
+	// 与前台可用性口径一致；否则按离线时长折算（已上报且无离线为 100）。
+	var availability *float64
+	var rt model.ServerRuntime
+	if err := singleton.DB.Select("last_seen_at").Where("server_id = ?", serverID).First(&rt).Error; err == nil && rt.LastSeenAt != nil {
+		pct := 100.0
+		if offlineCount > 0 {
+			periodSeconds := uint64(end.Sub(start).Seconds())
+			if totalSeconds < periodSeconds {
+				pct = singleton.FormatAvailabilityPercent((1 - float64(totalSeconds)/float64(periodSeconds)) * 100)
+			} else {
+				pct = 0
+			}
 		}
+		availability = &pct
 	}
 
 	c.JSON(http.StatusOK, model.Response{

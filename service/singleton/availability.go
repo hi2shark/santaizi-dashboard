@@ -20,13 +20,15 @@ func FormatAvailabilityPercent(percent float64) float64 {
 }
 
 // ServerAvailability 服务器可用性聚合摘要（适合前台展示）。
+// AvailabilityPercent 为指针：nil 表示该服务器从未上报过数据（不可统计），
+// 非 nil 表示真实可用率（已上报且无离线时为 100）。
 type ServerAvailability struct {
-	ServerID              uint64  `json:"server_id"`
-	Days                  int     `json:"days"`
-	OfflineCount          int     `json:"offline_count"`
-	TotalOfflineSeconds   uint64  `json:"total_offline_seconds"`
-	LongestOfflineSeconds uint64  `json:"longest_offline_seconds"`
-	AvailabilityPercent   float64 `json:"availability_percent"`
+	ServerID              uint64   `json:"server_id"`
+	Days                  int      `json:"days"`
+	OfflineCount          int      `json:"offline_count"`
+	TotalOfflineSeconds   uint64   `json:"total_offline_seconds"`
+	LongestOfflineSeconds uint64   `json:"longest_offline_seconds"`
+	AvailabilityPercent   *float64 `json:"availability_percent"`
 }
 
 // GetServerAvailabilitySummaries 批量计算多台服务器在最近 days 天内的可用性摘要。
@@ -50,11 +52,30 @@ func GetServerAvailabilitySummaries(serverIDs []uint64, days int) (map[uint64]*S
 		return nil, 0, err
 	}
 
+	// 查询各服务器运行态，用 LastSeenAt 判断是否上报过数据；
+	// 从未上报的服务器可用性应为空值（nil），而非 100%。
+	// 注意选用 LastSeenAt 而非 FirstSeenAt：InitServerRuntimes / GetOrCreateServerRuntime
+	// 在创建运行态时均不写 FirstSeenAt（仅在首次上报时补写），而 LastSeenAt 在每次上报、
+	// 以及运行态初始化时都会被写入，是兼容已有数据的可靠“是否上报过”信号。
+	var runtimes []model.ServerRuntime
+	if err := DB.Select("server_id", "last_seen_at").Where("server_id IN ?", serverIDs).Find(&runtimes).Error; err != nil {
+		return nil, 0, err
+	}
+	reported := make(map[uint64]bool, len(serverIDs))
+	for _, rt := range runtimes {
+		if rt.LastSeenAt != nil {
+			reported[rt.ServerID] = true
+		}
+	}
+
+	hundred := 100.0
 	for _, serverID := range serverIDs {
 		result[serverID] = &ServerAvailability{
-			ServerID:            serverID,
-			Days:                days,
-			AvailabilityPercent: 100.0,
+			ServerID: serverID,
+			Days:     days,
+		}
+		if reported[serverID] {
+			result[serverID].AvailabilityPercent = &hundred
 		}
 	}
 
@@ -84,13 +105,19 @@ func GetServerAvailabilitySummaries(serverIDs []uint64, days int) (map[uint64]*S
 	}
 
 	for _, item := range result {
+		// 从未上报的服务器保持 nil（不可统计）
+		if item.AvailabilityPercent == nil {
+			continue
+		}
 		if periodSeconds == 0 {
 			continue
 		}
 		if item.TotalOfflineSeconds >= periodSeconds {
-			item.AvailabilityPercent = 0.0
+			zero := 0.0
+			item.AvailabilityPercent = &zero
 		} else {
-			item.AvailabilityPercent = FormatAvailabilityPercent((1.0 - float64(item.TotalOfflineSeconds)/float64(periodSeconds)) * 100)
+			pct := FormatAvailabilityPercent((1.0 - float64(item.TotalOfflineSeconds)/float64(periodSeconds)) * 100)
+			item.AvailabilityPercent = &pct
 		}
 	}
 

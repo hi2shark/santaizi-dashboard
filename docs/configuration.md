@@ -47,8 +47,8 @@ site:
 | `dnsservers` | string | `""` | 自定义 DNS 服务器，逗号分隔 |
 | `enableofflinehistory` | bool | `true` | 是否启用服务器离线历史 |
 | `offlinethresholdseconds` | uint64 | `30` | 离线判定阈值（秒，最小 `10`） |
-| `offlinecheckintervalseconds` | uint64 | `10` | 离线检测间隔（秒，最小 `5`，且 ≤ 阈值） |
-| `offlinemergegapseconds` | uint64 | `10` | 离线合并间隔（保留配置） |
+| `offlinecheckintervalseconds` | uint64 | `10` | 离线检测间隔（秒，最小 `5`，且 ≤ 阈值）；修改后热生效，无需重启 |
+| `offlinemergegapseconds` | uint64 | `10` | 离线合并间隔（秒，1~3600）：相邻两次离线之间的在线时间 ≤ 该值时合并为一次，默认 10 |
 | `offlinehistoryretentiondays` | uint64 | `365` | 离线历史保留天数 |
 | `enableofflinenotification` | bool | `false` | 离线时发送通知 |
 | `enablerecoverynotification` | bool | `false` | 恢复时发送通知 |

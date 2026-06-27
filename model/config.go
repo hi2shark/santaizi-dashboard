@@ -269,6 +269,9 @@ func (c *Config) NormalizeOfflineConfig() {
 	if c.OfflineMergeGapSeconds == 0 {
 		c.OfflineMergeGapSeconds = 10
 	}
+	if c.OfflineMergeGapSeconds > 3600 {
+		c.OfflineMergeGapSeconds = 3600
+	}
 	if c.OfflineHistoryRetentionDays == 0 {
 		c.OfflineHistoryRetentionDays = 365
 	}

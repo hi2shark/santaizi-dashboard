@@ -653,7 +653,7 @@ function markLive(server, now) {
 | `EnableOfflineHistory` | bool | 是否启用离线历史 |
 | `OfflineThresholdSeconds` | uint64 | 离线阈值秒数 |
 | `OfflineCheckIntervalSeconds` | uint64 | 离线检查间隔 |
-| `OfflineMergeGapSeconds` | uint64 | 离线合并间隔 |
+| `OfflineMergeGapSeconds` | uint64 | 离线合并间隔（1~3600，默认 10）：相邻两次离线之间的在线时间 ≤ 该值时合并为一次 |
 | `OfflineHistoryRetentionDays` | uint64 | 离线历史保留天数 |
 | `EnableOfflineNotification` | bool | 离线通知 |
 | `EnableRecoveryNotification` | bool | 恢复通知 |
@@ -817,7 +817,7 @@ const monitorInfos = JSON.parse('{{.MonitorInfos}}');
 | `offline_count` | int | 离线次数 |
 | `total_offline_seconds` | uint64 | 累计离线秒数 |
 | `longest_offline_seconds` | uint64 | 最长单次离线秒数 |
-| `availability_percent` | float64 | 可用率百分比，如 `99.95` |
+| `availability_percent` | float\|null | 可用率百分比，如 `99.95`；服务器从未上报过数据时为 `null`（前端应显示为空，而非 100%） |
 
 ### 接口说明
 
