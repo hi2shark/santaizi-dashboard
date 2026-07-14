@@ -58,24 +58,17 @@ X-View-Password: <password>
 
 ## 公开 API
 
-无需 API Token 或登录，但可能需要查看密码。
+以下接口无需 API Token 或登录即可访问公开数据，但如果站点开启了 `site.viewpassword`，可能需要先通过查看密码验证。
 
-### 获取监控历史
+携带 API Token 或登录 Cookie 后：
+- 会取消 `HideForGuest` 过滤，可查看全部服务器；
+- 会额外返回敏感字段（如 `secret`、`note`、`ip`、Cron 命令、通知 URL、DDNS 密钥等）。
 
-```http
-GET /api/v1/monitor/:id
-```
-
-返回指定监控项最近 24 小时的历史数据。
-
----
-
-## API v1（需 API Token 或 Cookie）
-
-### 服务器列表
+### 获取服务器列表
 
 ```http
 GET /api/v1/server/list?tag=<分组名>
+GET /api/v1/server?tag=<分组名>
 ```
 
 **参数**：
@@ -84,7 +77,7 @@ GET /api/v1/server/list?tag=<分组名>
 |------|------|------|
 | `tag` | 否 | 按分组筛选 |
 
-**响应示例**：
+**响应示例**（无 Token）：
 
 ```json
 {
@@ -98,6 +91,29 @@ GET /api/v1/server/list?tag=<分组名>
       "public_note": "",
       "display_index": 0,
       "hide_for_guest": false
+    }
+  ]
+}
+```
+
+**响应示例**（带 Token）：
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "result": [
+    {
+      "id": 12,
+      "name": "HKG-DVPLUS",
+      "tag": "香港",
+      "public_note": "",
+      "display_index": 0,
+      "hide_for_guest": false,
+      "secret": "abcdef123456",
+      "note": "管理员备注",
+      "ip": "1.2.3.4",
+      "ddns_profiles_raw": "[]"
     }
   ]
 }
@@ -122,17 +138,85 @@ GET /api/v1/server/details?id=<id1,id2,...>&tag=<分组名>
 {
   "code": 200,
   "message": "success",
-  "result": {
-    "12": {
+  "result": [
+    {
       "id": 12,
       "name": "HKG-DVPLUS",
-      "state": { ... },
+      "tag": "香港",
+      "public_note": "",
       "host": { ... },
       "status": { ... }
+    }
+  ]
+}
+```
+
+### 单台服务器
+
+```http
+GET /api/v1/server/:id
+```
+
+返回单台服务器的完整信息，结构与 `/api/v1/server/details` 中的元素一致。
+
+### 服务监控
+
+```http
+GET /api/v1/service
+```
+
+返回所有 `EnableShowInService` 的服务监控汇总。
+
+### 周期流量
+
+```http
+GET /api/v1/cycle-transfer
+```
+
+**响应示例**：
+
+```json
+{
+  "success": true,
+  "data": {
+    "cycle_transfer_stats": {
+      "1": {
+        "name": "每月 1TB",
+        "from": "2025-07-01T00:00:00Z",
+        "to": "2025-08-01T00:00:00Z",
+        "max": 1099511627776,
+        "min": 0,
+        "transfer": {
+          "3": 1234567890
+        },
+        "next_update": {
+          "3": "2025-07-15T00:00:00Z"
+        }
+      }
     }
   }
 }
 ```
+
+### 获取监控历史
+
+```http
+GET /api/v1/monitor/:id
+```
+
+返回指定服务器最近 24 小时的服务监控历史数据。
+
+### 可用性摘要
+
+```http
+GET /api/v1/server/availability?id=<id1,id2,...>&days=30
+```
+
+返回服务器可用性摘要。需要 `showavailabilitytoguest` 开启，或携带 Token/登录 Cookie。
+
+---
+
+## API v1（需 API Token 或 Cookie）
 
 ### 注册服务器
 
@@ -312,6 +396,53 @@ Authorization: <your-token>
 
 ---
 
+## 统一模型列表（需 API Token 或 Cookie）
+
+```http
+GET /api/v1/:model
+```
+
+统一返回各类前端模型的列表。支持的 `:model`：
+
+| `:model` | 说明 | 无 Token 时 |
+|----------|------|-------------|
+| `cron` | 计划任务 | 隐藏 `command`、`servers` |
+| `notification` | 通知方式 | 隐藏 `url`、`request_header`、`request_body` 等 |
+| `ddns` | DDNS 配置 | 隐藏 `access_id`、`access_secret`、webhook 配置 |
+| `nat` | NAT 配置 | 返回全部字段 |
+| `alert-rule` | 告警规则 | 隐藏 `rules`、触发任务列表 |
+| `user` | 用户 | 隐藏 `token` |
+| `transfer` | 流量记录 | 返回全部字段 |
+| `server-runtime` | 服务器运行状态 | 需要 Token |
+| `api-token` | API Token 列表 | 需要 Token，仅返回当前用户的 Token |
+| `setting` | 站点配置 | 无 Token 时返回 `PublicConfig`，带 Token 时返回完整配置 |
+
+**响应示例**（`GET /api/v1/cron`，带 Token）：
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "result": [
+    {
+      "id": 1,
+      "name": "Debian版本",
+      "task_type": 1,
+      "scheduler": "",
+      "push_successful": true,
+      "notification_tag": "default",
+      "cover": 1,
+      "last_executed_at": "2025-04-18T14:01:24Z",
+      "last_result": true,
+      "command": "cat /etc/debian_version",
+      "servers": []
+    }
+  ]
+}
+```
+
+---
+
 ## Dashboard 会员 API（需登录 Cookie）
 
 Base URL：`/api`
@@ -410,6 +541,13 @@ Base URL：`/api`
 ```bash
 curl -s -H 'Authorization: <your-token>' \
   'https://nezha.example.com/api/v1/server/list'
+```
+
+### 使用 API Token 获取统一模型列表
+
+```bash
+curl -s -H 'Authorization: <your-token>' \
+  'https://nezha.example.com/api/v1/cron'
 ```
 
 ### 使用 API Token 获取离线历史
