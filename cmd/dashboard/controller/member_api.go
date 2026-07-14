@@ -65,7 +65,7 @@ func (ma *memberAPI) serve() {
 	mr.POST("/offline-history/cleanup", ma.cleanupOfflineHistory)
 	mr.DELETE("/offline-history/:id", ma.deleteOfflineHistory)
 
-	// API
+	// API v1（兼容 v0 数据格式 + 统一前端模型接口）
 	v1 := ma.r.Group("v1")
 	{
 		apiv1 := &apiV1{v1}

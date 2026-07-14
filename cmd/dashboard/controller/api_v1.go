@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jinzhu/copier"
 
 	"github.com/naiba/nezha/model"
 	"github.com/naiba/nezha/pkg/mygin"
@@ -19,24 +20,26 @@ type apiV1 struct {
 }
 
 func (v *apiV1) serve() {
-	r := v.r.Group("")
-	// 强制认证的 API
-	r.Use(mygin.Authorize(mygin.AuthorizeOption{
-		MemberOnly: true,
+	// 允许公开访问（含无 Token、查看密码、登录用户、API Token）的只读接口
+	pr := v.r.Group("")
+	pr.Use(mygin.Authorize(mygin.AuthorizeOption{
+		MemberOnly: false,
 		AllowAPI:   true,
 		IsPage:     false,
 		Msg:        "访问此接口需要认证",
 		Btn:        "点此登录",
 		Redirect:   "/login",
 	}))
-	r.GET("/server/list", v.serverList)
-	r.GET("/server/details", v.serverDetails)
-	r.POST("/server/register", v.RegisterServer)
-	r.GET("/offline-history", v.offlineHistory)
-	r.GET("/offline-history/summary", v.offlineSummary)
-	r.POST("/offline-history/cleanup", v.cleanupOfflineHistory)
-	r.DELETE("/offline-history/:id", v.deleteOfflineHistory)
-	// 不强制认证的 API
+	pr.Use(mygin.ValidateViewPassword(mygin.ValidateViewPasswordOption{
+		IsPage:        false,
+		AbortWhenFail: true,
+	}))
+	pr.GET("/server/list", v.serverList)
+	pr.GET("/server/details", v.serverDetails)
+	pr.GET("/service", v.service)
+	pr.GET("/cycle-transfer", v.cycleTransfer)
+
+	// 需要登录或 API Token 的接口
 	mr := v.r.Group("monitor")
 	mr.Use(mygin.Authorize(mygin.AuthorizeOption{
 		MemberOnly: false,
@@ -66,25 +69,74 @@ func (v *apiV1) serve() {
 		AbortWhenFail: true,
 	}))
 	sr.GET("/availability", v.serverAvailability)
+
+	// 强制认证（登录用户或 API Token）的管理接口
+	r := v.r.Group("")
+	r.Use(mygin.Authorize(mygin.AuthorizeOption{
+		MemberOnly: true,
+		AllowAPI:   true,
+		IsPage:     false,
+		Msg:        "访问此接口需要认证",
+		Btn:        "点此登录",
+		Redirect:   "/login",
+	}))
+	r.POST("/server/register", v.RegisterServer)
+	r.GET("/offline-history", v.offlineHistory)
+	r.GET("/offline-history/summary", v.offlineSummary)
+	r.POST("/offline-history/cleanup", v.cleanupOfflineHistory)
+	r.DELETE("/offline-history/:id", v.deleteOfflineHistory)
+
+	// 统一前端模型接口（放在最后作为兜底，避免覆盖上面具体路由）
+	v.registerUnified(pr, r)
+}
+
+// isVisible 返回当前请求是否已通过登录、API Token 或查看密码验证
+func isVisible(c *gin.Context) bool {
+	_, authorized := c.Get(model.CtxKeyAuthorizedUser)
+	if authorized {
+		return true
+	}
+	_, ok := c.Get(model.CtxKeyViewPasswordVerified)
+	return ok
+}
+
+// isTokenAuthorized 返回当前请求是否携带有效的登录 Cookie 或 API Token
+func isTokenAuthorized(c *gin.Context) bool {
+	_, authorized := c.Get(model.CtxKeyAuthorizedUser)
+	return authorized
 }
 
 // serverList 获取服务器列表 不传入Query参数则获取全部
+// 公开访问时自动过滤 HideForGuest 的服务器；带 Token 可查看全部
 // header: Authorization: Token
 // query: tag (服务器分组)
 func (v *apiV1) serverList(c *gin.Context) {
+	visible := isVisible(c)
 	tag := c.Query("tag")
+	var resp *singleton.ServerInfoResponse
 	if tag != "" {
-		c.JSON(200, singleton.ServerAPI.GetListByTag(tag))
-		return
+		resp = singleton.ServerAPI.GetListByTag(tag)
+	} else {
+		resp = singleton.ServerAPI.GetAllList()
 	}
-	c.JSON(200, singleton.ServerAPI.GetAllList())
+	if !visible {
+		filtered := make([]*singleton.CommonServerInfo, 0, len(resp.Result))
+		for _, info := range resp.Result {
+			if !info.HideForGuest {
+				filtered = append(filtered, info)
+			}
+		}
+		resp.Result = filtered
+	}
+	c.JSON(200, resp)
 }
 
 // serverDetails 获取服务器信息 不传入Query参数则获取全部
-// header: Authorization: Token
+// 公开访问时自动过滤 HideForGuest 的服务器；带 Token 可查看全部
 // query: id (服务器ID，逗号分隔，优先级高于tag查询)
 // query: tag (服务器分组)
 func (v *apiV1) serverDetails(c *gin.Context) {
+	visible := isVisible(c)
 	var idList []uint64
 	idListStr := strings.Split(c.Query("id"), ",")
 	if c.Query("id") != "" {
@@ -95,15 +147,55 @@ func (v *apiV1) serverDetails(c *gin.Context) {
 		}
 	}
 	tag := c.Query("tag")
+	var resp *singleton.ServerStatusResponse
 	if tag != "" {
-		c.JSON(200, singleton.ServerAPI.GetStatusByTag(tag))
-		return
+		resp = singleton.ServerAPI.GetStatusByTag(tag)
+	} else if len(idList) != 0 {
+		resp = singleton.ServerAPI.GetStatusByIDList(idList)
+	} else {
+		resp = singleton.ServerAPI.GetAllStatus()
 	}
-	if len(idList) != 0 {
-		c.JSON(200, singleton.ServerAPI.GetStatusByIDList(idList))
-		return
+	if !visible {
+		filtered := make([]*singleton.StatusResponse, 0, len(resp.Result))
+		for _, s := range resp.Result {
+			if !s.HideForGuest {
+				filtered = append(filtered, s)
+			}
+		}
+		resp.Result = filtered
 	}
-	c.JSON(200, singleton.ServerAPI.GetAllStatus())
+	c.JSON(200, resp)
+}
+
+// service 返回前台服务监控汇总（仅包含 EnableShowInService 的监控）
+func (v *apiV1) service(c *gin.Context) {
+	stats := singleton.ServiceSentinelShared.LoadStats()
+	filtered := make(map[uint64]*model.ServiceItemResponse, len(stats))
+	for k, s := range stats {
+		if s.Monitor != nil && s.Monitor.EnableShowInService {
+			filtered[k] = s
+		}
+	}
+	c.JSON(http.StatusOK, model.Response{
+		Code:   http.StatusOK,
+		Result: filtered,
+	})
+}
+
+// cycleTransfer 返回周期流量统计，兼容 v0 数据格式
+func (v *apiV1) cycleTransfer(c *gin.Context) {
+	singleton.AlertsLock.RLock()
+	defer singleton.AlertsLock.RUnlock()
+
+	stats := make(map[uint64]model.CycleTransferStats)
+	_ = copier.Copy(&stats, singleton.AlertsCycleTransferStatsStore)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": gin.H{
+			"cycle_transfer_stats": stats,
+		},
+	})
 }
 
 // RegisterServer adds a server and responds with the full ServerRegisterResponse
@@ -255,7 +347,6 @@ func (v *apiV1) serverAvailability(c *gin.Context) {
 		Result: items,
 	})
 }
-
 
 // offlineHistory 获取服务器离线历史列表
 // header: Authorization: Token
