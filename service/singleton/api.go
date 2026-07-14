@@ -26,17 +26,16 @@ type CommonResponse struct {
 }
 
 type RegisterServer struct {
-	Name		 string
-	Tag			 string
-	Note		 string
+	Name         string
+	Tag          string
+	Note         string
 	HideForGuest string
 }
 
 type ServerRegisterResponse struct {
 	CommonResponse
-	Secret 			string `json:"secret"`
+	Secret string `json:"secret"`
 }
-
 
 type CommonServerInfo struct {
 	ID           uint64 `json:"id"`
@@ -48,6 +47,7 @@ type CommonServerInfo struct {
 	ValidIP      string `json:"valid_ip"`
 	DisplayIndex int    `json:"display_index"`
 	HideForGuest bool   `json:"hide_for_guest"`
+	PublicNote   string `json:"public_note,omitempty"`
 }
 
 // StatusResponse 服务器状态子结构 包含服务器信息与状态信息
@@ -116,13 +116,16 @@ func (s *ServerAPIService) GetStatusByIDList(idList []uint64) *ServerStatusRespo
 		}
 		ipv4, ipv6, validIP := utils.SplitIPAddr(server.Host.IP)
 		info := CommonServerInfo{
-			ID:         server.ID,
-			Name:       server.Name,
-			Tag:        server.Tag,
-			LastActive: server.LastActive.Unix(),
-			IPV4:       ipv4,
-			IPV6:       ipv6,
-			ValidIP:    validIP,
+			ID:           server.ID,
+			Name:         server.Name,
+			Tag:          server.Tag,
+			LastActive:   server.LastActive.Unix(),
+			IPV4:         ipv4,
+			IPV6:         ipv6,
+			ValidIP:      validIP,
+			DisplayIndex: server.DisplayIndex,
+			HideForGuest: server.HideForGuest,
+			PublicNote:   server.PublicNote,
 		}
 		res.Result = append(res.Result, &StatusResponse{
 			CommonServerInfo: info,
@@ -165,6 +168,7 @@ func (s *ServerAPIService) GetAllStatus() *ServerStatusResponse {
 			ValidIP:      validIP,
 			DisplayIndex: v.DisplayIndex,
 			HideForGuest: v.HideForGuest,
+			PublicNote:   v.PublicNote,
 		}
 		res.Result = append(res.Result, &StatusResponse{
 			CommonServerInfo: info,
@@ -193,13 +197,16 @@ func (s *ServerAPIService) GetListByTag(tag string) *ServerInfoResponse {
 		}
 		ipv4, ipv6, validIP := utils.SplitIPAddr(host.IP)
 		info := &CommonServerInfo{
-			ID:         v,
-			Name:       ServerList[v].Name,
-			Tag:        ServerList[v].Tag,
-			LastActive: ServerList[v].LastActive.Unix(),
-			IPV4:       ipv4,
-			IPV6:       ipv6,
-			ValidIP:    validIP,
+			ID:           v,
+			Name:         ServerList[v].Name,
+			Tag:          ServerList[v].Tag,
+			LastActive:   ServerList[v].LastActive.Unix(),
+			IPV4:         ipv4,
+			IPV6:         ipv6,
+			ValidIP:      validIP,
+			DisplayIndex: ServerList[v].DisplayIndex,
+			HideForGuest: ServerList[v].HideForGuest,
+			PublicNote:   ServerList[v].PublicNote,
 		}
 		res.Result = append(res.Result, info)
 	}
@@ -224,13 +231,16 @@ func (s *ServerAPIService) GetAllList() *ServerInfoResponse {
 		}
 		ipv4, ipv6, validIP := utils.SplitIPAddr(host.IP)
 		info := &CommonServerInfo{
-			ID:         v.ID,
-			Name:       v.Name,
-			Tag:        v.Tag,
-			LastActive: v.LastActive.Unix(),
-			IPV4:       ipv4,
-			IPV6:       ipv6,
-			ValidIP:    validIP,
+			ID:           v.ID,
+			Name:         v.Name,
+			Tag:          v.Tag,
+			LastActive:   v.LastActive.Unix(),
+			IPV4:         ipv4,
+			IPV6:         ipv6,
+			ValidIP:      validIP,
+			DisplayIndex: v.DisplayIndex,
+			HideForGuest: v.HideForGuest,
+			PublicNote:   v.PublicNote,
 		}
 		res.Result = append(res.Result, info)
 	}
