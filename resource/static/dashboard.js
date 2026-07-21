@@ -153,6 +153,10 @@
     return JSON.parse(JSON.stringify(value || {}));
   }
 
+  function onOff(v) {
+    return v === true || v === "on" ? "on" : "off";
+  }
+
   function selectedServerIDs() {
     const ids = new Set();
     document.querySelectorAll('input.nezha-servers[type="checkbox"]').forEach(function (cb) {
@@ -666,13 +670,13 @@
         defaultForm: function (kind) {
           const defaults = {
             api: { Note: "" },
-            notification: { ID: 0, Name: "", Tag: "default", URL: "", RequestMethod: 1, RequestType: 1, RequestHeader: "", RequestBody: "", VerifySSL: "on", SkipCheck: "" },
-            ddns: { ID: 0, Name: "", Provider: this.providers.length ? Number(this.providers[0].ID) : 0, DomainsRaw: "", AccessID: "", AccessSecret: "", MaxRetries: 3, WebhookURL: "", WebhookMethod: 1, WebhookRequestType: 1, WebhookHeaders: "", WebhookRequestBody: "", EnableIPv4: "on", EnableIPv6: "" },
+            notification: { ID: 0, Name: "", Tag: "default", URL: "", RequestMethod: 1, RequestType: 1, RequestHeader: "", RequestBody: "", VerifySSL: "on", SkipCheck: "off" },
+            ddns: { ID: 0, Name: "", Provider: this.providers.length ? Number(this.providers[0].ID) : 0, DomainsRaw: "", AccessID: "", AccessSecret: "", MaxRetries: 3, WebhookURL: "", WebhookMethod: 1, WebhookRequestType: 1, WebhookHeaders: "", WebhookRequestBody: "", EnableIPv4: "on", EnableIPv6: "off" },
             nat: { ID: 0, Name: "", ServerID: 0, Host: "", Domain: "" },
-            cron: { ID: 0, TaskType: 0, Name: "", Scheduler: "", Command: "", Servers: [], Cover: 0, PushSuccessful: "", NotificationTag: "default" },
-            monitor: { ID: 0, Name: "", Target: "", Type: 1, EnableShowInService: "", Duration: 30, Cover: 0, SkipServers: [], NotificationTag: "default", Notify: "on", MaxLatency: null, MinLatency: null, LatencyNotify: "", EnableTriggerTask: "", FailTriggerTasks: [], RecoverTriggerTasks: [] },
+            cron: { ID: 0, TaskType: 0, Name: "", Scheduler: "", Command: "", Servers: [], Cover: 0, PushSuccessful: "off", NotificationTag: "default" },
+            monitor: { ID: 0, Name: "", Target: "", Type: 1, EnableShowInService: "off", Duration: 30, Cover: 0, SkipServers: [], NotificationTag: "default", Notify: "on", MaxLatency: null, MinLatency: null, LatencyNotify: "off", EnableTriggerTask: "off", FailTriggerTasks: [], RecoverTriggerTasks: [] },
             rule: { ID: 0, Name: "", RulesRaw: "[]", TriggerMode: 0, NotificationTag: "default", FailTriggerTasks: [], RecoverTriggerTasks: [], Enable: "on" },
-            server: { id: 0, name: "", Tag: "", DisplayIndex: 0, secret: "", DDNSProfiles: [], EnableDDNS: "", HideForGuest: "", Note: "", PublicNote: "" },
+            server: { id: 0, name: "", Tag: "", DisplayIndex: 0, secret: "", DDNSProfiles: [], EnableDDNS: "off", HideForGuest: "off", Note: "", PublicNote: "" },
           };
           return clone(defaults[kind] || {});
         },
@@ -717,32 +721,33 @@
             this.form.Note = data.Note || "";
           } else if (kind === "notification") {
             Object.assign(this.form, data);
-            this.form.VerifySSL = data.VerifySSL ? "on" : "";
+            this.form.VerifySSL = onOff(data.VerifySSL);
+            this.form.SkipCheck = onOff(data.SkipCheck);
           } else if (kind === "ddns") {
             Object.assign(this.form, data);
-            this.form.EnableIPv4 = data.EnableIPv4 ? "on" : "";
-            this.form.EnableIPv6 = data.EnableIPv6 ? "on" : "";
+            this.form.EnableIPv4 = onOff(data.EnableIPv4);
+            this.form.EnableIPv6 = onOff(data.EnableIPv6);
           } else if (kind === "nat") {
             Object.assign(this.form, data);
           } else if (kind === "cron") {
             Object.assign(this.form, data);
             this.form.Servers = parseIDArray(data.ServersRaw || data.Servers);
-            this.form.PushSuccessful = data.PushSuccessful ? "on" : "";
+            this.form.PushSuccessful = onOff(data.PushSuccessful);
             this.seedOptions("servers", this.form.Servers);
           } else if (kind === "monitor") {
             Object.assign(this.form, data);
             this.form.SkipServers = parseIDArray(data.SkipServersRaw);
             this.form.FailTriggerTasks = parseIDArray(data.FailTriggerTasksRaw);
             this.form.RecoverTriggerTasks = parseIDArray(data.RecoverTriggerTasksRaw);
-            this.form.Notify = data.Notify ? "on" : "";
-            this.form.LatencyNotify = data.LatencyNotify ? "on" : "";
-            this.form.EnableTriggerTask = data.EnableTriggerTask ? "on" : "";
-            this.form.EnableShowInService = data.EnableShowInService ? "on" : "";
+            this.form.Notify = onOff(data.Notify);
+            this.form.LatencyNotify = onOff(data.LatencyNotify);
+            this.form.EnableTriggerTask = onOff(data.EnableTriggerTask);
+            this.form.EnableShowInService = onOff(data.EnableShowInService);
             this.seedOptions("servers", this.form.SkipServers);
             this.seedOptions("tasks", this.form.FailTriggerTasks.concat(this.form.RecoverTriggerTasks));
           } else if (kind === "rule") {
             Object.assign(this.form, data);
-            this.form.Enable = data.Enable ? "on" : "";
+            this.form.Enable = onOff(data.Enable);
             this.form.FailTriggerTasks = parseIDArray(data.FailTriggerTasksRaw);
             this.form.RecoverTriggerTasks = parseIDArray(data.RecoverTriggerTasksRaw);
             this.form.RulesRaw = data.RulesRaw || "[]";
@@ -756,8 +761,8 @@
             this.form.DisplayIndex = data.DisplayIndex || 0;
             this.form.secret = data.Secret || data.secret || "";
             this.form.DDNSProfiles = parseIDArray(data.DDNSProfilesRaw);
-            this.form.EnableDDNS = data.EnableDDNS ? "on" : "";
-            this.form.HideForGuest = data.HideForGuest ? "on" : "";
+            this.form.EnableDDNS = onOff(data.EnableDDNS);
+            this.form.HideForGuest = onOff(data.HideForGuest);
             this.form.Note = data.Note || "";
             this.form.PublicNote = data.PublicNote || "";
             this.loadPublicNote(this.form.PublicNote);
@@ -1064,10 +1069,17 @@
             return { Note: f.Note || "" };
           }
           if (this.kind === "notification") {
-            return Object.assign({}, f, { VerifySSL: f.VerifySSL, SkipCheck: f.SkipCheck });
+            return Object.assign({}, f, { VerifySSL: onOff(f.VerifySSL), SkipCheck: onOff(f.SkipCheck) });
           }
           if (this.kind === "ddns") {
-            return Object.assign({}, f, { MaxRetries: Number(f.MaxRetries || 0), Provider: Number(f.Provider || 0), WebhookMethod: Number(f.WebhookMethod || 1), WebhookRequestType: Number(f.WebhookRequestType || 1) });
+            return Object.assign({}, f, {
+              MaxRetries: Number(f.MaxRetries || 0),
+              Provider: Number(f.Provider || 0),
+              WebhookMethod: Number(f.WebhookMethod || 1),
+              WebhookRequestType: Number(f.WebhookRequestType || 1),
+              EnableIPv4: onOff(f.EnableIPv4),
+              EnableIPv6: onOff(f.EnableIPv6),
+            });
           }
           if (this.kind === "nat") {
             return Object.assign({}, f, { ServerID: Number(f.ServerID || 0) });
@@ -1081,7 +1093,7 @@
               Command: f.Command || "",
               ServersRaw: JSON.stringify(parseIDArray(f.Servers)),
               Cover: Number(f.Cover || 0),
-              PushSuccessful: f.PushSuccessful,
+              PushSuccessful: onOff(f.PushSuccessful),
               NotificationTag: f.NotificationTag || "default",
             };
           }
@@ -1092,15 +1104,15 @@
               Target: f.Target || "",
               Type: Number(f.Type || 1),
               Cover: Number(f.Cover || 0),
-              Notify: f.Notify,
+              Notify: onOff(f.Notify),
               NotificationTag: f.NotificationTag || "default",
               SkipServersRaw: JSON.stringify(parseIDArray(f.SkipServers)),
               Duration: Number(f.Duration || 30),
               MinLatency: Number(f.MinLatency || 0),
               MaxLatency: Number(f.MaxLatency || 0),
-              LatencyNotify: f.LatencyNotify,
-              EnableTriggerTask: f.EnableTriggerTask,
-              EnableShowInService: f.EnableShowInService,
+              LatencyNotify: onOff(f.LatencyNotify),
+              EnableTriggerTask: onOff(f.EnableTriggerTask),
+              EnableShowInService: onOff(f.EnableShowInService),
               FailTriggerTasksRaw: JSON.stringify(parseIDArray(f.FailTriggerTasks)),
               RecoverTriggerTasksRaw: JSON.stringify(parseIDArray(f.RecoverTriggerTasks)),
             };
@@ -1115,7 +1127,7 @@
               RecoverTriggerTasksRaw: JSON.stringify(parseIDArray(f.RecoverTriggerTasks)),
               NotificationTag: f.NotificationTag || "default",
               TriggerMode: Number(f.TriggerMode || 0),
-              Enable: f.Enable,
+              Enable: onOff(f.Enable),
             };
           }
           if (this.kind === "server") {
@@ -1131,8 +1143,8 @@
               Tag: f.Tag || "",
               Note: f.Note || "",
               PublicNote: noteObject && Object.keys(noteObject).length ? JSON.stringify(noteObject, null, 2) : "",
-              HideForGuest: f.HideForGuest,
-              EnableDDNS: f.EnableDDNS,
+              HideForGuest: onOff(f.HideForGuest),
+              EnableDDNS: onOff(f.EnableDDNS),
               DDNSProfilesRaw: JSON.stringify(parseIDArray(f.DDNSProfiles)),
             };
           }
@@ -1192,8 +1204,8 @@
                 <el-form-item :label="t('RequestType')"><el-select v-model="form.RequestType"><el-option label="JSON" :value="1" /><el-option label="FORM" :value="2" /></el-select></el-form-item>
                 <el-form-item class="dashboard-dialog-grid-full" label="Header"><el-input v-model="form.RequestHeader" type="textarea" :rows="4" placeholder='{"User-Agent":"Nezha-Agent"}' /></el-form-item>
                 <el-form-item class="dashboard-dialog-grid-full" label="Body"><el-input v-model="form.RequestBody" type="textarea" :rows="6" /></el-form-item>
-                <el-form-item :label="t('VerifySSL')"><el-switch v-model="form.VerifySSL" active-value="on" inactive-value="" /></el-form-item>
-                <el-form-item :label="t('DoNotSendTestMessages')"><el-switch v-model="form.SkipCheck" active-value="on" inactive-value="" /></el-form-item>
+                <el-form-item :label="t('VerifySSL')"><el-switch v-model="form.VerifySSL" active-value="on" inactive-value="off" /></el-form-item>
+                <el-form-item :label="t('DoNotSendTestMessages')"><el-switch v-model="form.SkipCheck" active-value="on" inactive-value="off" /></el-form-item>
               </div>
             </template>
 
@@ -1205,8 +1217,8 @@
                 <el-form-item v-if="provider.AccessID" :label="t('DDNSAccessID')"><el-input v-model="form.AccessID" /></el-form-item>
                 <el-form-item v-if="provider.AccessSecret" :label="t('DDNSAccessSecret')"><el-input v-model="form.AccessSecret" /></el-form-item>
                 <el-form-item :label="t('MaxRetries')"><el-input-number v-model="form.MaxRetries" :min="1" :max="10" /></el-form-item>
-                <el-form-item :label="t('EnableIPv4')"><el-switch v-model="form.EnableIPv4" active-value="on" inactive-value="" /></el-form-item>
-                <el-form-item :label="t('EnableIPv6')"><el-switch v-model="form.EnableIPv6" active-value="on" inactive-value="" /></el-form-item>
+                <el-form-item :label="t('EnableIPv4')"><el-switch v-model="form.EnableIPv4" active-value="on" inactive-value="off" /></el-form-item>
+                <el-form-item :label="t('EnableIPv6')"><el-switch v-model="form.EnableIPv6" active-value="on" inactive-value="off" /></el-form-item>
                 <el-form-item v-if="provider.WebhookURL" class="dashboard-dialog-grid-full" :label="t('WebhookURL')"><el-input v-model="form.WebhookURL" /></el-form-item>
                 <el-form-item v-if="provider.WebhookMethod" :label="t('WebhookMethod')"><el-select v-model="form.WebhookMethod"><el-option label="GET" :value="1" /><el-option label="POST" :value="2" /><el-option label="PATCH" :value="3" /><el-option label="DELETE" :value="4" /><el-option label="PUT" :value="5" /></el-select></el-form-item>
                 <el-form-item v-if="provider.WebhookRequestType" :label="t('WebhookRequestType')"><el-select v-model="form.WebhookRequestType"><el-option label="JSON" :value="1" /><el-option label="Form" :value="2" /></el-select></el-form-item>
@@ -1233,7 +1245,7 @@
                 <el-form-item class="dashboard-dialog-grid-full" :label="t('Command')"><el-input v-model="form.Command" type="textarea" :rows="5" /></el-form-item>
                 <el-form-item class="dashboard-dialog-grid-full" :label="t('SpecificServers')"><el-transfer v-model="form.Servers" :data="remote.servers" :props="{key:'value', label:'label'}" filterable :titles="[t('Server'), t('SpecificServers')]" class="dashboard-server-transfer" /></el-form-item>
                 <el-form-item :label="t('NotificationMethodGroup')"><el-input v-model="form.NotificationTag" placeholder="default" /></el-form-item>
-                <el-form-item :label="t('PushSuccessMessages')"><el-switch v-model="form.PushSuccessful" active-value="on" inactive-value="" /></el-form-item>
+                <el-form-item :label="t('PushSuccessMessages')"><el-switch v-model="form.PushSuccessful" active-value="on" inactive-value="off" /></el-form-item>
               </div>
             </template>
 
@@ -1261,8 +1273,8 @@
                   <div class="dashboard-section-title"><i class="ri-notification-3-line"></i>{{t('NotificationMethod')}}</div>
                   <div class="dashboard-dialog-grid">
                     <el-form-item :label="t('NotificationMethodGroup')"><el-input v-model="form.NotificationTag" placeholder="default" /></el-form-item>
-                    <el-form-item :label="t('EnableFailureNotification')"><el-switch v-model="form.Notify" active-value="on" inactive-value="" /></el-form-item>
-                    <el-form-item :label="t('EnableLatencyNotification')"><el-switch v-model="form.LatencyNotify" active-value="on" inactive-value="" /></el-form-item>
+                    <el-form-item :label="t('EnableFailureNotification')"><el-switch v-model="form.Notify" active-value="on" inactive-value="off" /></el-form-item>
+                    <el-form-item :label="t('EnableLatencyNotification')"><el-switch v-model="form.LatencyNotify" active-value="on" inactive-value="off" /></el-form-item>
                     <el-form-item :label="t('MaxLatency')"><el-input-number v-model="form.MaxLatency" :min="0" /></el-form-item>
                     <el-form-item :label="t('MinLatency')"><el-input-number v-model="form.MinLatency" :min="0" /></el-form-item>
                   </div>
@@ -1271,8 +1283,8 @@
                 <section class="dashboard-editor-section">
                   <div class="dashboard-section-title"><i class="ri-settings-3-line"></i>{{t('Settings')}}</div>
                   <div class="dashboard-dialog-grid">
-                    <el-form-item :label="t('EnableShowInService')"><el-switch v-model="form.EnableShowInService" active-value="on" inactive-value="" /></el-form-item>
-                    <el-form-item :label="t('EnableTriggerTask')"><el-switch v-model="form.EnableTriggerTask" active-value="on" inactive-value="" /></el-form-item>
+                    <el-form-item :label="t('EnableShowInService')"><el-switch v-model="form.EnableShowInService" active-value="on" inactive-value="off" /></el-form-item>
+                    <el-form-item :label="t('EnableTriggerTask')"><el-switch v-model="form.EnableTriggerTask" active-value="on" inactive-value="off" /></el-form-item>
                     <el-form-item :label="t('FailTriggerTasks')"><el-select v-model="form.FailTriggerTasks" multiple filterable remote clearable :remote-method="q => remoteSearch('tasks', q)"><el-option v-for="item in remote.tasks" :key="item.value" :label="item.label" :value="item.value" /></el-select></el-form-item>
                     <el-form-item :label="t('RecoverTriggerTasks')"><el-select v-model="form.RecoverTriggerTasks" multiple filterable remote clearable :remote-method="q => remoteSearch('tasks', q)"><el-option v-for="item in remote.tasks" :key="item.value" :label="item.label" :value="item.value" /></el-select></el-form-item>
                   </div>
@@ -1286,7 +1298,7 @@
                 <el-form-item :label="t('Name')"><el-input v-model="form.Name" /></el-form-item>
                 <el-form-item :label="t('NotificationTriggerMode')"><el-select v-model="form.TriggerMode"><el-option :label="t('ModeAlwaysTrigger')" :value="0" /><el-option :label="t('ModeOnetimeTrigger')" :value="1" /></el-select></el-form-item>
                 <el-form-item :label="t('NotificationMethodGroup')"><el-input v-model="form.NotificationTag" placeholder="default" /></el-form-item>
-                <el-form-item :label="t('Enable')"><el-switch v-model="form.Enable" active-value="on" inactive-value="" /></el-form-item>
+                <el-form-item :label="t('Enable')"><el-switch v-model="form.Enable" active-value="on" inactive-value="off" /></el-form-item>
                 <el-form-item :label="t('FailTriggerTasks')"><el-select v-model="form.FailTriggerTasks" multiple filterable remote clearable :remote-method="q => remoteSearch('tasks', q)"><el-option v-for="item in remote.tasks" :key="item.value" :label="item.label" :value="item.value" /></el-select></el-form-item>
                 <el-form-item :label="t('RecoverTriggerTasks')"><el-select v-model="form.RecoverTriggerTasks" multiple filterable remote clearable :remote-method="q => remoteSearch('tasks', q)"><el-option v-for="item in remote.tasks" :key="item.value" :label="item.label" :value="item.value" /></el-select></el-form-item>
               </div>
@@ -1365,11 +1377,11 @@
                         <div class="dashboard-server-toggle-row">
                           <div class="dashboard-toggle-card">
                             <span>{{t('EnableDDNS')}}</span>
-                            <el-switch v-model="form.EnableDDNS" active-value="on" inactive-value="" />
+                            <el-switch v-model="form.EnableDDNS" active-value="on" inactive-value="off" />
                           </div>
                           <div class="dashboard-toggle-card">
                             <span>{{t('HideForGuest')}}</span>
-                            <el-switch v-model="form.HideForGuest" active-value="on" inactive-value="" />
+                            <el-switch v-model="form.HideForGuest" active-value="on" inactive-value="off" />
                           </div>
                         </div>
                       </div>
