@@ -394,6 +394,30 @@ Authorization: <your-token>
 }
 ```
 
+### 重置单台服务器可用性
+
+清空该服务器全部离线历史并复位运行态（计时从当前时刻重新开始），用于修复异常数据
+（如遗留未关闭记录导致的“无限离线”）或人工重新统计。
+
+```http
+POST /api/v1/server/<id>/reset-availability
+Authorization: <your-token>
+```
+
+> 需要超级管理员权限。
+
+**响应示例**：
+
+```json
+{
+  "code": 200,
+  "message": "",
+  "result": {
+    "deleted": 9
+  }
+}
+```
+
 ---
 
 ## 统一模型列表（需 API Token 或 Cookie）
@@ -517,6 +541,7 @@ Base URL：`/api`
 | GET | `/api/offline-history/summary?server_id=&days=` | 查询离线统计摘要 |
 | POST | `/api/offline-history/cleanup` | 手动清理历史（需超级管理员） |
 | DELETE | `/api/offline-history/:id` | 删除单条历史（需超级管理员） |
+| POST | `/api/server/:id/reset-availability` | 重置单台服务器可用性（需超级管理员） |
 
 > 数据格式与 `/api/v1/offline-history*` 一致，但仅支持 Cookie 登录。
 

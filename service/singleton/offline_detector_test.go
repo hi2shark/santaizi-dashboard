@@ -261,6 +261,234 @@ func TestTryMergeWithPrevious_ReturnsMergedRecord(t *testing.T) {
 	}
 }
 
+// TestUpdateServerRuntimeOnReport_ClosesOpenHistory：服务器带着未关闭离线记录恢复上报时，
+// 应在同一事务内关闭记录并复位运行态（回归：旧实现读-改-写不在同一事务且无互斥，
+// 可能把检测器刚写入的离线状态覆盖掉，遗留永不关闭的记录导致“无限离线”）。
+func TestUpdateServerRuntimeOnReport_ClosesOpenHistory(t *testing.T) {
+	DB = newTestDB(t)
+	Conf = &model.Config{EnableOfflineHistory: true}
+
+	serverID := uint64(400)
+	lastSeen := time.Now().Add(-time.Hour)
+	rt := model.ServerRuntime{
+		ServerID:     serverID,
+		Status:       model.ServerRuntimeStatusOffline,
+		LastSeenAt:   &lastSeen,
+		LastBootTime: 100,
+		LastUptime:   50,
+	}
+	if err := DB.Create(&rt).Error; err != nil {
+		t.Fatalf("插入运行态失败: %v", err)
+	}
+	open := model.ServerOfflineHistory{
+		ServerID:     serverID,
+		StartedAt:    lastSeen.Add(30 * time.Second),
+		DetectedAt:   lastSeen.Add(40 * time.Second),
+		Status:       model.OfflineHistoryStatusOpen,
+		Reason:       model.OfflineReasonUnknown,
+		LastSeenAt:   lastSeen,
+		LastBootTime: 100,
+		LastUptime:   50,
+	}
+	if err := DB.Create(&open).Error; err != nil {
+		t.Fatalf("插入离线历史失败: %v", err)
+	}
+	rt.CurrentOfflineID = open.ID
+	if err := DB.Save(&rt).Error; err != nil {
+		t.Fatalf("更新运行态失败: %v", err)
+	}
+
+	UpdateServerRuntimeOnStateReport(serverID, model.HostState{Uptime: 60})
+
+	var gotRt model.ServerRuntime
+	if err := DB.Where("server_id = ?", serverID).First(&gotRt).Error; err != nil {
+		t.Fatalf("读取运行态失败: %v", err)
+	}
+	if gotRt.Status != model.ServerRuntimeStatusOnline {
+		t.Errorf("恢复上报后运行态应为 online，实际 %q", gotRt.Status)
+	}
+	if gotRt.CurrentOfflineID != 0 {
+		t.Errorf("恢复上报后 CurrentOfflineID 应为 0，实际 %d", gotRt.CurrentOfflineID)
+	}
+
+	var gotH model.ServerOfflineHistory
+	if err := DB.First(&gotH, open.ID).Error; err != nil {
+		t.Fatalf("读取离线历史失败: %v", err)
+	}
+	if gotH.Status != model.OfflineHistoryStatusClosed || gotH.EndedAt == nil {
+		t.Fatalf("离线记录应已关闭，实际 status=%q ended_at=%v", gotH.Status, gotH.EndedAt)
+	}
+	if gotH.Reason != model.OfflineReasonNetworkDisconnect {
+		t.Errorf("同一 BootTime 且 Uptime 增长，原因应为 network_disconnect，实际 %q", gotH.Reason)
+	}
+	if gotH.DurationSeconds == 0 {
+		t.Errorf("离线时长应大于 0，实际 %d", gotH.DurationSeconds)
+	}
+}
+
+// TestReconcileOfflineHistories_ClosesOrphanOpen：服务器实际在线（阈值内有上报）但存在
+// 未关闭的离线记录（并发遗留的孤儿记录）→ 自动按最后上报时间关闭，可用性不再持续流失。
+func TestReconcileOfflineHistories_ClosesOrphanOpen(t *testing.T) {
+	DB = newTestDB(t)
+	Conf = &model.Config{EnableOfflineHistory: true, OfflineThresholdSeconds: 30}
+
+	serverID := uint64(401)
+	lastSeen := time.Now() // 刚上报过
+	rt := model.ServerRuntime{
+		ServerID:     serverID,
+		Status:       model.ServerRuntimeStatusOnline,
+		LastSeenAt:   &lastSeen,
+		LastBootTime: 100,
+		LastUptime:   100,
+	}
+	if err := DB.Create(&rt).Error; err != nil {
+		t.Fatalf("插入运行态失败: %v", err)
+	}
+	orphan := model.ServerOfflineHistory{
+		ServerID:     serverID,
+		StartedAt:    lastSeen.Add(-time.Hour),
+		DetectedAt:   lastSeen.Add(-time.Hour).Add(10 * time.Second),
+		Status:       model.OfflineHistoryStatusOpen,
+		Reason:       model.OfflineReasonUnknown,
+		LastSeenAt:   lastSeen.Add(-time.Hour).Add(-30 * time.Second),
+		LastBootTime: 100,
+		LastUptime:   50,
+	}
+	if err := DB.Create(&orphan).Error; err != nil {
+		t.Fatalf("插入离线历史失败: %v", err)
+	}
+
+	ReconcileOfflineHistories()
+
+	var got model.ServerOfflineHistory
+	if err := DB.First(&got, orphan.ID).Error; err != nil {
+		t.Fatalf("读取离线历史失败: %v", err)
+	}
+	if got.Status != model.OfflineHistoryStatusClosed {
+		t.Fatalf("孤儿记录应被关闭，实际 status=%q", got.Status)
+	}
+	if got.EndedAt == nil || !got.EndedAt.Equal(lastSeen) {
+		t.Errorf("关闭时间应为最后上报时间 %v，实际 %v", lastSeen, got.EndedAt)
+	}
+	var openCount int64
+	DB.Model(&model.ServerOfflineHistory{}).Where("status = ?", model.OfflineHistoryStatusOpen).Count(&openCount)
+	if openCount != 0 {
+		t.Errorf("修复后不应存在未关闭记录，实际 %d 条", openCount)
+	}
+}
+
+// TestReconcileOfflineHistories_MergesDuplicateOpens：服务器确实离线（超过阈值未上报）且
+// 存在多条未关闭记录（重复创建）→ 只保留最早一条并让运行态重新指向它，避免重复计时。
+func TestReconcileOfflineHistories_MergesDuplicateOpens(t *testing.T) {
+	DB = newTestDB(t)
+	Conf = &model.Config{EnableOfflineHistory: true, OfflineThresholdSeconds: 30}
+
+	serverID := uint64(402)
+	stale := time.Now().Add(-time.Hour) // 超过阈值未上报 = 确实离线
+	rt := model.ServerRuntime{
+		ServerID:   serverID,
+		Status:     model.ServerRuntimeStatusOnline, // 异常：离线但运行态是在线且未指向任何记录
+		LastSeenAt: &stale,
+	}
+	if err := DB.Create(&rt).Error; err != nil {
+		t.Fatalf("插入运行态失败: %v", err)
+	}
+	base := stale.Add(-2 * time.Hour)
+	first := model.ServerOfflineHistory{
+		ServerID: serverID, StartedAt: base, DetectedAt: base.Add(10 * time.Second),
+		Status: model.OfflineHistoryStatusOpen, Reason: model.OfflineReasonUnknown,
+		LastSeenAt: base.Add(-30 * time.Second),
+	}
+	second := model.ServerOfflineHistory{
+		ServerID: serverID, StartedAt: base.Add(time.Hour), DetectedAt: base.Add(time.Hour).Add(10 * time.Second),
+		Status: model.OfflineHistoryStatusOpen, Reason: model.OfflineReasonUnknown,
+		LastSeenAt: base.Add(time.Hour).Add(-30 * time.Second),
+	}
+	if err := DB.Create(&first).Error; err != nil {
+		t.Fatalf("插入离线历史失败: %v", err)
+	}
+	if err := DB.Create(&second).Error; err != nil {
+		t.Fatalf("插入离线历史失败: %v", err)
+	}
+
+	ReconcileOfflineHistories()
+
+	var opens []model.ServerOfflineHistory
+	if err := DB.Where("server_id = ? AND status = ?", serverID, model.OfflineHistoryStatusOpen).Find(&opens).Error; err != nil {
+		t.Fatalf("查询失败: %v", err)
+	}
+	if len(opens) != 1 || opens[0].ID != first.ID {
+		t.Fatalf("应只保留最早一条未关闭记录（ID=%d），实际 %+v", first.ID, opens)
+	}
+
+	var gotRt model.ServerRuntime
+	if err := DB.Where("server_id = ?", serverID).First(&gotRt).Error; err != nil {
+		t.Fatalf("读取运行态失败: %v", err)
+	}
+	if gotRt.Status != model.ServerRuntimeStatusOffline {
+		t.Errorf("服务器确实离线时运行态应为 offline，实际 %q", gotRt.Status)
+	}
+	if gotRt.CurrentOfflineID != first.ID {
+		t.Errorf("运行态应指向保留的离线记录 %d，实际 %d", first.ID, gotRt.CurrentOfflineID)
+	}
+}
+
+// TestResetServerAvailability：重置后离线历史清空、运行态复位为在线、
+// 计时从当前时刻重新开始（LastSeenAt 前移），避免检测器立刻按旧数据补建离线记录。
+func TestResetServerAvailability(t *testing.T) {
+	DB = newTestDB(t)
+	Conf = &model.Config{}
+
+	serverID := uint64(403)
+	stale := time.Now().Add(-24 * time.Hour)
+	rt := model.ServerRuntime{
+		ServerID:         serverID,
+		Status:           model.ServerRuntimeStatusOffline,
+		LastSeenAt:       &stale,
+		CurrentOfflineID: 999,
+	}
+	if err := DB.Create(&rt).Error; err != nil {
+		t.Fatalf("插入运行态失败: %v", err)
+	}
+	open := model.ServerOfflineHistory{
+		ServerID: serverID, StartedAt: stale, DetectedAt: stale,
+		Status: model.OfflineHistoryStatusOpen, Reason: model.OfflineReasonUnknown, LastSeenAt: stale,
+	}
+	if err := DB.Create(&open).Error; err != nil {
+		t.Fatalf("插入离线历史失败: %v", err)
+	}
+	insertClosedHistory(t, DB, serverID, stale.Add(-2*time.Hour), stale.Add(-time.Hour), model.OfflineReasonNetworkDisconnect)
+
+	before := time.Now()
+	deleted, err := ResetServerAvailability(serverID)
+	if err != nil {
+		t.Fatalf("重置失败: %v", err)
+	}
+	if deleted != 2 {
+		t.Errorf("应删除 2 条离线历史，实际 %d", deleted)
+	}
+
+	var count int64
+	DB.Model(&model.ServerOfflineHistory{}).Where("server_id = ?", serverID).Count(&count)
+	if count != 0 {
+		t.Errorf("重置后不应存在离线历史，实际 %d 条", count)
+	}
+
+	var gotRt model.ServerRuntime
+	if err := DB.Where("server_id = ?", serverID).First(&gotRt).Error; err != nil {
+		t.Fatalf("读取运行态失败: %v", err)
+	}
+	if gotRt.Status != model.ServerRuntimeStatusOnline {
+		t.Errorf("重置后运行态应为 online，实际 %q", gotRt.Status)
+	}
+	if gotRt.CurrentOfflineID != 0 {
+		t.Errorf("重置后 CurrentOfflineID 应为 0，实际 %d", gotRt.CurrentOfflineID)
+	}
+	if gotRt.LastSeenAt == nil || gotRt.LastSeenAt.Before(before) {
+		t.Errorf("重置后 LastSeenAt 应前移到当前时刻，实际 %v", gotRt.LastSeenAt)
+	}
+}
+
 // TestInitServerRuntimes_NoSyntheticTimestamps：注册在 ServerList 但 Agent 从未上报的服务器，
 // InitServerRuntimes 只应创建骨架行（Status=unknown、LastSeenAt=nil），
 // 不应伪造 LastSeenAt/LastOnlineAt——否则前台可用性会错误显示 100%（应为空值）。

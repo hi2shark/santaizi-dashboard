@@ -8,6 +8,9 @@
             <p>ID: {{.ServerID}} {{if .Server.Name}}- {{.Server.Name}}{{end}}</p>
         </div>
         <div class="dashboard-toolbar">
+            {{if .Admin.SuperAdmin}}
+            <button class="dashboard-button dashboard-button-danger" type="button" id="reset-availability-btn"><i class="ri-refresh-line"></i>重置可用性</button>
+            {{end}}
             <a class="dashboard-button" href="/server"><i class="ri-arrow-left-line"></i>返回</a>
         </div>
     </div>
@@ -212,7 +215,37 @@
     });
     app.config.compilerOptions = { delimiters: ['[[', ']]'] };
     app.use(ElementPlus);
-    app.mount("#offline-history-app");
+    const vm = app.mount("#offline-history-app");
+
+    // 重置可用性：清空该服务器全部离线记录并从当前时刻重新统计（仅超管可见按钮）
+    const resetBtn = document.getElementById("reset-availability-btn");
+    if (resetBtn) {
+        resetBtn.addEventListener("click", async function () {
+            if (!confirm("确定要重置该服务器的可用性数据吗？\n将清空全部离线记录并从当前时刻重新统计，此操作不可恢复。")) return;
+            resetBtn.disabled = true;
+            try {
+                const resp = await requestJSON("/api/server/" + serverID + "/reset-availability", {
+                    method: "POST",
+                    headers: nezhaCSRFHeaders({ "Content-Type": "application/json", Accept: "application/json" }),
+                    body: "{}"
+                });
+                ensureOK(resp);
+                if (window.ElementPlus && ElementPlus.ElMessage) {
+                    ElementPlus.ElMessage.success("可用性数据已重置");
+                }
+                vm.loadHistory();
+                vm.loadSummary(1, "summary24");
+                vm.loadSummary(7, "summary7");
+                vm.loadSummary(30, "summary30");
+            } catch (error) {
+                if (window.ElementPlus && ElementPlus.ElMessage) {
+                    ElementPlus.ElMessage.error(error.message || String(error));
+                }
+            } finally {
+                resetBtn.disabled = false;
+            }
+        });
+    }
 })();
 </script>
 {{end}}

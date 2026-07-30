@@ -2,6 +2,7 @@ package singleton
 
 import (
 	"math"
+	"sort"
 	"time"
 
 	"github.com/naiba/nezha/model"
@@ -17,6 +18,56 @@ func FormatAvailabilityPercent(percent float64) float64 {
 		return 100
 	}
 	return math.Floor(percent*100) / 100
+}
+
+// SummarizeOfflineIntervals 计算离线记录在统计窗口 [periodStart, periodEnd] 内的并集时长。
+// 重叠的离线区间（异常重复记录、合并残留等）只计算一次，避免可用率被重复扣除。
+// 返回并集总时长与最长单段连续离线时长（秒）。
+func SummarizeOfflineIntervals(histories []model.ServerOfflineHistory, periodStart, periodEnd time.Time) (uint64, uint64) {
+	type interval struct{ start, end time.Time }
+	intervals := make([]interval, 0, len(histories))
+	for _, h := range histories {
+		start := h.StartedAt
+		if start.Before(periodStart) {
+			start = periodStart
+		}
+		end := periodEnd
+		if h.EndedAt != nil && h.EndedAt.Before(end) {
+			end = *h.EndedAt
+		}
+		if !end.After(start) {
+			continue
+		}
+		intervals = append(intervals, interval{start: start, end: end})
+	}
+	if len(intervals) == 0 {
+		return 0, 0
+	}
+	sort.Slice(intervals, func(i, j int) bool { return intervals[i].start.Before(intervals[j].start) })
+
+	var total, longest uint64
+	curStart, curEnd := intervals[0].start, intervals[0].end
+	flush := func() {
+		d := uint64(curEnd.Sub(curStart).Seconds())
+		total += d
+		if d > longest {
+			longest = d
+		}
+	}
+	for _, iv := range intervals[1:] {
+		if iv.start.After(curEnd) {
+			// 与当前段不相交，结算当前段并开启新段
+			flush()
+			curStart, curEnd = iv.start, iv.end
+			continue
+		}
+		if iv.end.After(curEnd) {
+			// 与当前段重叠或相接，延展当前段
+			curEnd = iv.end
+		}
+	}
+	flush()
+	return total, longest
 }
 
 // ServerAvailability 服务器可用性聚合摘要（适合前台展示）。
@@ -79,29 +130,19 @@ func GetServerAvailabilitySummaries(serverIDs []uint64, days int) (map[uint64]*S
 		}
 	}
 
+	// 离线时长按区间并集计算：重叠的离线记录只计一次，避免可用率被重复扣除
+	grouped := make(map[uint64][]model.ServerOfflineHistory, len(serverIDs))
 	for _, h := range histories {
-		start := h.StartedAt
-		if start.Before(periodStart) {
-			start = periodStart
-		}
-		end := periodEnd
-		if h.EndedAt != nil && h.EndedAt.Before(end) {
-			end = *h.EndedAt
-		}
-		if end.Before(start) {
-			continue
-		}
-		duration := uint64(end.Sub(start).Seconds())
-
 		item, ok := result[h.ServerID]
 		if !ok {
 			continue
 		}
 		item.OfflineCount++
-		item.TotalOfflineSeconds += duration
-		if duration > item.LongestOfflineSeconds {
-			item.LongestOfflineSeconds = duration
-		}
+		grouped[h.ServerID] = append(grouped[h.ServerID], h)
+	}
+	for serverID, hs := range grouped {
+		item := result[serverID]
+		item.TotalOfflineSeconds, item.LongestOfflineSeconds = SummarizeOfflineIntervals(hs, periodStart, periodEnd)
 	}
 
 	for _, item := range result {

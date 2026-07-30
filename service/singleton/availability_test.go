@@ -166,3 +166,61 @@ func TestAvailability_OfflineHistoryDisabledButReporting(t *testing.T) {
 		t.Errorf("无离线历史时可用性应为 100，实际 %v", *s.AvailabilityPercent)
 	}
 }
+
+// TestSummarizeOfflineIntervals_Overlap：重叠的离线区间只应计算一次，
+// 否则重复记录会让可用率被重复扣除；未关闭记录按统计窗口结束时间计。
+func TestSummarizeOfflineIntervals_Overlap(t *testing.T) {
+	start := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
+	end := start.Add(24 * time.Hour)
+
+	mk := func(s, e time.Time) model.ServerOfflineHistory {
+		return model.ServerOfflineHistory{StartedAt: s, EndedAt: &e, Status: model.OfflineHistoryStatusClosed}
+	}
+	openAt := func(s time.Time) model.ServerOfflineHistory {
+		return model.ServerOfflineHistory{StartedAt: s, Status: model.OfflineHistoryStatusOpen}
+	}
+
+	histories := []model.ServerOfflineHistory{
+		mk(start.Add(10*time.Hour), start.Add(12*time.Hour)), // 2h
+		mk(start.Add(11*time.Hour), start.Add(13*time.Hour)), // 与上一条重叠，并集 10:00-13:00 = 3h
+		openAt(start.Add(20 * time.Hour)),                    // 未关闭 → 计到窗口结束 = 4h
+	}
+
+	total, longest := SummarizeOfflineIntervals(histories, start, end)
+	wantTotal := uint64(7 * 3600)   // 3h + 4h
+	wantLongest := uint64(4 * 3600) // 最长单段连续离线 4h
+	if total != wantTotal {
+		t.Errorf("并集总时长应为 %d，实际 %d（重叠部分被重复计算）", wantTotal, total)
+	}
+	if longest != wantLongest {
+		t.Errorf("最长连续离线应为 %d，实际 %d", wantLongest, longest)
+	}
+}
+
+// TestGetServerAvailabilitySummaries_OverlappingRecords：完全重叠的两条离线记录只计一次，
+// 可用率不被重复扣除。
+func TestGetServerAvailabilitySummaries_OverlappingRecords(t *testing.T) {
+	DB = newTestDB(t)
+	Conf = &model.Config{}
+
+	serverID := uint64(205)
+	now := time.Now()
+	insertRuntime(t, serverID, &now)
+
+	// 两条完全重叠的离线记录：各 5 天，处于 10 天统计窗口内
+	start := now.AddDate(0, 0, -5)
+	insertClosedHistory(t, DB, serverID, start, now, model.OfflineReasonNetworkDisconnect)
+	insertClosedHistory(t, DB, serverID, start, now, model.OfflineReasonUnknown)
+
+	summaries, _, err := GetServerAvailabilitySummaries([]uint64{serverID}, 10)
+	if err != nil {
+		t.Fatalf("查询失败: %v", err)
+	}
+	s := summaries[serverID]
+	if s == nil || s.AvailabilityPercent == nil {
+		t.Fatal("应返回可用性数据")
+	}
+	if *s.AvailabilityPercent != 50 {
+		t.Errorf("重叠记录只计一次，可用率应为 50，实际 %v", *s.AvailabilityPercent)
+	}
+}

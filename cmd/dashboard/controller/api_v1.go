@@ -81,6 +81,7 @@ func (v *apiV1) serve() {
 		Redirect:   "/login",
 	}))
 	r.POST("/server/register", v.RegisterServer)
+	r.POST("/server/:id/reset-availability", v.resetServerAvailability)
 	r.GET("/offline-history", v.offlineHistory)
 	r.GET("/offline-history/summary", v.offlineSummary)
 	r.POST("/offline-history/cleanup", v.cleanupOfflineHistory)
@@ -453,18 +454,11 @@ func (v *apiV1) offlineSummary(c *gin.Context) {
 	var histories []model.ServerOfflineHistory
 	singleton.DB.Where("server_id = ? AND started_at >= ? AND started_at <= ?", serverID, start, end).Find(&histories)
 
-	var totalSeconds uint64
-	var longestSeconds uint64
+	// 离线时长按区间并集计算：重叠的离线记录只计一次，避免可用率被重复扣除
+	totalSeconds, longestSeconds := singleton.SummarizeOfflineIntervals(histories, start, end)
+
 	var rebootCount, networkCount, unknownCount int
 	for _, h := range histories {
-		duration := h.DurationSeconds
-		if h.Status == model.OfflineHistoryStatusOpen {
-			duration = uint64(end.Sub(h.StartedAt).Seconds())
-		}
-		totalSeconds += duration
-		if duration > longestSeconds {
-			longestSeconds = duration
-		}
 		switch h.Reason {
 		case model.OfflineReasonMachineReboot:
 			rebootCount++
@@ -584,5 +578,54 @@ func (v *apiV1) deleteOfflineHistory(c *gin.Context) {
 
 	c.JSON(http.StatusOK, model.Response{
 		Code: http.StatusOK,
+	})
+}
+
+// resetServerAvailability 重置单台服务器的可用性数据（需超级管理员）：
+// 清空该服务器全部离线历史并复位运行态，用于修复异常数据
+// （如遗留未关闭记录导致的“无限离线”）或人工重新统计。
+// header: Authorization: Token
+func (v *apiV1) resetServerAvailability(c *gin.Context) {
+	u := c.MustGet(model.CtxKeyAuthorizedUser).(*model.User)
+	if !u.SuperAdmin {
+		c.JSON(http.StatusOK, model.Response{
+			Code:    http.StatusForbidden,
+			Message: "无权操作",
+		})
+		return
+	}
+
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || id == 0 {
+		c.JSON(http.StatusOK, model.Response{
+			Code:    http.StatusBadRequest,
+			Message: "错误的服务器 ID",
+		})
+		return
+	}
+
+	singleton.ServerLock.RLock()
+	_, ok := singleton.ServerList[id]
+	singleton.ServerLock.RUnlock()
+	if !ok {
+		c.JSON(http.StatusOK, model.Response{
+			Code:    http.StatusBadRequest,
+			Message: "服务器不存在",
+		})
+		return
+	}
+
+	deleted, err := singleton.ResetServerAvailability(id)
+	if err != nil {
+		c.JSON(http.StatusOK, model.Response{
+			Code:    http.StatusBadRequest,
+			Message: fmt.Sprintf("数据库错误：%s", err),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.Response{
+		Code:   http.StatusOK,
+		Result: map[string]int64{"deleted": deleted},
 	})
 }

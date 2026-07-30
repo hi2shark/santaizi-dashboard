@@ -19,6 +19,12 @@ var (
 	offlineDetectorCancel    context.CancelFunc
 	// offlineDetectorReload 用于在不重启整个检测循环的前提下，让检测间隔等配置变更即时生效。
 	offlineDetectorReload chan struct{}
+	// serverRuntimeMu 串行化所有对 server_runtimes 的“读-改-写”操作（Agent 上报、
+	// 离线检测、一致性修复、可用性重置）。上报路径与检测器运行在不同 goroutine，
+	// 若不加互斥，整行 Save 可能把对方刚提交的离线状态覆盖掉，遗留永不关闭的
+	// 离线记录（前台可用性表现为“无限离线”）。SQLite 不支持 SELECT ... FOR UPDATE，
+	// 进程内互斥锁是最简单且各数据库通用的一致性手段。
+	serverRuntimeMu sync.Mutex
 )
 
 // StartOfflineDetector 启动或重启离线检测任务。
@@ -46,6 +52,9 @@ func StartOfflineDetector() {
 	ctx, cancel := context.WithCancel(context.Background())
 	offlineDetectorCancel = cancel
 	offlineDetectorReload = make(chan struct{}, 1)
+	// 启动（或配置变更重启）时先修复一次历史遗留的异常数据（未关闭/重复的离线记录），
+	// 避免“无限离线”要等到第一个检测周期才被自愈
+	ReconcileOfflineHistories()
 	go offlineDetectorLoop(ctx)
 }
 
@@ -126,6 +135,10 @@ func DetectOfflineServers() {
 	if !Conf.EnableOfflineHistory {
 		return
 	}
+	// 每轮检测前先修复运行态与离线历史的不一致（如并发遗留的未关闭记录），
+	// 避免异常数据长期累积导致“无限离线”或重复记录
+	ReconcileOfflineHistories()
+
 	threshold := time.Duration(Conf.OfflineThresholdSeconds) * time.Second
 	if threshold < time.Second*10 {
 		threshold = time.Second * 10
@@ -158,6 +171,20 @@ func DetectOfflineServers() {
 }
 
 func createOfflineHistory(rt *model.ServerRuntime, now time.Time, threshold time.Duration) {
+	serverRuntimeMu.Lock()
+	history := createOfflineHistoryTx(rt, now, threshold)
+	serverRuntimeMu.Unlock()
+	if history == nil {
+		return
+	}
+	if Conf.EnableOfflineNotification {
+		sendOfflineNotification(rt.ServerID, history)
+	}
+}
+
+// createOfflineHistoryTx 在 serverRuntimeMu 保护下，于单个事务内创建离线记录并把运行态置为离线。
+// 返回创建的记录；校验失败（运行态已变化）或写入失败时返回 nil。
+func createOfflineHistoryTx(rt *model.ServerRuntime, now time.Time, threshold time.Duration) *model.ServerOfflineHistory {
 	startedAt := rt.LastSeenAt.Add(threshold)
 
 	tx := DB.Begin()
@@ -165,15 +192,15 @@ func createOfflineHistory(rt *model.ServerRuntime, now time.Time, threshold time
 	var current model.ServerRuntime
 	if err := tx.First(&current, rt.ServerID).Error; err != nil {
 		tx.Rollback()
-		return
+		return nil
 	}
 	if current.Status != model.ServerRuntimeStatusOnline || current.CurrentOfflineID != 0 || current.LastSeenAt == nil {
 		tx.Rollback()
-		return
+		return nil
 	}
 	if now.Sub(*current.LastSeenAt) <= threshold {
 		tx.Rollback()
-		return
+		return nil
 	}
 
 	history := model.ServerOfflineHistory{
@@ -191,7 +218,7 @@ func createOfflineHistory(rt *model.ServerRuntime, now time.Time, threshold time
 	if err := tx.Create(&history).Error; err != nil {
 		tx.Rollback()
 		log.Printf("NEZHA>> 创建离线历史失败: %v", err)
-		return
+		return nil
 	}
 
 	current.Status = model.ServerRuntimeStatusOffline
@@ -200,17 +227,14 @@ func createOfflineHistory(rt *model.ServerRuntime, now time.Time, threshold time
 	if err := tx.Save(&current).Error; err != nil {
 		tx.Rollback()
 		log.Printf("NEZHA>> 更新运行态为离线失败: %v", err)
-		return
+		return nil
 	}
 
 	if err := tx.Commit().Error; err != nil {
 		log.Printf("NEZHA>> 提交离线历史事务失败: %v", err)
-		return
+		return nil
 	}
-
-	if Conf.EnableOfflineNotification {
-		sendOfflineNotification(current.ServerID, &history)
-	}
+	return &history
 }
 
 // CloseOfflineHistory 在服务器恢复上报时关闭当前未关闭的离线记录。
@@ -218,22 +242,60 @@ func CloseOfflineHistory(rt *model.ServerRuntime, state *model.HostState, host *
 	if rt == nil || rt.CurrentOfflineID == 0 {
 		return
 	}
+	serverID := rt.ServerID
+	var closed *model.ServerOfflineHistory
+
+	serverRuntimeMu.Lock()
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		// 事务内重新读取运行态，避免基于过期副本操作
+		var current model.ServerRuntime
+		if err := tx.First(&current, serverID).Error; err != nil {
+			return err
+		}
+		h, err := closeOfflineHistoryTx(tx, &current, state, host, now)
+		if err != nil {
+			return err
+		}
+		closed = h
+		return tx.Save(&current).Error
+	})
+	serverRuntimeMu.Unlock()
+
+	if err != nil {
+		log.Printf("NEZHA>> 关闭离线历史失败: %v", err)
+		return
+	}
+	// 同步调用方持有的运行态副本，使其后续整行保存不会回退离线字段
+	rt.Status = model.ServerRuntimeStatusOnline
+	rt.CurrentOfflineID = 0
+	if closed != nil {
+		rt.LastOnlineAt = &now
+		afterOfflineHistoryClosed(serverID, closed)
+	}
+}
+
+// closeOfflineHistoryTx 在事务内关闭 rt.CurrentOfflineID 指向的离线记录，
+// rt 的离线相关字段在事务内一并更新（由调用方负责保存 rt）。
+// 返回被关闭的记录；记录不存在或已关闭时仅修正 rt 字段并返回 nil。
+func closeOfflineHistoryTx(tx *gorm.DB, rt *model.ServerRuntime, state *model.HostState, host *model.Host, now time.Time) (*model.ServerOfflineHistory, error) {
+	if rt.CurrentOfflineID == 0 {
+		return nil, nil
+	}
 
 	var history model.ServerOfflineHistory
-	if err := DB.First(&history, rt.CurrentOfflineID).Error; err != nil {
+	if err := tx.First(&history, rt.CurrentOfflineID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			rt.CurrentOfflineID = 0
 			rt.Status = model.ServerRuntimeStatusOnline
-			DB.Save(rt)
+			return nil, nil
 		}
-		return
+		return nil, err
 	}
 
 	if history.Status == model.OfflineHistoryStatusClosed {
 		rt.CurrentOfflineID = 0
 		rt.Status = model.ServerRuntimeStatusOnline
-		DB.Save(rt)
-		return
+		return nil, nil
 	}
 
 	recoveredBootTime := rt.LastBootTime
@@ -262,33 +324,24 @@ func CloseOfflineHistory(rt *model.ServerRuntime, state *model.HostState, host *
 	history.RecoveredUptime = recoveredUptime
 	history.RecoveredIP = recoveredIP
 
-	// 在事务内更新历史与运行态，避免合并时出现中间态
-	if err := func() error {
-		tx := DB.Begin()
-		if err := tx.Save(&history).Error; err != nil {
-			tx.Rollback()
-			return err
-		}
-		rt.Status = model.ServerRuntimeStatusOnline
-		rt.CurrentOfflineID = 0
-		rt.LastOnlineAt = &now
-		if err := tx.Save(rt).Error; err != nil {
-			tx.Rollback()
-			return err
-		}
-		return tx.Commit().Error
-	}(); err != nil {
-		log.Printf("NEZHA>> 关闭离线历史失败: %v", err)
+	if err := tx.Save(&history).Error; err != nil {
+		return nil, err
+	}
+	rt.Status = model.ServerRuntimeStatusOnline
+	rt.CurrentOfflineID = 0
+	rt.LastOnlineAt = &now
+	return &history, nil
+}
+
+// afterOfflineHistoryClosed 离线记录关闭后的收尾：短抖动合并与恢复通知。
+// 先合并再发通知，使通知内容（时长/原因/恢复点）与最终落库历史一致。
+func afterOfflineHistoryClosed(serverID uint64, history *model.ServerOfflineHistory) {
+	if Conf.EnableRecoveryNotification {
+		finalHistory := tryMergeWithPrevious(serverID, history)
+		sendRecoveryNotification(serverID, finalHistory)
 		return
 	}
-
-	if Conf.EnableRecoveryNotification {
-		// 先合并再发通知，使通知内容（时长/原因/恢复点）与最终落库历史一致
-		finalHistory := tryMergeWithPrevious(rt.ServerID, &history)
-		sendRecoveryNotification(rt.ServerID, finalHistory)
-	} else {
-		tryMergeWithPrevious(rt.ServerID, &history)
-	}
+	tryMergeWithPrevious(serverID, history)
 }
 
 // tryMergeWithPrevious 在服务器恢复后，尝试把当前刚关闭的离线记录并入上一条已关闭记录。
@@ -368,6 +421,161 @@ func DetectOfflineReason(lastBootTime, recoveredBootTime, lastUptime, recoveredU
 	return model.OfflineReasonNetworkDisconnect
 }
 
+// ReconcileOfflineHistories 修复运行态与离线历史不一致的异常数据：
+//   - 服务器实际在线（阈值内有上报）但存在未关闭的离线记录（并发覆盖等遗留的孤儿记录）
+//     → 按最后上报时间静默关闭，避免可用性被“无限离线”持续扣除；
+//   - 服务器确实离线但运行态未指向任何记录，或存在多条未关闭记录（重复创建）
+//     → 只保留最早一条并让运行态重新指向它，避免重复计时。
+//
+// 在离线检测循环每轮执行前调用，异常数据至多一个检测周期即可自愈。
+func ReconcileOfflineHistories() {
+	if !Conf.EnableOfflineHistory {
+		return
+	}
+	threshold := time.Duration(Conf.OfflineThresholdSeconds) * time.Second
+	if threshold < time.Second*10 {
+		threshold = time.Second * 10
+	}
+	now := time.Now()
+
+	var serverIDs []uint64
+	if err := DB.Model(&model.ServerOfflineHistory{}).
+		Where("status = ?", model.OfflineHistoryStatusOpen).
+		Distinct().Pluck("server_id", &serverIDs).Error; err != nil {
+		log.Printf("NEZHA>> 离线历史一致性检查查询失败: %v", err)
+		return
+	}
+	for _, serverID := range serverIDs {
+		reconcileServerOfflineHistories(serverID, now, threshold)
+	}
+}
+
+func reconcileServerOfflineHistories(serverID uint64, now time.Time, threshold time.Duration) {
+	serverRuntimeMu.Lock()
+	defer serverRuntimeMu.Unlock()
+
+	var opens []model.ServerOfflineHistory
+	if err := DB.Where("server_id = ? AND status = ?", serverID, model.OfflineHistoryStatusOpen).
+		Order("id").Find(&opens).Error; err != nil {
+		log.Printf("NEZHA>> 离线历史一致性检查读取失败 server_id=%d: %v", serverID, err)
+		return
+	}
+	if len(opens) == 0 {
+		return
+	}
+
+	rt, err := GetOrCreateServerRuntime(serverID)
+	if err != nil {
+		log.Printf("NEZHA>> 离线历史一致性检查读取运行态失败 server_id=%d: %v", serverID, err)
+		return
+	}
+	reporting := rt.LastSeenAt != nil && now.Sub(*rt.LastSeenAt) <= threshold
+
+	if reporting {
+		// 服务器正在正常上报：所有未关闭记录都是异常遗留，按最后上报时间关闭。
+		// 静默处理（不发恢复通知、不做短抖动合并），仅修复数据。
+		closeTime := *rt.LastSeenAt
+		err := DB.Transaction(func(tx *gorm.DB) error {
+			for i := range opens {
+				h := opens[i]
+				end := closeTime
+				if end.Before(h.StartedAt) {
+					end = h.StartedAt
+				}
+				h.EndedAt = &end
+				h.RecoveredAt = &end
+				h.DurationSeconds = uint64(end.Sub(h.StartedAt).Seconds())
+				h.Status = model.OfflineHistoryStatusClosed
+				h.Reason = DetectOfflineReason(h.LastBootTime, rt.LastBootTime, h.LastUptime, rt.LastUptime)
+				h.RecoveredBootTime = rt.LastBootTime
+				h.RecoveredUptime = rt.LastUptime
+				h.RecoveredIP = rt.LastIP
+				h.Note = "auto_reconcile"
+				if err := tx.Save(&h).Error; err != nil {
+					return err
+				}
+			}
+			rt.Status = model.ServerRuntimeStatusOnline
+			rt.CurrentOfflineID = 0
+			return tx.Save(rt).Error
+		})
+		if err != nil {
+			log.Printf("NEZHA>> 修复未关闭离线记录失败 server_id=%d: %v", serverID, err)
+		} else {
+			log.Printf("NEZHA>> 已自动修复 server_id=%d 的 %d 条未关闭离线记录", serverID, len(opens))
+		}
+		return
+	}
+
+	// 服务器确实处于离线状态：只保留最早一条未关闭记录，删除其余的重复记录，
+	// 并让运行态重新指向它（后续恢复上报时按正常流程关闭）。
+	keep := opens[0]
+	err = DB.Transaction(func(tx *gorm.DB) error {
+		if len(opens) > 1 {
+			ids := make([]uint64, 0, len(opens)-1)
+			for _, h := range opens[1:] {
+				ids = append(ids, h.ID)
+			}
+			if err := tx.Unscoped().Delete(&model.ServerOfflineHistory{}, "id IN ?", ids).Error; err != nil {
+				return err
+			}
+		}
+		if rt.LastSeenAt == nil {
+			return nil // 从未上报的服务器保持 unknown 运行态，仅清理重复记录
+		}
+		rt.Status = model.ServerRuntimeStatusOffline
+		rt.CurrentOfflineID = keep.ID
+		if rt.LastOfflineAt == nil {
+			detectedAt := keep.DetectedAt
+			rt.LastOfflineAt = &detectedAt
+		}
+		return tx.Save(rt).Error
+	})
+	if err != nil {
+		log.Printf("NEZHA>> 修复重复离线记录失败 server_id=%d: %v", serverID, err)
+	} else if len(opens) > 1 {
+		log.Printf("NEZHA>> 已合并 server_id=%d 的 %d 条重复未关闭离线记录", serverID, len(opens))
+	}
+}
+
+// ResetServerAvailability 重置单台服务器的可用性数据：清空全部离线历史并复位运行态，
+// 用于修复异常数据（如遗留未关闭记录导致的“无限离线”）或人工重新统计。
+// 返回删除的离线历史条数。
+//
+// 注意：上报时间会前移到重置时刻。若服务器当前确实离线，检测器会在阈值后新建一条
+// 从重置后开始计时的离线记录，而不会按旧的 LastSeenAt 把重置前的时段重新扣除。
+func ResetServerAvailability(serverID uint64) (int64, error) {
+	serverRuntimeMu.Lock()
+	defer serverRuntimeMu.Unlock()
+
+	var deleted int64
+	now := time.Now()
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		res := tx.Unscoped().Delete(&model.ServerOfflineHistory{}, "server_id = ?", serverID)
+		if res.Error != nil {
+			return res.Error
+		}
+		deleted = res.RowsAffected
+
+		var rt model.ServerRuntime
+		if err := tx.Where("server_id = ?", serverID).First(&rt).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil // 无运行态（从未上报），仅清空历史即可
+			}
+			return err
+		}
+		rt.CurrentOfflineID = 0
+		if rt.LastSeenAt != nil {
+			rt.LastSeenAt = &now
+			rt.Status = model.ServerRuntimeStatusOnline
+		} else {
+			rt.Status = model.ServerRuntimeStatusUnknown // 从未上报：保持未上报判定
+		}
+		return tx.Save(&rt).Error
+	})
+	return deleted, err
+}
+
 // GetOrCreateServerRuntime 根据服务器 ID 获取或创建运行态记录。
 func GetOrCreateServerRuntime(serverID uint64) (*model.ServerRuntime, error) {
 	var rt model.ServerRuntime
@@ -391,56 +599,93 @@ func GetOrCreateServerRuntime(serverID uint64) (*model.ServerRuntime, error) {
 	return &rt, nil
 }
 
+// getOrCreateServerRuntimeTx 在事务内按服务器 ID 获取或创建运行态记录。
+func getOrCreateServerRuntimeTx(tx *gorm.DB, serverID uint64) (*model.ServerRuntime, error) {
+	var rt model.ServerRuntime
+	err := tx.Where("server_id = ?", serverID).First(&rt).Error
+	if err == nil {
+		return &rt, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	rt = model.ServerRuntime{
+		ServerID: serverID,
+		Status:   model.ServerRuntimeStatusUnknown,
+	}
+	if err := tx.Create(&rt).Error; err != nil {
+		// 可能并发创建，再次尝试读取
+		if err := tx.Where("server_id = ?", serverID).First(&rt).Error; err != nil {
+			return nil, err
+		}
+	}
+	return &rt, nil
+}
+
 // UpdateServerRuntimeOnStateReport 在收到 ReportSystemState 时更新运行态。
 // 注意：上报时间戳/状态的写入不依赖 EnableOfflineHistory——可用性（前台展示）需要据此
 // 判断“是否上报过”，与离线历史是两个独立开关。仅“关闭离线记录”这一历史相关逻辑
 // 仍受 EnableOfflineHistory 控制。
 func UpdateServerRuntimeOnStateReport(serverID uint64, state model.HostState) {
-	rt, err := GetOrCreateServerRuntime(serverID)
-	if err != nil {
-		log.Printf("NEZHA>> 获取服务器运行态失败: %v", err)
-		return
-	}
-	now := time.Now()
-	if rt.FirstSeenAt == nil {
-		rt.FirstSeenAt = &now
-	}
-	if Conf.EnableOfflineHistory && rt.Status == model.ServerRuntimeStatusOffline {
-		CloseOfflineHistory(rt, &state, nil, now)
-	}
-	rt.Status = model.ServerRuntimeStatusOnline
-	rt.LastSeenAt = &now
-	rt.LastOnlineAt = &now
-	rt.LastUptime = state.Uptime
-	if err := DB.Save(rt).Error; err != nil {
-		log.Printf("NEZHA>> 更新服务器运行态失败: %v", err)
-	}
+	updateServerRuntimeOnReport(serverID, &state, nil)
 }
 
 // UpdateServerRuntimeOnHostReport 在收到 ReportSystemInfo 时更新运行态。
 // 同 UpdateServerRuntimeOnStateReport：上报时间戳/状态始终写入，仅离线历史逻辑受
 // EnableOfflineHistory 控制。
 func UpdateServerRuntimeOnHostReport(serverID uint64, host model.Host) {
-	rt, err := GetOrCreateServerRuntime(serverID)
+	updateServerRuntimeOnReport(serverID, nil, &host)
+}
+
+// updateServerRuntimeOnReport 在单个事务内完成“读取运行态 → 关闭进行中的离线记录 →
+// 写回上报字段”的完整流程，并通过 serverRuntimeMu 与离线检测器互斥。
+// 修复的核心竞态：旧实现先读取运行态、事务外修改后整行 Save，若检测器在读写之间
+// 提交了离线记录（status=offline, current_offline_id=N），Save 会将其覆盖回 online/0，
+// 遗留一条永不关闭的离线记录，前台可用性表现为“无限离线”。
+func updateServerRuntimeOnReport(serverID uint64, state *model.HostState, host *model.Host) {
+	now := time.Now()
+	var closed *model.ServerOfflineHistory
+
+	serverRuntimeMu.Lock()
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		rt, err := getOrCreateServerRuntimeTx(tx, serverID)
+		if err != nil {
+			return err
+		}
+		if rt.FirstSeenAt == nil {
+			rt.FirstSeenAt = &now
+		}
+		// 关闭离线记录必须在写入本次上报字段之前进行：
+		// 关闭判定需要“离线前”的 BootTime/Uptime/IP（取自 rt 现有值）
+		// 与“恢复后”的值（取自本次上报的 host/state）。
+		if Conf.EnableOfflineHistory && rt.Status == model.ServerRuntimeStatusOffline {
+			h, err := closeOfflineHistoryTx(tx, rt, state, host, now)
+			if err != nil {
+				return err
+			}
+			closed = h
+		}
+		rt.Status = model.ServerRuntimeStatusOnline
+		rt.LastSeenAt = &now
+		rt.LastOnlineAt = &now
+		if state != nil {
+			rt.LastUptime = state.Uptime
+		}
+		if host != nil {
+			rt.LastBootTime = host.BootTime
+			rt.LastIP = host.IP
+			rt.LastAgentVersion = host.Version
+		}
+		return tx.Save(rt).Error
+	})
+	serverRuntimeMu.Unlock()
+
 	if err != nil {
-		log.Printf("NEZHA>> 获取服务器运行态失败: %v", err)
+		log.Printf("NEZHA>> 更新服务器运行态失败: %v", err)
 		return
 	}
-	now := time.Now()
-	if rt.FirstSeenAt == nil {
-		rt.FirstSeenAt = &now
-	}
-	if Conf.EnableOfflineHistory && rt.Status == model.ServerRuntimeStatusOffline {
-		CloseOfflineHistory(rt, nil, &host, now)
-	}
-	rt.Status = model.ServerRuntimeStatusOnline
-	rt.LastSeenAt = &now
-	rt.LastOnlineAt = &now
-	rt.LastBootTime = host.BootTime
-	rt.LastIP = host.IP
-	rt.LastAgentVersion = host.Version
-	if err := DB.Save(rt).Error; err != nil {
-		log.Printf("NEZHA>> 更新服务器运行态失败: %v", err)
+	if closed != nil {
+		afterOfflineHistoryClosed(serverID, closed)
 	}
 }
 
