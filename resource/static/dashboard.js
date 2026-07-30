@@ -238,9 +238,12 @@
     mount.id = "offline-history-modal-" + Date.now();
     document.body.appendChild(mount);
 
+    // 弹窗内以 modal=1 打开：页面隐藏顶部导航与返回按钮，使用紧凑排版；“新窗口打开”仍用完整页面
+    const iframeUrl = url + "&modal=1";
+
     const app = Vue.createApp({
       data: function () {
-        return { visible: true, url: url };
+        return { visible: true, url: url, iframeUrl: iframeUrl };
       },
       mounted: function () {
         document.documentElement.classList.add("dashboard-modal-open");
@@ -272,7 +275,7 @@
         '      <a class="dashboard-button dashboard-button-small" :href="url" target="_blank"><i class="ri-external-link-line"></i> 新窗口打开</a>' +
         '    </div>' +
         '  </template>' +
-        '  <iframe :src="url" style="width:100%;height:70vh;border:none;display:block;"></iframe>' +
+        '  <iframe :src="iframeUrl" style="width:100%;height:70vh;border:none;display:block;"></iframe>' +
         '</el-dialog>',
     });
     app.use(ElementPlus);

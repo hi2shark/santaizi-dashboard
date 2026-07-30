@@ -486,19 +486,10 @@ func (ma *memberAPI) resetServerSecret(c *gin.Context) {
 	})
 }
 
-// resetServerAvailability 重置单台服务器的可用性数据（需超级管理员）：
+// resetServerAvailability 重置单台服务器的可用性数据：
 // 清空该服务器全部离线历史并复位运行态，用于修复异常数据
 // （如遗留未关闭记录导致的“无限离线”）或人工重新统计。
 func (ma *memberAPI) resetServerAvailability(c *gin.Context) {
-	u := c.MustGet(model.CtxKeyAuthorizedUser).(*model.User)
-	if !u.SuperAdmin {
-		c.JSON(http.StatusOK, model.Response{
-			Code:    http.StatusForbidden,
-			Message: "无权操作",
-		})
-		return
-	}
-
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil || id == 0 {
 		c.JSON(http.StatusOK, model.Response{
@@ -1523,15 +1514,6 @@ type cleanupOfflineHistoryRequest struct {
 }
 
 func (ma *memberAPI) cleanupOfflineHistory(c *gin.Context) {
-	u := c.MustGet(model.CtxKeyAuthorizedUser).(*model.User)
-	if !u.SuperAdmin {
-		c.JSON(http.StatusOK, model.Response{
-			Code:    http.StatusForbidden,
-			Message: "无权操作",
-		})
-		return
-	}
-
 	var req cleanupOfflineHistoryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusOK, model.Response{
@@ -1564,15 +1546,6 @@ func (ma *memberAPI) cleanupOfflineHistory(c *gin.Context) {
 }
 
 func (ma *memberAPI) deleteOfflineHistory(c *gin.Context) {
-	u := c.MustGet(model.CtxKeyAuthorizedUser).(*model.User)
-	if !u.SuperAdmin {
-		c.JSON(http.StatusOK, model.Response{
-			Code:    http.StatusForbidden,
-			Message: "无权操作",
-		})
-		return
-	}
-
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil || id == 0 {
 		c.JSON(http.StatusOK, model.Response{

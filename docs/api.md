@@ -383,8 +383,6 @@ DELETE /api/v1/offline-history/<id>
 Authorization: <your-token>
 ```
 
-> 需要超级管理员权限。
-
 **响应示例**：
 
 ```json
@@ -403,8 +401,6 @@ Authorization: <your-token>
 POST /api/v1/server/<id>/reset-availability
 Authorization: <your-token>
 ```
-
-> 需要超级管理员权限。
 
 **响应示例**：
 
@@ -540,8 +536,8 @@ Base URL：`/api`
 | GET | `/api/offline-history?server_id=&page=&page_size=` | 查询某服务器的离线历史 |
 | GET | `/api/offline-history/summary?server_id=&days=` | 查询离线统计摘要 |
 | POST | `/api/offline-history/cleanup` | 手动清理历史（需超级管理员） |
-| DELETE | `/api/offline-history/:id` | 删除单条历史（需超级管理员） |
-| POST | `/api/server/:id/reset-availability` | 重置单台服务器可用性（需超级管理员） |
+| DELETE | `/api/offline-history/:id` | 删除单条历史 |
+| POST | `/api/server/:id/reset-availability` | 重置单台服务器可用性 |
 
 > 数据格式与 `/api/v1/offline-history*` 一致，但仅支持 Cookie 登录。
 

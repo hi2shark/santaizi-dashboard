@@ -50,10 +50,13 @@ func (mp *memberPage) serverOfflineHistory(c *gin.Context) {
 	if serverID > 0 {
 		singleton.DB.First(&server, serverID)
 	}
+	// modal=1 表示在管理后台弹窗（iframe）内打开：不渲染顶部导航与返回按钮，并使用紧凑排版
+	modal := c.Query("modal") == "1" || c.Query("modal") == "true"
 	c.HTML(http.StatusOK, "dashboard-"+singleton.Conf.Site.DashboardTheme+"/server-offline-history", mygin.CommonEnvironment(c, gin.H{
 		"Title":    "服务器可用性历史",
 		"ServerID": serverID,
 		"Server":   server,
+		"Modal":    modal,
 	}))
 }
 

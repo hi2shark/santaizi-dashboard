@@ -290,6 +290,8 @@ func (oa *oauth2controller) callback(c *gin.Context) {
 		}, true)
 		return
 	}
+	// 能登录后台的用户均为管理员
+	user.SuperAdmin = true
 	user.Token, err = utils.GenerateRandomString(32)
 	if err != nil {
 		mygin.ShowErrorPage(c, mygin.ErrInfo{
