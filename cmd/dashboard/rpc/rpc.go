@@ -5,17 +5,34 @@ import (
 	"net"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	grpc_health_v1 "google.golang.org/grpc/health/grpc_health_v1"
 
 	"github.com/hi2shark/santaizi-dashboard/model"
 	pb "github.com/hi2shark/santaizi-dashboard/proto"
 	rpcService "github.com/hi2shark/santaizi-dashboard/service/rpc"
-	"github.com/hi2shark/santaizi-dashboard/service/singleton"
 )
 
 func ServeRPC(port uint) {
 	server := grpc.NewServer()
 	rpcService.SantaiziHandlerSingleton = rpcService.NewSantaiziHandler()
 	pb.RegisterSantaiziServiceServer(server, rpcService.SantaiziHandlerSingleton)
+	v2Handler, err := rpcService.NewV2Handler()
+	if err != nil {
+		panic(err)
+	}
+	pb.RegisterSantaiziTelemetryServiceServer(server, v2Handler)
+	pb.RegisterSantaiziControlServiceServer(server, v2Handler)
+	pb.RegisterSantaiziNATServiceServer(server, v2Handler)
+	collectorHandler, err := rpcService.NewPrimaryCollectorHandler()
+	if err != nil {
+		panic(err)
+	}
+	pb.RegisterSantaiziCollectorServiceServer(server, collectorHandler)
+	pb.RegisterSantaiziReplicationServiceServer(server, collectorHandler)
+	healthServer := health.NewServer()
+	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
+	grpc_health_v1.RegisterHealthServer(server, healthServer)
 	listen, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		panic(err)
@@ -23,60 +40,8 @@ func ServeRPC(port uint) {
 	_ = server.Serve(listen)
 }
 
-func DispatchTask(serviceSentinelDispatchBus <-chan model.Monitor) {
-	workedServerIndex := 0
-	for task := range serviceSentinelDispatchBus {
-		round := 0
-		endIndex := workedServerIndex
-		singleton.SortedServerLock.RLock()
-		// 如果已经轮了一整圈又轮到自己，没有合适机器去请求，跳出循环
-		for round < 1 || workedServerIndex < endIndex {
-			// 如果到了圈尾，再回到圈头，圈数加一，游标重置
-			if workedServerIndex >= len(singleton.SortedServerList) {
-				workedServerIndex = 0
-				round++
-				continue
-			}
-			// 如果服务器不在线，跳过这个服务器
-			if singleton.SortedServerList[workedServerIndex].TaskStream == nil {
-				workedServerIndex++
-				continue
-			}
-			// 如果此任务不可使用此服务器请求，跳过这个服务器（有些 IPv6 only 开了 NAT64 的机器请求 IPv4 总会出问题）
-			if (task.Cover == model.MonitorCoverAll && task.SkipServers[singleton.SortedServerList[workedServerIndex].ID]) ||
-				(task.Cover == model.MonitorCoverIgnoreAll && !task.SkipServers[singleton.SortedServerList[workedServerIndex].ID]) {
-				workedServerIndex++
-				continue
-			}
-			if task.Cover == model.MonitorCoverIgnoreAll && task.SkipServers[singleton.SortedServerList[workedServerIndex].ID] {
-				_ = singleton.SortedServerList[workedServerIndex].TaskStream.Send(task.PB())
-				workedServerIndex++
-				continue
-			}
-			if task.Cover == model.MonitorCoverAll && !task.SkipServers[singleton.SortedServerList[workedServerIndex].ID] {
-				_ = singleton.SortedServerList[workedServerIndex].TaskStream.Send(task.PB())
-				workedServerIndex++
-				continue
-			}
-			// 找到合适机器执行任务，跳出循环
-			// _ = singleton.SortedServerList[workedServerIndex].TaskStream.Send(task.PB())
-			// workedServerIndex++
-			// break
-		}
-		singleton.SortedServerLock.RUnlock()
+func DispatchMonitor(serviceSentinelDispatchBus <-chan model.Monitor) {
+	for monitor := range serviceSentinelDispatchBus {
+		rpcService.DispatchMonitor(monitor)
 	}
-}
-
-func DispatchKeepalive() {
-	_, _ = singleton.Cron.AddFunc("@every 60s", func() {
-		singleton.SortedServerLock.RLock()
-		defer singleton.SortedServerLock.RUnlock()
-		for i := 0; i < len(singleton.SortedServerList); i++ {
-			if singleton.SortedServerList[i] == nil || singleton.SortedServerList[i].TaskStream == nil {
-				continue
-			}
-
-			_ = singleton.SortedServerList[i].TaskStream.Send(&pb.Task{Type: model.TaskTypeKeepalive})
-		}
-	})
 }

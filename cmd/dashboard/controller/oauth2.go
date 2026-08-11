@@ -116,8 +116,13 @@ func (oa *oauth2controller) getCommonOauth2Config(c *gin.Context) *oauth2.Config
 			ClientSecret: singleton.Conf.Oauth2.ClientSecret,
 			Scopes:       []string{},
 			Endpoint:     GitHubOauth2.Endpoint,
+			RedirectURL:  oa.getRedirectURL(c),
 		}
 	}
+}
+
+func oauthCookieSecure(c *gin.Context) bool {
+	return c.Request.TLS != nil || strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https") || strings.EqualFold(c.GetHeader("X-Forwarded-Ssl"), "on")
 }
 
 func (oa *oauth2controller) getRedirectURL(c *gin.Context) string {
@@ -167,10 +172,8 @@ func (oa *oauth2controller) login(c *gin.Context) {
 	state, stateKey := randomString[:16], randomString[16:]
 	singleton.Cache.Set(fmt.Sprintf("%s%s", model.CacheKeyOauth2State, stateKey), state, cache.DefaultExpiration)
 	url := oa.getCommonOauth2Config(c).AuthCodeURL(state, oauth2.AccessTypeOnline)
-	c.SetCookie(singleton.Conf.Site.CookieName+"-sk", stateKey, 60*5, "", "", false, true)
-	c.HTML(http.StatusOK, "dashboard-"+singleton.Conf.Site.DashboardTheme+"/redirect", mygin.CommonEnvironment(c, gin.H{
-		"URL": url,
-	}))
+	c.SetCookie(singleton.Conf.Site.CookieName+"-sk", stateKey, 60*5, "/", "", oauthCookieSecure(c), true)
+	c.Redirect(http.StatusFound, url)
 }
 
 func (oa *oauth2controller) callback(c *gin.Context) {
@@ -178,7 +181,10 @@ func (oa *oauth2controller) callback(c *gin.Context) {
 	// 验证登录跳转时的 State
 	stateKey, err := c.Cookie(singleton.Conf.Site.CookieName + "-sk")
 	if err == nil {
-		state, ok := singleton.Cache.Get(fmt.Sprintf("%s%s", model.CacheKeyOauth2State, stateKey))
+		c.SetCookie(singleton.Conf.Site.CookieName+"-sk", "", -1, "/", "", oauthCookieSecure(c), true)
+		cacheKey := fmt.Sprintf("%s%s", model.CacheKeyOauth2State, stateKey)
+		state, ok := singleton.Cache.Get(cacheKey)
+		singleton.Cache.Delete(cacheKey)
 		if !ok || state.(string) != c.Query("state") {
 			err = errors.New("非法的登录方式")
 		}
@@ -303,10 +309,8 @@ func (oa *oauth2controller) callback(c *gin.Context) {
 	}
 	user.TokenExpired = time.Now().AddDate(0, 2, 0)
 	singleton.DB.Save(&user)
-	c.SetCookie(singleton.Conf.Site.CookieName, user.Token, 60*60*24, "", "", false, true)
-	c.HTML(http.StatusOK, "dashboard-"+singleton.Conf.Site.DashboardTheme+"/redirect", mygin.CommonEnvironment(c, gin.H{
-		"URL": "/",
-	}))
+	c.SetCookie(singleton.Conf.Site.CookieName, user.Token, 60*60*24, "/", "", oauthCookieSecure(c), true)
+	c.Redirect(http.StatusFound, "/admin/")
 }
 
 func oauth2MockLogin(c *gin.Context, user *model.User) error {
@@ -317,10 +321,8 @@ func oauth2MockLogin(c *gin.Context, user *model.User) error {
 	user.Token = token
 	user.TokenExpired = time.Now().AddDate(0, 2, 0)
 	singleton.DB.Save(user)
-	c.SetCookie(singleton.Conf.Site.CookieName, user.Token, 60*60*24, "", "", false, true)
-	c.HTML(http.StatusOK, "dashboard-"+singleton.Conf.Site.DashboardTheme+"/redirect", mygin.CommonEnvironment(c, gin.H{
-		"URL": "/",
-	}))
+	c.SetCookie(singleton.Conf.Site.CookieName, user.Token, 60*60*24, "/", "", oauthCookieSecure(c), true)
+	c.Redirect(http.StatusFound, "/admin/")
 	return nil
 }
 

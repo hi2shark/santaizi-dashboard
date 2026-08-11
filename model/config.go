@@ -2,7 +2,9 @@ package model
 
 import (
 	"errors"
+	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -18,21 +20,6 @@ var Languages = map[string]string{
 	"zh-TW": "繁體中文",
 	"en-US": "English",
 	"es-ES": "Español",
-}
-
-var Themes = map[string]string{
-	"default":       "Default",
-	"daynight":      "JackieSung DayNight",
-	"mdui":          "Neko Mdui",
-	"hotaru":        "Hotaru",
-	"angel-kanade":  "AngelKanade",
-	"server-status": "ServerStatus",
-	"custom":        "Custom(local)",
-}
-
-var DashboardThemes = map[string]string{
-	"default": "Default",
-	"custom":  "Custom(local)",
 }
 
 const (
@@ -60,6 +47,11 @@ type SiteConfig struct {
 	CustomCode          string
 	CustomCodeDashboard string
 	ViewPassword        string // 前台查看密码
+	PrimaryColor        string
+	FooterText          string
+	LogoURL             string
+	BackgroundURL       string
+	SafeCustomCSS       string
 }
 
 // PublicSiteConfig 仅包含未登录页面所需的站点配置字段（去除敏感信息）
@@ -88,12 +80,69 @@ type InstallScriptConfig struct {
 	MacOS   string // macOS 安装脚本 URL
 }
 
+type TelemetryConfig struct {
+	DataDir                            string `koanf:"data_dir" yaml:"data_dir"`
+	SigningKeyPath                     string `koanf:"signing_key_path" yaml:"signing_key_path"`
+	SecretKeyPath                      string `koanf:"secret_key_path" yaml:"secret_key_path"`
+	PrimaryEndpoint                    string `koanf:"primary_endpoint" yaml:"primary_endpoint"`
+	StateIntervalSeconds               uint64 `koanf:"state_interval_seconds" yaml:"state_interval_seconds"`
+	HeartbeatIntervalSeconds           uint64 `koanf:"heartbeat_interval_seconds" yaml:"heartbeat_interval_seconds"`
+	OfflineThresholdSeconds            uint64 `koanf:"offline_threshold_seconds" yaml:"offline_threshold_seconds"`
+	IngestBatchSize                    int    `koanf:"ingest_batch_size" yaml:"ingest_batch_size"`
+	IngestQueueSize                    int    `koanf:"ingest_queue_size" yaml:"ingest_queue_size"`
+	CredentialValidityDays             uint64 `koanf:"credential_validity_days" yaml:"credential_validity_days"`
+	CredentialRefreshDays              uint64 `koanf:"credential_refresh_days" yaml:"credential_refresh_days"`
+	CredentialGraceDays                uint64 `koanf:"credential_grace_days" yaml:"credential_grace_days"`
+	AvailabilityBucketSeconds          uint64 `koanf:"availability_bucket_seconds" yaml:"availability_bucket_seconds"`
+	MinObservers                       uint32 `koanf:"min_observers" yaml:"min_observers"`
+	EnableConnectivityNotification     bool   `koanf:"enable_connectivity_notification" yaml:"enable_connectivity_notification"`
+	EnableCorrectionNotification       bool   `koanf:"enable_correction_notification" yaml:"enable_correction_notification"`
+	EnableCollectorOfflineNotification bool   `koanf:"enable_collector_offline_notification" yaml:"enable_collector_offline_notification"`
+	EnableDataLossNotification         bool   `koanf:"enable_data_loss_notification" yaml:"enable_data_loss_notification"`
+}
+
+type CollectorModeConfig struct {
+	PrimaryEndpoint     string `koanf:"primary_endpoint" yaml:"primary_endpoint"`
+	PrimaryTLS          bool   `koanf:"primary_tls" yaml:"primary_tls"`
+	PrimaryInsecureTLS  bool   `koanf:"primary_insecure_tls" yaml:"primary_insecure_tls"`
+	RegistrationToken   string `koanf:"registration_token" yaml:"registration_token"`
+	DatabasePath        string `koanf:"database_path" yaml:"database_path"`
+	SpoolMaxBytes       uint64 `koanf:"spool_max_bytes" yaml:"spool_max_bytes"`
+	SpoolMaxAgeDays     uint64 `koanf:"spool_max_age_days" yaml:"spool_max_age_days"`
+	StatusAuthorization string `koanf:"status_authorization" yaml:"status_authorization"`
+}
+
+type RollupConfig struct {
+	Enabled   bool `koanf:"enabled" yaml:"enabled"`
+	BatchSize int  `koanf:"batch_size" yaml:"batch_size"`
+}
+
+type RetentionConfig struct {
+	StateRawHours      uint64 `koanf:"state_raw_hours" yaml:"state_raw_hours"`
+	StateOneMinuteDays uint64 `koanf:"state_one_minute_days" yaml:"state_one_minute_days"`
+	StateOneHourDays   uint64 `koanf:"state_one_hour_days" yaml:"state_one_hour_days"`
+	ObservationDays    uint64 `koanf:"observation_days" yaml:"observation_days"`
+	LifecycleDays      uint64 `koanf:"lifecycle_days" yaml:"lifecycle_days"`
+	BatchSize          int    `koanf:"batch_size" yaml:"batch_size"`
+}
+
+type WebConfig struct {
+	Delivery  string `koanf:"delivery" yaml:"delivery"`
+	StaticDir string `koanf:"static_dir" yaml:"static_dir"`
+}
+
 // Config 站点配置
 type Config struct {
 	Debug         bool   // debug模式开关
 	Language      string // 系统语言，默认 zh-CN
+	Mode          string // primary 或 collector
 	Site          SiteConfig
 	InstallScript InstallScriptConfig
+	Telemetry     TelemetryConfig     `koanf:"telemetry" yaml:"telemetry"`
+	Collector     CollectorModeConfig `koanf:"collector" yaml:"collector"`
+	Rollup        RollupConfig        `koanf:"rollup" yaml:"rollup"`
+	Retention     RetentionConfig     `koanf:"retention" yaml:"retention"`
+	Web           WebConfig           `koanf:"web" yaml:"web"`
 	Oauth2        struct {
 		Type            string
 		Admin           string // 管理员用户名列表
@@ -155,9 +204,7 @@ func (c *Config) Read(path string) error {
 
 	// 先读取环境变量，然后读取配置文件；后者可以覆盖前者，因为三太子支持在线修改配置
 
-	err := c.k.Load(env.Provider("NZ_", ".", func(s string) string {
-		return strings.Replace(strings.ToLower(strings.TrimPrefix(s, "NZ_")), "_", ".", -1)
-	}), nil)
+	err := c.k.Load(env.Provider("SANTAIZI_", ".", configEnvKey), nil)
 	if err != nil {
 		return err
 	}
@@ -174,14 +221,20 @@ func (c *Config) Read(path string) error {
 		return err
 	}
 
-	if c.Oauth2.Type == "" || c.Oauth2.Admin == "" {
+	if c.Mode == "" {
+		c.Mode = "primary"
+	}
+	if c.Mode != "primary" && c.Mode != "collector" {
+		return fmt.Errorf("unsupported mode %q", c.Mode)
+	}
+	if c.Mode == "primary" && (c.Oauth2.Type == "" || c.Oauth2.Admin == "") {
 		return errors.New("missing oauth2 config")
 	}
 	// mock 模式仅用于本地开发，不需要真实的 ClientID/ClientSecret，且必须同时开启 Debug
-	if c.Oauth2.Type == ConfigTypeMock && !c.Debug {
+	if c.Mode == "primary" && c.Oauth2.Type == ConfigTypeMock && !c.Debug {
 		return errors.New("mock oauth2 can only be used in debug mode")
 	}
-	if c.Oauth2.Type != ConfigTypeMock && (c.Oauth2.ClientID == "" || c.Oauth2.ClientSecret == "") {
+	if c.Mode == "primary" && c.Oauth2.Type != ConfigTypeMock && (c.Oauth2.ClientID == "" || c.Oauth2.ClientSecret == "") {
 		return errors.New("missing oauth2 config")
 	}
 
@@ -191,11 +244,26 @@ func (c *Config) Read(path string) error {
 	if c.Site.CookieName == "" {
 		c.Site.CookieName = "santaizi-dashboard"
 	}
-	if c.Site.Theme == "" {
-		c.Site.Theme = "default"
+	if c.Site.Theme == "" || c.Site.Theme == "default" {
+		c.Site.Theme = "server-status"
 	}
-	if c.Site.DashboardTheme == "" {
-		c.Site.DashboardTheme = "default"
+	if c.Site.DashboardTheme == "" || c.Site.DashboardTheme == "default" {
+		c.Site.DashboardTheme = "spa"
+	}
+	if c.Site.PrimaryColor == "" {
+		c.Site.PrimaryColor = "#2563eb"
+	}
+	if c.Site.LogoURL == "" {
+		c.Site.LogoURL = "/static/logo.svg"
+	}
+	if c.Site.BackgroundURL == "" {
+		c.Site.BackgroundURL = "/static/theme-server-status/img/bg.jpg"
+	}
+	if c.Web.Delivery == "" {
+		c.Web.Delivery = "embedded"
+	}
+	if c.Web.Delivery != "embedded" && c.Web.Delivery != "external" {
+		return fmt.Errorf("unsupported web delivery %q", c.Web.Delivery)
 	}
 	if c.Language == "" {
 		c.Language = "zh-CN"
@@ -205,6 +273,83 @@ func (c *Config) Read(path string) error {
 	}
 	if c.GRPCPort == 0 {
 		c.GRPCPort = 5555
+	}
+	if c.Telemetry.DataDir == "" {
+		c.Telemetry.DataDir = "/var/lib/santaizi-dashboard"
+	}
+	if c.Telemetry.SigningKeyPath == "" {
+		c.Telemetry.SigningKeyPath = filepath.Join(c.Telemetry.DataDir, "telemetry-signing.key")
+	}
+	if c.Telemetry.SecretKeyPath == "" {
+		c.Telemetry.SecretKeyPath = filepath.Join(c.Telemetry.DataDir, "business-secrets.key")
+	}
+	if c.Telemetry.PrimaryEndpoint == "" {
+		c.Telemetry.PrimaryEndpoint = c.GRPCHost
+	}
+	if c.Telemetry.StateIntervalSeconds == 0 {
+		c.Telemetry.StateIntervalSeconds = 5
+	}
+	if c.Telemetry.HeartbeatIntervalSeconds == 0 {
+		c.Telemetry.HeartbeatIntervalSeconds = 10
+	}
+	if c.Telemetry.OfflineThresholdSeconds == 0 {
+		c.Telemetry.OfflineThresholdSeconds = 30
+	}
+	if c.Telemetry.IngestBatchSize == 0 {
+		c.Telemetry.IngestBatchSize = 256
+	}
+	if c.Telemetry.IngestQueueSize == 0 {
+		c.Telemetry.IngestQueueSize = 4096
+	}
+	if c.Telemetry.CredentialValidityDays == 0 {
+		c.Telemetry.CredentialValidityDays = 30
+	}
+	if c.Telemetry.CredentialRefreshDays == 0 {
+		c.Telemetry.CredentialRefreshDays = 7
+	}
+	if c.Telemetry.CredentialGraceDays == 0 {
+		c.Telemetry.CredentialGraceDays = 7
+	}
+	if c.Telemetry.AvailabilityBucketSeconds == 0 {
+		c.Telemetry.AvailabilityBucketSeconds = 30
+	}
+	if c.Telemetry.MinObservers == 0 {
+		c.Telemetry.MinObservers = 1
+	}
+	if c.Collector.DatabasePath == "" {
+		c.Collector.DatabasePath = filepath.Join(c.Telemetry.DataDir, "collector.db")
+	}
+	if c.Collector.SpoolMaxBytes == 0 {
+		c.Collector.SpoolMaxBytes = 5 << 30
+	}
+	if c.Collector.SpoolMaxAgeDays == 0 {
+		c.Collector.SpoolMaxAgeDays = 30
+	}
+	if !c.Rollup.Enabled {
+		// Rollups are enabled by default. Deployments can suspend the worker by
+		// setting a zero batch size explicitly through a future maintenance mode.
+		c.Rollup.Enabled = true
+	}
+	if c.Rollup.BatchSize == 0 {
+		c.Rollup.BatchSize = 1000
+	}
+	if c.Retention.StateRawHours == 0 {
+		c.Retention.StateRawHours = 6
+	}
+	if c.Retention.StateOneMinuteDays == 0 {
+		c.Retention.StateOneMinuteDays = 30
+	}
+	if c.Retention.StateOneHourDays == 0 {
+		c.Retention.StateOneHourDays = 365
+	}
+	if c.Retention.ObservationDays == 0 {
+		c.Retention.ObservationDays = 30
+	}
+	if c.Retention.LifecycleDays == 0 {
+		c.Retention.LifecycleDays = 3650
+	}
+	if c.Retention.BatchSize == 0 {
+		c.Retention.BatchSize = 1000
 	}
 	if c.EnableIPChangeNotification && c.IPChangeNotificationTag == "" {
 		c.IPChangeNotificationTag = "default"
@@ -247,6 +392,17 @@ func (c *Config) Read(path string) error {
 	c.NormalizeOfflineConfig()
 	c.updateIgnoredIPNotificationID()
 	return nil
+}
+
+func configEnvKey(name string) string {
+	key := strings.ToLower(strings.TrimPrefix(name, "SANTAIZI_"))
+	for _, section := range []string{"telemetry", "collector", "rollup", "retention", "web", "site", "oauth2", "installscript"} {
+		prefix := section + "_"
+		if strings.HasPrefix(key, prefix) {
+			return section + "." + strings.TrimPrefix(key, prefix)
+		}
+	}
+	return strings.ReplaceAll(key, "_", ".")
 }
 
 // NormalizeOfflineConfig 设置离线历史配置的默认值并校验边界。

@@ -1,13 +1,12 @@
 package controller
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -18,8 +17,6 @@ import (
 	"github.com/hi2shark/santaizi-dashboard/model"
 	"github.com/hi2shark/santaizi-dashboard/pkg/mygin"
 	"github.com/hi2shark/santaizi-dashboard/pkg/utils"
-	"github.com/hi2shark/santaizi-dashboard/proto"
-	"github.com/hi2shark/santaizi-dashboard/resource"
 	"github.com/hi2shark/santaizi-dashboard/service/singleton"
 )
 
@@ -38,15 +35,11 @@ func (ma *memberAPI) serve() {
 	}))
 
 	mr.GET("/search-server", ma.searchServer)
-	mr.GET("/search-tasks", ma.searchTask)
 	mr.GET("/search-ddns", ma.searchDDNS)
 	mr.POST("/server", ma.addOrEditServer)
 	mr.POST("/server/:id/reset-secret", ma.resetServerSecret)
 	mr.POST("/server/:id/reset-availability", ma.resetServerAvailability)
 	mr.POST("/monitor", ma.addOrEditMonitor)
-	mr.POST("/cron", ma.addOrEditCron)
-	mr.GET("/cron/:id/manual", ma.manualTrigger)
-	mr.POST("/force-update", ma.forceUpdate)
 	mr.POST("/batch-update-server-group", ma.batchUpdateServerGroup)
 	mr.POST("/batch-delete-server", ma.batchDeleteServer)
 	mr.POST("/notification", ma.addOrEditNotification)
@@ -56,134 +49,19 @@ func (ma *memberAPI) serve() {
 	mr.POST("/setting", ma.updateSetting)
 	mr.DELETE("/:model/:id", ma.delete)
 	mr.POST("/logout", ma.logout)
-	mr.GET("/token", ma.getToken)
-	mr.POST("/token", ma.issueNewToken)
-	mr.DELETE("/token/:token", ma.deleteToken)
-
 	// 服务器离线历史
 	mr.GET("/offline-history", ma.offlineHistory)
 	mr.GET("/offline-history/summary", ma.offlineSummary)
 	mr.POST("/offline-history/cleanup", ma.cleanupOfflineHistory)
 	mr.DELETE("/offline-history/:id", ma.deleteOfflineHistory)
 
-	// API v1（兼容 v0 数据格式 + 统一前端模型接口）
+	// API v1 只读接口供现有 Santaizi API 客户端使用。
 	v1 := ma.r.Group("v1")
 	{
 		apiv1 := &apiV1{v1}
 		apiv1.serve()
 	}
-}
-
-type apiResult struct {
-	Token string `json:"token"`
-	Note  string `json:"note"`
-}
-
-// getToken 获取 Token
-func (ma *memberAPI) getToken(c *gin.Context) {
-	u := c.MustGet(model.CtxKeyAuthorizedUser).(*model.User)
-	singleton.ApiLock.RLock()
-	defer singleton.ApiLock.RUnlock()
-
-	tokenList := singleton.UserIDToApiTokenList[u.ID]
-	res := make([]*apiResult, len(tokenList))
-	for i, token := range tokenList {
-		res[i] = &apiResult{
-			Token: token,
-			Note:  singleton.ApiTokenList[token].Note,
-		}
-	}
-	c.JSON(http.StatusOK, gin.H{
-		"code":    0,
-		"message": "success",
-		"result":  res,
-	})
-}
-
-type TokenForm struct {
-	Note string
-}
-
-// issueNewToken 生成新的 token
-func (ma *memberAPI) issueNewToken(c *gin.Context) {
-	u := c.MustGet(model.CtxKeyAuthorizedUser).(*model.User)
-	tf := &TokenForm{}
-	err := c.ShouldBindJSON(tf)
-	if err != nil {
-		c.JSON(http.StatusOK, model.Response{
-			Code:    http.StatusBadRequest,
-			Message: fmt.Sprintf("请求错误：%s", err),
-		})
-		return
-	}
-	secureToken, err := utils.GenerateRandomString(32)
-	if err != nil {
-		c.JSON(http.StatusOK, model.Response{
-			Code:    http.StatusBadRequest,
-			Message: fmt.Sprintf("请求错误：%s", err),
-		})
-		return
-	}
-	token := &model.ApiToken{
-		UserID: u.ID,
-		Token:  secureToken,
-		Note:   tf.Note,
-	}
-	singleton.DB.Create(token)
-
-	singleton.ApiLock.Lock()
-	singleton.ApiTokenList[token.Token] = token
-	singleton.UserIDToApiTokenList[u.ID] = append(singleton.UserIDToApiTokenList[u.ID], token.Token)
-	singleton.ApiLock.Unlock()
-
-	c.JSON(http.StatusOK, model.Response{
-		Code:    http.StatusOK,
-		Message: "success",
-		Result: map[string]string{
-			"token": token.Token,
-			"note":  token.Note,
-		},
-	})
-}
-
-// deleteToken 删除 token
-func (ma *memberAPI) deleteToken(c *gin.Context) {
-	token := c.Param("token")
-	if token == "" {
-		c.JSON(http.StatusOK, model.Response{
-			Code:    http.StatusBadRequest,
-			Message: "token 不能为空",
-		})
-		return
-	}
-	singleton.ApiLock.Lock()
-	defer singleton.ApiLock.Unlock()
-	if _, ok := singleton.ApiTokenList[token]; !ok {
-		c.JSON(http.StatusOK, model.Response{
-			Code:    http.StatusBadRequest,
-			Message: "token 不存在",
-		})
-		return
-	}
-	// 在数据库中删除该Token
-	singleton.DB.Unscoped().Delete(&model.ApiToken{}, "token = ?", token)
-
-	// 在UserIDToApiTokenList中删除该Token
-	for i, t := range singleton.UserIDToApiTokenList[singleton.ApiTokenList[token].UserID] {
-		if t == token {
-			singleton.UserIDToApiTokenList[singleton.ApiTokenList[token].UserID] = append(singleton.UserIDToApiTokenList[singleton.ApiTokenList[token].UserID][:i], singleton.UserIDToApiTokenList[singleton.ApiTokenList[token].UserID][i+1:]...)
-			break
-		}
-	}
-	if len(singleton.UserIDToApiTokenList[singleton.ApiTokenList[token].UserID]) == 0 {
-		delete(singleton.UserIDToApiTokenList, singleton.ApiTokenList[token].UserID)
-	}
-	// 在ApiTokenList中删除该Token
-	delete(singleton.ApiTokenList, token)
-	c.JSON(http.StatusOK, model.Response{
-		Code:    http.StatusOK,
-		Message: "success",
-	})
+	registerAPIV2(ma.r)
 }
 
 func (ma *memberAPI) delete(c *gin.Context) {
@@ -238,17 +116,6 @@ func (ma *memberAPI) delete(c *gin.Context) {
 			singleton.ServiceSentinelShared.OnMonitorDelete(id)
 			err = singleton.DB.Unscoped().Delete(&model.MonitorHistory{}, "monitor_id = ?", id).Error
 		}
-	case "cron":
-		err = singleton.DB.Unscoped().Delete(&model.Cron{}, "id = ?", id).Error
-		if err == nil {
-			singleton.CronLock.RLock()
-			defer singleton.CronLock.RUnlock()
-			cr := singleton.Crons[id]
-			if cr != nil && cr.CronJobID != 0 {
-				singleton.Cron.Remove(cr.CronJobID)
-			}
-			delete(singleton.Crons, id)
-		}
 	case "alert-rule":
 		err = singleton.DB.Unscoped().Delete(&model.AlertRule{}, "id = ?", id).Error
 		if err == nil {
@@ -285,27 +152,6 @@ func (ma *memberAPI) searchServer(c *gin.Context) {
 			Value: servers[i].ID,
 			Name:  servers[i].Name,
 			Text:  servers[i].Name,
-		})
-	}
-
-	c.JSON(http.StatusOK, map[string]interface{}{
-		"success": true,
-		"results": resp,
-	})
-}
-
-func (ma *memberAPI) searchTask(c *gin.Context) {
-	var tasks []model.Cron
-	likeWord := "%" + c.Query("word") + "%"
-	singleton.DB.Select("id,name").Where("id = ? OR name LIKE ?",
-		c.Query("word"), likeWord).Find(&tasks)
-
-	var resp []searchResult
-	for i := 0; i < len(tasks); i++ {
-		resp = append(resp, searchResult{
-			Value: tasks[i].ID,
-			Name:  tasks[i].Name,
-			Text:  tasks[i].Name,
 		})
 	}
 
@@ -386,6 +232,10 @@ func (ma *memberAPI) addOrEditServer(c *gin.Context) {
 		return
 	}
 	if isEdit {
+		if err := singleton.RefreshObserverAssignmentsForServer(s.ID, time.Now()); err != nil {
+			c.JSON(http.StatusOK, model.Response{Code: http.StatusInternalServerError, Message: err.Error()})
+			return
+		}
 		singleton.ServerLock.Lock()
 		s.CopyFromRunningServer(singleton.ServerList[s.ID])
 		// 如果修改了 Secret
@@ -421,7 +271,6 @@ func (ma *memberAPI) addOrEditServer(c *gin.Context) {
 	} else {
 		s.Host = &model.Host{}
 		s.State = &model.HostState{}
-		s.TaskCloseLock = new(sync.Mutex)
 		singleton.ServerLock.Lock()
 		singleton.SecretToID[s.Secret] = s.ID
 		singleton.ServerList[s.ID] = &s
@@ -526,22 +375,19 @@ func (ma *memberAPI) resetServerAvailability(c *gin.Context) {
 }
 
 type monitorForm struct {
-	ID                     uint64
-	Name                   string
-	Target                 string
-	Type                   uint8
-	Cover                  uint8
-	Notify                 string
-	NotificationTag        string
-	SkipServersRaw         string
-	Duration               uint64
-	MinLatency             float32
-	MaxLatency             float32
-	LatencyNotify          string
-	EnableTriggerTask      string
-	EnableShowInService    string
-	FailTriggerTasksRaw    string
-	RecoverTriggerTasksRaw string
+	ID                  uint64
+	Name                string
+	Target              string
+	Type                uint8
+	Cover               uint8
+	Notify              string
+	NotificationTag     string
+	SkipServersRaw      string
+	Duration            uint64
+	MinLatency          float32
+	MaxLatency          float32
+	LatencyNotify       string
+	EnableShowInService string
 }
 
 func (ma *memberAPI) addOrEditMonitor(c *gin.Context) {
@@ -562,9 +408,6 @@ func (ma *memberAPI) addOrEditMonitor(c *gin.Context) {
 		m.MinLatency = mf.MinLatency
 		m.MaxLatency = mf.MaxLatency
 		m.EnableShowInService = mf.EnableShowInService == "on"
-		m.EnableTriggerTask = mf.EnableTriggerTask == "on"
-		m.RecoverTriggerTasksRaw = mf.RecoverTriggerTasksRaw
-		m.FailTriggerTasksRaw = mf.FailTriggerTasksRaw
 		err = m.InitSkipServers()
 	}
 	if err == nil {
@@ -572,12 +415,6 @@ func (ma *memberAPI) addOrEditMonitor(c *gin.Context) {
 		if m.NotificationTag == "" {
 			m.NotificationTag = "default"
 		}
-		err = utils.Json.Unmarshal([]byte(mf.FailTriggerTasksRaw), &m.FailTriggerTasks)
-	}
-	if err == nil {
-		err = utils.Json.Unmarshal([]byte(mf.RecoverTriggerTasksRaw), &m.RecoverTriggerTasks)
-	}
-	if err == nil {
 		if m.ID == 0 {
 			err = singleton.DB.Create(&m).Error
 		} else {
@@ -606,108 +443,6 @@ func (ma *memberAPI) addOrEditMonitor(c *gin.Context) {
 	})
 }
 
-type cronForm struct {
-	ID              uint64
-	TaskType        uint8 // 0:计划任务 1:触发任务
-	Name            string
-	Scheduler       string
-	Command         string
-	ServersRaw      string
-	Cover           uint8
-	PushSuccessful  string
-	NotificationTag string
-}
-
-func (ma *memberAPI) addOrEditCron(c *gin.Context) {
-	var cf cronForm
-	var cr model.Cron
-	err := c.ShouldBindJSON(&cf)
-	if err == nil {
-		cr.TaskType = cf.TaskType
-		cr.Name = cf.Name
-		cr.Scheduler = cf.Scheduler
-		cr.Command = cf.Command
-		cr.ServersRaw = cf.ServersRaw
-		cr.PushSuccessful = cf.PushSuccessful == "on"
-		cr.NotificationTag = cf.NotificationTag
-		cr.ID = cf.ID
-		cr.Cover = cf.Cover
-		err = utils.Json.Unmarshal([]byte(cf.ServersRaw), &cr.Servers)
-	}
-
-	// 计划任务类型不得使用触发服务器执行方式
-	if cr.TaskType == model.CronTypeCronTask && cr.Cover == model.CronCoverAlertTrigger {
-		err = errors.New("计划任务类型不得使用触发服务器执行方式")
-		c.JSON(http.StatusOK, model.Response{
-			Code:    http.StatusBadRequest,
-			Message: fmt.Sprintf("请求错误：%s", err),
-		})
-		return
-	}
-
-	tx := singleton.DB.Begin()
-	if err == nil {
-		// 保证NotificationTag不为空
-		if cr.NotificationTag == "" {
-			cr.NotificationTag = "default"
-		}
-		if cf.ID == 0 {
-			err = tx.Create(&cr).Error
-		} else {
-			err = tx.Save(&cr).Error
-		}
-	}
-	if err == nil {
-		// 对于计划任务类型，需要更新CronJob
-		if cf.TaskType == model.CronTypeCronTask {
-			cr.CronJobID, err = singleton.Cron.AddFunc(cr.Scheduler, singleton.CronTrigger(cr))
-		}
-	}
-	if err == nil {
-		err = tx.Commit().Error
-	} else {
-		tx.Rollback()
-	}
-	if err != nil {
-		c.JSON(http.StatusOK, model.Response{
-			Code:    http.StatusBadRequest,
-			Message: fmt.Sprintf("请求错误：%s", err),
-		})
-		return
-	}
-
-	singleton.CronLock.Lock()
-	defer singleton.CronLock.Unlock()
-	crOld := singleton.Crons[cr.ID]
-	if crOld != nil && crOld.CronJobID != 0 {
-		singleton.Cron.Remove(crOld.CronJobID)
-	}
-
-	delete(singleton.Crons, cr.ID)
-	singleton.Crons[cr.ID] = &cr
-
-	c.JSON(http.StatusOK, model.Response{
-		Code: http.StatusOK,
-	})
-}
-
-func (ma *memberAPI) manualTrigger(c *gin.Context) {
-	var cr model.Cron
-	if err := singleton.DB.First(&cr, "id = ?", c.Param("id")).Error; err != nil {
-		c.JSON(http.StatusOK, model.Response{
-			Code:    http.StatusBadRequest,
-			Message: err.Error(),
-		})
-		return
-	}
-
-	singleton.ManualTrigger(cr)
-
-	c.JSON(http.StatusOK, model.Response{
-		Code: http.StatusOK,
-	})
-}
-
 type BatchUpdateServerGroupRequest struct {
 	Servers []uint64
 	Group   string
@@ -729,6 +464,12 @@ func (ma *memberAPI) batchUpdateServerGroup(c *gin.Context) {
 			Message: err.Error(),
 		})
 		return
+	}
+	for _, serverID := range req.Servers {
+		if err := singleton.RefreshObserverAssignmentsForServer(serverID, time.Now()); err != nil {
+			c.JSON(http.StatusOK, model.Response{Code: http.StatusInternalServerError, Message: err.Error()})
+			return
+		}
 	}
 
 	singleton.ServerLock.Lock()
@@ -768,41 +509,6 @@ func (ma *memberAPI) batchUpdateServerGroup(c *gin.Context) {
 
 	c.JSON(http.StatusOK, model.Response{
 		Code: http.StatusOK,
-	})
-}
-
-func (ma *memberAPI) forceUpdate(c *gin.Context) {
-	var forceUpdateServers []uint64
-	if err := c.ShouldBindJSON(&forceUpdateServers); err != nil {
-		c.JSON(http.StatusOK, model.Response{
-			Code:    http.StatusBadRequest,
-			Message: err.Error(),
-		})
-		return
-	}
-
-	var executeResult bytes.Buffer
-
-	for i := 0; i < len(forceUpdateServers); i++ {
-		singleton.ServerLock.RLock()
-		server := singleton.ServerList[forceUpdateServers[i]]
-		singleton.ServerLock.RUnlock()
-		if server != nil && server.TaskStream != nil {
-			if err := server.TaskStream.Send(&proto.Task{
-				Type: model.TaskTypeUpgrade,
-			}); err != nil {
-				executeResult.WriteString(fmt.Sprintf("%d 下发指令失败 %+v<br/>", forceUpdateServers[i], err))
-			} else {
-				executeResult.WriteString(fmt.Sprintf("%d 下发指令成功<br/>", forceUpdateServers[i]))
-			}
-		} else {
-			executeResult.WriteString(fmt.Sprintf("%d 离线<br/>", forceUpdateServers[i]))
-		}
-	}
-
-	c.JSON(http.StatusOK, model.Response{
-		Code:    http.StatusOK,
-		Message: executeResult.String(),
 	})
 }
 
@@ -983,14 +689,12 @@ func (ma *memberAPI) addOrEditNAT(c *gin.Context) {
 }
 
 type alertRuleForm struct {
-	ID                     uint64
-	Name                   string
-	RulesRaw               string
-	FailTriggerTasksRaw    string // 失败时触发的任务id
-	RecoverTriggerTasksRaw string // 恢复时触发的任务id
-	NotificationTag        string
-	TriggerMode            int
-	Enable                 string
+	ID              uint64
+	Name            string
+	RulesRaw        string
+	NotificationTag string
+	TriggerMode     int
+	Enable          string
 }
 
 func (ma *memberAPI) addOrEditAlertRule(c *gin.Context) {
@@ -1005,24 +709,9 @@ func (ma *memberAPI) addOrEditAlertRule(c *gin.Context) {
 			err = errors.New("至少定义一条规则")
 		} else {
 			for i := 0; i < len(r.Rules); i++ {
-				if !r.Rules[i].IsTransferDurationRule() {
-					if r.Rules[i].Duration < 3 {
-						err = errors.New("错误：Duration 至少为 3")
-						break
-					}
-				} else {
-					if r.Rules[i].CycleInterval < 1 {
-						err = errors.New("错误: cycle_interval 至少为 1")
-						break
-					}
-					if r.Rules[i].CycleStart == nil {
-						err = errors.New("错误: cycle_start 未设置")
-						break
-					}
-					if r.Rules[i].CycleStart.After(time.Now()) {
-						err = errors.New("错误: cycle_start 是个未来值")
-						break
-					}
+				if r.Rules[i].Duration < 3 {
+					err = errors.New("错误：Duration 至少为 3")
+					break
 				}
 			}
 		}
@@ -1030,19 +719,11 @@ func (ma *memberAPI) addOrEditAlertRule(c *gin.Context) {
 	if err == nil {
 		r.Name = arf.Name
 		r.RulesRaw = arf.RulesRaw
-		r.FailTriggerTasksRaw = arf.FailTriggerTasksRaw
-		r.RecoverTriggerTasksRaw = arf.RecoverTriggerTasksRaw
 		r.NotificationTag = arf.NotificationTag
 		enable := arf.Enable == "on"
 		r.TriggerMode = arf.TriggerMode
 		r.Enable = &enable
 		r.ID = arf.ID
-	}
-	if err == nil {
-		err = utils.Json.Unmarshal([]byte(arf.FailTriggerTasksRaw), &r.FailTriggerTasks)
-	}
-	if err == nil {
-		err = utils.Json.Unmarshal([]byte(arf.RecoverTriggerTasksRaw), &r.RecoverTriggerTasks)
 	}
 	//保证NotificationTag不为空
 	if err == nil {
@@ -1143,37 +824,8 @@ func (ma *memberAPI) updateSetting(c *gin.Context) {
 		return
 	}
 
-	if _, yes := model.Themes[sf.Theme]; !yes {
-		c.JSON(http.StatusOK, model.Response{
-			Code:    http.StatusBadRequest,
-			Message: fmt.Sprintf("前台主题不存在：%s", sf.Theme),
-		})
-		return
-	}
-
-	if _, yes := model.DashboardThemes[sf.DashboardTheme]; !yes {
-		c.JSON(http.StatusOK, model.Response{
-			Code:    http.StatusBadRequest,
-			Message: fmt.Sprintf("后台主题不存在：%s", sf.DashboardTheme),
-		})
-		return
-	}
-
-	if !utils.IsFileExists("resource/template/theme-"+sf.Theme+"/home.html") && !resource.IsTemplateFileExist("template/theme-"+sf.Theme+"/home.html") {
-		c.JSON(http.StatusOK, model.Response{
-			Code:    http.StatusBadRequest,
-			Message: fmt.Sprintf("前台主题文件异常：%s", sf.Theme),
-		})
-		return
-	}
-
-	if !utils.IsFileExists("resource/template/dashboard-"+sf.DashboardTheme+"/setting.html") && !resource.IsTemplateFileExist("template/dashboard-"+sf.DashboardTheme+"/setting.html") {
-		c.JSON(http.StatusOK, model.Response{
-			Code:    http.StatusBadRequest,
-			Message: fmt.Sprintf("后台主题文件异常：%s", sf.DashboardTheme),
-		})
-		return
-	}
+	sf.Theme = "server-status"
+	sf.DashboardTheme = "spa"
 
 	singleton.Conf.Language = sf.Language
 	singleton.Conf.EnableIPChangeNotification = sf.EnableIPChangeNotification == "on"
@@ -1213,7 +865,7 @@ func (ma *memberAPI) updateSetting(c *gin.Context) {
 	singleton.Conf.EnableOfflineHistory = sf.EnableOfflineHistory == "on"
 	singleton.Conf.OfflineThresholdSeconds = sf.OfflineThresholdSeconds
 	singleton.Conf.OfflineCheckIntervalSeconds = sf.OfflineCheckIntervalSeconds
-	// 离线合并间隔：未提交（0）时保留现有值，兼容未更新该字段的旧主题/客户端
+	// 离线合并间隔未提交时保留现有值。
 	if sf.OfflineMergeGapSeconds >= 1 {
 		singleton.Conf.OfflineMergeGapSeconds = sf.OfflineMergeGapSeconds
 	}
@@ -1290,6 +942,9 @@ func (ma *memberAPI) batchDeleteServer(c *gin.Context) {
 }
 
 func onServerDelete(id uint64) {
+	if err := singleton.EndServerNodeBinding(id, time.Now()); err != nil {
+		log.Printf("SANTAIZI>> end observer assignments for deleted server %d: %v", id, err)
+	}
 	tag := singleton.ServerList[id].Tag
 	delete(singleton.SecretToID, singleton.ServerList[id].Secret)
 	delete(singleton.ServerList, id)
@@ -1307,16 +962,6 @@ func onServerDelete(id uint64) {
 			delete(singleton.ServerTagToIDList, tag)
 		}
 	}
-
-	singleton.AlertsLock.Lock()
-	for i := 0; i < len(singleton.Alerts); i++ {
-		if singleton.AlertsCycleTransferStatsStore[singleton.Alerts[i].ID] != nil {
-			delete(singleton.AlertsCycleTransferStatsStore[singleton.Alerts[i].ID].ServerName, id)
-			delete(singleton.AlertsCycleTransferStatsStore[singleton.Alerts[i].ID].Transfer, id)
-			delete(singleton.AlertsCycleTransferStatsStore[singleton.Alerts[i].ID].NextUpdate, id)
-		}
-	}
-	singleton.AlertsLock.Unlock()
 
 	singleton.DB.Unscoped().Delete(&model.Transfer{}, "server_id = ?", id)
 	singleton.DB.Unscoped().Delete(&model.ServerRuntime{}, "server_id = ?", id)

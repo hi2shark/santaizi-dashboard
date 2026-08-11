@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jinzhu/copier"
 
 	"github.com/hi2shark/santaizi-dashboard/model"
 	"github.com/hi2shark/santaizi-dashboard/pkg/mygin"
@@ -37,7 +36,6 @@ func (v *apiV1) serve() {
 	pr.GET("/server/list", v.serverList)
 	pr.GET("/server/details", v.serverDetails)
 	pr.GET("/service", v.service)
-	pr.GET("/cycle-transfer", v.cycleTransfer)
 
 	// 需要登录或 API Token 的接口
 	mr := v.r.Group("monitor")
@@ -180,22 +178,6 @@ func (v *apiV1) service(c *gin.Context) {
 	c.JSON(http.StatusOK, model.Response{
 		Code:   http.StatusOK,
 		Result: filtered,
-	})
-}
-
-// cycleTransfer 返回周期流量统计，兼容 v0 数据格式
-func (v *apiV1) cycleTransfer(c *gin.Context) {
-	singleton.AlertsLock.RLock()
-	defer singleton.AlertsLock.RUnlock()
-
-	stats := make(map[uint64]model.CycleTransferStats)
-	_ = copier.Copy(&stats, singleton.AlertsCycleTransferStatsStore)
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data": gin.H{
-			"cycle_transfer_stats": stats,
-		},
 	})
 }
 

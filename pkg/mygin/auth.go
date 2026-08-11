@@ -53,11 +53,14 @@ func Authorize(opt AuthorizeOption) func(*gin.Context) {
 		// API鉴权
 		if opt.AllowAPI {
 			apiToken := c.GetHeader("Authorization")
+			if strings.HasPrefix(strings.ToLower(apiToken), "bearer ") {
+				apiToken = strings.TrimSpace(apiToken[len("bearer "):])
+			}
 			if apiToken != "" {
 				var u model.User
 				singleton.ApiLock.RLock()
 				if _, ok := singleton.ApiTokenList[apiToken]; ok {
-					err := singleton.DB.First(&u).Where("id = ?", singleton.ApiTokenList[apiToken].UserID).Error
+						err := singleton.DB.Where("id = ?", singleton.ApiTokenList[apiToken].UserID).First(&u).Error
 					isLogin = err == nil
 				}
 				singleton.ApiLock.RUnlock()

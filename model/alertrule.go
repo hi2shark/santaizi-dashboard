@@ -3,7 +3,6 @@ package model
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/hi2shark/santaizi-dashboard/pkg/utils"
 	"gorm.io/gorm"
@@ -14,141 +13,81 @@ const (
 	ModeOnetimeTrigger = 1
 )
 
-type CycleTransferStats struct {
-	Name       string
-	From       time.Time
-	To         time.Time
-	Max        uint64
-	Min        uint64
-	ServerName map[uint64]string
-	Transfer   map[uint64]uint64
-	NextUpdate map[uint64]time.Time
-}
-
 type AlertRule struct {
 	Common
-	Name                   string
-	RulesRaw               string
-	Enable                 *bool
-	TriggerMode            int      `gorm:"default:0"` // 触发模式: 0-始终触发(默认) 1-单次触发
-	NotificationTag        string   // 该报警规则所在的通知组
-	FailTriggerTasksRaw    string   `gorm:"default:'[]'"`
-	RecoverTriggerTasksRaw string   `gorm:"default:'[]'"`
-	Rules                  []Rule   `gorm:"-" json:"-"`
-	FailTriggerTasks       []uint64 `gorm:"-" json:"-"` // 失败时执行的触发任务id
-	RecoverTriggerTasks    []uint64 `gorm:"-" json:"-"` // 恢复时执行的触发任务id
+	Name            string
+	RulesRaw        string
+	Enable          *bool
+	TriggerMode     int `gorm:"default:0"`
+	NotificationTag string
+	Rules           []Rule `gorm:"-" json:"-"`
 }
 
-func (r *AlertRule) BeforeSave(tx *gorm.DB) error {
-	if data, err := utils.Json.Marshal(r.Rules); err != nil {
+func (r *AlertRule) BeforeSave(_ *gorm.DB) error {
+	data, err := utils.Json.Marshal(r.Rules)
+	if err != nil {
 		return err
-	} else {
-		r.RulesRaw = string(data)
 	}
-	if data, err := utils.Json.Marshal(r.FailTriggerTasks); err != nil {
-		return err
-	} else {
-		r.FailTriggerTasksRaw = string(data)
-	}
-	if data, err := utils.Json.Marshal(r.RecoverTriggerTasks); err != nil {
-		return err
-	} else {
-		r.RecoverTriggerTasksRaw = string(data)
-	}
+	r.RulesRaw = string(data)
 	return nil
 }
 
-func (r *AlertRule) AfterFind(tx *gorm.DB) error {
-	var err error
-	if err = utils.Json.Unmarshal([]byte(r.RulesRaw), &r.Rules); err != nil {
-		return err
+func (r *AlertRule) AfterFind(_ *gorm.DB) error {
+	if r.RulesRaw == "" {
+		r.Rules = []Rule{}
+		return nil
 	}
-	if err = utils.Json.Unmarshal([]byte(r.FailTriggerTasksRaw), &r.FailTriggerTasks); err != nil {
-		return err
-	}
-	if err = utils.Json.Unmarshal([]byte(r.RecoverTriggerTasksRaw), &r.RecoverTriggerTasks); err != nil {
-		return err
-	}
-	return nil
+	return utils.Json.Unmarshal([]byte(r.RulesRaw), &r.Rules)
 }
 
-func (r *AlertRule) Enabled() bool {
-	return r.Enable != nil && *r.Enable
-}
+func (r *AlertRule) Enabled() bool { return r.Enable != nil && *r.Enable }
 
-// RulesSummary returns a short human-readable summary of the alert rules
 func (r *AlertRule) RulesSummary() string {
-	var parts []string
+	parts := make([]string, 0, len(r.Rules))
 	for _, rule := range r.Rules {
-		var thresholds []string
+		thresholds := make([]string, 0, 2)
 		if rule.Min > 0 {
 			thresholds = append(thresholds, fmt.Sprintf("min: %.2f", rule.Min))
 		}
 		if rule.Max > 0 {
 			thresholds = append(thresholds, fmt.Sprintf("max: %.2f", rule.Max))
 		}
-		t := rule.Type
-		if rule.IsTransferDurationRule() {
-			t = fmt.Sprintf("%s (%d %s)", t, rule.CycleInterval, rule.CycleUnit)
-		}
-		if len(thresholds) > 0 {
-			parts = append(parts, fmt.Sprintf("%s %s", t, strings.Join(thresholds, ", ")))
-		} else {
-			parts = append(parts, t)
-		}
+		parts = append(parts, strings.TrimSpace(rule.Type+" "+strings.Join(thresholds, ", ")))
 	}
 	return strings.Join(parts, "; ")
 }
 
-// Snapshot 对传入的Server进行该报警规则下所有type的检查 返回包含每项检查结果的空接口
-func (r *AlertRule) Snapshot(cycleTransferStats *CycleTransferStats, server *Server, db *gorm.DB) []interface{} {
-	var point []interface{}
-	for i := 0; i < len(r.Rules); i++ {
-		point = append(point, r.Rules[i].Snapshot(cycleTransferStats, server, db))
+func (r *AlertRule) Snapshot(server *Server, db *gorm.DB) []interface{} {
+	point := make([]interface{}, 0, len(r.Rules))
+	for index := range r.Rules {
+		point = append(point, r.Rules[index].Snapshot(server, db))
 	}
 	return point
 }
 
-// Check 传入包含当前报警规则下所有type检查结果的空接口 返回报警持续时间与是否通过报警检查(通过则返回true)
 func (r *AlertRule) Check(points [][]interface{}) (int, bool) {
-	var maxNum int // 报警持续时间
-	var count int  // 检查未通过的个数
-	for i := 0; i < len(r.Rules); i++ {
-		if r.Rules[i].IsTransferDurationRule() {
-			// 循环区间流量报警
-			if maxNum < 1 {
-				maxNum = 1
-			}
-			for j := len(points[i]) - 1; j >= 0; j-- {
-				if points[i][j] != nil {
-					count++
-					break
-				}
-			}
-		} else {
-			// 常规报警
-			total := 0.0
-			fail := 0.0
-			num := int(r.Rules[i].Duration) // #nosec G115 -- duration is seconds, safely within int range
-			if num > maxNum {
-				maxNum = num
-			}
-			if len(points) < num {
-				continue
-			}
-			for j := len(points) - 1; j >= 0 && len(points)-num <= j; j-- {
-				total++
-				if points[j][i] != nil {
-					fail++
-				}
-			}
-			// 当70%以上的采样点未通过规则判断时 才认为当前检查未通过
-			if fail/total > 0.7 {
-				count++
-				break
+	maxNum, count := 0, 0
+	for index := range r.Rules {
+		num := int(r.Rules[index].Duration) // #nosec G115 -- bounded by the API
+		if num < 1 {
+			num = 1
+		}
+		if num > maxNum {
+			maxNum = num
+		}
+		if len(points) < num {
+			continue
+		}
+		total, failed := 0.0, 0.0
+		for cursor := len(points) - 1; cursor >= 0 && len(points)-num <= cursor; cursor-- {
+			total++
+			if index < len(points[cursor]) && points[cursor][index] != nil {
+				failed++
 			}
 		}
+		if total > 0 && failed/total > 0.7 {
+			count++
+		}
 	}
-	// 仅当所有检查均未通过时 返回false
 	return maxNum, count != len(r.Rules)
 }

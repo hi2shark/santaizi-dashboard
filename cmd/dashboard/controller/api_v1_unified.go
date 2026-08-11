@@ -22,7 +22,7 @@ func (v *apiV1) registerUnified(pr, tr gin.IRouter) {
 }
 
 // unifiedModelList 统一模型列表入口
-// 支持 cron / notification / ddns / nat / alert-rule / user / transfer
+// 支持 notification / ddns / nat / alert-rule / user / transfer
 func (v *apiV1) unifiedModelList(c *gin.Context) {
 	withToken := isTokenAuthorized(c)
 	name := strings.ToLower(c.Param("model"))
@@ -43,8 +43,6 @@ func (v *apiV1) unifiedModelList(c *gin.Context) {
 	var data any
 	var err error
 	switch name {
-	case "cron":
-		data, err = unifiedListCron(withToken)
 	case "notification":
 		data, err = unifiedListNotification(withToken)
 	case "ddns":
@@ -172,6 +170,19 @@ func (v *apiV1) unifiedServerByID(c *gin.Context) {
 }
 
 func toUnifiedServerListItem(s *model.Server, withToken bool) *unifiedServerListItem {
+	online := s.LastActive.After(time.Now().Add(-time.Second * 30))
+	var binding model.ServerNodeBinding
+	if singleton.DB.First(&binding, "server_id = ? AND current = ?", s.ID, true).Error == nil {
+		var runtime model.ServerRuntime
+		if singleton.DB.First(&runtime, "server_id = ?", s.ID).Error == nil && runtime.Status == model.ServerRuntimeStatusRecovering {
+			online = false
+		} else {
+			var bucket model.AvailabilityBucket
+			if singleton.DB.Where("node_uuid = ?", binding.NodeUUID).Order("bucket_start DESC").First(&bucket).Error == nil {
+				online = bucket.ConnectivityState == model.ConnectivityFull || bucket.ConnectivityState == model.ConnectivityPartial
+			}
+		}
+	}
 	return &unifiedServerListItem{
 		ID:           s.ID,
 		Name:         s.Name,
@@ -180,7 +191,7 @@ func toUnifiedServerListItem(s *model.Server, withToken bool) *unifiedServerList
 		DisplayIndex: s.DisplayIndex,
 		HideForGuest: s.HideForGuest,
 		LastActive:   s.LastActive.Unix(),
-		Online:       s.LastActive.After(time.Now().Add(-time.Second * 30)),
+		Online:       online,
 	}
 }
 
@@ -199,70 +210,6 @@ func toUnifiedServerDetail(s *model.Server, withToken bool) *unifiedServerDetail
 		}
 	}
 	return d
-}
-
-// ---------------------- 其他模型 ----------------------
-
-// Cron
-type unifiedPublicCron struct {
-	ID              uint64    `json:"id"`
-	Name            string    `json:"name"`
-	TaskType        uint8     `json:"task_type"`
-	Scheduler       string    `json:"scheduler"`
-	PushSuccessful  bool      `json:"push_successful"`
-	NotificationTag string    `json:"notification_tag"`
-	Cover           uint8     `json:"cover"`
-	LastExecutedAt  time.Time `json:"last_executed_at"`
-	LastResult      bool      `json:"last_result"`
-}
-
-type unifiedPrivateCron struct {
-	unifiedPublicCron
-	Command string   `json:"command"`
-	Servers []uint64 `json:"servers"`
-}
-
-func unifiedListCron(withToken bool) (any, error) {
-	var items []model.Cron
-	if err := singleton.DB.Find(&items).Error; err != nil {
-		return nil, err
-	}
-	if withToken {
-		res := make([]unifiedPrivateCron, len(items))
-		for i, c := range items {
-			res[i] = unifiedPrivateCron{
-				unifiedPublicCron: unifiedPublicCron{
-					ID:              c.ID,
-					Name:            c.Name,
-					TaskType:        c.TaskType,
-					Scheduler:       c.Scheduler,
-					PushSuccessful:  c.PushSuccessful,
-					NotificationTag: c.NotificationTag,
-					Cover:           c.Cover,
-					LastExecutedAt:  c.LastExecutedAt,
-					LastResult:      c.LastResult,
-				},
-				Command: c.Command,
-				Servers: c.Servers,
-			}
-		}
-		return res, nil
-	}
-	res := make([]unifiedPublicCron, len(items))
-	for i, c := range items {
-		res[i] = unifiedPublicCron{
-			ID:              c.ID,
-			Name:            c.Name,
-			TaskType:        c.TaskType,
-			Scheduler:       c.Scheduler,
-			PushSuccessful:  c.PushSuccessful,
-			NotificationTag: c.NotificationTag,
-			Cover:           c.Cover,
-			LastExecutedAt:  c.LastExecutedAt,
-			LastResult:      c.LastResult,
-		}
-	}
-	return res, nil
 }
 
 // Notification
@@ -396,9 +343,7 @@ type unifiedPublicAlertRule struct {
 
 type unifiedPrivateAlertRule struct {
 	unifiedPublicAlertRule
-	Rules               []model.Rule `json:"rules"`
-	FailTriggerTasks    []uint64     `json:"fail_trigger_tasks"`
-	RecoverTriggerTasks []uint64     `json:"recover_trigger_tasks"`
+	Rules []model.Rule `json:"rules"`
 }
 
 func unifiedListAlertRule(withToken bool) (any, error) {
@@ -418,9 +363,7 @@ func unifiedListAlertRule(withToken bool) (any, error) {
 					NotificationTag: a.NotificationTag,
 					Summary:         a.RulesSummary(),
 				},
-				Rules:               a.Rules,
-				FailTriggerTasks:    a.FailTriggerTasks,
-				RecoverTriggerTasks: a.RecoverTriggerTasks,
+				Rules: a.Rules,
 			}
 		}
 		return res, nil

@@ -35,7 +35,7 @@ func loadNotifications() {
 		panic(err)
 	}
 	for i := 0; i < len(notifications); i++ {
-		// 旧版本的Tag可能不存在 自动设置为默认值
+		// 空标签统一设置为默认通知组。
 		if notifications[i].Tag == "" {
 			SetDefaultNotificationTagInDB(&notifications[i])
 		}

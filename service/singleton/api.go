@@ -283,7 +283,6 @@ func (s *ServerAPIService) Register(rs *RegisterServer) *ServerRegisterResponse 
 
 	serverInfo.Host = &model.Host{}
 	serverInfo.State = &model.HostState{}
-	serverInfo.TaskCloseLock = new(sync.Mutex)
 	ServerLock.Lock()
 	SecretToID[serverInfo.Secret] = serverInfo.ID
 	ServerList[serverInfo.ID] = &serverInfo

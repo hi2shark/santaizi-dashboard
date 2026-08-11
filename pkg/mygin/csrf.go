@@ -16,7 +16,7 @@ import (
 
 const (
 	ctxKeyCSRFToken = "csrf_token"
-	csrfTokenAge   = 60 * 60 * 24
+	csrfTokenAge    = 60 * 60 * 24
 )
 
 var csrfSecret = mustRandomBytes(32)
@@ -39,11 +39,14 @@ func CSRF() gin.HandlerFunc {
 		if submittedToken == "" {
 			submittedToken = c.PostForm("_csrf")
 		}
-		if submittedToken == "" && isProtectedGET(c) {
-			submittedToken = c.Query("_csrf")
-		}
-
 		if !validCSRFPair(submittedToken, token, sessionID) {
+			if strings.HasPrefix(c.Request.URL.Path, "/api/v2/") {
+				trace := make([]byte, 8)
+				_, _ = rand.Read(trace)
+				c.Header("Content-Type", "application/problem+json")
+				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"type": "https://santaizi.dev/problems/csrf_invalid", "title": "Forbidden", "status": http.StatusForbidden, "code": "csrf_invalid", "detail": "CSRF token invalid", "trace_id": base64.RawURLEncoding.EncodeToString(trace)})
+				return
+			}
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
 				"code":    http.StatusForbidden,
 				"message": "CSRF token invalid",
@@ -152,22 +155,7 @@ func isSafeMethod(method string) bool {
 }
 
 func requiresCSRF(c *gin.Context) bool {
-	return !isSafeMethod(c.Request.Method) || isProtectedGET(c)
-}
-
-func isProtectedGET(c *gin.Context) bool {
-	if c.Request.Method != http.MethodGet {
-		return false
-	}
-	path := c.FullPath()
-	requestPath := c.Request.URL.Path
-	if path == "/file" || requestPath == "/file" {
-		return true
-	}
-	if path == "/api/cron/:id/manual" {
-		return true
-	}
-	return strings.HasPrefix(requestPath, "/api/cron/") && strings.HasSuffix(requestPath, "/manual")
+	return !isSafeMethod(c.Request.Method)
 }
 
 func mustRandomBytes(n int) []byte {

@@ -6,7 +6,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/hi2shark/santaizi-dashboard/model"
-	"github.com/hi2shark/santaizi-dashboard/service/singleton"
 )
 
 type ErrInfo struct {
@@ -19,14 +18,11 @@ type ErrInfo struct {
 
 func ShowErrorPage(c *gin.Context, i ErrInfo, isPage bool) {
 	if isPage {
-		c.HTML(i.Code, "dashboard-"+singleton.Conf.Site.DashboardTheme+"/error", CommonEnvironment(c, gin.H{
-			"Code":            i.Code,
-			"Title":           i.Title,
-			"Msg":             i.Msg,
-			"Link":            i.Link,
-			"Btn":             i.Btn,
-			"IsDashboardPage": true,
-		}))
+		if i.Link != "" {
+			c.Redirect(http.StatusSeeOther, i.Link)
+		} else {
+			c.JSON(i.Code, gin.H{"title": i.Title, "status": i.Code, "code": "page_error", "detail": i.Msg})
+		}
 	} else {
 		c.JSON(http.StatusOK, model.Response{
 			Code:    i.Code,

@@ -13,8 +13,8 @@ import (
 func insertRuntime(t *testing.T, serverID uint64, lastSeenAt *time.Time) {
 	t.Helper()
 	rt := model.ServerRuntime{
-		ServerID:  serverID,
-		Status:    model.ServerRuntimeStatusOnline,
+		ServerID:   serverID,
+		Status:     model.ServerRuntimeStatusOnline,
 		LastSeenAt: lastSeenAt,
 	}
 	if err := DB.Create(&rt).Error; err != nil {
@@ -91,17 +91,15 @@ func TestGetServerAvailabilitySummaries_NoRuntimeTreatedAsUnreported(t *testing.
 	}
 }
 
-// TestGetServerAvailabilitySummaries_LegacyRuntimeWithoutFirstSeenAt：
-// 兼容已有数据：旧版本（或 InitServerRuntimes / GetOrCreateServerRuntime 创建）的运行态只写了
-// LastSeenAt 而未写 FirstSeenAt。只要 LastSeenAt 非空，就应判定为已上报、给出真实可用性，
-// 不能因 FirstSeenAt 缺失而误判为“从未上报”显示空值。
-func TestGetServerAvailabilitySummaries_LegacyRuntimeWithoutFirstSeenAt(t *testing.T) {
+// InitServerRuntimes / GetOrCreateServerRuntime may initialize LastSeenAt before
+// FirstSeenAt. A non-empty LastSeenAt is sufficient evidence of reporting.
+func TestGetServerAvailabilitySummaries_RuntimeWithoutFirstSeenAt(t *testing.T) {
 	DB = newTestDB(t)
 	Conf = &model.Config{}
 
 	serverID := uint64(203)
 	now := time.Now()
-	// 模拟旧数据：有 LastSeenAt、无 FirstSeenAt（InitServerRuntimes 的产物）
+	// 模拟初始化运行态：有 LastSeenAt、无 FirstSeenAt。
 	rt := model.ServerRuntime{
 		ServerID:   serverID,
 		Status:     model.ServerRuntimeStatusOnline,
@@ -121,7 +119,7 @@ func TestGetServerAvailabilitySummaries_LegacyRuntimeWithoutFirstSeenAt(t *testi
 		t.Fatal("结果中应包含该服务器")
 	}
 	if s.AvailabilityPercent == nil {
-		t.Fatal("有 LastSeenAt 的旧数据服务器应判定为已上报（非 nil），不能因缺 FirstSeenAt 误判为空")
+		t.Fatal("有 LastSeenAt 的服务器应判定为已上报（非 nil），不能因缺 FirstSeenAt 误判为空")
 	}
 	if *s.AvailabilityPercent != 100 {
 		t.Errorf("无离线历史时可用性应为 100，实际 %v", *s.AvailabilityPercent)

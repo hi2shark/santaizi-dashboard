@@ -71,9 +71,9 @@ func TestFormatAvailabilityPercent(t *testing.T) {
 
 func TestDetectOfflineReason(t *testing.T) {
 	cases := []struct {
-		name                               string
+		name                                         string
 		lastBoot, recoveredBoot, lastUp, recoveredUp uint64
-		want                               string
+		want                                         string
 	}{
 		{"zero_boot_unknown", 0, 100, 10, 20, model.OfflineReasonUnknown},
 		{"reboot_smaller_unknown", 200, 100, 10, 20, model.OfflineReasonUnknown},

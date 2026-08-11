@@ -6,7 +6,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/hi2shark/santaizi-dashboard/model"
 	"github.com/hi2shark/santaizi-dashboard/service/singleton"
-	"github.com/nicksnyder/go-i18n/v2/i18n"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -36,9 +35,7 @@ func ValidateViewPassword(opt ValidateViewPasswordOption) gin.HandlerFunc {
 			return
 		}
 		if opt.IsPage {
-			c.HTML(http.StatusOK, GetPreferredTheme(c, "/viewpassword"), CommonEnvironment(c, gin.H{
-				"Title": singleton.Localizer.MustLocalize(&i18n.LocalizeConfig{MessageID: "VerifyPassword"}),
-			}))
+			c.Redirect(http.StatusSeeOther, "/view-password")
 
 		} else {
 			c.JSON(http.StatusOK, model.Response{

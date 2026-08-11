@@ -73,8 +73,6 @@ func execCase(t *testing.T, item testSt) {
 			ProcessCount:   0,
 		},
 		LastActive:              time.Time{},
-		TaskClose:               nil,
-		TaskStream:              nil,
 		PrevTransferInSnapshot:  0,
 		PrevTransferOutSnapshot: 0,
 	}

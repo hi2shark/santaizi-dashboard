@@ -107,7 +107,7 @@ func GetServerAvailabilitySummaries(serverIDs []uint64, days int) (map[uint64]*S
 	// 从未上报的服务器可用性应为空值（nil），而非 100%。
 	// 注意选用 LastSeenAt 而非 FirstSeenAt：InitServerRuntimes / GetOrCreateServerRuntime
 	// 在创建运行态时均不写 FirstSeenAt（仅在首次上报时补写），而 LastSeenAt 在每次上报、
-	// 以及运行态初始化时都会被写入，是兼容已有数据的可靠“是否上报过”信号。
+	// 以及运行态初始化时都会被写入，因此可稳定判断“是否上报过”。
 	var runtimes []model.ServerRuntime
 	if err := DB.Select("server_id", "last_seen_at").Where("server_id IN ?", serverIDs).Find(&runtimes).Error; err != nil {
 		return nil, 0, err

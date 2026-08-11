@@ -1,55 +1,59 @@
 package model
 
 import (
-	"fmt"
-	"html/template"
 	"log"
-	"sync"
 	"time"
 
 	"github.com/hi2shark/santaizi-dashboard/pkg/utils"
-	pb "github.com/hi2shark/santaizi-dashboard/proto"
 	"gorm.io/gorm"
 )
 
 type Server struct {
 	Common
-	Name         string
-	Tag          string   // 分组名
-	Secret       string   `gorm:"uniqueIndex" json:"-"`
-	Note         string   `json:"-"`                    // 管理员可见备注
-	PublicNote   string   `json:"PublicNote,omitempty"` // 公开备注
-	DisplayIndex int      // 展示排序，越大越靠前
-	HideForGuest bool     // 对游客隐藏
-	EnableDDNS   bool     // 启用DDNS
-	DDNSProfiles []uint64 `gorm:"-" json:"-"` // DDNS配置
+	Name             string
+	Tag              string   // 分组名
+	Secret           string   `gorm:"-" json:"-"`
+	SecretCiphertext []byte   `gorm:"column:secret_ciphertext;type:BLOB;not null;uniqueIndex" json:"-"`
+	Note             string   `json:"-"`                    // 管理员可见备注
+	PublicNote       string   `json:"PublicNote,omitempty"` // 公开备注
+	DisplayIndex     int      // 展示排序，越大越靠前
+	HideForGuest     bool     // 对游客隐藏
+	EnableDDNS       bool     // 启用DDNS
+	DDNSProfiles     []uint64 `gorm:"-" json:"-"` // DDNS配置
 
-	DDNSProfilesRaw string `gorm:"default:'[]';column:ddns_profiles_raw" json:"-"`
+	DDNSProfilesRaw      string `gorm:"default:'[]';column:ddns_profiles_raw" json:"-"`
+	MonitoringOptionsRaw string `gorm:"default:'{}';column:monitoring_options_raw" json:"-"`
 
-	Host       *Host      `gorm:"-"`
-	State      *HostState `gorm:"-"`
-	LastActive time.Time  `gorm:"-"`
-
-	TaskClose     chan error                        `gorm:"-" json:"-"`
-	TaskCloseLock *sync.Mutex                       `gorm:"-" json:"-"`
-	TaskStream    pb.SantaiziService_RequestTaskServer `gorm:"-" json:"-"`
+	Host       *Host                  `gorm:"-"`
+	State      *HostState             `gorm:"-"`
+	LastActive time.Time              `gorm:"-"`
+	Telemetry  *TelemetryPresentation `gorm:"-" json:"Telemetry,omitempty"`
 
 	PrevTransferInSnapshot  int64 `gorm:"-" json:"-"` // 上次数据点时的入站使用量
 	PrevTransferOutSnapshot int64 `gorm:"-" json:"-"` // 上次数据点时的出站使用量
+}
+
+type TelemetryPresentation struct {
+	Host         string `json:"host"`
+	Connectivity string `json:"connectivity"`
+	Available    *bool  `json:"available"`
+	Coverage     string `json:"coverage"`
 }
 
 func (s *Server) CopyFromRunningServer(old *Server) {
 	s.Host = old.Host
 	s.State = old.State
 	s.LastActive = old.LastActive
-	s.TaskClose = old.TaskClose
-	s.TaskCloseLock = old.TaskCloseLock
-	s.TaskStream = old.TaskStream
 	s.PrevTransferInSnapshot = old.PrevTransferInSnapshot
 	s.PrevTransferOutSnapshot = old.PrevTransferOutSnapshot
 }
 
 func (s *Server) AfterFind(tx *gorm.DB) error {
+	secret, err := decryptSecret(s.SecretCiphertext)
+	if err != nil {
+		return err
+	}
+	s.Secret = secret
 	if s.DDNSProfilesRaw != "" {
 		if err := utils.Json.Unmarshal([]byte(s.DDNSProfilesRaw), &s.DDNSProfiles); err != nil {
 			log.Println("SANTAIZI>> Server.AfterFind:", err)
@@ -59,20 +63,11 @@ func (s *Server) AfterFind(tx *gorm.DB) error {
 	return nil
 }
 
-func boolToString(b bool) string {
-	if b {
-		return "true"
+func (s *Server) BeforeSave(tx *gorm.DB) error {
+	value, err := encryptSecret(s.Secret)
+	if err != nil {
+		return err
 	}
-	return "false"
-}
-
-func (s Server) MarshalForDashboard() template.JS {
-	name, _ := utils.Json.Marshal(s.Name)
-	tag, _ := utils.Json.Marshal(s.Tag)
-	note, _ := utils.Json.Marshal(s.Note)
-	secret, _ := utils.Json.Marshal(s.Secret)
-	ddnsProfilesRaw, _ := utils.Json.Marshal(s.DDNSProfilesRaw)
-	publicNote, _ := utils.Json.Marshal(s.PublicNote)
-	// #nosec G203 -- fields are JSON-encoded before interpolation, preventing XSS
-	return template.JS(fmt.Sprintf(`{"ID":%d,"Name":%s,"Secret":%s,"DisplayIndex":%d,"Tag":%s,"Note":%s,"HideForGuest": %s,"EnableDDNS": %s,"DDNSProfilesRaw": %s,"PublicNote": %s}`, s.ID, name, secret, s.DisplayIndex, tag, note, boolToString(s.HideForGuest), boolToString(s.EnableDDNS), ddnsProfilesRaw, publicNote))
+	s.SecretCiphertext = value
+	return nil
 }

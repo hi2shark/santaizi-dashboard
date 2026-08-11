@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"sync"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -13,10 +12,8 @@ import (
 
 	"github.com/hi2shark/santaizi-dashboard/pkg/ddns"
 	"github.com/hi2shark/santaizi-dashboard/pkg/geoip"
-	"github.com/hi2shark/santaizi-dashboard/pkg/grpcx"
 	"github.com/hi2shark/santaizi-dashboard/pkg/utils"
 
-	"github.com/jinzhu/copier"
 	"github.com/nicksnyder/go-i18n/v2/i18n"
 
 	"github.com/hi2shark/santaizi-dashboard/model"
@@ -28,82 +25,11 @@ var SantaiziHandlerSingleton *SantaiziHandler
 
 type SantaiziHandler struct {
 	pb.UnimplementedSantaiziServiceServer
-	Auth          *authHandler
-	ioStreams     map[string]*ioStreamContext
-	ioStreamMutex *sync.RWMutex
+	Auth *authHandler
 }
 
 func NewSantaiziHandler() *SantaiziHandler {
-	return &SantaiziHandler{
-		Auth:          &authHandler{},
-		ioStreamMutex: new(sync.RWMutex),
-		ioStreams:     make(map[string]*ioStreamContext),
-	}
-}
-
-func (s *SantaiziHandler) ReportTask(c context.Context, r *pb.TaskResult) (*pb.Receipt, error) {
-	var err error
-	var clientID uint64
-	if clientID, err = s.Auth.Check(c); err != nil {
-		return nil, err
-	}
-	if r.GetType() == model.TaskTypeCommand {
-		// 处理上报的计划任务
-		singleton.CronLock.RLock()
-		defer singleton.CronLock.RUnlock()
-		cr := singleton.Crons[r.GetId()]
-		if cr != nil {
-			singleton.ServerLock.RLock()
-			defer singleton.ServerLock.RUnlock()
-			// 保存当前服务器状态信息
-			curServer := model.Server{}
-			_ = copier.Copy(&curServer, singleton.ServerList[clientID])
-			if cr.PushSuccessful && r.GetSuccessful() {
-				singleton.SendNotification(cr.NotificationTag, fmt.Sprintf("[%s] %s, %s\n%s", singleton.Localizer.MustLocalize(
-					&i18n.LocalizeConfig{
-						MessageID: "ScheduledTaskExecutedSuccessfully",
-					},
-				), cr.Name, singleton.ServerList[clientID].Name, r.GetData()), nil, &curServer)
-			}
-			if !r.GetSuccessful() {
-				singleton.SendNotification(cr.NotificationTag, fmt.Sprintf("[%s] %s, %s\n%s", singleton.Localizer.MustLocalize(
-					&i18n.LocalizeConfig{
-						MessageID: "ScheduledTaskExecutedFailed",
-					},
-				), cr.Name, singleton.ServerList[clientID].Name, r.GetData()), nil, &curServer)
-			}
-			singleton.DB.Model(cr).Updates(model.Cron{
-				LastExecutedAt: time.Now().Add(time.Second * -1 * time.Duration(r.GetDelay())), // #nosec G115 -- delay is seconds, safely within range
-				LastResult:     r.GetSuccessful(),
-			})
-		}
-	} else if model.IsServiceSentinelNeeded(r.GetType()) {
-		singleton.ServiceSentinelShared.Dispatch(singleton.ReportData{
-			Data:     r,
-			Reporter: clientID,
-		})
-	}
-	return &pb.Receipt{Proced: true}, nil
-}
-
-func (s *SantaiziHandler) RequestTask(h *pb.Host, stream pb.SantaiziService_RequestTaskServer) error {
-	var clientID uint64
-	var err error
-	if clientID, err = s.Auth.Check(stream.Context()); err != nil {
-		return err
-	}
-	closeCh := make(chan error)
-	singleton.ServerLock.RLock()
-	singleton.ServerList[clientID].TaskCloseLock.Lock()
-	// 修复不断的请求 task 但是没有 return 导致内存泄漏
-	if singleton.ServerList[clientID].TaskClose != nil {
-		close(singleton.ServerList[clientID].TaskClose)
-	}
-	singleton.ServerList[clientID].TaskStream = stream
-	singleton.ServerList[clientID].TaskClose = closeCh
-	singleton.ServerList[clientID].TaskCloseLock.Unlock()
-	singleton.ServerLock.RUnlock()
-	return <-closeCh
+	return &SantaiziHandler{Auth: &authHandler{}}
 }
 
 func (s *SantaiziHandler) ReportSystemState(c context.Context, r *pb.State) (*pb.Receipt, error) {
@@ -137,7 +63,6 @@ func (s *SantaiziHandler) ReportSystemState(c context.Context, r *pb.State) (*pb
 
 	// 更新持久化运行态与离线历史，必须在释放 ServerLock 后再执行，避免锁内执行耗时操作阻塞上报
 	singleton.UpdateServerRuntimeOnStateReport(clientID, state)
-
 	return &pb.Receipt{Proced: true}, nil
 }
 
@@ -228,33 +153,7 @@ func (s *SantaiziHandler) ReportSystemInfo(c context.Context, r *pb.Host) (*pb.R
 
 	// 更新持久化运行态与离线历史，必须在释放 ServerLock 后再执行
 	singleton.UpdateServerRuntimeOnHostReport(clientID, host)
-
 	return &pb.Receipt{Proced: true}, nil
-}
-
-func (s *SantaiziHandler) IOStream(stream pb.SantaiziService_IOStreamServer) error {
-	if _, err := s.Auth.Check(stream.Context()); err != nil {
-		return err
-	}
-	id, err := stream.Recv()
-	if err != nil {
-		return err
-	}
-	if id == nil || len(id.Data) < 4 || (id.Data[0] != 0xff && id.Data[1] != 0x05 && id.Data[2] != 0xff && id.Data[3] == 0x05) {
-		return fmt.Errorf("invalid stream id")
-	}
-
-	streamId := string(id.Data[4:])
-
-	if _, err := s.GetStream(streamId); err != nil {
-		return err
-	}
-	iw := grpcx.NewIOStreamWrapper(stream)
-	if err := s.AgentConnected(streamId, iw); err != nil {
-		return err
-	}
-	iw.Wait()
-	return nil
 }
 
 func (s *SantaiziHandler) LookupGeoIP(c context.Context, r *pb.GeoIP) (*pb.GeoIP, error) {

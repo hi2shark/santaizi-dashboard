@@ -8,11 +8,11 @@ import (
 
 var StaticFS *utils.HybridFS
 
-//go:embed static
+//go:embed static/logo.svg static/brand.svg static/app-icon.svg static/manifest-192x192.png static/manifest-512x512.png static/manifest-*.json static/theme-server-status/img static/theme-server-status/maps
 var staticFS embed.FS
 
-//go:embed template
-var TemplateFS embed.FS
+//go:embed web
+var WebFS embed.FS
 
 //go:embed l10n
 var I18nFS embed.FS
@@ -23,9 +23,4 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func IsTemplateFileExist(name string) bool {
-	_, err := TemplateFS.Open(name)
-	return err == nil
 }

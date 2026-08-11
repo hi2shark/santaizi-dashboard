@@ -3,9 +3,10 @@ package model
 import "time"
 
 const (
-	ServerRuntimeStatusUnknown = "unknown"
-	ServerRuntimeStatusOnline  = "online"
-	ServerRuntimeStatusOffline = "offline"
+	ServerRuntimeStatusUnknown    = "unknown"
+	ServerRuntimeStatusRecovering = "recovering"
+	ServerRuntimeStatusOnline     = "online"
+	ServerRuntimeStatusOffline    = "offline"
 )
 
 // ServerRuntime 用于持久化保存每台服务器的运行时状态，
@@ -26,6 +27,17 @@ type ServerRuntime struct {
 	LastAgentVersion string
 
 	CurrentOfflineID uint64 `gorm:"index"`
+
+	CurrentNodeUUID   []byte `gorm:"type:BLOB;size:16;index"`
+	CurrentSessionID  []byte `gorm:"type:BLOB;size:16"`
+	CurrentSequence   uint64
+	Protocol          string `gorm:"index"`
+	HostState         string `gorm:"index"`
+	ConnectivityState string `gorm:"index"`
+	LastCollectedAt   int64  `gorm:"index"`
+	LastReceivedAt    int64  `gorm:"index"`
+	StatePayload      []byte `gorm:"type:BLOB"`
+	HostPayload       []byte `gorm:"type:BLOB"`
 
 	CreatedAt time.Time
 	UpdatedAt time.Time

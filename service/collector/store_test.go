@@ -1,0 +1,155 @@
+package collector
+
+import (
+	"bytes"
+	"context"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/hi2shark/santaizi-dashboard/model"
+	pb "github.com/hi2shark/santaizi-dashboard/proto"
+	"github.com/hi2shark/santaizi-dashboard/service/telemetry"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
+)
+
+func collectorEvent(t *testing.T, node, session []byte, sequence uint64) *pb.TelemetryEvent {
+	t.Helper()
+	eventID, err := telemetry.EventID(node, session, sequence)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &pb.TelemetryEvent{
+		EventId: eventID, NodeUuid: node, SessionId: session, Sequence: sequence,
+		EventType:           pb.TelemetryEventType_TELEMETRY_EVENT_TYPE_HEARTBEAT,
+		Priority:            pb.TelemetryPriority_TELEMETRY_PRIORITY_P0_CRITICAL,
+		CollectedAtUnixNano: time.Now().UnixNano(),
+		SourceProtocol:      pb.SourceProtocol_SOURCE_PROTOCOL_SANTAIZI_V2,
+		Reliability:         pb.Reliability_RELIABILITY_RELIABLE_REPLAY,
+		Payload:             &pb.TelemetryEvent_Heartbeat{Heartbeat: &pb.HeartbeatPayload{}},
+	}
+}
+
+func TestCollectorIngestCommitsFactsOutboxAndCursorTogether(t *testing.T) {
+	store, err := OpenStore(filepath.Join(t.TempDir(), "collector.db"), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	node, session := bytes.Repeat([]byte{1}, 16), bytes.Repeat([]byte{2}, 16)
+	batch := &pb.TelemetryBatch{Records: []*pb.TelemetryRecord{
+		{Record: &pb.TelemetryRecord_Event{Event: collectorEvent(t, node, session, 1)}},
+		{Record: &pb.TelemetryRecord_Gap{Gap: &pb.SequenceGap{
+			GapId: bytes.Repeat([]byte{3}, 16), NodeUuid: node, SessionId: session,
+			StartSequence: 2, EndSequence: 3, Reason: pb.GapReason_GAP_REASON_COMPACTED,
+		}}},
+		{Record: &pb.TelemetryRecord_Event{Event: collectorEvent(t, node, session, 4)}},
+	}}
+	for index := 0; index < 2; index++ {
+		result, err := store.Ingest(context.Background(), batch, "collector-a", time.Now())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(result.Acks) != 1 || result.Acks[0].GetAckThrough() != 4 {
+			t.Fatalf("acks=%#v", result.Acks)
+		}
+	}
+	var events, observations, gaps, outbox int64
+	store.db.Model(&model.CollectorStoredEvent{}).Count(&events)
+	store.db.Model(&model.CollectorStoredObservation{}).Count(&observations)
+	store.db.Model(&model.CollectorStoredGap{}).Count(&gaps)
+	store.db.Model(&model.CollectorOutbox{}).Count(&outbox)
+	if events != 2 || observations != 2 || gaps != 1 || outbox != 5 {
+		t.Fatalf("events=%d observations=%d gaps=%d outbox=%d", events, observations, gaps, outbox)
+	}
+	spool, err := store.ReadOutbox(context.Background(), 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(spool.Events) != 2 || len(spool.Observations) != 2 || len(spool.Gaps) != 1 || spool.Through == 0 {
+		t.Fatalf("spool=%#v", spool)
+	}
+	if err := store.CommitReplicationAck(context.Background(), spool.Through); err != nil {
+		t.Fatal(err)
+	}
+	store.db.Model(&model.CollectorOutbox{}).Count(&outbox)
+	if outbox != 0 {
+		t.Fatalf("outbox after ack=%d", outbox)
+	}
+	store.db.Model(&model.CollectorStoredEvent{}).Count(&events)
+	store.db.Model(&model.CollectorStoredObservation{}).Count(&observations)
+	store.db.Model(&model.CollectorStoredGap{}).Count(&gaps)
+	if events != 0 || observations != 0 || gaps != 0 {
+		t.Fatalf("acknowledged local facts not cleaned: events=%d observations=%d gaps=%d", events, observations, gaps)
+	}
+}
+
+func TestCollectorAuthorizationCacheHonorsAssignmentAndRevocation(t *testing.T) {
+	store, err := OpenStore(filepath.Join(t.TempDir(), "collector.db"), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	node := bytes.Repeat([]byte{9}, 16)
+	now := time.Now()
+	config := &pb.CollectorAuthorizationConfig{
+		ConfigVersion: 3, PrimaryPublicKey: bytes.Repeat([]byte{4}, 32), KeyId: bytes.Repeat([]byte{5}, 16),
+		Assignments: []*pb.NodeAssignment{{NodeUuid: node, ObserverId: "collector-a", ValidFromUnixNano: now.Add(-time.Minute).UnixNano(), Generation: 1, ConfigVersion: 3}},
+	}
+	if err := store.SaveAuthorization(context.Background(), "collector-a", config, now); err != nil {
+		t.Fatal(err)
+	}
+	if allowed, err := store.IsNodeAuthorized(context.Background(), node, now); err != nil || !allowed {
+		t.Fatalf("allowed=%t err=%v", allowed, err)
+	}
+	config.RevokedNodeUuids = [][]byte{node}
+	if err := store.SaveAuthorization(context.Background(), "collector-a", config, now); err != nil {
+		t.Fatal(err)
+	}
+	if allowed, err := store.IsNodeAuthorized(context.Background(), node, now); err != nil || allowed {
+		t.Fatalf("revoked allowed=%t err=%v", allowed, err)
+	}
+}
+
+func TestCollectorHardLimitCreatesReplicableGapAndDataLoss(t *testing.T) {
+	store, err := OpenStore(filepath.Join(t.TempDir(), "collector.db"), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	node, session := bytes.Repeat([]byte{6}, 16), bytes.Repeat([]byte{7}, 16)
+	batch := &pb.TelemetryBatch{Records: []*pb.TelemetryRecord{{
+		Record: &pb.TelemetryRecord_Event{Event: collectorEvent(t, node, session, 1)},
+	}}}
+	if _, err := store.Ingest(context.Background(), batch, "collector-a", time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.EnforceSpoolPolicy(context.Background(), "collector-a", 1, 30*24*time.Hour, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	outbox, err := store.ReadOutbox(context.Background(), 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(outbox.DataLoss) != 1 || len(outbox.Gaps) == 0 {
+		t.Fatalf("data_loss=%d gaps=%d", len(outbox.DataLoss), len(outbox.Gaps))
+	}
+	if outbox.Gaps[0].GetReason() != pb.GapReason_GAP_REASON_HARD_LIMIT_DATA_LOSS {
+		t.Fatalf("gap reason=%s", outbox.Gaps[0].GetReason())
+	}
+}
+
+func TestCollectorRejectsUnversionedExistingDatabase(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "collector.db")
+	db, err := gorm.Open(sqlite.Open(path), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec("CREATE TABLE existing_data (id INTEGER)").Error; err != nil {
+		t.Fatal(err)
+	}
+	sqlDB, _ := db.DB()
+	_ = sqlDB.Close()
+	if _, err := OpenStore(path, false); err == nil || !strings.Contains(err.Error(), "without collector_schema_migrations") {
+		t.Fatalf("expected unversioned database rejection, got %v", err)
+	}
+}
