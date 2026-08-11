@@ -7,9 +7,6 @@ other = "服务器"
 [Services]
 other = "服务"
 
-[Task]
-other = "任务"
-
 [Notification]
 other = "告警"
 
@@ -43,23 +40,14 @@ other = "取消"
 [Confirm]
 other = "确认"
 
-[AddScheduledTasks]
-other = "新增计划任务"
-
 [Name]
 other = "名称"
-
-[Scheduler]
-other = "计划"
 
 [BackUp]
 other = "备份"
 
 [3amDaily]
 other = "(每天3点)"
-
-[Command]
-other = "命令"
 
 [Coverage]
 other = "覆盖范围"
@@ -70,9 +58,6 @@ other = "忽略所有，仅通过特定服务器执行"
 [AllIncludedOnlySpecificServersAreNotExecuted]
 other = "覆盖所有，仅特定服务器不执行"
 
-[ExecuteByTriggerServer]
-other = "由触发告警的服务器执行"
-
 [SpecificServers]
 other = "特定服务器"
 
@@ -81,30 +66,6 @@ other = "输入ID/名称以搜索"
 
 [NotificationMethodGroup]
 other = "通知方式组"
-
-[PushSuccessMessages]
-other = "推送成功的消息"
-
-[TaskType]
-other = "任务类型"
-
-[CronTask]
-other = "计划任务"
-
-[TriggerTask]
-other = "触发任务"
-
-[TheFormaOfTheScheduleIs]
-other = "计划的格式为："
-
-[SecondsMinutesHoursDaysMonthsWeeksSeeDetails]
-other = "秒 分 时 天 月 星期，详情见"
-
-[ScheduleExpressionFormat]
-other = "计划表达式格式"
-
-[IntroductionOfCommands]
-other = "命令说明：编写命令时类似于 shell/bat 脚本。建议不要换行，多个命令可用 <code>&&</code> 或 <code>;</code> 连接，若出现命令无法找到的情况，可能是由于 <code>PATH</code> 环境变量配置问题。在 <code>Linux</code> 服务器上，可在命令开头加入 <code>source ~/.bashrc</code>，或使用命令的绝对路径执行。"
 
 [AddMonitor]
 other = "新增监控"
@@ -184,15 +145,6 @@ other = "始终触发"
 [ModeOnetimeTrigger]
 other = "单次触发"
 
-[EnableTriggerTask]
-other = "启用触发任务"
-
-[FailTriggerTasks]
-other = "告警时触发任务"
-
-[RecoverTriggerTasks]
-other = "恢复时触发任务"
-
 [Enable]
 other = "启用"
 
@@ -256,12 +208,6 @@ other = "忽略所有"
 [ByTrigger]
 other = "触发告警的服务器"
 
-[DeleteScheduledTask]
-other = "删除计划任务"
-
-[ConfirmToDeleteThisScheduledTask]
-other = "确认删除此计划任务？"
-
 [AccessDenied]
 other = "访问被拒绝"
 
@@ -294,9 +240,6 @@ other = "删除通知方式"
 
 [ConfirmToDeleteThisNotificationMethod]
 other = "确认删除此通知方式？"
-
-[ForceUpdate]
-other = "立即更新"
 
 [SelectAll]
 other = "全选"
@@ -384,15 +327,6 @@ other = "保存"
 
 [ModifiedSuccessfully]
 other = "修改成功"
-
-[TerminalConnectionTimeOutOrSessionEnded]
-other = "Terminal 连接超时或会话已结束"
-
-[TerminalConnectionFailed]
-other = "Terminal 连接失败，请检查 /terminal/* 的 WebSocket 反向代理配置"
-
-[Default]
-other = "默认"
 
 [Offline]
 other = "已离线"
@@ -550,9 +484,6 @@ other = "服务器管理"
 [ServicesManagement]
 other = "服务监控"
 
-[ScheduledTasks]
-other = "计划任务"
-
 [ApiManagement]
 other = "API 管理"
 
@@ -603,12 +534,6 @@ other = "正常"
 
 [StatusLowAvailability]
 other = "低可用"
-
-[ScheduledTaskExecutedSuccessfully]
-other = "任务执行成功"
-
-[ScheduledTaskExecutedFailed]
-other = "任务执行失败"
 
 [IPChanged]
 other = "IP变更"
@@ -1113,3 +1038,156 @@ other = "无数据"
 
 [NoMatch]
 other = "无匹配数据"
+
+[Telemetry]
+other = "遥测"
+
+[TelemetryReliability]
+other = "遥测可靠性"
+
+[TelemetryReliabilityDescription]
+other = "查看采集器、观测点、探针传输、故障修正与数据丢失情况"
+
+[TelemetryCollectors]
+other = "采集器"
+
+[TelemetryObserverAssignments]
+other = "观测点分配"
+
+[TelemetryAgentDelivery]
+other = "探针缓存与发送状态"
+
+[TelemetryIncidentRevisions]
+other = "故障判定修正"
+
+[TelemetryDataLoss]
+other = "遥测数据丢失"
+
+[TelemetryAlerts]
+other = "遥测告警"
+
+[TelemetryCollectorID]
+other = "采集器标识"
+
+[TelemetryAddress]
+other = "地址"
+
+[TelemetryGeneration]
+other = "代次"
+
+[TelemetryConfigVersion]
+other = "配置版本"
+
+[TelemetryObserver]
+other = "观测点"
+
+[TelemetryNodeID]
+other = "节点标识"
+
+[TelemetryEffectiveFrom]
+other = "生效时间"
+
+[TelemetryLocalBufferPressure]
+other = "本地缓存压力"
+
+[TelemetryBufferedData]
+other = "缓存占用"
+
+[TelemetryPendingRecords]
+other = "待发送记录"
+
+[TelemetryProtocolVersion]
+other = "协议版本"
+
+[TelemetryInitialClassification]
+other = "初始判定"
+
+[TelemetryCurrentClassification]
+other = "当前判定"
+
+[TelemetryRevision]
+other = "修订版本"
+
+[TelemetryStartedAt]
+other = "开始时间"
+
+[TelemetryComponent]
+other = "组件"
+
+[TelemetryLossReason]
+other = "丢失原因"
+
+[TelemetryLostRecords]
+other = "丢失条数"
+
+[TelemetryAlertType]
+other = "告警类型"
+
+[TelemetrySeverity]
+other = "级别"
+
+[TelemetryMessage]
+other = "消息"
+
+[TelemetryNotified]
+other = "已通知"
+
+[TelemetryActive]
+other = "正常"
+
+[TelemetryRevoked]
+other = "已撤销"
+
+[TelemetryYes]
+other = "是"
+
+[TelemetryNo]
+other = "否"
+
+[TelemetryUnknown]
+other = "未知"
+
+[TelemetryWalHealthy]
+other = "正常"
+
+[TelemetryWalDownsampled]
+other = "已降低低优先级采样"
+
+[TelemetryWalRollup]
+other = "已启用分钟聚合"
+
+[TelemetryWalCritical]
+other = "空间紧张"
+
+[TelemetryWalDataLoss]
+other = "已发生数据丢失"
+
+[TelemetryLossCompacted]
+other = "降采样或聚合替代"
+
+[TelemetryLossHardLimit]
+other = "达到容量上限"
+
+[TelemetryLossCorruption]
+other = "缓存文件损坏"
+
+[TelemetryAlertHostOffline]
+other = "主机离线"
+
+[TelemetryAlertConnectivityDegraded]
+other = "连接质量下降"
+
+[TelemetryAlertCollectorOffline]
+other = "采集器离线"
+
+[TelemetryAlertDataLoss]
+other = "遥测数据丢失"
+
+[TelemetrySeverityCritical]
+other = "严重"
+
+[TelemetrySeverityWarning]
+other = "警告"
+
+[TelemetrySeverityInfo]
+other = "信息"

@@ -7,9 +7,6 @@ other = "Servidores"
 [Services]
 other = "Servicios"
 
-[Task]
-other = "Tareas"
-
 [Notification]
 other = "Notificaciones"
 
@@ -43,23 +40,14 @@ other = "Cancelar"
 [Confirm]
 other = "Confirmar"
 
-[AddScheduledTasks]
-other = "Agregar Tareas Programadas"
-
 [Name]
 other = "Nombre"
-
-[Scheduler]
-other = "Plan"
 
 [BackUp]
 other = "Respaldo"
 
 [3amDaily]
 other = "(Diariamente a las 3 a.m.)"
-
-[Command]
-other = "Comandos"
 
 [Coverage]
 other = "Cobertura"
@@ -70,9 +58,6 @@ other = "Ignorar todo, ejecutar solo a través de servidores específicos"
 [AllIncludedOnlySpecificServersAreNotExecuted]
 other = "Incluir todo, excepto servidores específicos"
 
-[ExecuteByTriggerServer]
-other = "Ejecutar en servidores con alarma"
-
 [SpecificServers]
 other = "Servidores Específicos"
 
@@ -81,30 +66,6 @@ other = "Ingrese ID/Nombre para buscar"
 
 [NotificationMethodGroup]
 other = "Grupo de Métodos de Notificación"
-
-[PushSuccessMessages]
-other = "Enviar el mensaje de éxito"
-
-[TaskType]
-other = "Tipo de Tarea"
-
-[CronTask]
-other = "Tarea Cron"
-
-[TriggerTask]
-other = "Tarea Disparadora"
-
-[TheFormaOfTheScheduleIs]
-other = "El formato del plan es:"
-
-[SecondsMinutesHoursDaysMonthsWeeksSeeDetails]
-other = "Segundos, Minutos, Horas, Días, Meses, Semanas - Ver detalles a"
-
-[ScheduleExpressionFormat]
-other = "Formato de Expresión de Cron"
-
-[IntroductionOfCommands]
-other = "Introducción de Comandos: Escriba comandos como en scripts shell/bat. Evite saltos de línea; conecte múltiples comandos con <code>&&</code> o <code>;</code>. Si no se encuentra un comando, verifique la variable de entorno <code>PATH</code>. En servidores <code>Linux</code>, antepóngale <code>source ~/.bashrc</code> a los comandos, o use rutas absolutas."
 
 [AddMonitor]
 other = "Agregar Monitor de Servicio"
@@ -184,15 +145,6 @@ other = "Siempre Activar"
 [ModeOnetimeTrigger]
 other = "Activación Única"
 
-[EnableTriggerTask]
-other = "Habilitar Tarea Disparadora"
-
-[FailTriggerTasks]
-other = "Tareas Disparadas por Fallo"
-
-[RecoverTriggerTasks]
-other = "Tareas Disparadas por Recuperación"
-
 [Enable]
 other = "Habilitar"
 
@@ -256,12 +208,6 @@ other = "Ignorar Todo"
 [ByTrigger]
 other = "Servidores con alarma"
 
-[DeleteScheduledTask]
-other = "Eliminar Tarea Programada"
-
-[ConfirmToDeleteThisScheduledTask]
-other = "¿Confirmar para eliminar esta Tarea Programada?"
-
 [AccessDenied]
 other = "Acceso Denegado"
 
@@ -294,9 +240,6 @@ other = "Eliminar Método de Notificación"
 
 [ConfirmToDeleteThisNotificationMethod]
 other = "¿Confirmar para eliminar este Método de Notificación?"
-
-[ForceUpdate]
-other = "Actualizar Ahora"
 
 [SelectAll]
 other = "Seleccionar Todo"
@@ -384,15 +327,6 @@ other = "Guardar"
 
 [ModifiedSuccessfully]
 other = "Modificado con Éxito"
-
-[TerminalConnectionTimeOutOrSessionEnded]
-other = "Tiempo de Conexión del Terminal Agotado o Sesión Finalizada"
-
-[TerminalConnectionFailed]
-other = "Fallo en la Conexión del Terminal, Verifique la Configuración de Proxy Inverso de WebSocket en /terminal/*"
-
-[Default]
-other = "Predeterminado"
 
 [Offline]
 other = "Desconectado"
@@ -550,9 +484,6 @@ other = "Gestión de Servidores"
 [ServicesManagement]
 other = "Gestión de Servicios"
 
-[ScheduledTasks]
-other = "Tareas Programadas"
-
 [ApiManagement]
 other = "Gestión de API"
 
@@ -603,12 +534,6 @@ other = "Bueno"
 
 [StatusLowAvailability]
 other = "Baja Disponibilidad"
-
-[ScheduledTaskExecutedSuccessfully]
-other = "Tarea Programada Ejecutada con Éxito"
-
-[ScheduledTaskExecutedFailed]
-other = "Fallo en la Ejecución de la Tarea Programada"
 
 [IPChanged]
 other = "Cambio de IP"
@@ -1113,3 +1038,156 @@ other = "Sin datos"
 
 [NoMatch]
 other = "Sin coincidencias"
+
+[Telemetry]
+other = "Telemetría"
+
+[TelemetryReliability]
+other = "Fiabilidad de la telemetría"
+
+[TelemetryReliabilityDescription]
+other = "Consulta recolectores, puntos de observación, entrega de agentes, correcciones de incidentes y pérdida de datos"
+
+[TelemetryCollectors]
+other = "Recolectores"
+
+[TelemetryObserverAssignments]
+other = "Asignaciones de observadores"
+
+[TelemetryAgentDelivery]
+other = "Búfer y entrega del agente"
+
+[TelemetryIncidentRevisions]
+other = "Correcciones de incidentes"
+
+[TelemetryDataLoss]
+other = "Pérdida de datos de telemetría"
+
+[TelemetryAlerts]
+other = "Alertas de telemetría"
+
+[TelemetryCollectorID]
+other = "ID del recolector"
+
+[TelemetryAddress]
+other = "Dirección"
+
+[TelemetryGeneration]
+other = "Generación"
+
+[TelemetryConfigVersion]
+other = "Versión de configuración"
+
+[TelemetryObserver]
+other = "Observador"
+
+[TelemetryNodeID]
+other = "ID del nodo"
+
+[TelemetryEffectiveFrom]
+other = "Válido desde"
+
+[TelemetryLocalBufferPressure]
+other = "Presión del búfer local"
+
+[TelemetryBufferedData]
+other = "Datos en búfer"
+
+[TelemetryPendingRecords]
+other = "Registros pendientes"
+
+[TelemetryProtocolVersion]
+other = "Versión del protocolo"
+
+[TelemetryInitialClassification]
+other = "Clasificación inicial"
+
+[TelemetryCurrentClassification]
+other = "Clasificación actual"
+
+[TelemetryRevision]
+other = "Revisión"
+
+[TelemetryStartedAt]
+other = "Inicio"
+
+[TelemetryComponent]
+other = "Componente"
+
+[TelemetryLossReason]
+other = "Motivo de pérdida"
+
+[TelemetryLostRecords]
+other = "Registros perdidos"
+
+[TelemetryAlertType]
+other = "Tipo de alerta"
+
+[TelemetrySeverity]
+other = "Severidad"
+
+[TelemetryMessage]
+other = "Mensaje"
+
+[TelemetryNotified]
+other = "Notificada"
+
+[TelemetryActive]
+other = "Activo"
+
+[TelemetryRevoked]
+other = "Revocado"
+
+[TelemetryYes]
+other = "Sí"
+
+[TelemetryNo]
+other = "No"
+
+[TelemetryUnknown]
+other = "Desconocido"
+
+[TelemetryWalHealthy]
+other = "Normal"
+
+[TelemetryWalDownsampled]
+other = "Muestreo de baja prioridad reducido"
+
+[TelemetryWalRollup]
+other = "Agregación por minuto activada"
+
+[TelemetryWalCritical]
+other = "Presión de almacenamiento crítica"
+
+[TelemetryWalDataLoss]
+other = "Se produjo pérdida de datos"
+
+[TelemetryLossCompacted]
+other = "Sustituido por reducción de muestreo o agregación"
+
+[TelemetryLossHardLimit]
+other = "Se alcanzó el límite de capacidad"
+
+[TelemetryLossCorruption]
+other = "Archivo de búfer dañado"
+
+[TelemetryAlertHostOffline]
+other = "Host sin conexión"
+
+[TelemetryAlertConnectivityDegraded]
+other = "Conectividad degradada"
+
+[TelemetryAlertCollectorOffline]
+other = "Recolector sin conexión"
+
+[TelemetryAlertDataLoss]
+other = "Pérdida de datos de telemetría"
+
+[TelemetrySeverityCritical]
+other = "Crítica"
+
+[TelemetrySeverityWarning]
+other = "Advertencia"
+
+[TelemetrySeverityInfo]
+other = "Información"

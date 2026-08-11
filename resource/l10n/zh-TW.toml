@@ -7,9 +7,6 @@ other = "伺服器"
 [Services]
 other = "服務"
 
-[Task]
-other = "任務"
-
 [Notification]
 other = "告警"
 
@@ -43,23 +40,14 @@ other = "取消"
 [Confirm]
 other = "確認"
 
-[AddScheduledTasks]
-other = "新增計劃任務"
-
 [Name]
 other = "名稱"
-
-[Scheduler]
-other = "排程"
 
 [BackUp]
 other = "備份"
 
 [3amDaily]
 other = "(每天3點)"
-
-[Command]
-other = "命令"
 
 [Coverage]
 other = "覆蓋範圍"
@@ -70,9 +58,6 @@ other = "忽略所有，僅通過特定伺服器執行"
 [AllIncludedOnlySpecificServersAreNotExecuted]
 other = "覆蓋所有，僅特定伺服器不執行"
 
-[ExecuteByTriggerServer]
-other = "由觸發告警的伺服器執行"
-
 [SpecificServers]
 other = "特定伺服器"
 
@@ -81,30 +66,6 @@ other = "輸入ID/名稱以搜尋"
 
 [NotificationMethodGroup]
 other = "通知群組"
-
-[PushSuccessMessages]
-other = "推送成功的訊息"
-
-[TaskType]
-other = "任務類型"
-
-[CronTask]
-other = "排程任務"
-
-[TriggerTask]
-other = "觸發任務"
-
-[TheFormaOfTheScheduleIs]
-other = "排程的格式為："
-
-[SecondsMinutesHoursDaysMonthsWeeksSeeDetails]
-other = "秒 分 時 天 月 星期，詳情見"
-
-[ScheduleExpressionFormat]
-other = "排程表達式格式"
-
-[IntroductionOfCommands]
-other = "命令說明：編寫命令時類似於 shell/bat 腳本。建議不要換行，多個命令可用 <code>&&</code> 或 <code>;</code> 連接，若出現命令無法找到的情況，可能是由於 <code>PATH</code> 環境變數配置問題。在 <code>Linux</code> 伺服器上，可在命令開頭加入 <code>source ~/.bashrc</code>，或使用命令的絕對路徑執行。"
 
 [AddMonitor]
 other = "新增監控"
@@ -184,15 +145,6 @@ other = "始終觸發"
 [ModeOnetimeTrigger]
 other = "單次觸發"
 
-[EnableTriggerTask]
-other = "啟用觸發任務"
-
-[FailTriggerTasks]
-other = "告警時觸發任務"
-
-[RecoverTriggerTasks]
-other = "恢復時觸發任務"
-
 [Enable]
 other = "啟用"
 
@@ -256,12 +208,6 @@ other = "忽略所有"
 [ByTrigger]
 other = "觸發告警的伺服器"
 
-[DeleteScheduledTask]
-other = "刪除排程任務"
-
-[ConfirmToDeleteThisScheduledTask]
-other = "確認刪除此排程任務？"
-
 [AccessDenied]
 other = "訪問被拒絕"
 
@@ -294,9 +240,6 @@ other = "刪除通知方式"
 
 [ConfirmToDeleteThisNotificationMethod]
 other = "確認刪除此通知方式？"
-
-[ForceUpdate]
-other = "立即更新"
 
 [SelectAll]
 other = "全選"
@@ -384,15 +327,6 @@ other = "保存"
 
 [ModifiedSuccessfully]
 other = "修改成功"
-
-[TerminalConnectionTimeOutOrSessionEnded]
-other = "Terminal 連接超時或會話已結束"
-
-[TerminalConnectionFailed]
-other = "Terminal 連接失敗，請檢查 /terminal/* 的 WebSocket 反向代理配置"
-
-[Default]
-other = "默認"
 
 [Offline]
 other = "已離線"
@@ -550,9 +484,6 @@ other = "伺服器管理"
 [ServicesManagement]
 other = "服務監控"
 
-[ScheduledTasks]
-other = "排程任務"
-
 [ApiManagement]
 other = "API 管理"
 
@@ -603,12 +534,6 @@ other = "正常"
 
 [StatusLowAvailability]
 other = "低可用"
-
-[ScheduledTaskExecutedSuccessfully]
-other = "任務執行成功"
-
-[ScheduledTaskExecutedFailed]
-other = "任務執行失敗"
 
 [IPChanged]
 other = "IP變更"
@@ -1113,3 +1038,156 @@ other = "無資料"
 
 [NoMatch]
 other = "無匹配資料"
+
+[Telemetry]
+other = "遙測"
+
+[TelemetryReliability]
+other = "遙測可靠性"
+
+[TelemetryReliabilityDescription]
+other = "查看收集器、觀測點、探針傳輸、故障修正與資料遺失情況"
+
+[TelemetryCollectors]
+other = "收集器"
+
+[TelemetryObserverAssignments]
+other = "觀測點分配"
+
+[TelemetryAgentDelivery]
+other = "探針快取與傳送狀態"
+
+[TelemetryIncidentRevisions]
+other = "故障判定修正"
+
+[TelemetryDataLoss]
+other = "遙測資料遺失"
+
+[TelemetryAlerts]
+other = "遙測告警"
+
+[TelemetryCollectorID]
+other = "收集器識別碼"
+
+[TelemetryAddress]
+other = "位址"
+
+[TelemetryGeneration]
+other = "代次"
+
+[TelemetryConfigVersion]
+other = "設定版本"
+
+[TelemetryObserver]
+other = "觀測點"
+
+[TelemetryNodeID]
+other = "節點識別碼"
+
+[TelemetryEffectiveFrom]
+other = "生效時間"
+
+[TelemetryLocalBufferPressure]
+other = "本機快取壓力"
+
+[TelemetryBufferedData]
+other = "快取用量"
+
+[TelemetryPendingRecords]
+other = "待傳送記錄"
+
+[TelemetryProtocolVersion]
+other = "協定版本"
+
+[TelemetryInitialClassification]
+other = "初始判定"
+
+[TelemetryCurrentClassification]
+other = "目前判定"
+
+[TelemetryRevision]
+other = "修訂版本"
+
+[TelemetryStartedAt]
+other = "開始時間"
+
+[TelemetryComponent]
+other = "元件"
+
+[TelemetryLossReason]
+other = "遺失原因"
+
+[TelemetryLostRecords]
+other = "遺失筆數"
+
+[TelemetryAlertType]
+other = "告警類型"
+
+[TelemetrySeverity]
+other = "級別"
+
+[TelemetryMessage]
+other = "訊息"
+
+[TelemetryNotified]
+other = "已通知"
+
+[TelemetryActive]
+other = "正常"
+
+[TelemetryRevoked]
+other = "已撤銷"
+
+[TelemetryYes]
+other = "是"
+
+[TelemetryNo]
+other = "否"
+
+[TelemetryUnknown]
+other = "未知"
+
+[TelemetryWalHealthy]
+other = "正常"
+
+[TelemetryWalDownsampled]
+other = "已降低低優先級取樣"
+
+[TelemetryWalRollup]
+other = "已啟用分鐘彙總"
+
+[TelemetryWalCritical]
+other = "空間緊張"
+
+[TelemetryWalDataLoss]
+other = "已發生資料遺失"
+
+[TelemetryLossCompacted]
+other = "降取樣或彙總替代"
+
+[TelemetryLossHardLimit]
+other = "達到容量上限"
+
+[TelemetryLossCorruption]
+other = "快取檔案損壞"
+
+[TelemetryAlertHostOffline]
+other = "主機離線"
+
+[TelemetryAlertConnectivityDegraded]
+other = "連線品質下降"
+
+[TelemetryAlertCollectorOffline]
+other = "收集器離線"
+
+[TelemetryAlertDataLoss]
+other = "遙測資料遺失"
+
+[TelemetrySeverityCritical]
+other = "嚴重"
+
+[TelemetrySeverityWarning]
+other = "警告"
+
+[TelemetrySeverityInfo]
+other = "資訊"

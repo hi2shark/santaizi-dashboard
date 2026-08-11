@@ -7,9 +7,6 @@ other = "Servers"
 [Services]
 other = "Services"
 
-[Task]
-other = "Tasks"
-
 [Notification]
 other = "Notifications"
 
@@ -43,23 +40,14 @@ other = "Cancel"
 [Confirm]
 other = "Confirm"
 
-[AddScheduledTasks]
-other = "Add Schedule Task"
-
 [Name]
 other = "Name"
-
-[Scheduler]
-other = "Cron Expression"
 
 [BackUp]
 other = "Backup"
 
 [3amDaily]
 other = "(At 3 AM)"
-
-[Command]
-other = "Command"
 
 [Coverage]
 other = "Coverage"
@@ -70,9 +58,6 @@ other = "Ignore All, Execute Only on Specific Servers"
 [AllIncludedOnlySpecificServersAreNotExecuted]
 other = "Cover All, Except Specific Servers"
 
-[ExecuteByTriggerServer]
-other = "Execute on Alarmed Servers"
-
 [SpecificServers]
 other = "Specific Servers"
 
@@ -81,30 +66,6 @@ other = "Enter ID/Name to search"
 
 [NotificationMethodGroup]
 other = "Notification Method Group"
-
-[PushSuccessMessages]
-other = "Send Success Messages"
-
-[TaskType]
-other = "Task Type"
-
-[CronTask]
-other = "Cron Task"
-
-[TriggerTask]
-other = "Trigger Task"
-
-[TheFormaOfTheScheduleIs]
-other = "The Cron Expression format is:"
-
-[SecondsMinutesHoursDaysMonthsWeeksSeeDetails]
-other = "Sec Min Hour Day Month Week, see details in "
-
-[ScheduleExpressionFormat]
-other = "CRON Expression Format"
-
-[IntroductionOfCommands]
-other = "Note on writing commands: It is similar to shell/bat scripts. but it's advised not to start a newline, and connect multiple commands with <code>&&</code> or <code>;</code>. If a command cannot be found, it is possibly due to <code>PATH</code> environment variable issues. On <code>Linux</code> servers, you can add <code>source ~/.bashrc</code> at the beginning of the command, or just use the absolute path."
 
 [AddMonitor]
 other = "Add Service Monitor"
@@ -184,15 +145,6 @@ other = "Always Trigger"
 [ModeOnetimeTrigger]
 other = "Trigger Once"
 
-[EnableTriggerTask]
-other = "Enable Trigger Task"
-
-[FailTriggerTasks]
-other = "Tasks to trigger on an alarm"
-
-[RecoverTriggerTasks]
-other = "Tasks to trigger after recovery"
-
 [Enable]
 other = "Enable"
 
@@ -256,12 +208,6 @@ other = "Ignore All"
 [ByTrigger]
 other = "Alarmed Servers"
 
-[DeleteScheduledTask]
-other = "Delete Scheduled Task"
-
-[ConfirmToDeleteThisScheduledTask]
-other = "Confirm deletion?"
-
 [AccessDenied]
 other = "Access Denied"
 
@@ -294,9 +240,6 @@ other = "Delete Notification Method"
 
 [ConfirmToDeleteThisNotificationMethod]
 other = "Confirm Deleting This Notification Method?"
-
-[ForceUpdate]
-other = "Trigger Agent Update"
 
 [SelectAll]
 other = "Select All"
@@ -384,15 +327,6 @@ other = "Save"
 
 [ModifiedSuccessfully]
 other = "Modified successfully"
-
-[TerminalConnectionTimeOutOrSessionEnded]
-other = "Terminal Connection Timeout or Session Ended"
-
-[TerminalConnectionFailed]
-other = "The terminal connection failed. Please check the WebSocket reverse proxy configuration for /terminal/*."
-
-[Default]
-other = "Default"
 
 [Offline]
 other = "Offline"
@@ -550,9 +484,6 @@ other = "Servers"
 [ServicesManagement]
 other = "Services"
 
-[ScheduledTasks]
-other = "Scheduled Tasks"
-
 [ApiManagement]
 other = "API Management"
 
@@ -603,12 +534,6 @@ other = "Good"
 
 [StatusLowAvailability]
 other = "Low Availability"
-
-[ScheduledTaskExecutedSuccessfully]
-other = "Scheduled Task Executed Successfully"
-
-[ScheduledTaskExecutedFailed]
-other = "Scheduled Task Execution Failed"
 
 [IPChanged]
 other = "IP Changed"
@@ -1113,3 +1038,156 @@ other = "No data"
 
 [NoMatch]
 other = "No matching data"
+
+[Telemetry]
+other = "Telemetry"
+
+[TelemetryReliability]
+other = "Telemetry Reliability"
+
+[TelemetryReliabilityDescription]
+other = "Review collectors, observation points, agent delivery, incident corrections, and data loss"
+
+[TelemetryCollectors]
+other = "Collectors"
+
+[TelemetryObserverAssignments]
+other = "Observer Assignments"
+
+[TelemetryAgentDelivery]
+other = "Agent Buffer and Delivery"
+
+[TelemetryIncidentRevisions]
+other = "Incident Corrections"
+
+[TelemetryDataLoss]
+other = "Telemetry Data Loss"
+
+[TelemetryAlerts]
+other = "Telemetry Alerts"
+
+[TelemetryCollectorID]
+other = "Collector ID"
+
+[TelemetryAddress]
+other = "Address"
+
+[TelemetryGeneration]
+other = "Generation"
+
+[TelemetryConfigVersion]
+other = "Config Version"
+
+[TelemetryObserver]
+other = "Observer"
+
+[TelemetryNodeID]
+other = "Node ID"
+
+[TelemetryEffectiveFrom]
+other = "Effective From"
+
+[TelemetryLocalBufferPressure]
+other = "Local Buffer Pressure"
+
+[TelemetryBufferedData]
+other = "Buffered Data"
+
+[TelemetryPendingRecords]
+other = "Pending Records"
+
+[TelemetryProtocolVersion]
+other = "Protocol Version"
+
+[TelemetryInitialClassification]
+other = "Initial Classification"
+
+[TelemetryCurrentClassification]
+other = "Current Classification"
+
+[TelemetryRevision]
+other = "Revision"
+
+[TelemetryStartedAt]
+other = "Started At"
+
+[TelemetryComponent]
+other = "Component"
+
+[TelemetryLossReason]
+other = "Loss Reason"
+
+[TelemetryLostRecords]
+other = "Lost Records"
+
+[TelemetryAlertType]
+other = "Alert Type"
+
+[TelemetrySeverity]
+other = "Severity"
+
+[TelemetryMessage]
+other = "Message"
+
+[TelemetryNotified]
+other = "Notified"
+
+[TelemetryActive]
+other = "Active"
+
+[TelemetryRevoked]
+other = "Revoked"
+
+[TelemetryYes]
+other = "Yes"
+
+[TelemetryNo]
+other = "No"
+
+[TelemetryUnknown]
+other = "Unknown"
+
+[TelemetryWalHealthy]
+other = "Healthy"
+
+[TelemetryWalDownsampled]
+other = "Low-priority sampling reduced"
+
+[TelemetryWalRollup]
+other = "One-minute rollup enabled"
+
+[TelemetryWalCritical]
+other = "Storage pressure critical"
+
+[TelemetryWalDataLoss]
+other = "Data loss occurred"
+
+[TelemetryLossCompacted]
+other = "Replaced by downsampling or rollup"
+
+[TelemetryLossHardLimit]
+other = "Capacity hard limit reached"
+
+[TelemetryLossCorruption]
+other = "Buffer file corruption"
+
+[TelemetryAlertHostOffline]
+other = "Host Offline"
+
+[TelemetryAlertConnectivityDegraded]
+other = "Connectivity Degraded"
+
+[TelemetryAlertCollectorOffline]
+other = "Collector Offline"
+
+[TelemetryAlertDataLoss]
+other = "Telemetry Data Loss"
+
+[TelemetrySeverityCritical]
+other = "Critical"
+
+[TelemetrySeverityWarning]
+other = "Warning"
+
+[TelemetrySeverityInfo]
+other = "Information"
