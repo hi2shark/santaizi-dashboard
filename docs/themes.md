@@ -1,78 +1,41 @@
-# 主题与自定义
+# 前端与安全定制
 
-> 如果你想开发自己的主题，请阅读 [主题开发对接指南](theme-development.md)。
+Dashboard 仅提供两个独立 Vue 3 应用：
 
-## 前台主题
+- `/admin/*`：Element Plus 管理后台；
+- `/`、`/service`、`/network`：默认 ServerStatus 公开站。
 
-前台主题目录位于 `resource/template/theme-<name>/`，内置主题包括：
+项目不再加载 Go HTML 模板，也没有前台/后台主题选择；公开站固定使用 `server-status`。自定义 HTML/JavaScript 不会执行。
 
-- `default`
-- `daynight`
-- `mdui`
-- `hotaru`
-- `angel-kanade`
-- `server-status`
-- `custom`（本地自定义）
+## 安全外观定制
 
-对应静态资源位于 `resource/static/theme-<name>/`。
-
-在 **设置** 页面（`/setting`）的 `site.theme` 中选择主题，或修改 `config.yaml`：
+可在管理后台的“设置 → 外观定制”修改品牌色、页脚、Logo、背景和受限 CSS：
 
 ```yaml
 site:
-  theme: "server-status"
+  primarycolor: "#2563eb"
+  footertext: "Santaizi Monitoring"
+  logourl: "/static/logo.svg"
+  backgroundurl: "/static/theme-server-status/img/bg.jpg"
+  safecustomcss: ""
 ```
 
----
+Logo 和背景只接受 `/static/` 本地资源或 `data:image/` 图片。CSS 拒绝 `@import`、远程 `url()`、`expression`、`javascript:` 和可执行标签。
 
-## 后台主题
+## 嵌入与外置交付
 
-后台主题目录位于 `resource/template/dashboard-<name>/`，内置：
-
-- `default`
-- `custom`（本地自定义）
-
-在 **设置** 页面选择后台主题，或修改 `config.yaml`：
+默认在执行 `pnpm build` 后将三个应用嵌入 Go 二进制：
 
 ```yaml
-site:
-  dashboardtheme: "default"
+web:
+  delivery: embedded
 ```
 
----
-
-## 自定义主题
-
-### 前台自定义
-
-1. 创建文件 `resource/template/theme-custom/home.html`
-2. 在 `config.yaml` 中设置 `site.theme: custom`
-3. 参考其他主题模板编写页面
-
-### 后台自定义
-
-1. 创建文件 `resource/template/dashboard-custom/setting.html` 等
-2. 在 `config.yaml` 中设置 `site.dashboardtheme: custom`
-
-### 静态资源
-
-自定义静态文件可放在 `resource/static/custom/`，运行时会覆盖嵌入资源。
-
-### 自定义代码
-
-无需创建完整主题，也可以在 **设置** 中直接填写：
-
-- `site.customcode`：前台自定义 HTML/JS/CSS
-- `site.customcodedashboard`：后台自定义 HTML/JS/CSS
-
-适合添加统计代码、自定义样式等。
-
----
-
-## 禁用前台主题切换
-
-如果不希望游客切换主题，可在 **设置** 中开启 **前台禁用切换主题**：
+外置模式必须使用同域反向代理托管静态产物，并继续把 `/api`、`/oauth2`、`/ws` 和 `/openapi` 转发到 Go：
 
 ```yaml
-disableswitchtemplateinfrontend: true
+web:
+  delivery: external
 ```
+
+不支持通过跨域 Cookie 或宽松 CORS 拆分部署。

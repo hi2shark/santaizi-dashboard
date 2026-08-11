@@ -1,19 +1,19 @@
 # 通知方式
 
-进入 **通知方式** 页面（`/notification`）可以配置 Webhook 通知通道，并在下方管理告警规则。
+进入管理后台的 **通知渠道** 页面（`/admin/notifications`）配置 Webhook 通道。告警内容和阈值在独立的 **告警规则** 页面管理。
 
 ## 创建通知方式
 
-1. 点击 **添加通知方式**。
-2. 填写：
+1. 点击 **添加通知渠道**。
+2. 可选：在 **渠道预设** 中选择常见平台（企业微信、钉钉、飞书、Telegram、Bark、Discord、Slack 等），自动填充请求方法、类型与请求体模板。
+3. 填写：
    - **名称**：通知方式名称，如“企业微信机器人”
-   - **URL**：Webhook 地址
+   - **URL**：Webhook 地址（将预设中的占位符替换为真实密钥）
    - **请求方式**：`GET` 或 `POST`
    - **请求类型**：`JSON` 或 `Form`
    - **请求体**：支持变量占位符的模板
    - **SSL 校验开关**：是否校验 HTTPS 证书
-   - **跳过测试**：保存时不发送测试消息
-3. 点击 **测试** 可以发送一条测试消息验证配置。
+4. 点击 **测试** 可以发送一条测试消息验证配置。
 
 ## 变量占位符
 
@@ -61,6 +61,46 @@
 }
 ```
 
+### 钉钉群机器人（JSON）
+
+**URL**：`https://oapi.dingtalk.com/robot/send?access_token=xxxxxxxx`
+
+**请求方式**：`POST`
+
+**请求类型**：`JSON`
+
+**请求体**：
+
+```json
+{
+  "msgtype": "text",
+  "text": {
+    "content": "三太子：\n#SANTAIZI#"
+  }
+}
+```
+
+> 若机器人安全设置为自定义关键词，请确保 `content` 中包含该关键词（预设正文含「三太子」）。
+
+### 飞书群机器人（JSON）
+
+**URL**：`https://open.feishu.cn/open-apis/bot/v2/hook/xxxxxxxx`
+
+**请求方式**：`POST`
+
+**请求类型**：`JSON`
+
+**请求体**：
+
+```json
+{
+  "msg_type": "text",
+  "content": {
+    "text": "#SANTAIZI#\n#DATETIME#"
+  }
+}
+```
+
 ### Bark（GET）
 
 **URL**：`https://api.day.app/xxxxxxxx/#SANTAIZI#`
@@ -75,15 +115,50 @@
 
 **请求类型**：`Form`
 
+**请求体**（Form 类型须为 JSON 对象 map，发送时再编码为表单）：
+
+```json
+{
+  "chat_id": "xxxxxx",
+  "text": "#SANTAIZI#"
+}
+```
+
+### Discord Incoming Webhook（JSON）
+
+**URL**：`https://discord.com/api/webhooks/xxxxxxxx/xxxxxxxx`
+
+**请求方式**：`POST`
+
+**请求类型**：`JSON`
+
 **请求体**：
 
+```json
+{
+  "content": "#SANTAIZI#"
+}
 ```
-chat_id=xxxxxx&text=#SANTAIZI#
+
+### Slack Incoming Webhook（JSON）
+
+**URL**：`https://hooks.slack.com/services/XXXXXXXXX/XXXXXXXXX/XXXXXXXXXXXXXXXXXXXXXXXX`
+
+**请求方式**：`POST`
+
+**请求类型**：`JSON`
+
+**请求体**：
+
+```json
+{
+  "text": "#SANTAIZI#"
+}
 ```
 
 ## 通知组
 
-创建通知方式后，在创建 **监控** 或 **告警规则** 时选择对应的通知方式即可。一个通知方式可以被多个监控/规则复用。
+多个通知渠道可以使用同一个通知组标签。服务监控、告警规则和流量策略选择通知组，触发时会向组内全部渠道发送消息。
 
 ## IP 脱敏
 

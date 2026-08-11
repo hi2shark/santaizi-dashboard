@@ -35,11 +35,14 @@ journalctl -u santaizi-dashboard -f
 备份以下文件：
 
 ```
-data/sqlite.db
-data/sqlite.db-shm
-data/sqlite.db-wal
-data/config.yaml
+/var/lib/santaizi-dashboard/sqlite.db
+/var/lib/santaizi-dashboard/sqlite.db-shm
+/var/lib/santaizi-dashboard/sqlite.db-wal
+/etc/santaizi/dashboard.yaml
+/var/lib/santaizi-dashboard/telemetry-signing.key
 ```
+
+Collector 另需备份其 `collector.db` 和凭证主密钥。Agent 的 `/var/lib/santaizi-agent/` 包含身份、Cursor 与尚未 ACK 的 WAL；执行清洁安装时这些数据会按确认删除并生成新身份。
 
 ---
 
@@ -66,7 +69,7 @@ Windows：事件查看器或服务日志目录。
 
 ### Q: 如何更新 Agent
 
-在 Dashboard 的 **服务器器** 页面点击 **强制更新**，或重启 Agent 服务使其自动升级。
+Dashboard 不具备远程或自动更新 Agent 的能力。请在目标机器重新运行服务器安装弹窗生成的命令，或使用系统包管理流程部署新二进制；协议破坏性升级时使用已确认的清洁安装。
 
 ### Q: Agent 是否需要 root
 
@@ -87,7 +90,7 @@ A: 检查：
 
 ### Q: 离线历史里有很多“原因未知”
 
-A: 原因判定依赖 Agent 上报的 `BootTime` 和 `Uptime`。如果 Agent 版本较旧或上报字段缺失，会显示为“原因未知”。不影响离线记录功能本身。
+A: 原因判定依赖 Agent 上报的 `BootTime` 和 `Uptime`。采集被关闭或证据不足时会显示为“原因未知”，不影响离线记录本身。
 
 ---
 
@@ -123,4 +126,4 @@ A: 修改 `config.yaml` 中的 `installscript` 配置项，或设置环境变量
 
 ### Q: 如何贡献主题
 
-A: 参考 `resource/template/theme-default/` 和 `resource/static/theme-default/` 创建新的主题目录，然后提交 PR。
+A: 前端已统一为 Vue 应用，不再支持 Go 模板主题。请在管理后台使用品牌色、Logo、背景和受限 CSS 定制；完整前端改动应在 `web/apps/status` 中开发。
