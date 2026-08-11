@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/naiba/nezha/model"
+	"github.com/hi2shark/santaizi-dashboard/model"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )

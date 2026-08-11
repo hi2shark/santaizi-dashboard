@@ -51,7 +51,7 @@
             <td style="text-align: center;" class="node-cell uptime">@#node.uptime#@</td>
             {{if .Conf.ShowAvailabilityToGuest}}
             <td class="node-cell availability center">
-                <span class="nezha-availability nezha-availability-percent" :data-availability-id="node.ID">-</span>
+                <span class="santaizi-availability santaizi-availability-percent" :data-availability-id="node.ID">-</span>
             </td>
             {{end}}
             <td style="text-align: center;" class="node-cell load">@#node.load#@</td>
@@ -216,7 +216,7 @@
                         {{if .Conf.ShowAvailabilityToGuest}}
                         <div class="node-cell-expand" style="display: block;">
                             <span class="node-cell-expand-label">可用性:</span>
-                            <div class="nezha-availability nezha-availability-bar" :data-availability-id="node.ID">可用性数据加载中...</div>
+                            <div class="santaizi-availability santaizi-availability-bar" :data-availability-id="node.ID">可用性数据加载中...</div>
                         </div>
                         {{end}}
                     </div>

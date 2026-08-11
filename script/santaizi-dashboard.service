@@ -1,5 +1,5 @@
 [Unit]
-Description=Nezha Dashboard
+Description=Santaizi Dashboard
 After=syslog.target
 After=network.target
 After=mariadb.service mysqld.service postgresql.service memcached.service redis.service
@@ -14,8 +14,8 @@ After=mariadb.service mysqld.service postgresql.service memcached.service redis.
 Type=simple
 #User=root
 #Group=root
-WorkingDirectory=/opt/nezha/dashboard/
-ExecStart=/opt/nezha/dashboard/app
+WorkingDirectory=/opt/santaizi/dashboard/
+ExecStart=/opt/santaizi/dashboard/app
 Restart=always
 #Environment=DEBUG=true
 

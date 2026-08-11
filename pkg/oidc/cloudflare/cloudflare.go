@@ -1,8 +1,8 @@
 package cloudflare
 
 import (
-	"github.com/naiba/nezha/model"
-	"github.com/naiba/nezha/service/singleton"
+	"github.com/hi2shark/santaizi-dashboard/model"
+	"github.com/hi2shark/santaizi-dashboard/service/singleton"
 )
 
 type UserInfo struct {
@@ -12,7 +12,7 @@ type UserInfo struct {
 	Groups []string `json:"groups"`
 }
 
-func (u UserInfo) MapToNezhaUser() model.User {
+func (u UserInfo) MapToSantaiziUser() model.User {
 	var user model.User
 	singleton.DB.Where("login = ?", u.Sub).First(&user)
 	user.Login = u.Sub

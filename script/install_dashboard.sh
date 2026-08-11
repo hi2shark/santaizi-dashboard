@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #========================================================
-#   Nezha Dashboard 一键安装脚本
+#   Santaizi Dashboard 一键安装脚本
 #   支持交互式配置；若未安装 Docker，可询问后自动安装
 #========================================================
 
@@ -10,7 +10,7 @@ green='\033[0;32m'
 yellow='\033[0;33m'
 plain='\033[0m'
 
-GHCR_IMAGE="ghcr.io/hi2shark/nezha-next-dashboard"
+GHCR_IMAGE="ghcr.io/hi2shark/santaizi-dashboard"
 
 err() {
     printf "${red}%s${plain}\n" "$*" >&2
@@ -35,7 +35,7 @@ sudo() {
             err "ERROR: 当前非 root，且未安装 sudo/doas，无法继续。"
             err "请先切换到 root 后运行："
             err "  su -"
-            err "  sh -c \"\$(curl -fsSL https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install_dashboard.sh)\""
+            err "  sh -c \"\$(curl -fsSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install_dashboard.sh)\""
             exit 1
         fi
     else
@@ -210,9 +210,9 @@ write_compose() {
     mkdir -p "$1"
     cat > "$1/docker-compose.yml" <<EOF
 services:
-  nezha-dashboard:
+  santaizi-dashboard:
     image: ${GHCR_IMAGE}:latest
-    container_name: nezha-dashboard
+    container_name: santaizi-dashboard
     restart: unless-stopped
     ports:
       - "${WEB_PORT}:80"
@@ -248,7 +248,7 @@ oauth2:
   endpoint: '${oauth2_endpoint}'
 site:
   brand: '${site_brand}'
-  cookiename: "nezha-dashboard"
+  cookiename: "santaizi-dashboard"
   theme: '${site_theme}'
 EOF
 }
@@ -265,7 +265,7 @@ get_server_ip() {
 }
 
 main() {
-    info "欢迎使用 Nezha Dashboard 一键安装脚本"
+    info "欢迎使用 Santaizi Dashboard 一键安装脚本"
 
     if [ "$(uname -s)" != "Linux" ]; then
         err "本脚本目前仅支持 Linux 系统。"
@@ -275,15 +275,15 @@ main() {
     if ! [ -t 0 ]; then
         err "检测到脚本通过管道执行（如 curl ... | bash），但本脚本需要交互式输入。"
         err "请改用以下一键运行方式："
-        err "  sh -c \"\$(curl -fsSL https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install_dashboard.sh)\""
+        err "  sh -c \"\$(curl -fsSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install_dashboard.sh)\""
         err "如果当前不是 root，请先使用 sudo、doas 或 su - 提权后再运行上面的命令。"
         exit 1
     fi
 
     check_docker
 
-    WORK_DIR=$(prompt "请输入 Dashboard 工作目录" "/opt/nezha")
-    WORK_DIR=${WORK_DIR:-/opt/nezha}
+    WORK_DIR=$(prompt "请输入 Dashboard 工作目录" "/opt/santaizi")
+    WORK_DIR=${WORK_DIR:-/opt/santaizi}
     if ! mkdir -p "$WORK_DIR"; then
         err "创建工作目录失败: $WORK_DIR"
         exit 1
@@ -304,8 +304,8 @@ main() {
     OAUTH2_CLIENTSECRET=$(prompt_required "OAuth2 Client Secret")
     OAUTH2_ENDPOINT=$(prompt "OAuth2 Endpoint（仅自建 Gitea 需要）" "")
 
-    SITE_BRAND=$(prompt "站点标题" "哪吒监控")
-    SITE_BRAND=${SITE_BRAND:-哪吒监控}
+    SITE_BRAND=$(prompt "站点标题" "三太子监控")
+    SITE_BRAND=${SITE_BRAND:-三太子监控}
     SITE_THEME=$(prompt "主题 (default/daynight/hotaru/mdui/angel-kanade/server-status)" "default")
     SITE_THEME=${SITE_THEME:-default}
 
@@ -321,7 +321,7 @@ main() {
     fi
 
     SERVER_IP=$(get_server_ip)
-    success "Nezha Dashboard 安装完成！"
+    success "Santaizi Dashboard 安装完成！"
     success "访问地址: http://${SERVER_IP}:${WEB_PORT}"
     success "工作目录: ${WORK_DIR}"
     success "配置文件: ${WORK_DIR}/data/config.yaml"

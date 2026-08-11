@@ -5,7 +5,7 @@
 ### 方式一：一键安装脚本（推荐）
 
 ```bash
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install_dashboard.sh)"
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install_dashboard.sh)"
 ```
 
 脚本会交互式询问：
@@ -22,19 +22,19 @@ sh -c "$(curl -fsSL https://raw.githubusercontent.com/hi2shark/nezha-next/master
 1. 创建工作目录：
 
 ```bash
-mkdir -p ~/nezha/data && cd ~/nezha
+mkdir -p ~/santaizi/data && cd ~/santaizi
 ```
 
 2. 编写 `docker-compose.yml`：
 
 ```yaml
 services:
-  nezha-dashboard:
-    image: ghcr.io/hi2shark/nezha-next-dashboard:latest
-    container_name: nezha-dashboard
+  santaizi-dashboard:
+    image: ghcr.io/hi2shark/santaizi-dashboard:latest
+    container_name: santaizi-dashboard
     restart: unless-stopped
     ports:
-      - "${NEZHA_PORT:-80}:80"
+      - "${SANTAIZI_PORT:-80}:80"
       - "5555:5555"
     volumes:
       - /etc/timezone:/etc/timezone:ro
@@ -58,10 +58,10 @@ docker compose up -d
 
 ```bash
 # 下载 release 二进制或自行编译
-CGO_ENABLED=1 go build -o nezha-dashboard ./cmd/dashboard/main.go
+CGO_ENABLED=1 go build -o santaizi-dashboard ./cmd/dashboard/main.go
 
 # 运行
-./nezha-dashboard --config data/config.yaml --db data/sqlite.db
+./santaizi-dashboard --config data/config.yaml --db data/sqlite.db
 ```
 
 CLI 参数：
@@ -76,43 +76,43 @@ CLI 参数：
 
 ## Agent 安装
 
-Agent 默认从 `hi2shark/agent` 仓库下载，可通过环境变量 `NEZHA_AGENT_REPO` 覆盖。
+Agent 默认从 `hi2shark/santaizi-agent` 仓库下载，可通过环境变量 `SANTAIZI_AGENT_REPO` 覆盖。
 
 ### Linux
 
 ```bash
-curl -fSL https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install_agent.sh | bash -s -- install_agent <面板地址> <端口> <密钥>
+curl -fSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install_agent.sh | bash -s -- install_agent <面板地址> <端口> <密钥>
 ```
 
 英文版脚本：
 
 ```bash
-curl -fSL https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install_agent_en.sh | bash -s -- install_agent <面板地址> <端口> <密钥>
+curl -fSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install_agent_en.sh | bash -s -- install_agent <面板地址> <端口> <密钥>
 ```
 
-安装路径：`/opt/nezha/agent`
+安装路径：`/opt/santaizi/agent`
 
 ### Windows
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([ScriptBlock]::Create((Invoke-WebRequest 'https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install.ps1' -UseBasicParsing).Content)) '<面板地址>:<端口>' '<密钥>'"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([ScriptBlock]::Create((Invoke-WebRequest 'https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install.ps1' -UseBasicParsing).Content)) '<面板地址>:<端口>' '<密钥>'"
 ```
 
-安装路径：`C:\nezha`
+安装路径：`C:\santaizi`
 
 ### macOS
 
 ```bash
-curl -fSL https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install.command | sudo bash -s -- install_agent <面板地址> <端口> <密钥>
+curl -fSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install.command | sudo bash -s -- install_agent <面板地址> <端口> <密钥>
 ```
 
-安装路径：`/opt/nezha/agent`
+安装路径：`/opt/santaizi/agent`
 
 ### 参数说明
 
 | 参数 | 示例 | 说明 |
 |------|------|------|
-| 面板地址 | `10.0.0.10` 或 `nezha.example.com` | Dashboard 的 IP 或域名 |
+| 面板地址 | `10.0.0.10` 或 `santaizi.example.com` | Dashboard 的 IP 或域名 |
 | 端口 | `5555` | `config.yaml` 中的 `grpcport` |
 | 密钥 | `abcdef123456` | 服务器详情中的 Secret |
 
@@ -122,16 +122,16 @@ Linux / macOS 使用 systemd 服务：
 
 ```bash
 # 查看状态
-systemctl status nezha-agent
+systemctl status santaizi-agent
 
 # 重启
-systemctl restart nezha-agent
+systemctl restart santaizi-agent
 
 # 查看日志
-journalctl -u nezha-agent -f
+journalctl -u santaizi-agent -f
 ```
 
-Windows 使用服务管理器查看 `Nezha Agent` 服务。
+Windows 使用服务管理器查看 `Santaizi Agent` 服务。
 
 ---
 
@@ -140,7 +140,7 @@ Windows 使用服务管理器查看 `Nezha Agent` 服务。
 ### Dashboard
 
 ```bash
-cd ~/nezha
+cd ~/santaizi
 docker compose pull
 docker compose up -d
 ```
@@ -150,7 +150,7 @@ docker compose up -d
 在 Dashboard 的 **服务器器** 页面点击 **强制更新**，或登录目标机器执行：
 
 ```bash
-systemctl restart nezha-agent
+systemctl restart santaizi-agent
 ```
 
 Agent 服务启动时会自动检查并下载最新版本。
@@ -162,17 +162,17 @@ Agent 服务启动时会自动检查并下载最新版本。
 ### Dashboard
 
 ```bash
-cd ~/nezha
+cd ~/santaizi
 docker compose down -v
-rm -rf ~/nezha
+rm -rf ~/santaizi
 ```
 
 ### Agent
 
 ```bash
-systemctl stop nezha-agent
-systemctl disable nezha-agent
-rm -rf /opt/nezha/agent
-rm -f /etc/systemd/system/nezha-agent.service
+systemctl stop santaizi-agent
+systemctl disable santaizi-agent
+rm -rf /opt/santaizi/agent
+rm -f /etc/systemd/system/santaizi-agent.service
 systemctl daemon-reload
 ```

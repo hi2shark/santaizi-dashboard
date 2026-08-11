@@ -198,16 +198,16 @@ td {
   background-color: orange !important;
 }
 
-.nezha-primary-btn {
+.santaizi-primary-btn {
   background-color: #0338d6 !important;
   color: white !important;
 }
 
-.nezha-primary-font {
+.santaizi-primary-font {
   color: #0338d6 !important;
 }
 
-.nezha-secondary-font {
+.santaizi-secondary-font {
   height: 1em;
   color: rgb(10, 148, 242) !important;
 }
@@ -216,12 +216,12 @@ td {
   z-index: 99999999;
 }
 /* 服务器可用性摘要 */
-.nezha-availability {
+.santaizi-availability {
   font-size: 12px;
   color: rgba(0, 0, 0, 0.55);
   margin-top: 4px;
 }
-.ui.card .extra.content .nezha-availability-bar {
+.ui.card .extra.content .santaizi-availability-bar {
   padding: 6px 8px;
   background: rgba(0, 0, 0, 0.04);
   border-radius: 4px;

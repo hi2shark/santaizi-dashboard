@@ -17,13 +17,13 @@ import (
 	"github.com/hashicorp/go-uuid"
 	"github.com/nicksnyder/go-i18n/v2/i18n"
 
-	"github.com/naiba/nezha/model"
-	"github.com/naiba/nezha/pkg/mygin"
-	"github.com/naiba/nezha/pkg/utils"
-	"github.com/naiba/nezha/proto"
-	"github.com/naiba/nezha/resource"
-	"github.com/naiba/nezha/service/rpc"
-	"github.com/naiba/nezha/service/singleton"
+	"github.com/hi2shark/santaizi-dashboard/model"
+	"github.com/hi2shark/santaizi-dashboard/pkg/mygin"
+	"github.com/hi2shark/santaizi-dashboard/pkg/utils"
+	"github.com/hi2shark/santaizi-dashboard/proto"
+	"github.com/hi2shark/santaizi-dashboard/resource"
+	"github.com/hi2shark/santaizi-dashboard/service/rpc"
+	"github.com/hi2shark/santaizi-dashboard/service/singleton"
 )
 
 func ServeWeb(port uint) *http.Server {
@@ -105,7 +105,7 @@ func loadThirdPartyTemplates(tmpl *template.Template) *template.Template {
 	ret := tmpl
 	themes, err := os.ReadDir("resource/template")
 	if err != nil {
-		log.Printf("NEZHA>> Error reading themes folder: %v", err)
+		log.Printf("SANTAIZI>> Error reading themes folder: %v", err)
 		return ret
 	}
 	for _, theme := range themes {
@@ -128,20 +128,20 @@ func loadThirdPartyTemplates(tmpl *template.Template) *template.Template {
 		}
 
 		if !strings.HasPrefix(themeDir, "theme-") {
-			log.Printf("NEZHA>> Invalid theme name: %s", themeDir)
+			log.Printf("SANTAIZI>> Invalid theme name: %s", themeDir)
 			continue
 		}
 
 		descPath := filepath.Join("resource", "template", themeDir, "theme.json")
 		desc, err := os.ReadFile(filepath.Clean(descPath))
 		if err != nil {
-			log.Printf("NEZHA>> Error opening %s config: %v", themeDir, err)
+			log.Printf("SANTAIZI>> Error opening %s config: %v", themeDir, err)
 			continue
 		}
 
 		themeName, err := utils.GjsonGet(desc, "name")
 		if err != nil {
-			log.Printf("NEZHA>> Error opening %s config: not a valid description file", theme.Name())
+			log.Printf("SANTAIZI>> Error opening %s config: not a valid description file", theme.Name())
 			continue
 		}
 
@@ -160,7 +160,7 @@ func loadTemplates(tmpl *template.Template, themeDir string) *template.Template 
 	templatePath := filepath.Join("resource", "template", themeDir, "*.html")
 	t, err := tmpl.ParseGlob(templatePath)
 	if err != nil {
-		log.Printf("NEZHA>> Error parsing templates %s: %v", themeDir, err)
+		log.Printf("SANTAIZI>> Error parsing templates %s: %v", themeDir, err)
 		return tmpl
 	}
 
@@ -334,8 +334,8 @@ func natGateway(c *gin.Context) {
 		return
 	}
 
-	rpc.NezhaHandlerSingleton.CreateStream(streamId)
-	defer rpc.NezhaHandlerSingleton.CloseStream(streamId)
+	rpc.SantaiziHandlerSingleton.CreateStream(streamId)
+	defer rpc.SantaiziHandlerSingleton.CloseStream(streamId)
 
 	taskData, err := utils.Json.Marshal(model.TaskNAT{
 		StreamID: streamId,
@@ -363,12 +363,12 @@ func natGateway(c *gin.Context) {
 		return
 	}
 
-	if err := rpc.NezhaHandlerSingleton.UserConnected(streamId, w); err != nil {
+	if err := rpc.SantaiziHandlerSingleton.UserConnected(streamId, w); err != nil {
 		_, _ = c.Writer.WriteString(fmt.Sprintf("user connected error: %v", err))
 		c.Abort()
 		return
 	}
 
-	_ = rpc.NezhaHandlerSingleton.StartStream(streamId, time.Second*10)
+	_ = rpc.SantaiziHandlerSingleton.StartStream(streamId, time.Second*10)
 	c.Abort()
 }

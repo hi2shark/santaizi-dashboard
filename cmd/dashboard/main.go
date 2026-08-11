@@ -8,11 +8,11 @@ import (
 	"time"
 	_ "time/tzdata"
 
-	"github.com/naiba/nezha/cmd/dashboard/controller"
-	"github.com/naiba/nezha/cmd/dashboard/rpc"
-	"github.com/naiba/nezha/model"
-	"github.com/naiba/nezha/proto"
-	"github.com/naiba/nezha/service/singleton"
+	"github.com/hi2shark/santaizi-dashboard/cmd/dashboard/controller"
+	"github.com/hi2shark/santaizi-dashboard/cmd/dashboard/rpc"
+	"github.com/hi2shark/santaizi-dashboard/model"
+	"github.com/hi2shark/santaizi-dashboard/proto"
+	"github.com/hi2shark/santaizi-dashboard/service/singleton"
 	"github.com/ory/graceful"
 	flag "github.com/spf13/pflag"
 )
@@ -82,15 +82,15 @@ func main() {
 	if err := graceful.Graceful(func() error {
 		return srv.ListenAndServe()
 	}, func(c context.Context) error {
-		log.Println("NEZHA>> Graceful::START")
+		log.Println("SANTAIZI>> Graceful::START")
 		singleton.RecordTransferHourlyUsage()
-		log.Println("NEZHA>> Graceful::END")
+		log.Println("SANTAIZI>> Graceful::END")
 		if err := srv.Shutdown(c); err != nil {
-			log.Printf("NEZHA>> ERROR: srv.Shutdown: %v", err)
+			log.Printf("SANTAIZI>> ERROR: srv.Shutdown: %v", err)
 		}
 		return nil
 	}); err != nil {
-		log.Printf("NEZHA>> ERROR: %v", err)
+		log.Printf("SANTAIZI>> ERROR: %v", err)
 	}
 }
 

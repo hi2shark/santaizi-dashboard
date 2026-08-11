@@ -34,8 +34,8 @@ yt{font-weight:600;color:#ffbb00;}
 
 
 /* 服务器可用性摘要 */
-.mdui-list-item-text .nezha-availability{font-size:12px;color:rgba(0,0,0,.54)}
-body.mdui-theme-layout-dark .mdui-list-item-text .nezha-availability{color:rgba(255,255,255,.7)}
-.mdui-card .nezha-availability-bar{margin-top:4px}
-body.mdui-theme-layout-dark .mdui-card .nezha-availability-bar .availability-label,
-body.mdui-theme-layout-dark .mdui-card .nezha-availability-bar .availability-detail{color:rgba(255,255,255,.7)}
+.mdui-list-item-text .santaizi-availability{font-size:12px;color:rgba(0,0,0,.54)}
+body.mdui-theme-layout-dark .mdui-list-item-text .santaizi-availability{color:rgba(255,255,255,.7)}
+.mdui-card .santaizi-availability-bar{margin-top:4px}
+body.mdui-theme-layout-dark .mdui-card .santaizi-availability-bar .availability-label,
+body.mdui-theme-layout-dark .mdui-card .santaizi-availability-bar .availability-detail{color:rgba(255,255,255,.7)}

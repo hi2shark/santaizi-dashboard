@@ -1,6 +1,6 @@
 {{define "common/csrf"}}
 <script>
-    window.NEZHA_CSRF_TOKEN = "{{.CSRFToken}}";
+    window.SANTAIZI_CSRF_TOKEN = "{{.CSRFToken}}";
     (function () {
         function csrfSafeMethod(method) {
             return /^(GET|HEAD|OPTIONS|TRACE)$/i.test(method || "GET");
@@ -9,16 +9,16 @@
             window.jQuery.ajaxSetup({
                 beforeSend: function (xhr, settings) {
                     const method = settings.type || settings.method || "GET";
-                    if (!csrfSafeMethod(method) && window.NEZHA_CSRF_TOKEN) {
-                        xhr.setRequestHeader("X-CSRF-Token", window.NEZHA_CSRF_TOKEN);
+                    if (!csrfSafeMethod(method) && window.SANTAIZI_CSRF_TOKEN) {
+                        xhr.setRequestHeader("X-CSRF-Token", window.SANTAIZI_CSRF_TOKEN);
                     }
                 }
             });
         }
-        window.nezhaCSRFHeaders = function (headers) {
+        window.santaiziCSRFHeaders = function (headers) {
             headers = headers || {};
-            if (window.NEZHA_CSRF_TOKEN) {
-                headers["X-CSRF-Token"] = window.NEZHA_CSRF_TOKEN;
+            if (window.SANTAIZI_CSRF_TOKEN) {
+                headers["X-CSRF-Token"] = window.SANTAIZI_CSRF_TOKEN;
             }
             return headers;
         };

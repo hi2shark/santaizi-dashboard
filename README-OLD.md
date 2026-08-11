@@ -1,26 +1,26 @@
 <div align="center">
   <br>
-  <img width="360" style="max-width:80%" src="resource/static/brand.svg" title="哪吒监控 Nezha Monitoring">
+  <img width="360" style="max-width:80%" src="resource/static/brand.svg" title="三太子监控 Santaizi Monitoring">
   <br>
   <small><i>LOGO designed by <a href="https://xio.ng" target="_blank">熊大</a> .</i></small>
   <br><br>
-<img alt="GitHub release (with filter)" src="https://img.shields.io/github/v/release/naiba/nezha?color=brightgreen&style=for-the-badge&logo=github&label=Dashboard">&nbsp;<img src="https://img.shields.io/github/v/release/nezhahq/agent?color=brightgreen&label=Agent&style=for-the-badge&logo=github">&nbsp;<img src="https://img.shields.io/github/actions/workflow/status/nezhahq/agent/agent.yml?label=Agent%20CI&logo=github&style=for-the-badge">
+<img alt="GitHub release (with filter)" src="https://img.shields.io/github/v/release/hi2shark/santaizi-dashboard?color=brightgreen&style=for-the-badge&logo=github&label=Dashboard">&nbsp;<img src="https://img.shields.io/github/v/release/santaizihq/agent?color=brightgreen&label=Agent&style=for-the-badge&logo=github">&nbsp;<img src="https://img.shields.io/github/actions/workflow/status/santaizihq/agent/agent.yml?label=Agent%20CI&logo=github&style=for-the-badge">
   <br>
   <br>
-  <p>:trollface: <b>Nezha Monitoring: Self-hostable, lightweight, servers and websites monitoring and O&M tool.</b></p>
+  <p>:trollface: <b>Santaizi Monitoring: Self-hostable, lightweight, servers and websites monitoring and O&M tool.</b></p>
   <p>Supports <b>monitoring</b> system status, HTTP (SSL certificate change, upcoming expiration, expired), TCP, Ping and supports <b>push alerts</b>, run scheduled tasks and <b>web terminal</b>.</p>
 </div>
 
-\>> Telegram Channel: [哪吒监控（中文通知频道）](https://t.me/nezhanews)
+\>> Telegram Channel: [三太子监控（中文通知频道）](https://t.me/santaizinews)
 
-\>> Telegram Group: [Nezha Monitoring Global (English Only)](https://t.me/nezhamonitoring_global), [哪吒监控（中文群组）](https://t.me/nezhamonitoring)
+\>> Telegram Group: [Santaizi Monitoring Global (English Only)](https://t.me/santaizimonitoring_global), [三太子监控（中文群组）](https://t.me/santaizimonitoring)
 
-\>> [Use Cases | 我们的用户](https://www.google.com/search?q=%22powered+by+Nezha+Monitoring%22+OR+%22powered+by+%E5%93%AA%E5%90%92%E7%9B%91%E6%8E%A7%22) (Google)  
+\>> [Use Cases | 我们的用户](https://www.google.com/search?q=%22powered+by+Santaizi+Monitoring%22+OR+%22powered+by+%E5%93%AA%E5%90%92%E7%9B%91%E6%8E%A7%22) (Google)  
 
 ## User Guide
 
-- [English](https://nezhahq.github.io/en_US/index.html)
-- [中文文档](https://nezhahq.github.io/index.html)
+- [English](https://santaizihq.github.io/en_US/index.html)
+- [中文文档](https://santaizihq.github.io/index.html)
 
 ## Screenshots
 
@@ -103,4 +103,4 @@ You can change the dashboard language in the settings page (`/setting`) after th
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=naiba/nezha&type=Timeline)](https://star-history.com/#naiba/nezha&Timeline)
+[![Star History Chart](https://api.star-history.com/svg?repos=hi2shark/santaizi-dashboard&type=Timeline)](https://star-history.com/#hi2shark/santaizi-dashboard&Timeline)

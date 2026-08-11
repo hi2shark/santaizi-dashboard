@@ -27,7 +27,7 @@ var bufPool = sync.Pool{
 	},
 }
 
-func (s *NezhaHandler) CreateStream(streamId string) {
+func (s *SantaiziHandler) CreateStream(streamId string) {
 	s.ioStreamMutex.Lock()
 	defer s.ioStreamMutex.Unlock()
 
@@ -37,7 +37,7 @@ func (s *NezhaHandler) CreateStream(streamId string) {
 	}
 }
 
-func (s *NezhaHandler) GetStream(streamId string) (*ioStreamContext, error) {
+func (s *SantaiziHandler) GetStream(streamId string) (*ioStreamContext, error) {
 	s.ioStreamMutex.RLock()
 	defer s.ioStreamMutex.RUnlock()
 
@@ -48,7 +48,7 @@ func (s *NezhaHandler) GetStream(streamId string) (*ioStreamContext, error) {
 	return nil, errors.New("stream not found")
 }
 
-func (s *NezhaHandler) CloseStream(streamId string) error {
+func (s *SantaiziHandler) CloseStream(streamId string) error {
 	s.ioStreamMutex.Lock()
 	defer s.ioStreamMutex.Unlock()
 
@@ -65,7 +65,7 @@ func (s *NezhaHandler) CloseStream(streamId string) error {
 	return nil
 }
 
-func (s *NezhaHandler) UserConnected(streamId string, userIo io.ReadWriteCloser) error {
+func (s *SantaiziHandler) UserConnected(streamId string, userIo io.ReadWriteCloser) error {
 	stream, err := s.GetStream(streamId)
 	if err != nil {
 		return err
@@ -77,7 +77,7 @@ func (s *NezhaHandler) UserConnected(streamId string, userIo io.ReadWriteCloser)
 	return nil
 }
 
-func (s *NezhaHandler) AgentConnected(streamId string, agentIo io.ReadWriteCloser) error {
+func (s *SantaiziHandler) AgentConnected(streamId string, agentIo io.ReadWriteCloser) error {
 	stream, err := s.GetStream(streamId)
 	if err != nil {
 		return err
@@ -89,7 +89,7 @@ func (s *NezhaHandler) AgentConnected(streamId string, agentIo io.ReadWriteClose
 	return nil
 }
 
-func (s *NezhaHandler) StartStream(streamId string, timeout time.Duration) error {
+func (s *SantaiziHandler) StartStream(streamId string, timeout time.Duration) error {
 	stream, err := s.GetStream(streamId)
 	if err != nil {
 		return err

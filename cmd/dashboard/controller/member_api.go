@@ -15,12 +15,12 @@ import (
 	"golang.org/x/net/idna"
 	"gorm.io/gorm"
 
-	"github.com/naiba/nezha/model"
-	"github.com/naiba/nezha/pkg/mygin"
-	"github.com/naiba/nezha/pkg/utils"
-	"github.com/naiba/nezha/proto"
-	"github.com/naiba/nezha/resource"
-	"github.com/naiba/nezha/service/singleton"
+	"github.com/hi2shark/santaizi-dashboard/model"
+	"github.com/hi2shark/santaizi-dashboard/pkg/mygin"
+	"github.com/hi2shark/santaizi-dashboard/pkg/utils"
+	"github.com/hi2shark/santaizi-dashboard/proto"
+	"github.com/hi2shark/santaizi-dashboard/resource"
+	"github.com/hi2shark/santaizi-dashboard/service/singleton"
 )
 
 type memberAPI struct {

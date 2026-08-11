@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/naiba/nezha/pkg/utils"
-	pb "github.com/naiba/nezha/proto"
+	"github.com/hi2shark/santaizi-dashboard/pkg/utils"
+	pb "github.com/hi2shark/santaizi-dashboard/proto"
 	"gorm.io/gorm"
 )
 
@@ -32,7 +32,7 @@ type Server struct {
 
 	TaskClose     chan error                        `gorm:"-" json:"-"`
 	TaskCloseLock *sync.Mutex                       `gorm:"-" json:"-"`
-	TaskStream    pb.NezhaService_RequestTaskServer `gorm:"-" json:"-"`
+	TaskStream    pb.SantaiziService_RequestTaskServer `gorm:"-" json:"-"`
 
 	PrevTransferInSnapshot  int64 `gorm:"-" json:"-"` // 上次数据点时的入站使用量
 	PrevTransferOutSnapshot int64 `gorm:"-" json:"-"` // 上次数据点时的出站使用量
@@ -52,7 +52,7 @@ func (s *Server) CopyFromRunningServer(old *Server) {
 func (s *Server) AfterFind(tx *gorm.DB) error {
 	if s.DDNSProfilesRaw != "" {
 		if err := utils.Json.Unmarshal([]byte(s.DDNSProfilesRaw), &s.DDNSProfiles); err != nil {
-			log.Println("NEZHA>> Server.AfterFind:", err)
+			log.Println("SANTAIZI>> Server.AfterFind:", err)
 			return nil
 		}
 	}

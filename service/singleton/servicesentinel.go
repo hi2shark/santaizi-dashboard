@@ -10,8 +10,8 @@ import (
 
 	"github.com/nicksnyder/go-i18n/v2/i18n"
 
-	"github.com/naiba/nezha/model"
-	pb "github.com/naiba/nezha/proto"
+	"github.com/hi2shark/santaizi-dashboard/model"
+	pb "github.com/hi2shark/santaizi-dashboard/proto"
 )
 
 const (
@@ -335,7 +335,7 @@ func (ss *ServiceSentinel) worker() {
 	// 从服务状态汇报管道获取汇报的服务数据
 	for r := range ss.serviceReportChannel {
 		if ss.monitors[r.Data.GetId()] == nil || ss.monitors[r.Data.GetId()].ID == 0 {
-			log.Printf("NEZHA>> 错误的服务监控上报 %+v", r)
+			log.Printf("SANTAIZI>> 错误的服务监控上报 %+v", r)
 			continue
 		}
 		mh := r.Data
@@ -362,7 +362,7 @@ func (ss *ServiceSentinel) worker() {
 					Data:      mh.Data,
 					ServerID:  r.Reporter,
 				}).Error; err != nil {
-					log.Println("NEZHA>> 服务监控数据持久化失败：", err)
+					log.Println("SANTAIZI>> 服务监控数据持久化失败：", err)
 				}
 			}
 			monitorTcpMap[r.Reporter] = ts
@@ -429,7 +429,7 @@ func (ss *ServiceSentinel) worker() {
 				Up:        ss.serviceResponseDataStoreCurrentUp[mh.GetId()],
 				Down:      ss.serviceResponseDataStoreCurrentDown[mh.GetId()],
 			}).Error; err != nil {
-				log.Println("NEZHA>> 服务监控数据持久化失败：", err)
+				log.Println("SANTAIZI>> 服务监控数据持久化失败：", err)
 			}
 		}
 

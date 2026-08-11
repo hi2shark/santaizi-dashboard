@@ -23,7 +23,7 @@ function readableBytes(bytes) {
   return parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) + sizes[i];
 }
 
-const confirmBtn = $(".mini.confirm.modal .nezha-primary-btn.button");
+const confirmBtn = $(".mini.confirm.modal .santaizi-primary-btn.button");
 
 function showConfirm(title, content, callFn, extData) {
   const modal = $(".mini.confirm.modal");
@@ -178,7 +178,7 @@ function showFormModal(modelSelector, formID, URL, getData) {
       },
       onApprove: function () {
         let success = false;
-        const btn = $(modelSelector + " .nezha-primary-btn.button");
+        const btn = $(modelSelector + " .santaizi-primary-btn.button");
         const form = $(modelSelector + " form");
         if (btn.hasClass("loading")) {
           return success;
@@ -222,7 +222,7 @@ function addOrEditAlertRule(rule) {
   const modal = $(".rule.modal");
   modal.children(".header").text((rule ? LANG.Edit : LANG.Add) + ' ' + LANG.AlarmRule);
   modal
-    .find(".nezha-primary-btn.button")
+    .find(".santaizi-primary-btn.button")
     .html(
       rule ? LANG.Edit + '<i class="edit icon"></i>' : LANG.Add + '<i class="add icon"></i>'
     );
@@ -285,7 +285,7 @@ function addOrEditNotification(notification) {
   const modal = $(".notification.modal");
   modal.children(".header").text((notification ? LANG.Edit : LANG.Add) + ' ' + LANG.Notification);
   modal
-    .find(".nezha-primary-btn.button")
+    .find(".santaizi-primary-btn.button")
     .html(
       notification
         ? LANG.Edit + '<i class="edit icon"></i>'
@@ -324,7 +324,7 @@ function addOrEditDDNS(ddns) {
   const modal = $(".ddns.modal");
   modal.children(".header").text((ddns ? LANG.Edit : LANG.Add));
   modal
-    .find(".nezha-primary-btn.button")
+    .find(".santaizi-primary-btn.button")
     .html(
       ddns
         ? LANG.Edit + '<i class="edit icon"></i>'
@@ -373,7 +373,7 @@ function addOrEditNAT(nat) {
   const modal = $(".nat.modal");
   modal.children(".header").text((nat ? LANG.Edit : LANG.Add));
   modal
-    .find(".nezha-primary-btn.button")
+    .find(".santaizi-primary-btn.button")
     .html(
       nat
         ? LANG.Edit + '<i class="edit icon"></i>'
@@ -401,11 +401,11 @@ function post(path, params, method = 'post') {
   form.action = path;
   form.target = "_blank";
 
-  if (window.NEZHA_CSRF_TOKEN && !/^(get|head|options|trace)$/i.test(method)) {
+  if (window.SANTAIZI_CSRF_TOKEN && !/^(get|head|options|trace)$/i.test(method)) {
     const csrfField = document.createElement('input');
     csrfField.type = 'hidden';
     csrfField.name = '_csrf';
-    csrfField.value = window.NEZHA_CSRF_TOKEN;
+    csrfField.value = window.SANTAIZI_CSRF_TOKEN;
     form.appendChild(csrfField);
   }
 
@@ -427,7 +427,7 @@ function issueNewApiToken(apiToken) {
   const modal = $(".api.modal");
   modal.children(".header").text((apiToken ? LANG.Edit : LANG.Add) + ' ' + "API Token");
   modal
-    .find(".nezha-primary-btn.button")
+    .find(".santaizi-primary-btn.button")
     .html(
       apiToken ? LANG.Edit + '<i class="edit icon"></i>' : LANG.Add + '<i class="add icon"></i>'
     );
@@ -439,7 +439,7 @@ function addOrEditServer(server, conf) {
   const modal = $(".server.modal");
   modal.children(".header").text((server ? LANG.Edit : LANG.Add) + ' ' + LANG.Server);
   modal
-    .find(".nezha-primary-btn.button")
+    .find(".santaizi-primary-btn.button")
     .html(
       server ? LANG.Edit + '<i class="edit icon"></i>' : LANG.Add + '<i class="add icon"></i>'
     );
@@ -515,7 +515,7 @@ function addOrEditMonitor(monitor) {
   const modal = $(".monitor.modal");
   modal.children(".header").text((monitor ? LANG.Edit : LANG.Add) + ' ' + LANG.Monitor);
   modal
-    .find(".nezha-primary-btn.button")
+    .find(".santaizi-primary-btn.button")
     .html(
       monitor ? LANG.Edit + '<i class="edit icon"></i>' : LANG.Add + '<i class="add icon"></i>'
     );
@@ -611,7 +611,7 @@ function addOrEditCron(cron) {
   const modal = $(".cron.modal");
   modal.children(".header").text((cron ? LANG.Edit : LANG.Add) + ' ' + LANG.Cron);
   modal
-    .find(".nezha-primary-btn.button")
+    .find(".santaizi-primary-btn.button")
     .html(
       cron ? LANG.Edit + '<i class="edit icon"></i>' : LANG.Add + '<i class="add icon"></i>'
     );
@@ -678,7 +678,7 @@ function deleteRequest(api) {
 function manualTrigger(btn, cronId) {
   $(btn).toggleClass("loading");
   $.ajax({
-    url: "/api/cron/" + cronId + "/manual?_csrf=" + encodeURIComponent(window.NEZHA_CSRF_TOKEN || ""),
+    url: "/api/cron/" + cronId + "/manual?_csrf=" + encodeURIComponent(window.SANTAIZI_CSRF_TOKEN || ""),
     type: "GET",
   })
     .done((resp) => {

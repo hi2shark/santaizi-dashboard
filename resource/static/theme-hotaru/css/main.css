@@ -195,11 +195,11 @@ table tr {
     padding-right: 0.4em;
 }
 /* 服务器可用性摘要 */
-.location-info .nezha-availability {
+.location-info .santaizi-availability {
     font-size: 12px;
     color: #777;
 }
-.panel-location .nezha-availability-bar {
+.panel-location .santaizi-availability-bar {
     margin-top: 8px;
     padding: 6px 8px;
     background: rgba(0, 0, 0, 0.04);

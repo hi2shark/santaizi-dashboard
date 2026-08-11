@@ -1,11 +1,11 @@
 #!/bin/sh
 
 #========================================================
-#   Nezha Agent 一键安装脚本
-#   默认从 hi2shark/agent 下载，可通过 NEZHA_AGENT_REPO 覆盖
+#   Santaizi Agent 一键安装脚本
+#   默认从 hi2shark/santaizi-agent 下载，可通过 SANTAIZI_AGENT_REPO 覆盖
 #========================================================
 
-NZ_BASE_PATH="/opt/nezha"
+NZ_BASE_PATH="/opt/santaizi"
 NZ_AGENT_PATH="${NZ_BASE_PATH}/agent"
 
 red='\033[0;31m'
@@ -13,7 +13,7 @@ green='\033[0;32m'
 yellow='\033[0;33m'
 plain='\033[0m'
 
-NEZHA_AGENT_REPO="${NEZHA_AGENT_REPO:-hi2shark/agent}"
+SANTAIZI_AGENT_REPO="${SANTAIZI_AGENT_REPO:-hi2shark/santaizi-agent}"
 
 err() {
     printf "${red}%s${plain}\n" "$*" >&2
@@ -81,9 +81,9 @@ detect_arch() {
 }
 
 get_latest_version() {
-    version=$(curl -fsSL -m 10 "https://api.github.com/repos/${NEZHA_AGENT_REPO}/releases/latest" | grep '"tag_name":' | head -n 1 | sed 's/.*"tag_name": "\(.*\)",.*/\1/')
+    version=$(curl -fsSL -m 10 "https://api.github.com/repos/${SANTAIZI_AGENT_REPO}/releases/latest" | grep '"tag_name":' | head -n 1 | sed 's/.*"tag_name": "\(.*\)",.*/\1/')
     if [ -z "$version" ]; then
-        err "获取 Agent 版本失败，请检查网络是否能访问 https://api.github.com/repos/${NEZHA_AGENT_REPO}/releases/latest"
+        err "获取 Agent 版本失败，请检查网络是否能访问 https://api.github.com/repos/${SANTAIZI_AGENT_REPO}/releases/latest"
         exit 1
     fi
     echo "$version"
@@ -103,8 +103,8 @@ install_agent() {
     version=$(get_latest_version)
     success "最新版本: ${version}"
 
-    tmpfile="/tmp/nezha-agent_${os}_${arch}.zip"
-    url="https://github.com/${NEZHA_AGENT_REPO}/releases/download/${version}/nezha-agent_${os}_${arch}.zip"
+    tmpfile="/tmp/santaizi-agent_${os}_${arch}.zip"
+    url="https://github.com/${SANTAIZI_AGENT_REPO}/releases/download/${version}/santaizi-agent_${os}_${arch}.zip"
 
     info "正在下载 ${url} ..."
     if ! curl -fsSL -m 60 -o "$tmpfile" "$url"; then
@@ -120,7 +120,7 @@ install_agent() {
         exit 1
     }
     rm -f "$tmpfile"
-    sudo chmod +x "${NZ_AGENT_PATH}/nezha-agent"
+    sudo chmod +x "${NZ_AGENT_PATH}/santaizi-agent"
 }
 
 configure_agent() {
@@ -135,8 +135,8 @@ configure_agent() {
     shift 3
 
     info "正在配置并启动 Agent 服务..."
-    sudo "${NZ_AGENT_PATH}/nezha-agent" service uninstall >/dev/null 2>&1 || true
-    if ! sudo "${NZ_AGENT_PATH}/nezha-agent" service install -s "${host}:${port}" -p "${secret}" "$@"; then
+    sudo "${NZ_AGENT_PATH}/santaizi-agent" service uninstall >/dev/null 2>&1 || true
+    if ! sudo "${NZ_AGENT_PATH}/santaizi-agent" service install -s "${host}:${port}" -p "${secret}" "$@"; then
         err "安装 Agent 服务失败。"
         exit 1
     fi

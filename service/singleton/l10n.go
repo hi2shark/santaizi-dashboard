@@ -7,8 +7,8 @@ import (
 	"github.com/nicksnyder/go-i18n/v2/i18n"
 	"golang.org/x/text/language"
 
-	"github.com/naiba/nezha/model"
-	"github.com/naiba/nezha/resource"
+	"github.com/hi2shark/santaizi-dashboard/model"
+	"github.com/hi2shark/santaizi-dashboard/resource"
 )
 
 var Localizer *i18n.Localizer
@@ -18,7 +18,7 @@ func InitLocalizer() {
 	bundle.RegisterUnmarshalFunc("toml", toml.Unmarshal)
 
 	if _, exists := model.Languages[Conf.Language]; !exists {
-		log.Println("NEZHA>> language not exists:", Conf.Language)
+		log.Println("SANTAIZI>> language not exists:", Conf.Language)
 		Conf.Language = "zh-CN"
 	} else {
 		_, err := bundle.LoadMessageFileFS(resource.I18nFS, "l10n/"+Conf.Language+".toml")

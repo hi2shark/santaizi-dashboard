@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/libdns/libdns"
-	"github.com/naiba/nezha/model"
-	"github.com/naiba/nezha/pkg/utils"
+	"github.com/hi2shark/santaizi-dashboard/model"
+	"github.com/hi2shark/santaizi-dashboard/pkg/utils"
 )
 
 const (

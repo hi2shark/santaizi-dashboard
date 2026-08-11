@@ -8,8 +8,8 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"github.com/naiba/nezha/model"
-	"github.com/naiba/nezha/pkg/utils"
+	"github.com/hi2shark/santaizi-dashboard/model"
+	"github.com/hi2shark/santaizi-dashboard/pkg/utils"
 )
 
 var Version = "debug"
@@ -103,7 +103,7 @@ func RecordTransferHourlyUsage() {
 	if len(txs) == 0 {
 		return
 	}
-	log.Println("NEZHA>> Cron 流量统计入库", len(txs), DB.Create(txs).Error)
+	log.Println("SANTAIZI>> Cron 流量统计入库", len(txs), DB.Create(txs).Error)
 }
 
 // CleanMonitorHistory 清理无效或过时的 监控记录 和 流量记录

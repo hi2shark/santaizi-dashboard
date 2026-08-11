@@ -1,4 +1,4 @@
-module github.com/naiba/nezha
+module github.com/hi2shark/santaizi-dashboard
 
 go 1.25.0
 
@@ -7,7 +7,6 @@ require (
 	code.gitea.io/sdk/gitea v0.18.0
 	github.com/BurntSushi/toml v1.3.2
 	github.com/coreos/go-oidc/v3 v3.11.0
-	github.com/gin-contrib/pprof v1.4.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/google/go-github/v47 v47.1.0
 	github.com/gorilla/websocket v1.5.1
@@ -87,4 +86,5 @@ require (
 	golang.org/x/time v0.5.0 // indirect
 	golang.org/x/tools v0.44.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251202230838-ff82c1b0f217 // indirect
+	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 )

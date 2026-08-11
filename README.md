@@ -1,4 +1,4 @@
-# nezha-next  
+# santaizi-dashboard  
 
 ## 版本区别
  - v0-final基础上，让AI优化后的版本  
@@ -6,11 +6,12 @@
  - 关于unpkg.com近期出现了不稳定的情况，因此，这里的v0-next下载了对应前端资源到项目中（目前覆盖控制台、默认主题、ServerStatus主题）。
  - 特别注意，本仓库只提供了docker镜像，不提供其它分发系统的构建内容，因为没有时间DEBUG。  
 
-【版本声明】  
-Nezha面板所有版权归属原作者，本仓库仅为自己个人使用方便，进行调整修改。  
-[README](./README-OLD.md)
+【版本声明 / 版权】  
+本项目基于 [哪吒监控 Nezha Monitoring](https://github.com/naiba/nezha) 衍生修改，原作者版权保留（Apache-2.0，`Copyright 2020 naiba`）。详见 [`LICENSE`](./LICENSE) 与 [`NOTICE`](./NOTICE)。  
+产品品牌为 **三太子 / Santaizi**；与上游 Nezha 线协议不兼容，须成对升级面板与探针。  
+本仓库仅为个人使用方便进行调整修改。[旧版 README](./README-OLD.md)
 
-## Docker Compose 部署 Nezha Dashboard
+## Docker Compose 部署 Santaizi Dashboard
 
 ### 方式一：一键安装脚本（推荐）
 
@@ -19,7 +20,7 @@ Nezha面板所有版权归属原作者，本仓库仅为自己个人使用方便
 一键运行：
 
 ```bash
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install_dashboard.sh)"
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install_dashboard.sh)"
 ```
 
 如果当前不是 root，可任选一种系统已有的提权方式后再执行同一条命令：
@@ -33,13 +34,13 @@ sudo -i
 然后运行：
 
 ```bash
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install_dashboard.sh)"
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install_dashboard.sh)"
 ```
 
 也可以先下载脚本再执行：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install_dashboard.sh -o install_dashboard.sh
+curl -fsSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install_dashboard.sh -o install_dashboard.sh
 sh install_dashboard.sh
 ```
 
@@ -50,19 +51,19 @@ sh install_dashboard.sh
 #### 1. 创建工作目录
 
 ```bash
-mkdir -p /opt/nezha && cd /opt/nezha
+mkdir -p /opt/santaizi && cd /opt/santaizi
 ```
 
 #### 2. 创建 `docker-compose.yml`
 
 ```yaml
 services:
-  nezha-dashboard:
-    image: ghcr.io/hi2shark/nezha-next-dashboard:latest
-    container_name: nezha-dashboard
+  santaizi-dashboard:
+    image: ghcr.io/hi2shark/santaizi-dashboard:latest
+    container_name: santaizi-dashboard
     restart: unless-stopped
     ports:
-      - "${NEZHA_PORT:-80}:80"
+      - "${SANTAIZI_PORT:-80}:80"
       - "5555:5555"
     volumes:
       - /etc/timezone:/etc/timezone:ro
@@ -73,7 +74,7 @@ services:
 ```
 
 > 说明：
-> - `80` 为面板 Web 端口，可通过 `NEZHA_PORT` 环境变量改为其它端口，如 `NEZHA_PORT=8080`。
+> - `80` 为面板 Web 端口，可通过 `SANTAIZI_PORT` 环境变量改为其它端口，如 `SANTAIZI_PORT=8080`。
 > - `5555` 为 Agent 上报用的 gRPC 端口。
 >
 > 映射右侧的容器端口（`80` / `5555`）必须与容器内 `data/config.yaml` 里的 `httpport` / `grpcport` 保持一致。默认已对应，如需修改请同时调整配置文件。
@@ -82,7 +83,7 @@ services:
 
 ```bash
 mkdir -p data
-curl -fsSL https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/config.yaml -o data/config.yaml
+curl -fsSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/config.yaml -o data/config.yaml
 ```
 
 编辑 `data/config.yaml`，至少填写以下字段：
@@ -92,7 +93,7 @@ httpport: 80
 grpcport: 5555
 
 site:
-  brand: "哪吒监控"
+  brand: "三太子监控"
   theme: "default"
 
 oauth2:
@@ -109,19 +110,19 @@ oauth2:
 docker compose up -d
 ```
 
-启动后访问 `http://<服务器IP>:<NEZHA_PORT>`，使用 OAuth2 登录。
+启动后访问 `http://<服务器IP>:<SANTAIZI_PORT>`，使用 OAuth2 登录。
 
 ### 开放防火墙端口
 
 确保服务器防火墙放行以下端口：
 
-- Web 端口：默认 `80`（或你自定义的 `NEZHA_PORT`）
+- Web 端口：默认 `80`（或你自定义的 `SANTAIZI_PORT`）
 - gRPC 端口：`5555`
 
 ### 更新 Dashboard
 
 ```bash
-cd /opt/nezha
+cd /opt/santaizi
 docker compose pull
 docker compose up -d
 ```
@@ -130,10 +131,10 @@ docker compose up -d
 
 进入 Dashboard 后台 → 服务器 → 添加服务器，保存后在服务器卡片上点击对应平台的一键安装按钮，复制命令到被监控服务器执行即可。
 
-默认 Agent 下载源为 `hi2shark/agent`，可通过环境变量 `NEZHA_AGENT_REPO` 覆盖：
+默认 Agent 下载源为 `hi2shark/santaizi-agent`，可通过环境变量 `SANTAIZI_AGENT_REPO` 覆盖：
 
 ```bash
-NEZHA_AGENT_REPO=your-repo/agent curl -fSL ... | bash -s -- install_agent ...
+SANTAIZI_AGENT_REPO=your-repo/agent curl -fSL ... | bash -s -- install_agent ...
 ```
 
 ### 常见问题

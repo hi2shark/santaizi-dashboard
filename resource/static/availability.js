@@ -3,24 +3,24 @@
 
   // 注入通用进度条样式，各主题只需覆盖容器级边距/背景即可
   (function injectStyles() {
-    var id = "nezha-availability-styles";
+    var id = "santaizi-availability-styles";
     if (document.getElementById(id)) return;
     var style = document.createElement("style");
     style.id = id;
     style.textContent =
-      ".nezha-availability-bar{font-size:12px}" +
-      ".nezha-availability-bar .availability-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}" +
-      ".nezha-availability-bar .availability-label{opacity:.7}" +
-      ".nezha-availability-bar .availability-percent{font-weight:bold}" +
-      ".nezha-availability-bar .availability-percent.good{color:#4ba242}" +
-      ".nezha-availability-bar .availability-percent.warning{color:#f7c709}" +
-      ".nezha-availability-bar .availability-percent.danger{color:#e74c3c}" +
-      ".nezha-availability-bar .availability-bar-bg{height:6px;background:rgba(128,128,128,.2);border-radius:3px;overflow:hidden;margin-bottom:4px}" +
-      ".nezha-availability-bar .availability-bar-fill{height:100%;border-radius:3px;transition:width .3s ease}" +
-      ".nezha-availability-bar .availability-bar-fill.good{background:#4ba242}" +
-      ".nezha-availability-bar .availability-bar-fill.warning{background:#f7c709}" +
-      ".nezha-availability-bar .availability-bar-fill.danger{background:#e74c3c}" +
-      ".nezha-availability-bar .availability-detail{font-size:11px;opacity:.7;text-align:right}";
+      ".santaizi-availability-bar{font-size:12px}" +
+      ".santaizi-availability-bar .availability-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}" +
+      ".santaizi-availability-bar .availability-label{opacity:.7}" +
+      ".santaizi-availability-bar .availability-percent{font-weight:bold}" +
+      ".santaizi-availability-bar .availability-percent.good{color:#4ba242}" +
+      ".santaizi-availability-bar .availability-percent.warning{color:#f7c709}" +
+      ".santaizi-availability-bar .availability-percent.danger{color:#e74c3c}" +
+      ".santaizi-availability-bar .availability-bar-bg{height:6px;background:rgba(128,128,128,.2);border-radius:3px;overflow:hidden;margin-bottom:4px}" +
+      ".santaizi-availability-bar .availability-bar-fill{height:100%;border-radius:3px;transition:width .3s ease}" +
+      ".santaizi-availability-bar .availability-bar-fill.good{background:#4ba242}" +
+      ".santaizi-availability-bar .availability-bar-fill.warning{background:#f7c709}" +
+      ".santaizi-availability-bar .availability-bar-fill.danger{background:#e74c3c}" +
+      ".santaizi-availability-bar .availability-detail{font-size:11px;opacity:.7;text-align:right}";
     document.head.appendChild(style);
   })();
 
@@ -124,11 +124,11 @@
     for (var i = 0; i < containers.length; i++) {
       var el = containers[i];
       el.setAttribute("title", title);
-      if (el.classList.contains('nezha-availability-bar')) {
+      if (el.classList.contains('santaizi-availability-bar')) {
         renderBar(el, summary);
-      } else if (el.classList.contains('nezha-availability-percent')) {
+      } else if (el.classList.contains('santaizi-availability-percent')) {
         renderPercent(el, summary);
-      } else if (el.classList.contains('nezha-availability')) {
+      } else if (el.classList.contains('santaizi-availability')) {
         el.textContent = text;
       }
       el.setAttribute("data-availability-loaded", "true");
@@ -161,7 +161,7 @@
       var containers = document.querySelectorAll('[data-availability-id="' + batch[i] + '"]');
       for (var j = 0; j < containers.length; j++) {
         var el = containers[j];
-        if (el.classList.contains('nezha-availability-bar')) {
+        if (el.classList.contains('santaizi-availability-bar')) {
           el.innerHTML = '<div class="availability-detail">可用性数据加载失败</div>';
         } else {
           el.textContent = "可用性数据加载失败";

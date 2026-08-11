@@ -10,7 +10,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/naiba/nezha/model"
+	"github.com/hi2shark/santaizi-dashboard/model"
 )
 
 var (
@@ -93,7 +93,7 @@ func InitServerRuntimes() {
 			continue
 		}
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			log.Printf("NEZHA>> 初始化运行态读取失败 server_id=%d: %v", id, err)
+			log.Printf("SANTAIZI>> 初始化运行态读取失败 server_id=%d: %v", id, err)
 			continue
 		}
 		// 仅创建骨架行，不预填时间戳：保留 LastSeenAt 为 nil 直到 Agent 真实上报，
@@ -103,7 +103,7 @@ func InitServerRuntimes() {
 			Status:   model.ServerRuntimeStatusUnknown,
 		}
 		if err := DB.Create(&rt).Error; err != nil {
-			log.Printf("NEZHA>> 初始化运行态创建失败 server_id=%d: %v", id, err)
+			log.Printf("SANTAIZI>> 初始化运行态创建失败 server_id=%d: %v", id, err)
 		}
 	}
 }
@@ -157,7 +157,7 @@ func DetectOfflineServers() {
 	deadline := now.Add(-threshold)
 	var runtimes []model.ServerRuntime
 	if err := DB.Where("status = ? AND last_seen_at < ?", model.ServerRuntimeStatusOnline, deadline).Find(&runtimes).Error; err != nil {
-		log.Printf("NEZHA>> 离线检测查询失败: %v", err)
+		log.Printf("SANTAIZI>> 离线检测查询失败: %v", err)
 		return
 	}
 
@@ -217,7 +217,7 @@ func createOfflineHistoryTx(rt *model.ServerRuntime, now time.Time, threshold ti
 	}
 	if err := tx.Create(&history).Error; err != nil {
 		tx.Rollback()
-		log.Printf("NEZHA>> 创建离线历史失败: %v", err)
+		log.Printf("SANTAIZI>> 创建离线历史失败: %v", err)
 		return nil
 	}
 
@@ -226,12 +226,12 @@ func createOfflineHistoryTx(rt *model.ServerRuntime, now time.Time, threshold ti
 	current.CurrentOfflineID = history.ID
 	if err := tx.Save(&current).Error; err != nil {
 		tx.Rollback()
-		log.Printf("NEZHA>> 更新运行态为离线失败: %v", err)
+		log.Printf("SANTAIZI>> 更新运行态为离线失败: %v", err)
 		return nil
 	}
 
 	if err := tx.Commit().Error; err != nil {
-		log.Printf("NEZHA>> 提交离线历史事务失败: %v", err)
+		log.Printf("SANTAIZI>> 提交离线历史事务失败: %v", err)
 		return nil
 	}
 	return &history
@@ -262,7 +262,7 @@ func CloseOfflineHistory(rt *model.ServerRuntime, state *model.HostState, host *
 	serverRuntimeMu.Unlock()
 
 	if err != nil {
-		log.Printf("NEZHA>> 关闭离线历史失败: %v", err)
+		log.Printf("SANTAIZI>> 关闭离线历史失败: %v", err)
 		return
 	}
 	// 同步调用方持有的运行态副本，使其后续整行保存不会回退离线字段
@@ -364,7 +364,7 @@ func tryMergeWithPrevious(serverID uint64, current *model.ServerOfflineHistory) 
 	).Order("id DESC").First(&prev).Error
 	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			log.Printf("NEZHA>> 查询上一条离线历史失败: %v", err)
+			log.Printf("SANTAIZI>> 查询上一条离线历史失败: %v", err)
 		}
 		return current
 	}
@@ -400,7 +400,7 @@ func tryMergeWithPrevious(serverID uint64, current *model.ServerOfflineHistory) 
 		}
 		return tx.Save(&prev).Error
 	}); err != nil {
-		log.Printf("NEZHA>> 合并离线历史失败: %v", err)
+		log.Printf("SANTAIZI>> 合并离线历史失败: %v", err)
 		return current // 合并失败，通知仍按当前记录发送
 	}
 
@@ -442,7 +442,7 @@ func ReconcileOfflineHistories() {
 	if err := DB.Model(&model.ServerOfflineHistory{}).
 		Where("status = ?", model.OfflineHistoryStatusOpen).
 		Distinct().Pluck("server_id", &serverIDs).Error; err != nil {
-		log.Printf("NEZHA>> 离线历史一致性检查查询失败: %v", err)
+		log.Printf("SANTAIZI>> 离线历史一致性检查查询失败: %v", err)
 		return
 	}
 	for _, serverID := range serverIDs {
@@ -457,7 +457,7 @@ func reconcileServerOfflineHistories(serverID uint64, now time.Time, threshold t
 	var opens []model.ServerOfflineHistory
 	if err := DB.Where("server_id = ? AND status = ?", serverID, model.OfflineHistoryStatusOpen).
 		Order("id").Find(&opens).Error; err != nil {
-		log.Printf("NEZHA>> 离线历史一致性检查读取失败 server_id=%d: %v", serverID, err)
+		log.Printf("SANTAIZI>> 离线历史一致性检查读取失败 server_id=%d: %v", serverID, err)
 		return
 	}
 	if len(opens) == 0 {
@@ -466,7 +466,7 @@ func reconcileServerOfflineHistories(serverID uint64, now time.Time, threshold t
 
 	rt, err := GetOrCreateServerRuntime(serverID)
 	if err != nil {
-		log.Printf("NEZHA>> 离线历史一致性检查读取运行态失败 server_id=%d: %v", serverID, err)
+		log.Printf("SANTAIZI>> 离线历史一致性检查读取运行态失败 server_id=%d: %v", serverID, err)
 		return
 	}
 	reporting := rt.LastSeenAt != nil && now.Sub(*rt.LastSeenAt) <= threshold
@@ -500,9 +500,9 @@ func reconcileServerOfflineHistories(serverID uint64, now time.Time, threshold t
 			return tx.Save(rt).Error
 		})
 		if err != nil {
-			log.Printf("NEZHA>> 修复未关闭离线记录失败 server_id=%d: %v", serverID, err)
+			log.Printf("SANTAIZI>> 修复未关闭离线记录失败 server_id=%d: %v", serverID, err)
 		} else {
-			log.Printf("NEZHA>> 已自动修复 server_id=%d 的 %d 条未关闭离线记录", serverID, len(opens))
+			log.Printf("SANTAIZI>> 已自动修复 server_id=%d 的 %d 条未关闭离线记录", serverID, len(opens))
 		}
 		return
 	}
@@ -532,9 +532,9 @@ func reconcileServerOfflineHistories(serverID uint64, now time.Time, threshold t
 		return tx.Save(rt).Error
 	})
 	if err != nil {
-		log.Printf("NEZHA>> 修复重复离线记录失败 server_id=%d: %v", serverID, err)
+		log.Printf("SANTAIZI>> 修复重复离线记录失败 server_id=%d: %v", serverID, err)
 	} else if len(opens) > 1 {
-		log.Printf("NEZHA>> 已合并 server_id=%d 的 %d 条重复未关闭离线记录", serverID, len(opens))
+		log.Printf("SANTAIZI>> 已合并 server_id=%d 的 %d 条重复未关闭离线记录", serverID, len(opens))
 	}
 }
 
@@ -681,7 +681,7 @@ func updateServerRuntimeOnReport(serverID uint64, state *model.HostState, host *
 	serverRuntimeMu.Unlock()
 
 	if err != nil {
-		log.Printf("NEZHA>> 更新服务器运行态失败: %v", err)
+		log.Printf("SANTAIZI>> 更新服务器运行态失败: %v", err)
 		return
 	}
 	if closed != nil {
@@ -696,7 +696,7 @@ func CleanOfflineHistory() {
 	}
 	before := time.Now().AddDate(0, 0, -int(Conf.OfflineHistoryRetentionDays))
 	res := DB.Unscoped().Delete(&model.ServerOfflineHistory{}, "started_at < ?", before)
-	log.Printf("NEZHA>> Cron 离线历史清理 %d 条, 错误: %v", res.RowsAffected, res.Error)
+	log.Printf("SANTAIZI>> Cron 离线历史清理 %d 条, 错误: %v", res.RowsAffected, res.Error)
 }
 
 func sendOfflineNotification(serverID uint64, history *model.ServerOfflineHistory) {

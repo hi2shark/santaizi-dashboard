@@ -9,8 +9,8 @@ import (
 
 	"github.com/robfig/cron/v3"
 
-	"github.com/naiba/nezha/model"
-	pb "github.com/naiba/nezha/proto"
+	"github.com/hi2shark/santaizi-dashboard/model"
+	pb "github.com/hi2shark/santaizi-dashboard/proto"
 )
 
 var (

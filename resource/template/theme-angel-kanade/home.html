@@ -18,7 +18,7 @@
                   class="apple icon"></i><i v-else-if='isWindowsPlatform(server.Host.Platform)'
                   class="windows icon"></i><i v-else :class="'fl-' + getFontLogoClass(server.Host.Platform)"></i>
                 @#server.Name + (server.live?'':'[{{tr "Offline"}}]')#@
-                <i class="nezha-secondary-font info circle icon" style="height: 28px"></i>
+                <i class="santaizi-secondary-font info circle icon" style="height: 28px"></i>
                 <div class="ui content popup" style="margin-bottom: 0">
                   {{tr "Platform"}}: @#server.Host.Platform#@-@#server.Host.PlatformVersion#@
                   [<span
@@ -114,7 +114,7 @@
             </div>
             <div class="extra content" v-if="server.Host" style="padding-top: 8px; padding-bottom: 10px;">
               {{if .Conf.ShowAvailabilityToGuest}}
-              <div class="nezha-availability nezha-availability-bar" :data-availability-id="server.ID">可用性数据加载中...</div>
+              <div class="santaizi-availability santaizi-availability-bar" :data-availability-id="server.ID">可用性数据加载中...</div>
               {{end}}
             </div>
             <div class="content" v-else>
@@ -145,7 +145,7 @@
       this.group()
     },
     mounted() {
-      $('.nezha-secondary-font.info.icon').popup({
+      $('.santaizi-secondary-font.info.icon').popup({
         popup: '.ui.content.popup',
         exclusive: true,
       });

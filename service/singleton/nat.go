@@ -3,7 +3,7 @@ package singleton
 import (
 	"sync"
 
-	"github.com/naiba/nezha/model"
+	"github.com/hi2shark/santaizi-dashboard/model"
 )
 
 var natCache = make(map[string]*model.NAT)

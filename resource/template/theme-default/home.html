@@ -20,7 +20,7 @@
                                     <i v-else-if='getFontLogoClass(server.Host.Platform) == "" && server.State.Uptime > 0' class="fl-tux"></i>
                                     <i v-else :class="'fl-' + getFontLogoClass(server.Host.Platform)"></i>
                                     @#server.Name + (server.live?'':'[{{tr "Offline"}}]')#@
-                                    <i @click="togglePopup($event, server.ID)" aria-expanded="false" class="nezha-secondary-font info circle icon"></i>
+                                    <i @click="togglePopup($event, server.ID)" aria-expanded="false" class="santaizi-secondary-font info circle icon"></i>
                                     <div class="ui content popup" :class="{ 'visible': isActive(server.ID) }" style="margin-bottom: 0;">
                                         <i class="closePopup window close icon" @click="closePopup(server.ID)"></i>
                                         {{tr "Platform"}}: @#server.Host.Platform#@-@#server.Host.PlatformVersion#@
@@ -151,7 +151,7 @@
                             </div>
                             <div class="extra content" v-if="server.Host" style="padding-top: 8px; padding-bottom: 10px;">
                                 {{if .Conf.ShowAvailabilityToGuest}}
-                            <div class="nezha-availability nezha-availability-bar" :data-availability-id="server.ID">可用性数据加载中...</div>
+                            <div class="santaizi-availability santaizi-availability-bar" :data-availability-id="server.ID">可用性数据加载中...</div>
                             {{end}}
                             </div>
                             <div class="content" v-else>

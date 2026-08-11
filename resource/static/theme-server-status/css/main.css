@@ -13,7 +13,7 @@ body {
     display: none;
 }
 
-.nezha {
+.santaizi {
     min-height: calc(100vh - 100px);
 }
 
@@ -520,7 +520,7 @@ footer p {
         font-size: 10px !important;
         padding-top:60px !important;
     }
-    .nezha {
+    .santaizi {
         min-height: calc(100vh - 90px);
         min-height: calc(var(--vh, 1vh) * 100 - 90px);
     }
@@ -641,14 +641,14 @@ footer p {
     }
 }
 /* 服务器可用性摘要 */
-.node-cell-expand .nezha-availability {
+.node-cell-expand .santaizi-availability {
   display: inline-block;
   vertical-align: top;
   max-width: calc(100% - 60px);
   font-size: 12px;
   color: #666;
 }
-.node-cell-expand .nezha-availability-bar {
+.node-cell-expand .santaizi-availability-bar {
   display: block;
   max-width: 100%;
   margin-top: 4px;

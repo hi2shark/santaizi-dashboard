@@ -62,8 +62,8 @@ site:
 
 | 配置项 | 默认值 | 说明 |
 |--------|--------|------|
-| `site.brand` | `Nezha Monitoring` | 站点标题 |
-| `site.cookiename` | `nezha-dashboard` | 登录 Cookie 名 |
+| `site.brand` | `Santaizi Monitoring` | 站点标题 |
+| `site.cookiename` | `santaizi-dashboard` | 登录 Cookie 名 |
 | `site.theme` | `default` | 前台主题 |
 | `site.dashboardtheme` | `default` | 后台主题 |
 | `site.customcode` | `""` | 前台自定义代码（HTML/JS/CSS） |
@@ -111,7 +111,7 @@ oauth2:
   type: oidc
   admin: admin-user-id
   admingroups: admin-group
-  clientid: nezha-dashboard
+  clientid: santaizi-dashboard
   clientsecret: xxxxxxxxxxxx
   oidcdisplayname: SSO
   oidcissuer: https://auth.example.com
@@ -129,10 +129,10 @@ oauth2:
 
 | 配置项 | 默认值 |
 |--------|--------|
-| `installscript.linux` | `https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install_agent.sh` |
-| `installscript.linuxen` | `https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install_agent_en.sh` |
-| `installscript.windows` | `https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install.ps1` |
-| `installscript.macos` | `https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install.command` |
+| `installscript.linux` | `https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install_agent.sh` |
+| `installscript.linuxen` | `https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install_agent_en.sh` |
+| `installscript.windows` | `https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install.ps1` |
+| `installscript.macos` | `https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install.command` |
 
 如果你 fork 了仓库或在内网部署，建议替换为自有地址。
 
@@ -145,11 +145,11 @@ debug: false
 language: zh-CN
 httpport: 80
 grpcport: 5555
-grpchost: nezha.example.com
+grpchost: santaizi.example.com
 location: Asia/Shanghai
 
 site:
-  brand: "哪吒监控"
+  brand: "三太子监控"
   theme: "default"
   dashboardtheme: "default"
   viewpassword: ""

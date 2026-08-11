@@ -5,17 +5,17 @@
 ## 1. 创建目录
 
 ```bash
-mkdir -p ~/nezha/data
-cd ~/nezha
+mkdir -p ~/santaizi/data
+cd ~/santaizi
 ```
 
 ## 2. 写入 docker-compose.yml
 
 ```yaml
 services:
-  nezha-dashboard:
-    image: ghcr.io/hi2shark/nezha-next-dashboard:latest
-    container_name: nezha-dashboard
+  santaizi-dashboard:
+    image: ghcr.io/hi2shark/santaizi-dashboard:latest
+    container_name: santaizi-dashboard
     restart: unless-stopped
     ports:
       - "80:80"
@@ -38,7 +38,7 @@ language: zh-CN
 httpport: 80
 grpcport: 5555
 site:
-  brand: "哪吒监控"
+  brand: "三太子监控"
   theme: "default"
   dashboardtheme: "default"
 oauth2:
@@ -65,13 +65,13 @@ docker compose up -d
 3. 复制生成的一键安装命令，在目标机器上执行：
 
 ```bash
-curl -fSL https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install_agent.sh | bash -s -- install_agent <面板地址> <端口> <密钥>
+curl -fSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install_agent.sh | bash -s -- install_agent <面板地址> <端口> <密钥>
 ```
 
 例如：
 
 ```bash
-curl -fSL https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install_agent.sh | bash -s -- install_agent 10.0.0.10 5555 abcdef123456
+curl -fSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install_agent.sh | bash -s -- install_agent 10.0.0.10 5555 abcdef123456
 ```
 
 4. 安装完成后，Agent 会自动启动并上报数据。返回 Dashboard 即可看到服务器上线。

@@ -7,8 +7,8 @@ import (
 	"github.com/robfig/cron/v3"
 	"gorm.io/gorm"
 
-	"github.com/naiba/nezha/pkg/utils"
-	pb "github.com/naiba/nezha/proto"
+	"github.com/hi2shark/santaizi-dashboard/pkg/utils"
+	pb "github.com/hi2shark/santaizi-dashboard/proto"
 )
 
 const (
@@ -106,7 +106,7 @@ func (m *Monitor) AfterFind(tx *gorm.DB) error {
 	m.SkipServers = make(map[uint64]bool)
 	var skipServers []uint64
 	if err := utils.Json.Unmarshal([]byte(m.SkipServersRaw), &skipServers); err != nil {
-		log.Println("NEZHA>> Monitor.AfterFind:", err)
+		log.Println("SANTAIZI>> Monitor.AfterFind:", err)
 		return nil
 	}
 	for i := 0; i < len(skipServers); i++ {

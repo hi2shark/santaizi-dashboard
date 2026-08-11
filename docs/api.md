@@ -34,7 +34,7 @@ Authorization: <your-token>
 
 ### 2. Cookie 登录
 
-适用于 Dashboard 会员 API（`/api/...`）。用户登录后，浏览器会写入 Cookie，默认名称为 `nezha-dashboard`。
+适用于 Dashboard 会员 API（`/api/...`）。用户登录后，浏览器会写入 Cookie，默认名称为 `santaizi-dashboard`。
 
 第三方前端调用时需要：
 
@@ -561,26 +561,26 @@ Base URL：`/api`
 
 ```bash
 curl -s -H 'Authorization: <your-token>' \
-  'https://nezha.example.com/api/v1/server/list'
+  'https://santaizi.example.com/api/v1/server/list'
 ```
 
 ### 使用 API Token 获取统一模型列表
 
 ```bash
 curl -s -H 'Authorization: <your-token>' \
-  'https://nezha.example.com/api/v1/cron'
+  'https://santaizi.example.com/api/v1/cron'
 ```
 
 ### 使用 API Token 获取离线历史
 
 ```bash
 curl -s -H 'Authorization: <your-token>' \
-  'https://nezha.example.com/api/v1/offline-history?server_id=12&page=1&page_size=20'
+  'https://santaizi.example.com/api/v1/offline-history?server_id=12&page=1&page_size=20'
 ```
 
 ### 使用 Cookie 调用会员 API
 
 ```bash
-curl -s -b 'nezha-dashboard=<your-cookie>' \
-  'https://nezha.example.com/api/offline-history/summary?server_id=12&days=30'
+curl -s -b 'santaizi-dashboard=<your-cookie>' \
+  'https://santaizi.example.com/api/offline-history/summary?server_id=12&days=30'
 ```

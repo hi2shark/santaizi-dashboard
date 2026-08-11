@@ -3,7 +3,7 @@ package resource
 import (
 	"embed"
 
-	"github.com/naiba/nezha/pkg/utils"
+	"github.com/hi2shark/santaizi-dashboard/pkg/utils"
 )
 
 var StaticFS *utils.HybridFS

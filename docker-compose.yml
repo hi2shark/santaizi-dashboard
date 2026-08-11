@@ -5,10 +5,10 @@ services:
       dockerfile: Dockerfile.dev
       args:
         COUNTRY: CN
-    image: nezha:dev
-    container_name: nezha-dev
+    image: santaizi:dev
+    container_name: santaizi-dev
     ports:
-      - ${NEZHA_PORT:-80}:18080
+      - ${SANTAIZI_PORT:-80}:18080
       - 5555:5555
     volumes:
       - /etc/timezone:/etc/timezone:ro

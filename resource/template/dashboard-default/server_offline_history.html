@@ -163,7 +163,7 @@
                 this.loading = true;
                 try {
                     const resp = await requestJSON("/api/offline-history?server_id=" + this.serverID + "&page=" + this.page + "&page_size=" + this.pageSize, {
-                        headers: nezhaCSRFHeaders({ Accept: "application/json" })
+                        headers: santaiziCSRFHeaders({ Accept: "application/json" })
                     });
                     ensureOK(resp);
                     this.items = resp.result.items || [];
@@ -179,7 +179,7 @@
             loadSummary: async function (days, key) {
                 try {
                     const resp = await requestJSON("/api/offline-history/summary?server_id=" + this.serverID + "&days=" + days, {
-                        headers: nezhaCSRFHeaders({ Accept: "application/json" })
+                        headers: santaiziCSRFHeaders({ Accept: "application/json" })
                     });
                     ensureOK(resp);
                     this[key] = resp.result;
@@ -232,7 +232,7 @@
             try {
                 const resp = await requestJSON("/api/server/" + serverID + "/reset-availability", {
                     method: "POST",
-                    headers: nezhaCSRFHeaders({ "Content-Type": "application/json", Accept: "application/json" }),
+                    headers: santaiziCSRFHeaders({ "Content-Type": "application/json", Accept: "application/json" }),
                     body: "{}"
                 });
                 ensureOK(resp);

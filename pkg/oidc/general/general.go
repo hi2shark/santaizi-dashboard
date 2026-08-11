@@ -1,8 +1,8 @@
 package general
 
 import (
-	"github.com/naiba/nezha/model"
-	"github.com/naiba/nezha/service/singleton"
+	"github.com/hi2shark/santaizi-dashboard/model"
+	"github.com/hi2shark/santaizi-dashboard/service/singleton"
 )
 
 type UserInfo struct {
@@ -14,7 +14,7 @@ type UserInfo struct {
 	Roles    []string `json:"roles,omitempty"`
 }
 
-func (u UserInfo) MapToNezhaUser(loginClaim string, groupClaim string, adminGroups []string, autoCreate bool) model.User {
+func (u UserInfo) MapToSantaiziUser(loginClaim string, groupClaim string, adminGroups []string, autoCreate bool) model.User {
 	var user model.User
 	var login string
 	var groups []string

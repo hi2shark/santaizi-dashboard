@@ -241,16 +241,16 @@ html[nz-theme='dark'] body.dashboard-layout .ui.bottom.attached.tab.segment {
     border-color: var(--dash-border) !important;
 }
 
-html[nz-theme='dark'] body.dashboard-layout .ui.button:not(.nezha-primary-btn):not(.positive):not(.negative):not(.red):not(.green),
+html[nz-theme='dark'] body.dashboard-layout .ui.button:not(.santaizi-primary-btn):not(.positive):not(.negative):not(.red):not(.green),
 html[nz-theme='dark'] body.dashboard-layout .ui.buttons .button {
     background: var(--dash-surface-soft) !important;
     color: var(--dash-text) !important;
     border-color: var(--dash-border) !important;
 }
 
-html[nz-theme='dark'] body.dashboard-layout .nezha-primary-btn,
+html[nz-theme='dark'] body.dashboard-layout .santaizi-primary-btn,
 html[nz-theme='dark'] body.dashboard-layout .ui.primary.button,
-html[nz-theme='dark'] body.dashboard-layout .ui.positive.nezha-primary-btn.button {
+html[nz-theme='dark'] body.dashboard-layout .ui.positive.santaizi-primary-btn.button {
     background: var(--dash-primary) !important;
     color: #ffffff !important;
 }

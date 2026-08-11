@@ -21,13 +21,13 @@ A: 大部分配置在 **设置** 页面保存后立即生效。涉及端口、TL
 Docker：
 
 ```bash
-docker logs -f nezha-dashboard
+docker logs -f santaizi-dashboard
 ```
 
 二进制：
 
 ```bash
-journalctl -u nezha-dashboard -f
+journalctl -u santaizi-dashboard -f
 ```
 
 ### Q: 如何备份数据
@@ -52,14 +52,14 @@ A: 检查：
 1. Dashboard 的 gRPC 端口是否可达
 2. Agent 配置中的地址、端口、Secret 是否正确
 3. 防火墙是否放行 gRPC 端口
-4. Agent 服务是否已启动：`systemctl status nezha-agent`
+4. Agent 服务是否已启动：`systemctl status santaizi-agent`
 
 ### Q: Agent 日志在哪里
 
 Linux / macOS：
 
 ```bash
-journalctl -u nezha-agent -f
+journalctl -u santaizi-agent -f
 ```
 
 Windows：事件查看器或服务日志目录。
@@ -119,7 +119,7 @@ A: 修改 `config.yaml` 中的 `language`，支持 `zh-CN`、`zh-TW`、`es-ES`�
 
 ### Q: 如何自定义 Agent 安装脚本源
 
-A: 修改 `config.yaml` 中的 `installscript` 配置项，或设置环境变量 `NEZHA_SCRIPT_URL`。
+A: 修改 `config.yaml` 中的 `installscript` 配置项，或设置环境变量 `SANTAIZI_SCRIPT_URL`。
 
 ### Q: 如何贡献主题
 

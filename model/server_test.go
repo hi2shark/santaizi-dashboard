@@ -3,7 +3,7 @@ package model
 import (
 	"testing"
 
-	"github.com/naiba/nezha/pkg/utils"
+	"github.com/hi2shark/santaizi-dashboard/pkg/utils"
 )
 
 func TestServerMarshal(t *testing.T) {

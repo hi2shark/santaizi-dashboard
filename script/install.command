@@ -2,12 +2,12 @@
 
 #========================================================
 #   System Required: macOS 10.13+
-#   Description: Nezha Agent Install Script (macOS)
-#   Github: https://github.com/hi2shark/nezha-next
-#   Agent repo can be overridden via NEZHA_AGENT_REPO (default: hi2shark/agent)
+#   Description: Santaizi Agent Install Script (macOS)
+#   Github: https://github.com/hi2shark/santaizi-dashboard
+#   Agent repo can be overridden via SANTAIZI_AGENT_REPO (default: hi2shark/santaizi-agent)
 #========================================================
 
-NZ_BASE_PATH="/opt/nezha"
+NZ_BASE_PATH="/opt/santaizi"
 NZ_AGENT_PATH="${NZ_BASE_PATH}/agent"
 
 red='\033[0;31m'
@@ -16,7 +16,7 @@ yellow='\033[0;33m'
 plain='\033[0m'
 export PATH=$PATH:/usr/local/bin
 
-NEZHA_AGENT_REPO="${NEZHA_AGENT_REPO:-hi2shark/agent}"
+SANTAIZI_AGENT_REPO="${SANTAIZI_AGENT_REPO:-hi2shark/santaizi-agent}"
 
 pre_check() {
     # check root
@@ -45,40 +45,40 @@ before_show_menu() {
 }
 
 install_agent() {
-    echo -e "> Install Nezha Agent"
+    echo -e "> Install Santaizi Agent"
 
     echo -e "Obtaining Agent version"
 
-    local version=$(curl -m 10 -sL "https://api.github.com/repos/${NEZHA_AGENT_REPO}/releases/latest" | grep "tag_name" | head -n 1 | awk -F ":" '{print $2}' | sed 's/\"//g;s/,//g;s/ //g')
+    local version=$(curl -m 10 -sL "https://api.github.com/repos/${SANTAIZI_AGENT_REPO}/releases/latest" | grep "tag_name" | head -n 1 | awk -F ":" '{print $2}' | sed 's/\"//g;s/,//g;s/ //g')
     if [ ! -n "$version" ]; then
-        version=$(curl -m 10 -sL "https://fastly.jsdelivr.net/gh/${NEZHA_AGENT_REPO}/" | grep "option\.value" | awk -F "'" '{print $2}' | sed 's/.*@/v/g')
+        version=$(curl -m 10 -sL "https://fastly.jsdelivr.net/gh/${SANTAIZI_AGENT_REPO}/" | grep "option\.value" | awk -F "'" '{print $2}' | sed 's/.*@/v/g')
     fi
     if [ ! -n "$version" ]; then
-        version=$(curl -m 10 -sL "https://gcore.jsdelivr.net/gh/${NEZHA_AGENT_REPO}/" | grep "option\.value" | awk -F "'" '{print $2}' | sed 's/.*@/v/g')
+        version=$(curl -m 10 -sL "https://gcore.jsdelivr.net/gh/${SANTAIZI_AGENT_REPO}/" | grep "option\.value" | awk -F "'" '{print $2}' | sed 's/.*@/v/g')
     fi
 
     if [ ! -n "$version" ]; then
-        echo -e "Fail to obtain agent version, please check if the network can link https://api.github.com/repos/${NEZHA_AGENT_REPO}/releases/latest"
+        echo -e "Fail to obtain agent version, please check if the network can link https://api.github.com/repos/${SANTAIZI_AGENT_REPO}/releases/latest"
         return 0
     else
         echo -e "The current latest version is: ${version}"
     fi
 
-    # Nezha Agent Folder
+    # Santaizi Agent Folder
     mkdir -p $NZ_AGENT_PATH
     chmod -R 777 $NZ_AGENT_PATH
 
     echo -e "Downloading Agent"
-    NZ_AGENT_URL="https://${GITHUB_URL}/${NEZHA_AGENT_REPO}/releases/download/${version}/nezha-agent_darwin_${os_arch}.zip"
-    curl -o nezha-agent_darwin_${os_arch}.zip -L -f --retry 2 --retry-max-time 60 $NZ_AGENT_URL >/dev/null 2>&1
+    NZ_AGENT_URL="https://${GITHUB_URL}/${SANTAIZI_AGENT_REPO}/releases/download/${version}/santaizi-agent_darwin_${os_arch}.zip"
+    curl -o santaizi-agent_darwin_${os_arch}.zip -L -f --retry 2 --retry-max-time 60 $NZ_AGENT_URL >/dev/null 2>&1
     if [[ $? != 0 ]]; then
         echo -e "${red}Fail to download agent, please check if the network can link ${GITHUB_URL}${plain}"
         return 0
     fi
 
-    unzip -qo nezha-agent_darwin_${os_arch}.zip &&
-        mv nezha-agent $NZ_AGENT_PATH &&
-        rm -rf nezha-agent_darwin_${os_arch}.zip README.md
+    unzip -qo santaizi-agent_darwin_${os_arch}.zip &&
+        mv santaizi-agent $NZ_AGENT_PATH &&
+        rm -rf santaizi-agent_darwin_${os_arch}.zip README.md
 
     if [ $# -ge 3 ]; then
         modify_agent_config "$@"
@@ -119,11 +119,11 @@ modify_agent_config() {
         fi
     fi
 
-    ${NZ_AGENT_PATH}/nezha-agent service install -s "$nz_grpc_host:$nz_grpc_port" -p $nz_client_secret $args >/dev/null 2>&1
+    ${NZ_AGENT_PATH}/santaizi-agent service install -s "$nz_grpc_host:$nz_grpc_port" -p $nz_client_secret $args >/dev/null 2>&1
 
     if [ $? -ne 0 ]; then
-        ${NZ_AGENT_PATH}/nezha-agent service uninstall >/dev/null 2>&1
-        ${NZ_AGENT_PATH}/nezha-agent service install -s "$nz_grpc_host:$nz_grpc_port" -p $nz_client_secret $args >/dev/null 2>&1
+        ${NZ_AGENT_PATH}/santaizi-agent service uninstall >/dev/null 2>&1
+        ${NZ_AGENT_PATH}/santaizi-agent service install -s "$nz_grpc_host:$nz_grpc_port" -p $nz_client_secret $args >/dev/null 2>&1
     fi
 
     echo -e "Agent configuration ${green} modified successfully, please wait for agent self-restart to take effect${plain}"
@@ -136,7 +136,7 @@ modify_agent_config() {
 show_agent_log() {
     echo -e "> > View Agent Log"
 
-    tail -n 10 /var/log/nezha-agent.err.log
+    tail -n 10 /var/log/santaizi-agent.err.log
 
     if [[ $# == 0 ]]; then
         before_show_menu
@@ -146,7 +146,7 @@ show_agent_log() {
 uninstall_agent() {
     echo -e "> Uninstall Agent"
 
-    ${NZ_AGENT_PATH}/nezha-agent service uninstall
+    ${NZ_AGENT_PATH}/santaizi-agent service uninstall
 
     rm -rf $NZ_AGENT_PATH
     clean_all
@@ -159,7 +159,7 @@ uninstall_agent() {
 restart_agent() {
     echo -e "> Restart Agent"
 
-    ${NZ_AGENT_PATH}/nezha-agent service restart
+    ${NZ_AGENT_PATH}/santaizi-agent service restart
 
     if [[ $# == 0 ]]; then
         before_show_menu
@@ -173,21 +173,21 @@ clean_all() {
 }
 
 show_usage() {
-    echo "Nezha Agent Management Script Usage: "
+    echo "Santaizi Agent Management Script Usage: "
     echo "--------------------------------------------------------"
-    echo "./nezha.sh install_agent              - Install Agent"
-    echo "./nezha.sh modify_agent_config        - Modify Agent Configuration"
-    echo "./nezha.sh show_agent_log             - View Agent Log"
-    echo "./nezha.sh uninstall_agent            - Uninstall Agent"
-    echo "./nezha.sh restart_agent              - Restart Agent"
-    echo "./nezha.sh update_script              - Update Script"
+    echo "./santaizi.sh install_agent              - Install Agent"
+    echo "./santaizi.sh modify_agent_config        - Modify Agent Configuration"
+    echo "./santaizi.sh show_agent_log             - View Agent Log"
+    echo "./santaizi.sh uninstall_agent            - Uninstall Agent"
+    echo "./santaizi.sh restart_agent              - Restart Agent"
+    echo "./santaizi.sh update_script              - Update Script"
     echo "--------------------------------------------------------"
 }
 
 show_menu() {
     echo -e "
-    ${green}Nezha Agent Management Script${plain} ${red}macOS${plain}
-    --- https://github.com/hi2shark/nezha-next ---
+    ${green}Santaizi Agent Management Script${plain} ${red}macOS${plain}
+    --- https://github.com/hi2shark/santaizi-dashboard ---
     ${green}1.${plain}  Install Agent
     ${green}2.${plain}  Modify Agent Configuration
     ${green}3.${plain}  View Agent Log

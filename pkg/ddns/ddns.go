@@ -10,8 +10,8 @@ import (
 	"github.com/libdns/libdns"
 	"github.com/miekg/dns"
 
-	"github.com/naiba/nezha/model"
-	"github.com/naiba/nezha/pkg/utils"
+	"github.com/hi2shark/santaizi-dashboard/model"
+	"github.com/hi2shark/santaizi-dashboard/pkg/utils"
 )
 
 var (
@@ -49,11 +49,11 @@ func (provider *Provider) UpdateDomain(ctx context.Context) {
 		maxRetries := int(provider.DDNSProfile.MaxRetries) // #nosec G115 -- max retries is a small positive integer
 		for retries := 0; retries < maxRetries; retries++ {
 			provider.domain = domain
-			log.Printf("NEZHA>> 正在尝试更新域名(%s)DDNS(%d/%d)", provider.domain, retries+1, provider.DDNSProfile.MaxRetries)
+			log.Printf("SANTAIZI>> 正在尝试更新域名(%s)DDNS(%d/%d)", provider.domain, retries+1, provider.DDNSProfile.MaxRetries)
 			if err := provider.updateDomain(); err != nil {
-				log.Printf("NEZHA>> 尝试更新域名(%s)DDNS失败: %v", provider.domain, err)
+				log.Printf("SANTAIZI>> 尝试更新域名(%s)DDNS失败: %v", provider.domain, err)
 			} else {
-				log.Printf("NEZHA>> 尝试更新域名(%s)DDNS成功", provider.domain)
+				log.Printf("SANTAIZI>> 尝试更新域名(%s)DDNS成功", provider.domain)
 				break
 			}
 		}

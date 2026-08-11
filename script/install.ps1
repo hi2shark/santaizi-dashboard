@@ -1,39 +1,39 @@
 #Get server and key
 param($server, $key, $tls)
 
-# Agent repo can be overridden via environment variable NEZHA_AGENT_REPO
-$agentrepo = if ($env:NEZHA_AGENT_REPO) { $env:NEZHA_AGENT_REPO } else { "hi2shark/agent" }
+# Agent repo can be overridden via environment variable SANTAIZI_AGENT_REPO
+$agentrepo = if ($env:SANTAIZI_AGENT_REPO) { $env:SANTAIZI_AGENT_REPO } else { "hi2shark/santaizi-agent" }
 
 # Download latest release from github
 if($PSVersionTable.PSVersion.Major -lt 5){
     Write-Host "Require PS >= 5,your PSVersion:"$PSVersionTable.PSVersion.Major -BackgroundColor DarkGreen -ForegroundColor White
-    Write-Host "Refer to the community article and install manually! https://nyko.me/2020/12/13/nezha-windows-client.html" -BackgroundColor DarkRed -ForegroundColor Green
+    Write-Host "Refer to the community article and install manually! https://nyko.me/2020/12/13/santaizi-windows-client.html" -BackgroundColor DarkRed -ForegroundColor Green
     exit
 }
 
 #  x86 or x64 or arm64
 if ([System.Environment]::Is64BitOperatingSystem) {
     if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") {
-        $file = "nezha-agent_windows_arm64.zip"
+        $file = "santaizi-agent_windows_arm64.zip"
     } else {
-        $file = "nezha-agent_windows_amd64.zip"
+        $file = "santaizi-agent_windows_amd64.zip"
     }
 }
 else {
-    $file = "nezha-agent_windows_386.zip"
+    $file = "santaizi-agent_windows_386.zip"
 }
 
 $agentreleases = "https://api.github.com/repos/$agentrepo/releases"
 
 #重复运行自动更新
-if (Test-Path "C:\nezha\nezha-agent.exe") {
-    Write-Host "Nezha monitoring already exists, delete and reinstall" -BackgroundColor DarkGreen -ForegroundColor White
-    C:\nezha\nezha-agent.exe service uninstall
-    Remove-Item "C:\nezha" -Recurse
+if (Test-Path "C:\santaizi\santaizi-agent.exe") {
+    Write-Host "Santaizi monitoring already exists, delete and reinstall" -BackgroundColor DarkGreen -ForegroundColor White
+    C:\santaizi\santaizi-agent.exe service uninstall
+    Remove-Item "C:\santaizi" -Recurse
 }
 
 #TLS/SSL
-Write-Host "Determining latest nezha release" -BackgroundColor DarkGreen -ForegroundColor White
+Write-Host "Determining latest santaizi release" -BackgroundColor DarkGreen -ForegroundColor White
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $agenttag = (Invoke-WebRequest -Uri $agentreleases -UseBasicParsing | ConvertFrom-Json)[0].tag_name
 
@@ -79,22 +79,22 @@ if($region -ne "CN"){
     $download = "https://github.com/$agentrepo/releases/download/$agenttag/$file"
     Write-Host "Location:$region,connect directly!" -BackgroundColor DarkRed -ForegroundColor Green
 } else {
-    # For CN users, try the gitee mirror if the official nezhahq agent repo is used
-    $giteeRepo = $agentrepo -replace "^nezhahq/", "naibahq/"
+    # For CN users, try the gitee mirror if the official santaizihq agent repo is used
+    $giteeRepo = $agentrepo -replace "^santaizihq/", "naibahq/"
     $download = "https://gitee.com/$giteeRepo/releases/download/$agenttag/$file"
     Write-Host "Location:CN,use mirror address" -BackgroundColor DarkRed -ForegroundColor Green
 }
 
 echo $download
-Invoke-WebRequest $download -OutFile "C:\nezha.zip"
+Invoke-WebRequest $download -OutFile "C:\santaizi.zip"
 
 #解压
-Expand-Archive "C:\nezha.zip" -DestinationPath "C:\temp" -Force
-if (!(Test-Path "C:\nezha")) { New-Item -Path "C:\nezha" -type directory }
+Expand-Archive "C:\santaizi.zip" -DestinationPath "C:\temp" -Force
+if (!(Test-Path "C:\santaizi")) { New-Item -Path "C:\santaizi" -type directory }
 #整理文件
-Move-Item -Path "C:\temp\nezha-agent.exe" -Destination "C:\nezha\nezha-agent.exe"
+Move-Item -Path "C:\temp\santaizi-agent.exe" -Destination "C:\santaizi\santaizi-agent.exe"
 #清理垃圾
-Remove-Item "C:\nezha.zip"
+Remove-Item "C:\santaizi.zip"
 Remove-Item "C:\temp" -Recurse
 #安装部分
 $installArgs = @('-s', $server, '-p', $key)
@@ -104,7 +104,7 @@ if ($tls) {
 if ($args) {
     $installArgs += $args
 }
-C:\nezha\nezha-agent.exe service install @installArgs
+C:\santaizi\santaizi-agent.exe service install @installArgs
 
 #enjoy
 Write-Host "Enjoy It!" -BackgroundColor DarkGreen -ForegroundColor Red

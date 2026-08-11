@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/naiba/nezha/model"
+	"github.com/hi2shark/santaizi-dashboard/model"
 )
 
 const firstNotificationDelay = time.Minute * 15
@@ -47,7 +47,7 @@ func loadNotifications() {
 func SetDefaultNotificationTagInDB(n *model.Notification) {
 	n.Tag = "default"
 	if err := DB.Save(n).Error; err != nil {
-		log.Println("NEZHA>> SetDefaultNotificationTagInDB 错误: ", err)
+		log.Println("SANTAIZI>> SetDefaultNotificationTagInDB 错误: ", err)
 	}
 }
 
@@ -136,7 +136,7 @@ func SendNotification(notificationTag string, desc string, muteLabel *string, ex
 
 		if !flag {
 			if Conf.Debug {
-				log.Println("NEZHA>> 静音的重复通知：", desc, muteLabel)
+				log.Println("SANTAIZI>> 静音的重复通知：", desc, muteLabel)
 			}
 			return
 		}
@@ -145,7 +145,7 @@ func SendNotification(notificationTag string, desc string, muteLabel *string, ex
 	notificationsLock.RLock()
 	defer notificationsLock.RUnlock()
 	for _, n := range NotificationList[notificationTag] {
-		log.Println("NEZHA>> 尝试通知", n.Name)
+		log.Println("SANTAIZI>> 尝试通知", n.Name)
 	}
 	for _, n := range NotificationList[notificationTag] {
 		ns := model.NotificationServerBundle{
@@ -157,9 +157,9 @@ func SendNotification(notificationTag string, desc string, muteLabel *string, ex
 			ns.Server = ext[0]
 		}
 		if err := ns.Send(desc); err != nil {
-			log.Println("NEZHA>> 向 ", n.Name, " 发送通知失败：", err)
+			log.Println("SANTAIZI>> 向 ", n.Name, " 发送通知失败：", err)
 		} else {
-			log.Println("NEZHA>> 向 ", n.Name, " 发送通知成功：")
+			log.Println("SANTAIZI>> 向 ", n.Name, " 发送通知成功：")
 		}
 	}
 }

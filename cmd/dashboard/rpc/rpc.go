@@ -6,16 +6,16 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/naiba/nezha/model"
-	pb "github.com/naiba/nezha/proto"
-	rpcService "github.com/naiba/nezha/service/rpc"
-	"github.com/naiba/nezha/service/singleton"
+	"github.com/hi2shark/santaizi-dashboard/model"
+	pb "github.com/hi2shark/santaizi-dashboard/proto"
+	rpcService "github.com/hi2shark/santaizi-dashboard/service/rpc"
+	"github.com/hi2shark/santaizi-dashboard/service/singleton"
 )
 
 func ServeRPC(port uint) {
 	server := grpc.NewServer()
-	rpcService.NezhaHandlerSingleton = rpcService.NewNezhaHandler()
-	pb.RegisterNezhaServiceServer(server, rpcService.NezhaHandlerSingleton)
+	rpcService.SantaiziHandlerSingleton = rpcService.NewSantaiziHandler()
+	pb.RegisterSantaiziServiceServer(server, rpcService.SantaiziHandlerSingleton)
 	listen, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		panic(err)

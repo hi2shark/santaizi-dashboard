@@ -54,12 +54,12 @@
   window.updateLang = updateLang;
 
   function csrfHeaders(headers) {
-    if (window.nezhaCSRFHeaders) {
-      return window.nezhaCSRFHeaders(headers || {});
+    if (window.santaiziCSRFHeaders) {
+      return window.santaiziCSRFHeaders(headers || {});
     }
     headers = headers || {};
-    if (window.NEZHA_CSRF_TOKEN) {
-      headers["X-CSRF-Token"] = window.NEZHA_CSRF_TOKEN;
+    if (window.SANTAIZI_CSRF_TOKEN) {
+      headers["X-CSRF-Token"] = window.SANTAIZI_CSRF_TOKEN;
     }
     return headers;
   }
@@ -159,7 +159,7 @@
 
   function selectedServerIDs() {
     const ids = new Set();
-    document.querySelectorAll('input.nezha-servers[type="checkbox"]').forEach(function (cb) {
+    document.querySelectorAll('input.santaizi-servers[type="checkbox"]').forEach(function (cb) {
       if (cb.checked && cb.offsetParent !== null) {
         ids.add(Number(cb.value));
       }
@@ -287,11 +287,11 @@
     form.method = method || "post";
     form.action = path;
     form.target = "_blank";
-    if (window.NEZHA_CSRF_TOKEN && !/^(get|head|options|trace)$/i.test(form.method)) {
+    if (window.SANTAIZI_CSRF_TOKEN && !/^(get|head|options|trace)$/i.test(form.method)) {
       const csrfField = document.createElement("input");
       csrfField.type = "hidden";
       csrfField.name = "_csrf";
-      csrfField.value = window.NEZHA_CSRF_TOKEN;
+      csrfField.value = window.SANTAIZI_CSRF_TOKEN;
       form.appendChild(csrfField);
     }
     Object.keys(params || {}).forEach(function (key) {
@@ -307,7 +307,7 @@
   }
 
   window.checkAllServer = function () {
-    document.querySelectorAll('input.nezha-servers[type="checkbox"]').forEach(function (cb) {
+    document.querySelectorAll('input.santaizi-servers[type="checkbox"]').forEach(function (cb) {
       if (cb.offsetParent !== null) {
         cb.checked = true;
       }
@@ -355,7 +355,7 @@
       btn.disabled = true;
     }
     try {
-      const resp = ensureOK(await requestJSON("/api/cron/" + cronId + "/manual?_csrf=" + encodeURIComponent(window.NEZHA_CSRF_TOKEN || ""), {
+      const resp = ensureOK(await requestJSON("/api/cron/" + cronId + "/manual?_csrf=" + encodeURIComponent(window.SANTAIZI_CSRF_TOKEN || ""), {
         method: "GET",
         headers: csrfHeaders({ Accept: "application/json" }),
       }));
@@ -457,7 +457,7 @@
       };
       const base = localeMap[lang] || window.ElementPlusLocaleEn || {};
       return Object.assign({}, base, {
-        name: base.name || "nezha",
+        name: base.name || "santaizi",
         el: Object.assign({}, base.el || {}, {
           select: {
             loading: t("Loading"),
@@ -572,7 +572,7 @@
           loading: false,
           error: "",
           form: {},
-          providers: (window.NEZHA_DASHBOARD_CONTEXT && window.NEZHA_DASHBOARD_CONTEXT.providers) || [],
+          providers: (window.SANTAIZI_DASHBOARD_CONTEXT && window.SANTAIZI_DASHBOARD_CONTEXT.providers) || [],
           remote: {
             servers: [],
             tasks: [],
@@ -1205,7 +1205,7 @@
                 <el-form-item class="dashboard-dialog-grid-full" label="URL"><el-input v-model="form.URL" /></el-form-item>
                 <el-form-item :label="t('RequestMethod')"><el-select v-model="form.RequestMethod"><el-option label="GET" :value="1" /><el-option label="POST" :value="2" /></el-select></el-form-item>
                 <el-form-item :label="t('RequestType')"><el-select v-model="form.RequestType"><el-option label="JSON" :value="1" /><el-option label="FORM" :value="2" /></el-select></el-form-item>
-                <el-form-item class="dashboard-dialog-grid-full" label="Header"><el-input v-model="form.RequestHeader" type="textarea" :rows="4" placeholder='{"User-Agent":"Nezha-Agent"}' /></el-form-item>
+                <el-form-item class="dashboard-dialog-grid-full" label="Header"><el-input v-model="form.RequestHeader" type="textarea" :rows="4" placeholder='{"User-Agent":"Santaizi-Agent"}' /></el-form-item>
                 <el-form-item class="dashboard-dialog-grid-full" label="Body"><el-input v-model="form.RequestBody" type="textarea" :rows="6" /></el-form-item>
                 <el-form-item :label="t('VerifySSL')"><el-switch v-model="form.VerifySSL" active-value="on" inactive-value="off" /></el-form-item>
                 <el-form-item :label="t('DoNotSendTestMessages')"><el-switch v-model="form.SkipCheck" active-value="on" inactive-value="off" /></el-form-item>

@@ -9,7 +9,7 @@ import (
 	"github.com/jinzhu/copier"
 	"github.com/nicksnyder/go-i18n/v2/i18n"
 
-	"github.com/naiba/nezha/model"
+	"github.com/hi2shark/santaizi-dashboard/model"
 )
 
 const (
@@ -88,7 +88,7 @@ func AlertSentinelStart() {
 		checkCount++
 		if lastPrint.Before(startedAt.Add(-1 * time.Hour)) {
 			if Conf.Debug {
-				log.Println("NEZHA>> 报警规则检测每小时", checkCount, "次", startedAt, time.Now())
+				log.Println("SANTAIZI>> 报警规则检测每小时", checkCount, "次", startedAt, time.Now())
 			}
 			checkCount = 0
 			lastPrint = startedAt

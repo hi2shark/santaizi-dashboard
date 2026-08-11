@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/naiba/nezha/model"
+	"github.com/hi2shark/santaizi-dashboard/model"
 )
 
 // insertRuntime 插入一条 ServerRuntime。

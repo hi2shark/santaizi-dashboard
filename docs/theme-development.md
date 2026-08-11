@@ -1,8 +1,8 @@
 # 前端主题开发对接指南
 
-本文档面向希望为 Nezha 开发或对接前台/后台主题的开发者，说明主题系统的结构、约定、可用数据与接口。
+本文档面向希望为 Santaizi 开发或对接前台/后台主题的开发者，说明主题系统的结构、约定、可用数据与接口。
 
-> 本文档对应项目源码：`https://github.com/hi2shark/nezha-next`
+> 本文档对应项目源码：`https://github.com/hi2shark/santaizi-dashboard`
 > 
 > 如果你只是想使用或切换主题，请阅读 [主题与自定义](themes.md)。
 
@@ -39,7 +39,7 @@
 - **后端**：Go 1.25 + Gin 框架。
 - **模板引擎**：标准库 `html/template`，所有模板在启动时解析并注册到 Gin。
 - **资源嵌入**：`resource/` 下的模板与静态资源通过 `//go:embed` 嵌入二进制；运行时可通过本地文件系统覆盖。
-- **前端模式**：服务端渲染 HTML + 静态资源。Nezha **没有前端构建流程**（无 npm / Webpack / Vite），主题由纯 HTML / CSS / JS 组成。
+- **前端模式**：服务端渲染 HTML + 静态资源。Santaizi **没有前端构建流程**（无 npm / Webpack / Vite），主题由纯 HTML / CSS / JS 组成。
 - **实时更新**：页面通过 WebSocket `/ws` 接收服务器状态；图表与可用性数据通过 REST API 获取。
 
 ---
@@ -192,7 +192,7 @@ site:
 ```html
 {{define "theme-mytheme/footer"}}
 <footer>
-    &copy; {{.Conf.Site.Brand}} | Powered by Nezha {{.Version}}
+    &copy; {{.Conf.Site.Brand}} | Powered by Santaizi {{.Version}}
 </footer>
 </body>
 </html>
@@ -1067,22 +1067,22 @@ site:
 5. 编译并运行 Dashboard：
 
 ```bash
-go build -o nezha-dashboard ./cmd/dashboard
-./nezha-dashboard
+go build -o santaizi-dashboard ./cmd/dashboard
+./santaizi-dashboard
 ```
 
 ### 调试技巧
 
 - 模板修改后需要**重启 Dashboard** 才能生效（嵌入资源在编译时固定）。
 - 若使用 `theme-custom` 或 `static/custom`，文件放在本地文件系统，修改后刷新页面即可生效。
-- 查看日志可发现模板解析错误：`NEZHA>> Error parsing templates ...`
+- 查看日志可发现模板解析错误：`SANTAIZI>> Error parsing templates ...`
 
 ### 发布主题
 
 建议以独立仓库或压缩包形式发布，目录结构如下：
 
 ```
-nezha-theme-mytheme/
+santaizi-theme-mytheme/
 ├── resource/
 │   ├── template/theme-mytheme/
 │   │   ├── theme.json
@@ -1141,7 +1141,7 @@ nezha-theme-mytheme/
 ```html
 {{define "theme-minimal/footer"}}
 <footer>
-    <p>&copy; {{.Conf.Site.Brand}} | Nezha {{.Version}}</p>
+    <p>&copy; {{.Conf.Site.Brand}} | Santaizi {{.Version}}</p>
 </footer>
 </body>
 </html>
@@ -1229,7 +1229,7 @@ site:
 启动时查看控制台日志，错误信息类似：
 
 ```
-NEZHA>> Error parsing templates theme-mytheme: ...
+SANTAIZI>> Error parsing templates theme-mytheme: ...
 ```
 
 ### Q3：Vue 与 Go 模板冲突？
@@ -1242,7 +1242,7 @@ NEZHA>> Error parsing templates theme-mytheme: ...
 
 ### Q5：能否使用 Vue 3 或 React？
 
-可以。Nezha 不限制前端框架，只要最终输出 HTML/CSS/JS 即可。但内置主题和公共库以 Vue 2 / jQuery 为主，使用其他框架需要自行打包或编写原生代码。
+可以。Santaizi 不限制前端框架，只要最终输出 HTML/CSS/JS 即可。但内置主题和公共库以 Vue 2 / jQuery 为主，使用其他框架需要自行打包或编写原生代码。
 
 ### Q6：后台主题和前台主题开发有什么区别？
 
@@ -1258,4 +1258,4 @@ NEZHA>> Error parsing templates theme-mytheme: ...
 - [主题与自定义（用户指南）](themes.md)
 - [API 文档](api.md)
 - [配置参考](configuration.md)
-- 项目源码：`https://github.com/hi2shark/nezha-next`
+- 项目源码：`https://github.com/hi2shark/santaizi-dashboard`

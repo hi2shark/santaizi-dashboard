@@ -21,7 +21,7 @@
 
 | 占位符 | 说明 |
 |--------|------|
-| `#NEZHA#` | 消息正文 |
+| `#SANTAIZI#` | 消息正文 |
 | `#DATETIME#` | 当前时间 |
 | `#SERVER.NAME#` | 服务器名称 |
 | `#SERVER.IP#` | 服务器 IP（可能脱敏） |
@@ -56,14 +56,14 @@
 {
   "msgtype": "text",
   "text": {
-    "content": "#NEZHA#"
+    "content": "#SANTAIZI#"
   }
 }
 ```
 
 ### Bark（GET）
 
-**URL**：`https://api.day.app/xxxxxxxx/#NEZHA#`
+**URL**：`https://api.day.app/xxxxxxxx/#SANTAIZI#`
 
 **请求方式**：`GET`
 
@@ -78,7 +78,7 @@
 **请求体**：
 
 ```
-chat_id=xxxxxx&text=#NEZHA#
+chat_id=xxxxxx&text=#SANTAIZI#
 ```
 
 ## 通知组

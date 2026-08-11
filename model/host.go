@@ -1,7 +1,7 @@
 package model
 
 import (
-	pb "github.com/naiba/nezha/proto"
+	pb "github.com/hi2shark/santaizi-dashboard/proto"
 )
 
 const (

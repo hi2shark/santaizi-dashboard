@@ -5,7 +5,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/naiba/nezha/model"
+	"github.com/hi2shark/santaizi-dashboard/model"
 )
 
 // FormatAvailabilityPercent 将可用率按“保留两位小数并向下取整”的方式格式化，

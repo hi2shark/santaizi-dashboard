@@ -11,36 +11,37 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/naiba/nezha/pkg/ddns"
-	"github.com/naiba/nezha/pkg/geoip"
-	"github.com/naiba/nezha/pkg/grpcx"
-	"github.com/naiba/nezha/pkg/utils"
+	"github.com/hi2shark/santaizi-dashboard/pkg/ddns"
+	"github.com/hi2shark/santaizi-dashboard/pkg/geoip"
+	"github.com/hi2shark/santaizi-dashboard/pkg/grpcx"
+	"github.com/hi2shark/santaizi-dashboard/pkg/utils"
 
 	"github.com/jinzhu/copier"
 	"github.com/nicksnyder/go-i18n/v2/i18n"
 
-	"github.com/naiba/nezha/model"
-	pb "github.com/naiba/nezha/proto"
-	"github.com/naiba/nezha/service/singleton"
+	"github.com/hi2shark/santaizi-dashboard/model"
+	pb "github.com/hi2shark/santaizi-dashboard/proto"
+	"github.com/hi2shark/santaizi-dashboard/service/singleton"
 )
 
-var NezhaHandlerSingleton *NezhaHandler
+var SantaiziHandlerSingleton *SantaiziHandler
 
-type NezhaHandler struct {
+type SantaiziHandler struct {
+	pb.UnimplementedSantaiziServiceServer
 	Auth          *authHandler
 	ioStreams     map[string]*ioStreamContext
 	ioStreamMutex *sync.RWMutex
 }
 
-func NewNezhaHandler() *NezhaHandler {
-	return &NezhaHandler{
+func NewSantaiziHandler() *SantaiziHandler {
+	return &SantaiziHandler{
 		Auth:          &authHandler{},
 		ioStreamMutex: new(sync.RWMutex),
 		ioStreams:     make(map[string]*ioStreamContext),
 	}
 }
 
-func (s *NezhaHandler) ReportTask(c context.Context, r *pb.TaskResult) (*pb.Receipt, error) {
+func (s *SantaiziHandler) ReportTask(c context.Context, r *pb.TaskResult) (*pb.Receipt, error) {
 	var err error
 	var clientID uint64
 	if clientID, err = s.Auth.Check(c); err != nil {
@@ -85,7 +86,7 @@ func (s *NezhaHandler) ReportTask(c context.Context, r *pb.TaskResult) (*pb.Rece
 	return &pb.Receipt{Proced: true}, nil
 }
 
-func (s *NezhaHandler) RequestTask(h *pb.Host, stream pb.NezhaService_RequestTaskServer) error {
+func (s *SantaiziHandler) RequestTask(h *pb.Host, stream pb.SantaiziService_RequestTaskServer) error {
 	var clientID uint64
 	var err error
 	if clientID, err = s.Auth.Check(stream.Context()); err != nil {
@@ -105,7 +106,7 @@ func (s *NezhaHandler) RequestTask(h *pb.Host, stream pb.NezhaService_RequestTas
 	return <-closeCh
 }
 
-func (s *NezhaHandler) ReportSystemState(c context.Context, r *pb.State) (*pb.Receipt, error) {
+func (s *SantaiziHandler) ReportSystemState(c context.Context, r *pb.State) (*pb.Receipt, error) {
 	var clientID uint64
 	var err error
 	if clientID, err = s.Auth.Check(c); err != nil {
@@ -140,7 +141,7 @@ func (s *NezhaHandler) ReportSystemState(c context.Context, r *pb.State) (*pb.Re
 	return &pb.Receipt{Proced: true}, nil
 }
 
-func (s *NezhaHandler) ReportSystemInfo(c context.Context, r *pb.Host) (*pb.Receipt, error) {
+func (s *SantaiziHandler) ReportSystemInfo(c context.Context, r *pb.Host) (*pb.Receipt, error) {
 	var clientID uint64
 	var err error
 	if clientID, err = s.Auth.Check(c); err != nil {
@@ -205,7 +206,7 @@ func (s *NezhaHandler) ReportSystemInfo(c context.Context, r *pb.Host) (*pb.Rece
 				}(provider)
 			}
 		} else {
-			log.Printf("NEZHA>> 获取DDNS配置时发生错误: %v", err)
+			log.Printf("SANTAIZI>> 获取DDNS配置时发生错误: %v", err)
 		}
 	}
 
@@ -231,7 +232,7 @@ func (s *NezhaHandler) ReportSystemInfo(c context.Context, r *pb.Host) (*pb.Rece
 	return &pb.Receipt{Proced: true}, nil
 }
 
-func (s *NezhaHandler) IOStream(stream pb.NezhaService_IOStreamServer) error {
+func (s *SantaiziHandler) IOStream(stream pb.SantaiziService_IOStreamServer) error {
 	if _, err := s.Auth.Check(stream.Context()); err != nil {
 		return err
 	}
@@ -256,7 +257,7 @@ func (s *NezhaHandler) IOStream(stream pb.NezhaService_IOStreamServer) error {
 	return nil
 }
 
-func (s *NezhaHandler) LookupGeoIP(c context.Context, r *pb.GeoIP) (*pb.GeoIP, error) {
+func (s *SantaiziHandler) LookupGeoIP(c context.Context, r *pb.GeoIP) (*pb.GeoIP, error) {
 	var clientID uint64
 	var err error
 	if clientID, err = s.Auth.Check(c); err != nil {

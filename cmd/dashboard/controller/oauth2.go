@@ -10,16 +10,16 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/naiba/nezha/pkg/oidc/cloudflare"
-	myOidc "github.com/naiba/nezha/pkg/oidc/general"
+	"github.com/hi2shark/santaizi-dashboard/pkg/oidc/cloudflare"
+	myOidc "github.com/hi2shark/santaizi-dashboard/pkg/oidc/general"
 
 	"code.gitea.io/sdk/gitea"
 	"github.com/gin-gonic/gin"
 	GitHubAPI "github.com/google/go-github/v47/github"
-	"github.com/naiba/nezha/model"
-	"github.com/naiba/nezha/pkg/mygin"
-	"github.com/naiba/nezha/pkg/utils"
-	"github.com/naiba/nezha/service/singleton"
+	"github.com/hi2shark/santaizi-dashboard/model"
+	"github.com/hi2shark/santaizi-dashboard/pkg/mygin"
+	"github.com/hi2shark/santaizi-dashboard/pkg/utils"
+	"github.com/hi2shark/santaizi-dashboard/service/singleton"
 	"github.com/patrickmn/go-cache"
 	"github.com/xanzy/go-gitlab"
 	"golang.org/x/oauth2"
@@ -224,7 +224,7 @@ func (oa *oauth2controller) callback(c *gin.Context) {
 				defer resp.Body.Close()
 				var cloudflareUserInfo *cloudflare.UserInfo
 				if err := utils.Json.NewDecoder(resp.Body).Decode(&cloudflareUserInfo); err == nil {
-					user = cloudflareUserInfo.MapToNezhaUser()
+					user = cloudflareUserInfo.MapToSantaiziUser()
 				}
 			}
 		} else if singleton.Conf.Oauth2.Type == model.ConfigTypeOidc {
@@ -236,7 +236,7 @@ func (oa *oauth2controller) callback(c *gin.Context) {
 				autoCreate := singleton.Conf.Oauth2.OidcAutoCreate
 				var oidceUserInfo *myOidc.UserInfo
 				if err := userInfo.Claims(&oidceUserInfo); err == nil {
-					user = oidceUserInfo.MapToNezhaUser(loginClaim, groupClain, adminGroups, autoCreate)
+					user = oidceUserInfo.MapToSantaiziUser(loginClaim, groupClain, adminGroups, autoCreate)
 				}
 			}
 		} else {

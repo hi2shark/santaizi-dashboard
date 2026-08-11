@@ -50,7 +50,7 @@
             countryServer: [],
             countryNameMap: {},
             countryMapChartData: [],
-            countryMapGeoFile: localStorage.getItem("countryMapGeoFile") ? localStorage.getItem("countryMapGeoFile") : 'nezha.world.geo.json',
+            countryMapGeoFile: localStorage.getItem("countryMapGeoFile") ? localStorage.getItem("countryMapGeoFile") : 'santaizi.world.geo.json',
             sensorList: [
                 'TC0D', //CPU Die 温度，代表 CPU 内部的温度
                 'TC0H', //CPU Heatsink 温度，代表 CPU 散热器的温度
@@ -169,7 +169,7 @@
                 return nodes;
             },
             initCountryMap() {
-                return fetch(this.staticUrl + '/maps/nezha.countrymap.json')
+                return fetch(this.staticUrl + '/maps/santaizi.countrymap.json')
                     .then(response => response.json())
                     .then(data => {
                         return data;
@@ -188,7 +188,7 @@
                 let exist = {};
                 this.servers.forEach(item => {
                     if (item.Host.CountryCode) {
-                        if(this.countryMapGeoFile == 'nezha.world.geo.json' || this.countryMapGeoFile == 'nezha.world.antarctica.geo.json') {
+                        if(this.countryMapGeoFile == 'santaizi.world.geo.json' || this.countryMapGeoFile == 'santaizi.world.antarctica.geo.json') {
                             if(item.Host.CountryCode.toLowerCase() == 'tw' || item.Host.CountryCode.toLowerCase() == 'hk' || item.Host.CountryCode.toLowerCase() == 'mo') item.Host.CountryCode = 'cn';
                         }
                         if (!exist[item.Host.CountryCode]) {
@@ -253,7 +253,7 @@
                 fetch(this.staticUrl + '/maps/' + this.countryMapGeoFile)
                     .then(response => response.json())
                     .then(worldMap => {
-                        echarts.registerMap('nezha-world-map', worldMap);
+                        echarts.registerMap('santaizi-world-map', worldMap);
                         const option = {
                             title: {
                                 show: false,
@@ -293,7 +293,7 @@
                             series: [
                                 {
                                     type: 'map',
-                                    map: 'nezha-world-map',
+                                    map: 'santaizi-world-map',
                                     roam: true,
                                     label: {
                                         show: false,

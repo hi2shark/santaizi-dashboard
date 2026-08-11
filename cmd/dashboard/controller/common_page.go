@@ -15,13 +15,13 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/sync/singleflight"
 
-	"github.com/naiba/nezha/model"
-	"github.com/naiba/nezha/pkg/mygin"
-	"github.com/naiba/nezha/pkg/utils"
-	"github.com/naiba/nezha/pkg/websocketx"
-	"github.com/naiba/nezha/proto"
-	"github.com/naiba/nezha/service/rpc"
-	"github.com/naiba/nezha/service/singleton"
+	"github.com/hi2shark/santaizi-dashboard/model"
+	"github.com/hi2shark/santaizi-dashboard/pkg/mygin"
+	"github.com/hi2shark/santaizi-dashboard/pkg/utils"
+	"github.com/hi2shark/santaizi-dashboard/pkg/websocketx"
+	"github.com/hi2shark/santaizi-dashboard/proto"
+	"github.com/hi2shark/santaizi-dashboard/service/rpc"
+	"github.com/hi2shark/santaizi-dashboard/service/singleton"
 )
 
 type commonPage struct {
@@ -318,7 +318,7 @@ func (cp *commonPage) terminal(c *gin.Context) {
 		return
 	}
 	streamId := c.Param("id")
-	if _, err := rpc.NezhaHandlerSingleton.GetStream(streamId); err != nil {
+	if _, err := rpc.SantaiziHandlerSingleton.GetStream(streamId); err != nil {
 		mygin.ShowErrorPage(c, mygin.ErrInfo{
 			Code:  http.StatusForbidden,
 			Title: "无权访问",
@@ -328,7 +328,7 @@ func (cp *commonPage) terminal(c *gin.Context) {
 		}, true)
 		return
 	}
-	defer rpc.NezhaHandlerSingleton.CloseStream(streamId)
+	defer rpc.SantaiziHandlerSingleton.CloseStream(streamId)
 
 	wsConn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
@@ -356,11 +356,11 @@ func (cp *commonPage) terminal(c *gin.Context) {
 		}
 	}()
 
-	if err = rpc.NezhaHandlerSingleton.UserConnected(streamId, conn); err != nil {
+	if err = rpc.SantaiziHandlerSingleton.UserConnected(streamId, conn); err != nil {
 		return
 	}
 
-	_ = rpc.NezhaHandlerSingleton.StartStream(streamId, time.Second*10)
+	_ = rpc.SantaiziHandlerSingleton.StartStream(streamId, time.Second*10)
 }
 
 type createTerminalRequest struct {
@@ -406,7 +406,7 @@ func (cp *commonPage) createTerminal(c *gin.Context) {
 		return
 	}
 
-	rpc.NezhaHandlerSingleton.CreateStream(streamId)
+	rpc.SantaiziHandlerSingleton.CreateStream(streamId)
 
 	singleton.ServerLock.RLock()
 	server := singleton.ServerList[createTerminalReq.ID]
@@ -458,7 +458,7 @@ func (cp *commonPage) fm(c *gin.Context) {
 		return
 	}
 	streamId := c.Param("id")
-	if _, err := rpc.NezhaHandlerSingleton.GetStream(streamId); err != nil {
+	if _, err := rpc.SantaiziHandlerSingleton.GetStream(streamId); err != nil {
 		mygin.ShowErrorPage(c, mygin.ErrInfo{
 			Code:  http.StatusForbidden,
 			Title: "无权访问",
@@ -468,7 +468,7 @@ func (cp *commonPage) fm(c *gin.Context) {
 		}, true)
 		return
 	}
-	defer rpc.NezhaHandlerSingleton.CloseStream(streamId)
+	defer rpc.SantaiziHandlerSingleton.CloseStream(streamId)
 
 	wsConn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
@@ -496,11 +496,11 @@ func (cp *commonPage) fm(c *gin.Context) {
 		}
 	}()
 
-	if err = rpc.NezhaHandlerSingleton.UserConnected(streamId, conn); err != nil {
+	if err = rpc.SantaiziHandlerSingleton.UserConnected(streamId, conn); err != nil {
 		return
 	}
 
-	_ = rpc.NezhaHandlerSingleton.StartStream(streamId, time.Second*10)
+	_ = rpc.SantaiziHandlerSingleton.StartStream(streamId, time.Second*10)
 }
 
 func (cp *commonPage) createFM(c *gin.Context) {
@@ -530,7 +530,7 @@ func (cp *commonPage) createFM(c *gin.Context) {
 		return
 	}
 
-	rpc.NezhaHandlerSingleton.CreateStream(streamId)
+	rpc.SantaiziHandlerSingleton.CreateStream(streamId)
 
 	serverId, err := strconv.Atoi(IdString)
 	if err != nil {

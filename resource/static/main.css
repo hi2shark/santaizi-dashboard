@@ -115,16 +115,16 @@ td {
   background-color: orange !important;
 }
 
-.nezha-primary-btn {
+.santaizi-primary-btn {
   background-color: #0338d6 !important;
   color: white !important;
 }
 
-.nezha-primary-font {
+.santaizi-primary-font {
   color: #0338d6 !important;
 }
 
-.nezha-secondary-font {
+.santaizi-secondary-font {
   color: rgb(10, 148, 242) !important;
 }
 
@@ -373,29 +373,29 @@ html body.dashboard-layout .ui.buttons .button {
   font-weight: 700;
 }
 
-html body.dashboard-layout .ui.button:not(.nezha-primary-btn):not(.positive):not(.negative):not(.red):not(.green),
+html body.dashboard-layout .ui.button:not(.santaizi-primary-btn):not(.positive):not(.negative):not(.red):not(.green),
 html body.dashboard-layout .ui.buttons .button {
   background: var(--dash-surface-soft) !important;
   color: var(--dash-text) !important;
   border-color: var(--dash-border) !important;
 }
 
-html body.dashboard-layout .ui.button:not(.nezha-primary-btn):not(.positive):not(.negative):not(.red):not(.green):hover,
+html body.dashboard-layout .ui.button:not(.santaizi-primary-btn):not(.positive):not(.negative):not(.red):not(.green):hover,
 html body.dashboard-layout .ui.buttons .button:hover {
   background: var(--dash-primary-soft) !important;
   color: var(--dash-primary-soft-text) !important;
 }
 
-html body.dashboard-layout .nezha-primary-btn,
+html body.dashboard-layout .santaizi-primary-btn,
 html body.dashboard-layout .ui.primary.button,
-html body.dashboard-layout .ui.positive.nezha-primary-btn.button {
+html body.dashboard-layout .ui.positive.santaizi-primary-btn.button {
   background: var(--dash-primary) !important;
   color: #ffffff !important;
 }
 
-html body.dashboard-layout .nezha-primary-btn:hover,
+html body.dashboard-layout .santaizi-primary-btn:hover,
 html body.dashboard-layout .ui.primary.button:hover,
-html body.dashboard-layout .ui.positive.nezha-primary-btn.button:hover {
+html body.dashboard-layout .ui.positive.santaizi-primary-btn.button:hover {
   background: var(--dash-primary-hover) !important;
   color: #ffffff !important;
 }

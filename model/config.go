@@ -153,7 +153,7 @@ func (c *Config) Read(path string) error {
 	c.k = koanf.New(".")
 	c.filePath = path
 
-	// 先读取环境变量，然后读取配置文件；后者可以覆盖前者，因为哪吒支持在线修改配置
+	// 先读取环境变量，然后读取配置文件；后者可以覆盖前者，因为三太子支持在线修改配置
 
 	err := c.k.Load(env.Provider("NZ_", ".", func(s string) string {
 		return strings.Replace(strings.ToLower(strings.TrimPrefix(s, "NZ_")), "_", ".", -1)
@@ -186,10 +186,10 @@ func (c *Config) Read(path string) error {
 	}
 
 	if c.Site.Brand == "" {
-		c.Site.Brand = "Nezha Monitoring"
+		c.Site.Brand = "Santaizi Monitoring"
 	}
 	if c.Site.CookieName == "" {
-		c.Site.CookieName = "nezha-dashboard"
+		c.Site.CookieName = "santaizi-dashboard"
 	}
 	if c.Site.Theme == "" {
 		c.Site.Theme = "default"
@@ -220,16 +220,16 @@ func (c *Config) Read(path string) error {
 	}
 	// 默认使用本仓库 script/ 目录下的 Agent 专用安装脚本
 	if c.InstallScript.Linux == "" {
-		c.InstallScript.Linux = "https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install_agent.sh"
+		c.InstallScript.Linux = "https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install_agent.sh"
 	}
 	if c.InstallScript.LinuxEn == "" {
-		c.InstallScript.LinuxEn = "https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install_agent_en.sh"
+		c.InstallScript.LinuxEn = "https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install_agent_en.sh"
 	}
 	if c.InstallScript.Windows == "" {
-		c.InstallScript.Windows = "https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install.ps1"
+		c.InstallScript.Windows = "https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install.ps1"
 	}
 	if c.InstallScript.MacOS == "" {
-		c.InstallScript.MacOS = "https://raw.githubusercontent.com/hi2shark/nezha-next/master/script/install.command"
+		c.InstallScript.MacOS = "https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install.command"
 	}
 	if c.Oauth2.OidcScopes == "" {
 		c.Oauth2.OidcScopes = "openid,profile,email"

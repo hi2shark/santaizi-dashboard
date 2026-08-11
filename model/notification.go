@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/naiba/nezha/pkg/utils"
+	"github.com/hi2shark/santaizi-dashboard/pkg/utils"
 )
 
 const (
@@ -169,7 +169,7 @@ func (ns *NotificationServerBundle) replaceParamsInString(str string, message st
 		}
 	}
 
-	str = strings.ReplaceAll(str, "#NEZHA#", mod(message))
+	str = strings.ReplaceAll(str, "#SANTAIZI#", mod(message))
 	str = strings.ReplaceAll(str, "#DATETIME#", mod(time.Now().In(ns.Loc).String()))
 
 	if ns.Server != nil {
