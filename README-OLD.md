@@ -2,41 +2,17 @@
   <br>
   <img width="360" style="max-width:80%" src="resource/static/brand.svg" title="三太子监控 Santaizi Monitoring">
   <br>
-  <small><i>LOGO designed by <a href="https://xio.ng" target="_blank">熊大</a> .</i></small>
-  <br><br>
-<img alt="GitHub release (with filter)" src="https://img.shields.io/github/v/release/hi2shark/santaizi-dashboard?color=brightgreen&style=for-the-badge&logo=github&label=Dashboard">&nbsp;<img src="https://img.shields.io/github/v/release/santaizihq/agent?color=brightgreen&label=Agent&style=for-the-badge&logo=github">&nbsp;<img src="https://img.shields.io/github/actions/workflow/status/santaizihq/agent/agent.yml?label=Agent%20CI&logo=github&style=for-the-badge">
   <br>
-  <br>
-  <p>:trollface: <b>Santaizi Monitoring: Self-hostable, lightweight, servers and websites monitoring and O&M tool.</b></p>
-  <p>Supports <b>monitoring</b> system status, HTTP (SSL certificate change, upcoming expiration, expired), TCP, Ping and supports <b>push alerts</b>, run scheduled tasks and <b>web terminal</b>.</p>
+  <p><b>Santaizi Monitoring</b></p>
+  <p>Self-hosted server status, reliable telemetry, HTTP/ICMP/TCP service monitoring, alerts, DDNS and explicitly authorized NAT tunnels.</p>
 </div>
-
-\>> Telegram Channel: [三太子监控（中文通知频道）](https://t.me/santaizinews)
-
-\>> Telegram Group: [Santaizi Monitoring Global (English Only)](https://t.me/santaizimonitoring_global), [三太子监控（中文群组）](https://t.me/santaizimonitoring)
-
-\>> [Use Cases | 我们的用户](https://www.google.com/search?q=%22powered+by+Santaizi+Monitoring%22+OR+%22powered+by+%E5%93%AA%E5%90%92%E7%9B%91%E6%8E%A7%22) (Google)  
-
-## User Guide
-
-- [English](https://santaizihq.github.io/en_US/index.html)
-- [中文文档](https://santaizihq.github.io/index.html)
-
-## Screenshots
-
-| Default Theme                                                                                 | DayNight [@JackieSung](https://github.com/JackieSung4ev)                                               | hotaru                                                                     |
-| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
-| ![Default Theme](resource/template/theme-default/screenshot.png)                              | <img src="resource/template/theme-daynight/screenshot.png" width="3000px"/>                            | <img src="resource/template/theme-hotaru/screenshot.png" width="1500px" /> |
-| <div align="center"><b>Neko Mdui <a href="https://github.com/MikoyChinese">@MikoyChinese</a></b></div> |      <div align="center"><b>AngelKanade <a href="https://github.com/adminsama">@adminsama</a></b></div>         |<div align="center"><b>ServerStatus <a href="https://github.com/unclezs">@unclezs</a></b></div> |
-| ![Neko Mdui](resource/template/theme-mdui/screenshot.png)                                              |        ![AngelKanade](resource/template/theme-angel-kanade/screenshot.png)            | ![默认主题魔改](resource/template/theme-server-status/screenshot.png)       |
 
 ## Supported Languages
 
 - English
-- 中文
+- 简体中文
+- 繁體中文
 - Español
-
-You can change the dashboard language in the settings page (`/setting`) after the dashboard is installed.
 
 ## Contributors
 

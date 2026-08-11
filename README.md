@@ -1,15 +1,16 @@
 # santaizi-dashboard  
 
-## 版本区别
- - v0-final基础上，让AI优化后的版本  
- - 来自ipinfo.io的GeoIP数据库只会Release时更新，因此，这里的v0-next会每周自动Release一次，并使用最新的GeoIP数据库。
- - 关于unpkg.com近期出现了不稳定的情况，因此，这里的v0-next下载了对应前端资源到项目中（目前覆盖控制台、默认主题、ServerStatus主题）。
- - 特别注意，本仓库只提供了docker镜像，不提供其它分发系统的构建内容，因为没有时间DEBUG。  
+三太子监控的 Dashboard 与 Collector。管理后台、公开 ServerStatus 和 API 文档均为独立 Vue 3 应用，默认嵌入 Go 二进制，也可在同域反向代理下外置部署。HTTP API v2 以 OpenAPI 3.0.3 为唯一契约。
+
+- 管理后台：`/admin/`
+- ServerStatus：`/`
+- 交互式 API 文档：`/docs/api/`
+- OpenAPI：`/openapi/v2.yaml`、`/openapi/v2.json`
 
 【版本声明 / 版权】  
 本项目基于 [哪吒监控 Nezha Monitoring](https://github.com/naiba/nezha) 衍生修改，原作者版权保留（Apache-2.0，`Copyright 2020 naiba`）。详见 [`LICENSE`](./LICENSE) 与 [`NOTICE`](./NOTICE)。  
-产品品牌为 **三太子 / Santaizi**；与上游 Nezha 线协议不兼容，须成对升级面板与探针。  
-本仓库仅为个人使用方便进行调整修改。[旧版 README](./README-OLD.md)
+产品品牌为 **三太子 / Santaizi**；Dashboard 与探针须成对升级。
+本仓库仅为个人使用方便进行调整修改。
 
 ## Docker Compose 部署 Santaizi Dashboard
 
@@ -44,7 +45,7 @@ curl -fsSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/
 sh install_dashboard.sh
 ```
 
-脚本会引导填写：工作目录、Web 端口、gRPC 端口、OAuth2 登录信息、站点标题与主题，然后自动生成 `docker-compose.yml` 和 `data/config.yaml` 并启动 Dashboard。
+脚本会引导填写工作目录、Web 端口、gRPC 端口、OAuth2 登录信息与站点标题，然后自动生成 `docker-compose.yml` 和 `config/dashboard.yaml` 并启动 Dashboard。公开端固定使用 ServerStatus，不再提供模板主题切换。
 
 ### 方式二：手动部署
 
@@ -68,7 +69,8 @@ services:
     volumes:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
-      - ./data:/dashboard/data
+      - ./data:/var/lib/santaizi-dashboard
+      - ./config/dashboard.yaml:/etc/santaizi/dashboard.yaml:ro
     environment:
       - TZ=Asia/Shanghai
 ```
@@ -77,16 +79,16 @@ services:
 > - `80` 为面板 Web 端口，可通过 `SANTAIZI_PORT` 环境变量改为其它端口，如 `SANTAIZI_PORT=8080`。
 > - `5555` 为 Agent 上报用的 gRPC 端口。
 >
-> 映射右侧的容器端口（`80` / `5555`）必须与容器内 `data/config.yaml` 里的 `httpport` / `grpcport` 保持一致。默认已对应，如需修改请同时调整配置文件。
+> 映射右侧的容器端口（`80` / `5555`）必须与容器内 `/etc/santaizi/dashboard.yaml` 里的 `httpport` / `grpcport` 保持一致。默认已对应，如需修改请同时调整配置文件。
 
-#### 3. 准备 `data/config.yaml`
+#### 3. 准备 `config/dashboard.yaml`
 
 ```bash
-mkdir -p data
-curl -fsSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/config.yaml -o data/config.yaml
+mkdir -p config data
+curl -fsSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/config.yaml -o config/dashboard.yaml
 ```
 
-编辑 `data/config.yaml`，至少填写以下字段：
+编辑 `config/dashboard.yaml`，至少填写以下字段：
 
 ```yaml
 httpport: 80
@@ -94,7 +96,7 @@ grpcport: 5555
 
 site:
   brand: "三太子监控"
-  theme: "default"
+  primarycolor: "#2563eb"
 
 oauth2:
   type: "github"
@@ -140,5 +142,7 @@ SANTAIZI_AGENT_REPO=your-repo/agent curl -fSL ... | bash -s -- install_agent ...
 ### 常见问题
 
 - **Agent 无法连接面板**：检查服务器防火墙是否放行 `5555` 端口，以及 `grpcport` 是否配置为 `5555`。
-- **一键安装脚本拉取失败**：可在 `data/config.yaml` 的 `installscript` 段替换为可访问的脚本地址。
+- **一键安装脚本拉取失败**：可在 `config/dashboard.yaml` 的 `installscript` 段替换为可访问的脚本地址。
 - **登录后没有管理员权限**：确认 `oauth2.admin` 填写的是 OAuth2 平台返回的 **用户名/ID**。
+
+可靠遥测、Collector 部署、保留策略和升级顺序见 [可靠遥测运维指南](docs/reliable-telemetry.md)。本版本只接受全新数据库；若数据库非空且没有 `schema_migrations`，Dashboard 会拒绝启动并保留原文件供诊断。
