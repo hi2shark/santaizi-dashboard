@@ -1,0 +1,9 @@
+extends:
+  - recommended
+
+# operationId is the stable generated-client contract and is intentionally the
+# concise operation description. Human-oriented explanations live in API docs.
+rules:
+  operation-summary: off
+  operation-4xx-response: off
+  info-license: off

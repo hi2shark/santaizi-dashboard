@@ -10,10 +10,11 @@ COPY --from=certs /etc/ssl/certs /etc/ssl/certs
 COPY ./script/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-WORKDIR /dashboard
+WORKDIR /opt/santaizi/dashboard
 COPY dist/dashboard-${TARGETOS}-${TARGETARCH} ./app
 
-VOLUME ["/dashboard/data"]
+RUN mkdir -p /etc/santaizi /var/lib/santaizi-dashboard
+VOLUME ["/var/lib/santaizi-dashboard"]
 EXPOSE 80 5555
 ARG TZ=Asia/Shanghai
 ENV TZ=$TZ

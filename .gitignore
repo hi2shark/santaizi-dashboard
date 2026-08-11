@@ -13,6 +13,7 @@
 *.pprof
 .idea
 /data
+/bin
 /dist
 .DS_Store
 /main
@@ -25,3 +26,16 @@
 /santaizi-agent
 /dashboard
 /app
+# Vue workspace build output and local caches
+node_modules/
+.pnpm-store/
+web/apps/*/dist/
+web/apps/api-docs/docs/.vitepress/.temp/
+web/apps/api-docs/docs/.vitepress/cache/
+resource/web/**/assets/
+resource/web/**/favicon.*
+resource/web/**/index.html
+resource/web/**/manifest.webmanifest
+!resource/web/**/.keep
+playwright-report/
+test-results/

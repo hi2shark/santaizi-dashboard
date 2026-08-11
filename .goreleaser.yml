@@ -1,7 +1,7 @@
 version: 2
 before:
   hooks:
-    - go mod tidy -v
+    - go mod download
 builds:
   - id: linux_amd64
     env:

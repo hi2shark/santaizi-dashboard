@@ -13,5 +13,5 @@ services:
     volumes:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
-      - ./data:/dashboard/data
-      # - ./resource:/dashboard/resource
+      - ./data:/var/lib/santaizi-dashboard
+      - ./script/config.yaml:/etc/santaizi/dashboard.yaml:ro

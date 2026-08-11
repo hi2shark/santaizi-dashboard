@@ -1,0 +1,31 @@
+{
+  "name": "santaizi-web-workspace",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.15.1",
+  "scripts": {
+    "dev:admin": "pnpm --filter @santaizi/admin dev",
+    "dev:status": "pnpm --filter @santaizi/status dev",
+    "dev:docs": "pnpm --filter @santaizi/api-docs dev",
+    "lint:openapi": "redocly lint openapi/v2.yaml",
+    "generate:ts-api": "orval --config web/orval.config.ts",
+    "generate:go-api": "go generate ./internal/openapiv2",
+    "generate:api": "pnpm generate:ts-api && pnpm generate:go-api",
+    "build": "pnpm generate:ts-api && pnpm -r --filter './web/apps/**' build",
+    "typecheck": "pnpm -r --filter './web/apps/**' typecheck",
+    "test": "pnpm -r --if-present test",
+    "test:e2e": "playwright test",
+    "check": "pnpm lint:openapi && pnpm generate:api && pnpm typecheck && pnpm test && pnpm -r --filter './web/apps/**' build"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1",
+    "@redocly/cli": "2.46.0",
+    "orval": "8.24.0",
+    "typescript": "6.0.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "typescript": "6.0.3"
+    }
+  }
+}
