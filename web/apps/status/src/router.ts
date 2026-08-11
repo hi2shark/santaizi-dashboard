@@ -1,0 +1,2 @@
+import { createRouter,createWebHistory } from 'vue-router'
+export const router=createRouter({history:createWebHistory('/'),routes:[{path:'/',component:()=>import('./pages/HomePage.vue')},{path:'/service',component:()=>import('./pages/ServicesPage.vue')},{path:'/network',component:()=>import('./pages/NetworkPage.vue')},{path:'/view-password',component:()=>import('./pages/ViewPasswordPage.vue')},{path:'/:pathMatch(.*)*',redirect:'/'}]})

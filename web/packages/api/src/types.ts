@@ -1,0 +1,106 @@
+export type Locale = 'zh-CN' | 'zh-TW' | 'en-US' | 'es-ES'
+export type ThemeMode = 'system' | 'light' | 'dark'
+
+export interface ApiData<T> { data: T }
+export interface ApiList<T> {
+  data: T[]
+  meta: { page?: number; page_size?: number; total?: number; next_cursor?: string }
+}
+
+export interface ProblemDetails {
+  type?: string
+  title: string
+  status: number
+  code: string
+  detail?: string
+  trace_id?: string
+  errors?: Record<string, string[]>
+}
+
+export interface SessionUser {
+  id: number
+  login: string
+  name: string
+  avatar_url?: string
+  super_admin: boolean
+}
+
+export interface SessionState {
+  authenticated: boolean
+  user?: SessionUser
+  csrf_token: string
+  login_url: string
+  capabilities: string[]
+}
+
+export interface SiteBootstrap {
+  brand: string
+  locale: Locale
+  version: string
+  csrf_token?: string
+  logo_url: string
+  background_url?: string
+  footer_text?: string
+  primary_color?: string
+  custom_css?: string
+  requires_view_password: boolean
+  view_password_verified: boolean
+  show_availability: boolean
+  authenticated: boolean
+}
+
+export interface ServerTelemetryPresentation {
+  host: string
+  connectivity: string
+  available: boolean | null
+  coverage: string
+}
+
+export interface ServerRecord extends ResourceRecord {
+  id: number
+  name: string
+  tag: string
+  secret?: string
+  note?: string
+  public_note?: Record<string, unknown>
+  monitoring_options?: Record<string, boolean>
+  display_index: number
+  hide_for_guest: boolean
+  enable_ddns: boolean
+  ddns_profiles?: number[]
+  host?: Record<string, unknown>
+  state?: Record<string, unknown>
+  last_active?: string
+  online?: boolean
+  telemetry?: ServerTelemetryPresentation
+}
+
+export interface CollectorRecord {
+  id: string
+  name: string
+  address: string
+  tls: boolean
+  insecure_tls: boolean
+  generation: number
+  config_version: number
+  revoked: boolean
+  status?: string
+  last_seen?: string
+  spool_size?: number
+  pending_records?: number
+  oldest_pending?: string
+  replication_cursor?: number
+  connected_agents?: number
+  protocol_version?: string
+  scopes?: Array<{ type: string; value: string }>
+}
+
+export interface ResourceRecord { id?: number | string; [key: string]: unknown }
+export interface ResourceQuery {
+  page?: number
+  page_size?: number
+  q?: string
+  sort?: string
+  order?: 'asc' | 'desc'
+  [key: string]: string | number | boolean | undefined
+}
