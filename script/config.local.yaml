@@ -1,0 +1,50 @@
+# 本地 Primary 开发配置模板（由 script/start-local.sh 复制到 data/dashboard.yaml）
+# mock OAuth 仅在 debug: true 时可用，切勿用于生产。
+
+debug: true
+mode: primary
+httpport: 8000
+grpcport: 5555
+language: zh-CN
+location: Asia/Shanghai
+
+oauth2:
+  type: mock
+  admin: "admin"
+  clientid: ""
+  clientsecret: ""
+  endpoint: ""
+
+site:
+  brand: "三太子监控（本地）"
+  cookiename: "santaizi-dashboard"
+  primarycolor: "#2563eb"
+
+web:
+  delivery: "embedded"
+
+telemetry:
+  # start-local.sh 会在首次生成时改写为绝对路径
+  data_dir: "./data"
+  state_interval_seconds: 5
+  heartbeat_interval_seconds: 10
+  offline_threshold_seconds: 30
+  ingest_batch_size: 256
+  ingest_queue_size: 4096
+  credential_validity_days: 30
+  credential_refresh_days: 7
+  credential_grace_days: 7
+  availability_bucket_seconds: 30
+  min_observers: 1
+
+rollup:
+  enabled: true
+  batch_size: 1000
+
+retention:
+  state_raw_hours: 6
+  state_one_minute_days: 30
+  state_one_hour_days: 365
+  observation_days: 30
+  lifecycle_days: 3650
+  batch_size: 1000

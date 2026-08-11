@@ -1,14 +1,41 @@
 debug: false
+mode: primary
 httpport: 80
-language: nz_language
-grpcport: nz_grpc_port
+language: santaizi_language
+grpcport: santaizi_grpc_port
 oauth2:
-  type: "nz_oauth2_type" #Oauth2 登录接入类型，github/gitlab/jihulab/gitee/gitea
-  admin: "nz_admin_logins" #管理员列表，半角逗号隔开
-  clientid: "nz_github_oauth_client_id" # 在 https://github.com/settings/developers 创建，无需审核 Callback 填 http(s)://域名或IP/oauth2/callback
-  clientsecret: "nz_github_oauth_client_secret"
+  type: "santaizi_oauth2_type" #Oauth2 登录接入类型，github/gitlab/jihulab/gitee/gitea
+  admin: "santaizi_admin_logins" #管理员列表，半角逗号隔开
+  clientid: "santaizi_github_oauth_client_id" # 在 https://github.com/settings/developers 创建，无需审核 Callback 填 http(s)://域名或IP/oauth2/callback
+  clientsecret: "santaizi_github_oauth_client_secret"
   endpoint: "" # 如gitea自建需要设置
 site:
-  brand: "nz_site_title"
+  brand: "santaizi_site_title"
   cookiename: "santaizi-dashboard" #浏览器 Cookie 字段名，可不改
-  theme: "default"
+  primarycolor: "#2563eb"
+  logourl: "/static/logo.svg"
+  backgroundurl: "/static/theme-server-status/img/bg.jpg"
+web:
+  delivery: "embedded" # external 仅用于同域反向代理托管已构建 SPA
+telemetry:
+  data_dir: "/var/lib/santaizi-dashboard"
+  state_interval_seconds: 5
+  heartbeat_interval_seconds: 10
+  offline_threshold_seconds: 30
+  ingest_batch_size: 256
+  ingest_queue_size: 4096
+  credential_validity_days: 30
+  credential_refresh_days: 7
+  credential_grace_days: 7
+  availability_bucket_seconds: 30
+  min_observers: 1
+rollup:
+  enabled: true
+  batch_size: 1000
+retention:
+  state_raw_hours: 6
+  state_one_minute_days: 30
+  state_one_hour_days: 365
+  observation_days: 30
+  lifecycle_days: 3650
+  batch_size: 1000

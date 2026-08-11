@@ -220,22 +220,23 @@ services:
     volumes:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
-      - ./data:/dashboard/data
+      - ./data:/var/lib/santaizi-dashboard
+      - ./config/dashboard.yaml:/etc/santaizi/dashboard.yaml:ro
     environment:
       - TZ=Asia/Shanghai
 EOF
 }
 
 write_config() {
-    mkdir -p "$1/data"
+    mkdir -p "$1/data" "$1/config"
     oauth2_type=$(yaml_escape "$OAUTH2_TYPE")
     oauth2_admin=$(yaml_escape "$OAUTH2_ADMIN")
     oauth2_clientid=$(yaml_escape "$OAUTH2_CLIENTID")
     oauth2_clientsecret=$(yaml_escape "$OAUTH2_CLIENTSECRET")
     oauth2_endpoint=$(yaml_escape "$OAUTH2_ENDPOINT")
     site_brand=$(yaml_escape "$SITE_BRAND")
-    site_theme=$(yaml_escape "$SITE_THEME")
-    cat > "$1/data/config.yaml" <<EOF
+    cat > "$1/config/dashboard.yaml" <<EOF
+mode: primary
 debug: false
 httpport: 80
 language: zh-CN
@@ -249,7 +250,8 @@ oauth2:
 site:
   brand: '${site_brand}'
   cookiename: "santaizi-dashboard"
-  theme: '${site_theme}'
+telemetry:
+  data_dir: /var/lib/santaizi-dashboard
 EOF
 }
 
@@ -306,8 +308,6 @@ main() {
 
     SITE_BRAND=$(prompt "站点标题" "三太子监控")
     SITE_BRAND=${SITE_BRAND:-三太子监控}
-    SITE_THEME=$(prompt "主题 (default/daynight/hotaru/mdui/angel-kanade/server-status)" "default")
-    SITE_THEME=${SITE_THEME:-default}
 
     info "正在生成配置文件..."
     mkdir -p data
@@ -324,7 +324,7 @@ main() {
     success "Santaizi Dashboard 安装完成！"
     success "访问地址: http://${SERVER_IP}:${WEB_PORT}"
     success "工作目录: ${WORK_DIR}"
-    success "配置文件: ${WORK_DIR}/data/config.yaml"
+    success "配置文件: ${WORK_DIR}/config/dashboard.yaml"
     info "安装 Agent：进入后台 → 服务器 → 添加服务器 → 使用一键安装命令。"
 }
 

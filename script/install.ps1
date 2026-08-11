@@ -1,110 +1,112 @@
-#Get server and key
-param($server, $key, $tls)
+param(
+    [Parameter(Mandatory = $true, Position = 0)] [string] $Server,
+    [Parameter(Mandatory = $true, Position = 1)] [ValidateRange(1, 65535)] [int] $Port,
+    [Parameter(Mandatory = $true, Position = 2)] [string] $Key,
+    [switch] $Tls,
+    [switch] $InsecureTls,
+    [switch] $CleanInstall,
+    [switch] $ConfirmCleanInstall,
+    [switch] $DisableCpu,
+    [switch] $DisableMemory,
+    [switch] $DisableDisk,
+    [switch] $DisableNetwork,
+    [switch] $DisableConnections,
+    [switch] $DisableProcesses,
+    [switch] $Temperature,
+    [switch] $Gpu,
+    [switch] $DisableHostInfo,
+    [switch] $DisableIpReport,
+    [switch] $DisableHttpProbe,
+    [switch] $DisableIcmpProbe,
+    [switch] $DisableTcpProbe,
+    [switch] $DisableNat
+)
 
-# Agent repo can be overridden via environment variable SANTAIZI_AGENT_REPO
-$agentrepo = if ($env:SANTAIZI_AGENT_REPO) { $env:SANTAIZI_AGENT_REPO } else { "hi2shark/santaizi-agent" }
+$ErrorActionPreference = "Stop"
+$AgentRepository = if ($env:SANTAIZI_AGENT_REPO) { $env:SANTAIZI_AGENT_REPO } else { "hi2shark/santaizi-agent" }
+$InstallDirectory = "C:\santaizi"
+$AgentBinary = "C:\santaizi\santaizi-agent.exe"
+$ConfigurationDirectory = "C:\ProgramData\santaizi"
+$ConfigurationPath = "C:\ProgramData\santaizi\agent.yaml"
+$DataDirectory = "C:\ProgramData\santaizi-agent"
 
-# Download latest release from github
-if($PSVersionTable.PSVersion.Major -lt 5){
-    Write-Host "Require PS >= 5,your PSVersion:"$PSVersionTable.PSVersion.Major -BackgroundColor DarkGreen -ForegroundColor White
-    Write-Host "Refer to the community article and install manually! https://nyko.me/2020/12/13/santaizi-windows-client.html" -BackgroundColor DarkRed -ForegroundColor Green
-    exit
+if ($PSVersionTable.PSVersion.Major -lt 5) {
+    throw "Santaizi Agent requires PowerShell 5 or later."
+}
+if ($CleanInstall -and -not $ConfirmCleanInstall) {
+    throw "Clean install removes the existing agent configuration, identity, and WAL. Add -ConfirmCleanInstall after confirming this action."
 }
 
-#  x86 or x64 or arm64
-if ([System.Environment]::Is64BitOperatingSystem) {
-    if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") {
-        $file = "santaizi-agent_windows_arm64.zip"
-    } else {
-        $file = "santaizi-agent_windows_amd64.zip"
+if ($CleanInstall) {
+    Write-Host "Running the confirmed clean installation..."
+    if (Test-Path $AgentBinary) {
+        try { & $AgentBinary service uninstall | Out-Null } catch { }
     }
-}
-else {
-    $file = "santaizi-agent_windows_386.zip"
-}
-
-$agentreleases = "https://api.github.com/repos/$agentrepo/releases"
-
-#重复运行自动更新
-if (Test-Path "C:\santaizi\santaizi-agent.exe") {
-    Write-Host "Santaizi monitoring already exists, delete and reinstall" -BackgroundColor DarkGreen -ForegroundColor White
-    C:\santaizi\santaizi-agent.exe service uninstall
-    Remove-Item "C:\santaizi" -Recurse
+    Stop-Service -Name "santaizi-agent" -Force -ErrorAction SilentlyContinue
+    if (Test-Path $InstallDirectory) { Remove-Item -LiteralPath $InstallDirectory -Recurse -Force }
+    if (Test-Path $ConfigurationPath) { Remove-Item -LiteralPath $ConfigurationPath -Force }
+    if (Test-Path $DataDirectory) { Remove-Item -LiteralPath $DataDirectory -Recurse -Force }
 }
 
-#TLS/SSL
-Write-Host "Determining latest santaizi release" -BackgroundColor DarkGreen -ForegroundColor White
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-$agenttag = (Invoke-WebRequest -Uri $agentreleases -UseBasicParsing | ConvertFrom-Json)[0].tag_name
+$Architecture = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "arm64" } elseif ([Environment]::Is64BitOperatingSystem) { "amd64" } else { "386" }
+$Release = Invoke-RestMethod -Uri "https://api.github.com/repos/$AgentRepository/releases/latest" -UseBasicParsing
+if (-not $Release.tag_name) { throw "Unable to determine the latest Santaizi Agent release." }
 
-if ([string]::IsNullOrWhiteSpace($agenttag)) {
-    $optionUrl = "https://fastly.jsdelivr.net/gh/$agentrepo/"
-    Try {
-        $response = Invoke-WebRequest -Uri $optionUrl -UseBasicParsing -TimeoutSec 10
-        if ($response.StatusCode -eq 200) {
-            $versiontext = $response.Content | findstr /c:"option.value"
-            $version = [regex]::Match($versiontext, "@(\d+\.\d+\.\d+)").Groups[1].Value
-            $agenttag = "v" + $version
-        }
-    } Catch {
-        $optionUrl = "https://gcore.jsdelivr.net/gh/$agentrepo/"
-        $response = Invoke-WebRequest -Uri $optionUrl -UseBasicParsing -TimeoutSec 10
-        if ($response.StatusCode -eq 200) {
-            $versiontext = $response.Content | findstr /c:"option.value"
-            $version = [regex]::Match($versiontext, "@(\d+\.\d+\.\d+)").Groups[1].Value
-            $agenttag = "v" + $version
-        }
-    }
+$ArchiveName = "santaizi-agent_windows_$Architecture.zip"
+$DownloadUrl = "https://github.com/$AgentRepository/releases/download/$($Release.tag_name)/$ArchiveName"
+$TemporaryRoot = Join-Path $env:TEMP ("santaizi-agent-install-" + [Guid]::NewGuid().ToString("N"))
+$ArchivePath = Join-Path $TemporaryRoot $ArchiveName
+$ExtractPath = Join-Path $TemporaryRoot "extract"
+
+New-Item -ItemType Directory -Path $TemporaryRoot, $ExtractPath -Force | Out-Null
+try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    Invoke-WebRequest -Uri $DownloadUrl -OutFile $ArchivePath -UseBasicParsing
+    Expand-Archive -LiteralPath $ArchivePath -DestinationPath $ExtractPath -Force
+    New-Item -ItemType Directory -Path $InstallDirectory, $ConfigurationDirectory, $DataDirectory -Force | Out-Null
+    Copy-Item -LiteralPath (Join-Path $ExtractPath "santaizi-agent.exe") -Destination $AgentBinary -Force
+} finally {
+    if (Test-Path $TemporaryRoot) { Remove-Item -LiteralPath $TemporaryRoot -Recurse -Force }
 }
 
-#Region判断
-$ipapi = ""
-$region = "Unknown"
-foreach ($url in ("https://dash.cloudflare.com/cdn-cgi/trace","https://developers.cloudflare.com/cdn-cgi/trace","https://1.0.0.1/cdn-cgi/trace")) {
-    try {
-        $ipapi = Invoke-RestMethod -Uri $url -TimeoutSec 5 -UseBasicParsing
-        if ($ipapi -match "loc=(\w+)" ) {
-            $region = $Matches[1]
-            break
-        }
-    }
-    catch {
-        Write-Host "Error occurred while querying $url : $_"
-    }
-}
+try { & $AgentBinary service uninstall | Out-Null } catch { }
 
-echo $ipapi
-
-if($region -ne "CN"){
-    $download = "https://github.com/$agentrepo/releases/download/$agenttag/$file"
-    Write-Host "Location:$region,connect directly!" -BackgroundColor DarkRed -ForegroundColor Green
+$Endpoint = if ($Server.StartsWith("[") -or -not $Server.Contains(":")) {
+    "{0}:{1}" -f $Server, $Port
 } else {
-    # For CN users, try the gitee mirror if the official santaizihq agent repo is used
-    $giteeRepo = $agentrepo -replace "^santaizihq/", "naibahq/"
-    $download = "https://gitee.com/$giteeRepo/releases/download/$agenttag/$file"
-    Write-Host "Location:CN,use mirror address" -BackgroundColor DarkRed -ForegroundColor Green
+    "[{0}]:{1}" -f $Server, $Port
 }
 
-echo $download
-Invoke-WebRequest $download -OutFile "C:\santaizi.zip"
+$InstallArguments = @(
+    "--config", $ConfigurationPath,
+    "--data-dir", $DataDirectory,
+    "-s", $Endpoint,
+    "-p", $Key
+)
 
-#解压
-Expand-Archive "C:\santaizi.zip" -DestinationPath "C:\temp" -Force
-if (!(Test-Path "C:\santaizi")) { New-Item -Path "C:\santaizi" -type directory }
-#整理文件
-Move-Item -Path "C:\temp\santaizi-agent.exe" -Destination "C:\santaizi\santaizi-agent.exe"
-#清理垃圾
-Remove-Item "C:\santaizi.zip"
-Remove-Item "C:\temp" -Recurse
-#安装部分
-$installArgs = @('-s', $server, '-p', $key)
-if ($tls) {
-    $installArgs += $tls
+$Switches = @(
+    @{ Enabled = $Tls; Flag = "--tls" },
+    @{ Enabled = $InsecureTls; Flag = "--insecure" },
+    @{ Enabled = $DisableCpu; Flag = "--disable-cpu" },
+    @{ Enabled = $DisableMemory; Flag = "--disable-memory" },
+    @{ Enabled = $DisableDisk; Flag = "--disable-disk" },
+    @{ Enabled = $DisableNetwork; Flag = "--disable-network" },
+    @{ Enabled = $DisableConnections; Flag = "--disable-connections" },
+    @{ Enabled = $DisableProcesses; Flag = "--disable-processes" },
+    @{ Enabled = $Temperature; Flag = "--temperature" },
+    @{ Enabled = $Gpu; Flag = "--gpu" },
+    @{ Enabled = $DisableHostInfo; Flag = "--disable-host-info" },
+    @{ Enabled = $DisableIpReport; Flag = "--disable-ip-report" },
+    @{ Enabled = $DisableHttpProbe; Flag = "--disable-http-probe" },
+    @{ Enabled = $DisableIcmpProbe; Flag = "--disable-icmp-probe" },
+    @{ Enabled = $DisableTcpProbe; Flag = "--disable-tcp-probe" },
+    @{ Enabled = $DisableNat; Flag = "--disable-nat" }
+)
+foreach ($Item in $Switches) {
+    if ($Item.Enabled) { $InstallArguments += $Item.Flag }
 }
-if ($args) {
-    $installArgs += $args
-}
-C:\santaizi\santaizi-agent.exe service install @installArgs
 
-#enjoy
-Write-Host "Enjoy It!" -BackgroundColor DarkGreen -ForegroundColor Red
+& $AgentBinary service install @InstallArguments
+if ($LASTEXITCODE -ne 0) { throw "Santaizi Agent service installation failed." }
+
+Write-Host "Santaizi Agent installed successfully."

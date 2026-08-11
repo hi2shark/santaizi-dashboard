@@ -15,7 +15,9 @@ Type=simple
 #User=root
 #Group=root
 WorkingDirectory=/opt/santaizi/dashboard/
-ExecStart=/opt/santaizi/dashboard/app
+ExecStart=/opt/santaizi/dashboard/app --config /etc/santaizi/dashboard.yaml --db /var/lib/santaizi-dashboard/sqlite.db
+StateDirectory=santaizi-dashboard
+ConfigurationDirectory=santaizi
 Restart=always
 #Environment=DEBUG=true
 

@@ -1,14 +1,10 @@
-version: "3.3"
-
 services:
   dashboard:
-    image: nz_image_url
+    image: santaizi_image_url
     restart: always
     volumes:
-      - ./data:/dashboard/data
-      - ./static-custom/static:/dashboard/resource/static/custom:ro
-      - ./theme-custom/template:/dashboard/resource/template/theme-custom:ro
-      - ./dashboard-custom/template:/dashboard/resource/template/dashboard-custom:ro
+      - ./data:/var/lib/santaizi-dashboard
+      - ./config/dashboard.yaml:/etc/santaizi/dashboard.yaml:ro
     ports:
-      - nz_site_port:80
-      - nz_grpc_port:nz_grpc_port
+      - santaizi_site_port:80
+      - santaizi_grpc_port:santaizi_grpc_port
