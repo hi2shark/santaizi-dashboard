@@ -57,16 +57,26 @@ func Authorize(opt AuthorizeOption) func(*gin.Context) {
 				apiToken = strings.TrimSpace(apiToken[len("bearer "):])
 			}
 			if apiToken != "" {
-				var u model.User
+				var userID uint64
+				var permission string
+				active := false
 				singleton.ApiLock.RLock()
-				if _, ok := singleton.ApiTokenList[apiToken]; ok {
-						err := singleton.DB.Where("id = ?", singleton.ApiTokenList[apiToken].UserID).First(&u).Error
-					isLogin = err == nil
+				if record, ok := singleton.ApiTokenList[apiToken]; ok && record.IsActive() {
+					active = true
+					userID = record.UserID
+					permission = record.NormalizedPermission()
 				}
 				singleton.ApiLock.RUnlock()
-				if isLogin {
-					c.Set(model.CtxKeyAuthorizedUser, &u)
-					c.Set("isAPI", true)
+				if active {
+					var u model.User
+					if err := singleton.DB.Where("id = ?", userID).First(&u).Error; err == nil {
+						isLogin = true
+						c.Set(model.CtxKeyAuthorizedUser, &u)
+						c.Set(model.CtxKeyIsAPI, true)
+						c.Set(model.CtxKeyAPITokenPermission, permission)
+					} else {
+						isLogin = false
+					}
 				}
 			}
 		}
@@ -81,6 +91,36 @@ func Authorize(opt AuthorizeOption) func(*gin.Context) {
 		if !isLogin && opt.MemberOnly {
 			ShowErrorPage(c, commonErr, opt.IsPage)
 			return
+		}
+	}
+}
+
+// RejectReadOnlyAPITokenWrites blocks mutating HTTP methods for read-only Bearer tokens.
+// Cookie sessions are unaffected.
+func RejectReadOnlyAPITokenWrites() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if isAPI, _ := c.Get(model.CtxKeyIsAPI); isAPI != true {
+			c.Next()
+			return
+		}
+		perm, _ := c.Get(model.CtxKeyAPITokenPermission)
+		if perm != model.ApiTokenPermissionRead {
+			c.Next()
+			return
+		}
+		switch c.Request.Method {
+		case http.MethodGet, http.MethodHead, http.MethodOptions:
+			c.Next()
+			return
+		default:
+			c.Header("Content-Type", "application/problem+json")
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"type":   "https://santaizi.dev/problems/api_token_read_only",
+				"title":  http.StatusText(http.StatusForbidden),
+				"status": http.StatusForbidden,
+				"code":   "api_token_read_only",
+				"detail": "只读 API Token 不能执行写操作",
+			})
 		}
 	}
 }

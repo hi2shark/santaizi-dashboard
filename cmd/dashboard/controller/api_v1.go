@@ -78,6 +78,7 @@ func (v *apiV1) serve() {
 		Btn:        "点此登录",
 		Redirect:   "/login",
 	}))
+	r.Use(mygin.RejectReadOnlyAPITokenWrites())
 	r.POST("/server/register", v.RegisterServer)
 	r.POST("/server/:id/reset-availability", v.resetServerAvailability)
 	r.GET("/offline-history", v.offlineHistory)

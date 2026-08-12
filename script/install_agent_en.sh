@@ -143,8 +143,25 @@ prepare_clean_install() {
     sudo systemctl disable santaizi-agent >/dev/null 2>&1 || true
     sudo rm -rf /opt/santaizi/agent /var/lib/santaizi-agent
     sudo rm -f /etc/santaizi/agent.yaml /etc/systemd/system/santaizi-agent.service
+
+    # Migration cleanup for the legacy upstream agent (nezha-agent).
+    if [ -x /opt/nezha/agent/nezha-agent ]; then
+        if [ -d /opt/nezha/agent ]; then
+            for cfg in /opt/nezha/agent/config.yml /opt/nezha/agent/config*.yml; do
+                [ -f "$cfg" ] || continue
+                sudo /opt/nezha/agent/nezha-agent service -c "$cfg" uninstall >/dev/null 2>&1 || true
+            done
+        fi
+        sudo /opt/nezha/agent/nezha-agent service uninstall >/dev/null 2>&1 || true
+    fi
+    sudo systemctl stop nezha-agent >/dev/null 2>&1 || true
+    sudo systemctl disable nezha-agent >/dev/null 2>&1 || true
+    sudo rm -rf /opt/nezha/agent /etc/nezha
+    sudo rm -f /etc/systemd/system/nezha-agent.service /lib/systemd/system/nezha-agent.service
+    sudo rm -f /Library/LaunchDaemons/com.nezha.agent.plist ~/Library/LaunchAgents/com.nezha.agent.plist 2>/dev/null || true
+
     sudo systemctl daemon-reload >/dev/null 2>&1 || true
-    success "Previous agent data removed; a new node identity will be generated."
+    success "Previous Santaizi agent and legacy nezha-agent data removed; a new node identity will be generated."
 }
 
 configure_agent() {

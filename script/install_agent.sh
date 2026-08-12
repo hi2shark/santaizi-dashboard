@@ -143,8 +143,26 @@ prepare_clean_install() {
     sudo systemctl disable santaizi-agent >/dev/null 2>&1 || true
     sudo rm -rf /opt/santaizi/agent /var/lib/santaizi-agent
     sudo rm -f /etc/santaizi/agent.yaml /etc/systemd/system/santaizi-agent.service
+
+    # 迁移清理：旧版上游探针（nezha-agent）常见安装路径
+    if [ -x /opt/nezha/agent/nezha-agent ]; then
+        if [ -d /opt/nezha/agent ]; then
+            for cfg in /opt/nezha/agent/config.yml /opt/nezha/agent/config*.yml; do
+                [ -f "$cfg" ] || continue
+                sudo /opt/nezha/agent/nezha-agent service -c "$cfg" uninstall >/dev/null 2>&1 || true
+            done
+        fi
+        sudo /opt/nezha/agent/nezha-agent service uninstall >/dev/null 2>&1 || true
+    fi
+    sudo systemctl stop nezha-agent >/dev/null 2>&1 || true
+    sudo systemctl disable nezha-agent >/dev/null 2>&1 || true
+    sudo rm -rf /opt/nezha/agent /etc/nezha
+    sudo rm -f /etc/systemd/system/nezha-agent.service /lib/systemd/system/nezha-agent.service
+    # macOS launchd 常见残留
+    sudo rm -f /Library/LaunchDaemons/com.nezha.agent.plist ~/Library/LaunchAgents/com.nezha.agent.plist 2>/dev/null || true
+
     sudo systemctl daemon-reload >/dev/null 2>&1 || true
-    success "现有 Agent 数据已清理，将生成新的节点身份。"
+    success "现有 Agent 与旧版 nezha-agent 数据已清理，将生成新的节点身份。"
 }
 
 configure_agent() {

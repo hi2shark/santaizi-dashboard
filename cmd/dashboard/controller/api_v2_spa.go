@@ -61,6 +61,7 @@ func registerSPAAPIV2(root gin.IRouter) {
 	admin := root.Group("v2/admin")
 	admin.Use(mygin.Authorize(mygin.AuthorizeOption{AllowAPI: true}))
 	admin.Use(v2RequireAdmin)
+	admin.Use(mygin.RejectReadOnlyAPITokenWrites())
 	admin.GET("/summary", v2AdminSummary)
 	admin.GET("/servers", v2AdminServers)
 	admin.POST("/servers", v2CreateServer)
@@ -84,6 +85,7 @@ func registerSPAAPIV2(root gin.IRouter) {
 	admin.GET("/api-tokens", v2ListAPITokens)
 	admin.POST("/api-tokens", v2CreateAPIToken)
 	admin.GET("/api-tokens/:id", v2GetAPIToken)
+	admin.PATCH("/api-tokens/:id", v2PatchAPIToken)
 	admin.DELETE("/api-tokens/:id", v2DeleteAPIToken)
 	admin.GET("/offline-history", v2OfflineHistory)
 	admin.DELETE("/offline-history/:id", v2DeleteOfflineHistory)
@@ -100,6 +102,7 @@ func registerSPAAPIV2(root gin.IRouter) {
 	telemetry.GET("/collectors/:id/token", v2CollectorToken)
 	telemetry.POST("/collectors/:id/revoke", v2RevokeCollector)
 	telemetry.PUT("/collectors/:id/scope", v2UpdateCollectorScope)
+	telemetry.POST("/collectors/:id/install-preview", v2CollectorInstallPreview)
 	for _, dataset := range []string{"assignments", "agents", "incidents", "incident-revisions", "data-loss", "alerts"} {
 		name := dataset
 		telemetry.GET("/"+name, func(c *gin.Context) {
@@ -194,7 +197,13 @@ func v2Session(c *gin.Context) {
 		user := value.(*model.User)
 		state["authenticated"] = true
 		state["user"] = gin.H{"id": user.ID, "login": user.Login, "name": user.Name, "avatar_url": user.AvatarURL, "super_admin": user.SuperAdmin}
-		state["capabilities"] = []string{"servers:write", "monitors:write", "notifications:write", "network:write", "telemetry:write", "settings:write"}
+		capabilities := []string{"servers:write", "monitors:write", "notifications:write", "network:write", "telemetry:write", "settings:write"}
+		if isAPI, _ := c.Get(model.CtxKeyIsAPI); isAPI == true {
+			if perm, _ := c.Get(model.CtxKeyAPITokenPermission); perm == model.ApiTokenPermissionRead {
+				capabilities = []string{"servers:read", "monitors:read", "notifications:read", "network:read", "telemetry:read", "settings:read"}
+			}
+		}
+		state["capabilities"] = capabilities
 	}
 	writeV2Data(c, http.StatusOK, state)
 }
@@ -1419,6 +1428,31 @@ func v2UpdateSettings(c *gin.Context) {
 	writeV2Data(c, 200, v2SettingsDTO())
 }
 
+func apiTokenDTO(token model.ApiToken, includePlain bool) gin.H {
+	prefix := token.Token
+	if len(prefix) > 8 {
+		prefix = prefix[:8]
+	}
+	var expires any
+	if token.ExpiresAt != nil {
+		expires = token.ExpiresAt.Format(time.RFC3339)
+	}
+	dto := gin.H{
+		"id":           token.ID,
+		"note":         token.Note,
+		"permission":   token.NormalizedPermission(),
+		"expires_at":   expires,
+		"enabled":      token.Enabled,
+		"expired":      token.IsExpired(),
+		"token_prefix": prefix + "…",
+		"created_at":   token.CreatedAt.Format(time.RFC3339),
+	}
+	if includePlain {
+		dto["token"] = token.Token
+	}
+	return dto
+}
+
 func v2ListAPITokens(c *gin.Context) {
 	user := c.MustGet(model.CtxKeyAuthorizedUser).(*model.User)
 	var tokens []model.ApiToken
@@ -1428,21 +1462,27 @@ func v2ListAPITokens(c *gin.Context) {
 	}
 	items := make([]gin.H, 0, len(tokens))
 	for _, token := range tokens {
-		prefix := token.Token
-		if len(prefix) > 8 {
-			prefix = prefix[:8]
-		}
-		items = append(items, gin.H{"id": token.ID, "note": token.Note, "token_prefix": prefix + "…", "created_at": token.CreatedAt.Format(time.RFC3339)})
+		items = append(items, apiTokenDTO(token, false))
 	}
 	writeV2List(c, items, v2Meta{Page: 1, PageSize: len(items), Total: int64(len(items))})
 }
 func v2CreateAPIToken(c *gin.Context) {
 	user := c.MustGet(model.CtxKeyAuthorizedUser).(*model.User)
 	var request struct {
-		Note string `json:"note" binding:"required"`
+		Note       string     `json:"note" binding:"required"`
+		Permission string     `json:"permission" binding:"required"`
+		ExpiresAt  *time.Time `json:"expires_at"`
 	}
 	if err := c.ShouldBindJSON(&request); err != nil {
 		writeV2Problem(c, 400, "invalid_token", err.Error())
+		return
+	}
+	if request.Permission != model.ApiTokenPermissionRead && request.Permission != model.ApiTokenPermissionWrite {
+		writeV2Problem(c, 400, "invalid_token_permission", "permission 必须是 read 或 write")
+		return
+	}
+	if request.ExpiresAt != nil && !request.ExpiresAt.After(time.Now()) {
+		writeV2Problem(c, 400, "invalid_token_expiry", "到期时间必须晚于当前时间")
 		return
 	}
 	plain, err := utils.GenerateRandomString(32)
@@ -1451,7 +1491,15 @@ func v2CreateAPIToken(c *gin.Context) {
 		return
 	}
 	hash := sha256.Sum256([]byte(plain))
-	token := model.ApiToken{UserID: user.ID, Token: plain, TokenHash: hash[:], Note: request.Note}
+	token := model.ApiToken{
+		UserID:     user.ID,
+		Token:      plain,
+		TokenHash:  hash[:],
+		Note:       request.Note,
+		Permission: request.Permission,
+		ExpiresAt:  request.ExpiresAt,
+		Enabled:    true,
+	}
 	if err := singleton.DB.Create(&token).Error; err != nil {
 		writeV2Problem(c, 500, "token_create_failed", err.Error())
 		return
@@ -1460,7 +1508,7 @@ func v2CreateAPIToken(c *gin.Context) {
 	singleton.ApiTokenList[plain] = &token
 	singleton.UserIDToApiTokenList[user.ID] = append(singleton.UserIDToApiTokenList[user.ID], plain)
 	singleton.ApiLock.Unlock()
-	writeV2Data(c, http.StatusCreated, gin.H{"id": token.ID, "note": token.Note, "token": plain, "created_at": token.CreatedAt.Format(time.RFC3339)})
+	writeV2Data(c, http.StatusCreated, apiTokenDTO(token, true))
 }
 func v2DeleteAPIToken(c *gin.Context) {
 	user := c.MustGet(model.CtxKeyAuthorizedUser).(*model.User)
@@ -1504,7 +1552,38 @@ func v2GetAPIToken(c *gin.Context) {
 		writeV2Problem(c, 404, "token_not_found", "Token 不存在")
 		return
 	}
-	writeV2Data(c, 200, gin.H{"id": token.ID, "note": token.Note, "token": token.Token, "created_at": token.CreatedAt.Format(time.RFC3339)})
+	writeV2Data(c, 200, apiTokenDTO(token, true))
+}
+
+func v2PatchAPIToken(c *gin.Context) {
+	user := c.MustGet(model.CtxKeyAuthorizedUser).(*model.User)
+	id, ok := v2ID(c)
+	if !ok {
+		return
+	}
+	var request struct {
+		Enabled *bool `json:"enabled" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil || request.Enabled == nil {
+		writeV2Problem(c, 400, "invalid_token_patch", "enabled 必填")
+		return
+	}
+	var token model.ApiToken
+	if err := singleton.DB.Where("user_id = ? AND id = ?", user.ID, id).First(&token).Error; err != nil {
+		writeV2Problem(c, 404, "token_not_found", "Token 不存在")
+		return
+	}
+	if err := singleton.DB.Model(&token).Update("enabled", *request.Enabled).Error; err != nil {
+		writeV2Problem(c, 500, "token_update_failed", err.Error())
+		return
+	}
+	token.Enabled = *request.Enabled
+	singleton.ApiLock.Lock()
+	if current, exists := singleton.ApiTokenList[token.Token]; exists {
+		current.Enabled = *request.Enabled
+	}
+	singleton.ApiLock.Unlock()
+	writeV2Data(c, 200, apiTokenDTO(token, false))
 }
 
 func v2OfflineHistory(c *gin.Context) {
@@ -1596,7 +1675,7 @@ func v2Collectors(c *gin.Context) {
 func v2Collector(c *gin.Context) {
 	var collector model.Collector
 	if err := singleton.DB.First(&collector, "collector_uuid = ? AND deleted = ?", c.Param("id"), false).Error; err != nil {
-		writeV2Problem(c, 404, "collector_not_found", "采集器不存在")
+		writeV2Problem(c, 404, "collector_not_found", "从端不存在")
 		return
 	}
 	writeV2Data(c, 200, collectorDTO(collector))
@@ -1669,7 +1748,7 @@ func v2RotateCollector(c *gin.Context) {
 	}
 	var collector model.Collector
 	if err := singleton.DB.First(&collector, "collector_uuid = ? AND deleted = ?", c.Param("id"), false).Error; err != nil {
-		writeV2Problem(c, 404, "collector_not_found", "采集器不存在")
+		writeV2Problem(c, 404, "collector_not_found", "从端不存在")
 		return
 	}
 	collector.TokenHash = hash
@@ -1690,10 +1769,59 @@ func v2RotateCollector(c *gin.Context) {
 func v2CollectorToken(c *gin.Context) {
 	var collector model.Collector
 	if err := singleton.DB.First(&collector, "collector_uuid = ? AND deleted = ?", c.Param("id"), false).Error; err != nil {
-		writeV2Problem(c, 404, "collector_not_found", "采集器不存在")
+		writeV2Problem(c, 404, "collector_not_found", "从端不存在")
 		return
 	}
 	writeV2Data(c, 200, gin.H{"collector_id": collector.CollectorUUID, "registration_token": collector.RegistrationToken, "revoked": collector.Revoked})
+}
+func v2CollectorInstallPreview(c *gin.Context) {
+	var collector model.Collector
+	if err := singleton.DB.First(&collector, "collector_uuid = ? AND deleted = ?", c.Param("id"), false).Error; err != nil {
+		writeV2Problem(c, 404, "collector_not_found", "从端不存在")
+		return
+	}
+	if strings.TrimSpace(collector.RegistrationToken) == "" {
+		writeV2Problem(c, 400, "invalid_collector", "从端注册 Token 不可用，请先轮换 Token")
+		return
+	}
+	var request collectorInstallPreviewDTO
+	if err := c.ShouldBindJSON(&request); err != nil {
+		writeV2Problem(c, 400, "invalid_install_preview", err.Error())
+		return
+	}
+	endpoint := strings.TrimSpace(request.PrimaryEndpoint)
+	if endpoint == "" {
+		host := singleton.Conf.GRPCHost
+		if host == "" {
+			host = "127.0.0.1"
+		}
+		endpoint = fmt.Sprintf("%s:%d", host, singleton.Conf.GRPCPort)
+	}
+	grpcPort := request.GRPCPort
+	if grpcPort == 0 {
+		parsed, err := parseCollectorListenPort(collector.Address)
+		if err != nil {
+			writeV2Problem(c, 400, "invalid_collector", err.Error())
+			return
+		}
+		grpcPort = parsed
+	}
+	if grpcPort < 1 || grpcPort > 65535 {
+		writeV2Problem(c, 400, "invalid_install_preview", "grpc_port must be between 1 and 65535")
+		return
+	}
+	script := singleton.Conf.InstallScript.Collector
+	if script == "" {
+		script = "https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install_collector.sh"
+	}
+	command := buildCollectorInstallCommand(script, endpoint, collector.RegistrationToken, grpcPort, request.PrimaryTLS, request.PrimaryInsecureTLS)
+	writeV2Data(c, 200, gin.H{
+		"command":              command,
+		"primary_endpoint":     endpoint,
+		"grpc_port":            grpcPort,
+		"primary_tls":          request.PrimaryTLS,
+		"primary_insecure_tls": request.PrimaryInsecureTLS,
+	})
 }
 func v2RevokeCollector(c *gin.Context) {
 	if err := disableCollector(c.Param("id"), false); err != nil {
@@ -1702,7 +1830,7 @@ func v2RevokeCollector(c *gin.Context) {
 	}
 	var collector model.Collector
 	if err := singleton.DB.First(&collector, "collector_uuid = ? AND deleted = ?", c.Param("id"), false).Error; err != nil {
-		writeV2Problem(c, 404, "collector_not_found", "采集器不存在")
+		writeV2Problem(c, 404, "collector_not_found", "从端不存在")
 		return
 	}
 	writeV2Data(c, 200, collectorDTO(collector))

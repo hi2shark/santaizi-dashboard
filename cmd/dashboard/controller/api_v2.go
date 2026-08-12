@@ -35,6 +35,7 @@ func registerAPIV2(root gin.IRouter) {
 	admin.Use(mygin.Authorize(mygin.AuthorizeOption{
 		MemberOnly: true, AllowAPI: true, IsPage: false, Msg: "访问此接口需要管理员认证", Redirect: "/login",
 	}))
+	admin.Use(mygin.RejectReadOnlyAPITokenWrites())
 	admin.GET("/collectors", listCollectors)
 	admin.POST("/collectors", createCollector)
 	admin.PATCH("/collectors/:id", updateCollector)

@@ -19,7 +19,10 @@ param(
     [switch] $DisableHttpProbe,
     [switch] $DisableIcmpProbe,
     [switch] $DisableTcpProbe,
-    [switch] $DisableNat
+    [switch] $DisableNat,
+    [string] $IpReportInterface = "",
+    [string] $CountryCode = "",
+    [switch] $UseIPv6CountryCode
 )
 
 $ErrorActionPreference = "Stop"
@@ -46,6 +49,29 @@ if ($CleanInstall) {
     if (Test-Path $InstallDirectory) { Remove-Item -LiteralPath $InstallDirectory -Recurse -Force }
     if (Test-Path $ConfigurationPath) { Remove-Item -LiteralPath $ConfigurationPath -Force }
     if (Test-Path $DataDirectory) { Remove-Item -LiteralPath $DataDirectory -Recurse -Force }
+
+    # Migration cleanup for the legacy upstream agent (nezha-agent).
+    $LegacyRoots = New-Object System.Collections.Generic.List[string]
+    foreach ($Root in @("C:\nezha", "C:\opt\nezha", (Join-Path $env:ProgramFiles "nezha"))) {
+        if ($Root) { [void]$LegacyRoots.Add($Root) }
+    }
+    $ProgramFilesX86 = ${env:ProgramFiles(x86)}
+    if ($ProgramFilesX86) { [void]$LegacyRoots.Add((Join-Path $ProgramFilesX86 "nezha")) }
+    foreach ($Root in $LegacyRoots) {
+        $LegacyBinary = Join-Path $Root "agent\nezha-agent.exe"
+        if (-not (Test-Path $LegacyBinary)) {
+            $LegacyBinary = Join-Path $Root "nezha-agent.exe"
+        }
+        if (Test-Path $LegacyBinary) {
+            try { & $LegacyBinary service uninstall | Out-Null } catch { }
+            Get-ChildItem -Path (Split-Path $LegacyBinary -Parent) -Filter "config*.yml" -ErrorAction SilentlyContinue | ForEach-Object {
+                try { & $LegacyBinary service -c $_.FullName uninstall | Out-Null } catch { }
+            }
+        }
+        Stop-Service -Name "nezha-agent" -Force -ErrorAction SilentlyContinue
+        if (Test-Path $Root) { Remove-Item -LiteralPath $Root -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+    Stop-Service -Name "nezha-agent" -Force -ErrorAction SilentlyContinue
 }
 
 $Architecture = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "arm64" } elseif ([Environment]::Is64BitOperatingSystem) { "amd64" } else { "386" }
@@ -104,6 +130,17 @@ $Switches = @(
 )
 foreach ($Item in $Switches) {
     if ($Item.Enabled) { $InstallArguments += $Item.Flag }
+}
+if (-not $DisableIpReport) {
+    if ($IpReportInterface) {
+        $InstallArguments += @("--ip-report-interface", $IpReportInterface)
+    }
+    if ($CountryCode) {
+        $InstallArguments += @("--country-code", $CountryCode)
+    }
+    if ($UseIPv6CountryCode) {
+        $InstallArguments += "--use-ipv6-countrycode"
+    }
 }
 
 & $AgentBinary service install @InstallArguments

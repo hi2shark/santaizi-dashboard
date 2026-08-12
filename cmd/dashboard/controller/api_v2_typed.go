@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"sort"
@@ -1028,13 +1029,40 @@ type monitoringOptionsDTO struct {
 	NAT         bool `json:"nat"`
 }
 type installPreviewDTO struct {
-	Platform     string               `json:"platform" binding:"required"`
-	CleanInstall bool                 `json:"clean_install"`
-	Options      monitoringOptionsDTO `json:"options"`
+	Platform       string               `json:"platform" binding:"required"`
+	CleanInstall   bool                 `json:"clean_install"`
+	Options        monitoringOptionsDTO `json:"options"`
+	IPReportConfig ipReportConfigDTO    `json:"ip_report_config"`
+}
+
+type ipReportConfigDTO struct {
+	Interface   string `json:"interface"`
+	CountryCode string `json:"country_code"`
+	PreferIPv6  bool   `json:"prefer_ipv6"`
 }
 
 func v2ProbeCapabilities(c *gin.Context) {
-	writeV2Data(c, 200, gin.H{"required": []string{"heartbeat", "identity"}, "optional": []gin.H{{"id": "cpu", "disable_flag": "--disable-cpu"}, {"id": "memory", "disable_flag": "--disable-memory"}, {"id": "disk", "disable_flag": "--disable-disk"}, {"id": "network", "disable_flag": "--disable-network"}, {"id": "connections", "disable_flag": "--disable-connections"}, {"id": "processes", "disable_flag": "--disable-processes"}, {"id": "temperature", "enable_flag": "--temperature"}, {"id": "gpu", "enable_flag": "--gpu"}, {"id": "host_info", "disable_flag": "--disable-host-info"}, {"id": "ip_report", "disable_flag": "--disable-ip-report"}, {"id": "http_probe", "disable_flag": "--disable-http-probe"}, {"id": "icmp_probe", "disable_flag": "--disable-icmp-probe"}, {"id": "tcp_probe", "disable_flag": "--disable-tcp-probe"}, {"id": "nat", "disable_flag": "--disable-nat"}}, "presets": gin.H{"standard": monitoringOptionsDTO{true, true, true, true, true, true, true, true, true, true, true, true, true, true}, "light": monitoringOptionsDTO{true, true, true, true, false, false, false, false, true, true, true, true, true, false}, "alive": monitoringOptionsDTO{false, false, false, false, false, false, false, false, false, false, false, false, false, false}}})
+	standardBase := monitoringOptionsDTO{CPU: true, Memory: true, Disk: true, Network: true, Connections: true, Processes: true, HostInfo: true, IPReport: true, HTTPProbe: true, ICMPProbe: true, TCPProbe: true, NAT: false}
+	cloud := standardBase
+	physical := standardBase
+	physical.Temperature = true
+	physical.GPU = true
+	writeV2Data(c, 200, gin.H{
+		"required": []string{"heartbeat", "identity"},
+		"optional": []gin.H{
+			{"id": "cpu", "disable_flag": "--disable-cpu"}, {"id": "memory", "disable_flag": "--disable-memory"}, {"id": "disk", "disable_flag": "--disable-disk"},
+			{"id": "network", "disable_flag": "--disable-network"}, {"id": "connections", "disable_flag": "--disable-connections"}, {"id": "processes", "disable_flag": "--disable-processes"},
+			{"id": "temperature", "enable_flag": "--temperature"}, {"id": "gpu", "enable_flag": "--gpu"}, {"id": "host_info", "disable_flag": "--disable-host-info"},
+			{"id": "ip_report", "disable_flag": "--disable-ip-report"}, {"id": "http_probe", "disable_flag": "--disable-http-probe"}, {"id": "icmp_probe", "disable_flag": "--disable-icmp-probe"},
+			{"id": "tcp_probe", "disable_flag": "--disable-tcp-probe"}, {"id": "nat", "disable_flag": "--disable-nat"},
+		},
+		"presets": gin.H{
+			"standard_cloud":     cloud,
+			"standard_physical": physical,
+			"light":             monitoringOptionsDTO{CPU: true, Memory: true, Disk: true, Network: true, HostInfo: true, IPReport: true, HTTPProbe: true, ICMPProbe: true, TCPProbe: true, NAT: false},
+			"alive":             monitoringOptionsDTO{},
+		},
+	})
 }
 func v2ServerCredential(c *gin.Context) {
 	id, ok := v2ID(c)
@@ -1074,15 +1102,15 @@ func v2InstallPreview(c *gin.Context) {
 	} else if platform == "windows" {
 		script = singleton.Conf.InstallScript.Windows
 	}
-	command, err := buildInstallCommand(platform, script, host, singleton.Conf.GRPCPort, row.Secret, request.CleanInstall, request.Options)
+	command, err := buildInstallCommand(platform, script, host, singleton.Conf.GRPCPort, row.Secret, request.CleanInstall, request.Options, request.IPReportConfig)
 	if err != nil {
 		writeV2Problem(c, 400, "invalid_platform", err.Error())
 		return
 	}
-	writeV2Data(c, 200, gin.H{"platform": platform, "command": command, "clean_install": request.CleanInstall, "options": request.Options})
+	writeV2Data(c, 200, gin.H{"platform": platform, "command": command, "clean_install": request.CleanInstall, "options": request.Options, "ip_report_config": request.IPReportConfig})
 }
-func buildInstallCommand(platform, script, host string, port uint, secret string, clean bool, options monitoringOptionsDTO) (string, error) {
-	flags := installFlags(options, platform == "windows")
+func buildInstallCommand(platform, script, host string, port uint, secret string, clean bool, options monitoringOptionsDTO, ipCfg ipReportConfigDTO) (string, error) {
+	flags := installFlags(options, platform == "windows", ipCfg)
 	switch platform {
 	case "linux", "macos":
 		parts := []string{"curl -fsSL", shellQuote(script), "| bash -s --", shellQuote(host), strconv.FormatUint(uint64(port), 10), shellQuote(secret)}
@@ -1102,7 +1130,7 @@ func buildInstallCommand(platform, script, host string, port uint, secret string
 		return "", errors.New("platform must be linux, macos, or windows")
 	}
 }
-func installFlags(options monitoringOptionsDTO, windows bool) []string {
+func installFlags(options monitoringOptionsDTO, windows bool, ipCfg ipReportConfigDTO) []string {
 	pairs := []struct {
 		enabled   bool
 		positive  bool
@@ -1122,10 +1150,79 @@ func installFlags(options monitoringOptionsDTO, windows bool) []string {
 			}
 		}
 	}
+	if options.IPReport {
+		iface := strings.TrimSpace(ipCfg.Interface)
+		code := strings.TrimSpace(ipCfg.CountryCode)
+		if windows {
+			if iface != "" {
+				out = append(out, "-IpReportInterface", powershellQuote(iface))
+			}
+			if code != "" {
+				out = append(out, "-CountryCode", powershellQuote(code))
+			}
+			if ipCfg.PreferIPv6 {
+				out = append(out, "-UseIPv6CountryCode")
+			}
+		} else {
+			if iface != "" {
+				out = append(out, "--ip-report-interface", shellQuote(iface))
+			}
+			if code != "" {
+				out = append(out, "--country-code", shellQuote(code))
+			}
+			if ipCfg.PreferIPv6 {
+				out = append(out, "--use-ipv6-countrycode")
+			}
+		}
+	}
 	return out
 }
 func shellQuote(value string) string      { return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'" }
 func powershellQuote(value string) string { return "'" + strings.ReplaceAll(value, "'", "''") + "'" }
+
+type collectorInstallPreviewDTO struct {
+	PrimaryEndpoint    string `json:"primary_endpoint"`
+	PrimaryTLS         bool   `json:"primary_tls"`
+	PrimaryInsecureTLS bool   `json:"primary_insecure_tls"`
+	GRPCPort           int    `json:"grpc_port"`
+}
+
+func parseCollectorListenPort(address string) (int, error) {
+	address = strings.TrimSpace(address)
+	if address == "" {
+		return 5556, nil
+	}
+	host, port, err := net.SplitHostPort(address)
+	if err != nil {
+		// address may be host without port
+		if !strings.Contains(address, ":") {
+			return 5556, nil
+		}
+		return 0, fmt.Errorf("invalid collector address: %w", err)
+	}
+	_ = host
+	value, err := strconv.Atoi(port)
+	if err != nil || value < 1 || value > 65535 {
+		return 0, errors.New("collector address port must be between 1 and 65535")
+	}
+	return value, nil
+}
+
+func buildCollectorInstallCommand(script, endpoint, token string, grpcPort int, primaryTLS, primaryInsecureTLS bool) string {
+	parts := []string{
+		"curl -fsSL", shellQuote(script), "| bash -s --",
+		"--primary-endpoint", shellQuote(endpoint),
+		"--token", shellQuote(token),
+		"--grpc-port", strconv.Itoa(grpcPort),
+	}
+	if primaryTLS {
+		parts = append(parts, "--primary-tls")
+	}
+	if primaryInsecureTLS {
+		parts = append(parts, "--primary-insecure-tls")
+	}
+	return strings.Join(parts, " ")
+}
 
 func decodePublicNote(raw string) any {
 	if strings.TrimSpace(raw) == "" {

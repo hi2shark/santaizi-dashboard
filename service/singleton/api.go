@@ -93,9 +93,17 @@ func InitAPI() {
 
 func loadAPI() {
 	InitAPI()
+	// Legacy rows created before permission/enabled columns.
+	_ = DB.Model(&model.ApiToken{}).Where("permission = ? OR permission IS NULL", "").Updates(map[string]any{
+		"permission": model.ApiTokenPermissionWrite,
+		"enabled":    true,
+	}).Error
 	var tokenList []*model.ApiToken
 	DB.Find(&tokenList)
 	for _, token := range tokenList {
+		if token.Permission == "" {
+			token.Permission = model.ApiTokenPermissionWrite
+		}
 		ApiTokenList[token.Token] = token
 		UserIDToApiTokenList[token.UserID] = append(UserIDToApiTokenList[token.UserID], token.Token)
 	}

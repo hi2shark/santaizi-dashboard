@@ -74,10 +74,11 @@ type PublicConfig struct {
 
 // InstallScriptConfig 一键安装脚本源配置
 type InstallScriptConfig struct {
-	Linux   string // Linux 中文安装脚本 URL
-	LinuxEn string // Linux 英文安装脚本 URL
-	Windows string // Windows 安装脚本 URL
-	MacOS   string // macOS 安装脚本 URL
+	Linux     string // Linux 中文安装脚本 URL（探针）
+	LinuxEn   string // Linux 英文安装脚本 URL（探针）
+	Windows   string // Windows 安装脚本 URL（探针）
+	MacOS     string // macOS 安装脚本 URL（探针）
+	Collector string // Linux 从端（Collector）安装脚本 URL
 }
 
 type TelemetryConfig struct {
@@ -375,6 +376,9 @@ func (c *Config) Read(path string) error {
 	}
 	if c.InstallScript.MacOS == "" {
 		c.InstallScript.MacOS = "https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install.command"
+	}
+	if c.InstallScript.Collector == "" {
+		c.InstallScript.Collector = "https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install_collector.sh"
 	}
 	if c.Oauth2.OidcScopes == "" {
 		c.Oauth2.OidcScopes = "openid,profile,email"
