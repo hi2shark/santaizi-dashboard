@@ -8,19 +8,47 @@ import { useEditorSnapshot } from '@/composables/editorSnapshot'
 import { notifyAPIError } from '@/composables/notify'
 import type { MonitoringOptions, ProbeCapabilitiesMetadata } from '@/types/admin'
 
+type InstallProfile = 'standard_cloud' | 'standard_physical' | 'light' | 'alive'
+
+const fallbackPresets: Record<InstallProfile, MonitoringOptions> = {
+  standard_cloud: {
+    cpu: true, memory: true, disk: true, network: true, connections: true, processes: true,
+    temperature: false, gpu: false, host_info: true, ip_report: true, http_probe: true, icmp_probe: true, tcp_probe: true, nat: false,
+  },
+  standard_physical: {
+    cpu: true, memory: true, disk: true, network: true, connections: true, processes: true,
+    temperature: true, gpu: true, host_info: true, ip_report: true, http_probe: true, icmp_probe: true, tcp_probe: true, nat: false,
+  },
+  light: {
+    cpu: true, memory: true, disk: true, network: true, connections: false, processes: false,
+    temperature: false, gpu: false, host_info: true, ip_report: true, http_probe: true, icmp_probe: true, tcp_probe: true, nat: false,
+  },
+  alive: {
+    cpu: false, memory: false, disk: false, network: false, connections: false, processes: false,
+    temperature: false, gpu: false, host_info: false, ip_report: false, http_probe: false, icmp_probe: false, tcp_probe: false, nat: false,
+  },
+}
+
 const props = defineProps<{ modelValue: boolean; server?: ServerRecord; secret?: string }>()
 const emit = defineEmits<{ 'update:modelValue': [boolean] }>()
 const { t, te } = useI18n()
 const loading = ref(false)
 const platform = ref<'linux' | 'macos' | 'windows'>('linux')
-const profile = ref<'standard' | 'light' | 'alive'>('standard')
+const profile = ref<InstallProfile>('standard_cloud')
 const cleanInstall = ref(true)
 const cleanConfirmed = ref(false)
 const secret = ref('')
 const command = ref('')
 const metadata = ref<ProbeCapabilitiesMetadata>({ required: [], optional: [], presets: {} })
-const capabilities = reactive<MonitoringOptions>({ cpu: true, memory: true, disk: true, network: true, connections: true, processes: true, temperature: true, gpu: true, host_info: true, ip_report: true, http_probe: true, icmp_probe: true, tcp_probe: true, nat: false })
-const snapshotValue = computed(() => ({ profile: profile.value, cleanInstall: cleanInstall.value, capabilities }))
+const capabilities = reactive<MonitoringOptions>({ ...fallbackPresets.standard_cloud })
+const ipReportConfig = reactive({ interface: '', country_code: '', prefer_ipv6: false })
+const nicPresets = ['eth0', 'eth1', 'ens33', 'enp0s3', 'wlan0']
+const snapshotValue = computed(() => ({
+  profile: profile.value,
+  cleanInstall: cleanInstall.value,
+  capabilities: { ...capabilities },
+  ipReportConfig: { ...ipReportConfig },
+}))
 const { dirty, capture } = useEditorSnapshot(snapshotValue, computed(() => props.modelValue))
 const capabilityRows = computed(() => [
   ['cpu', 'ri-cpu-line'], ['memory', 'ri-database-2-line'], ['disk', 'ri-hard-drive-3-line'], ['network', 'ri-exchange-line'],
@@ -28,53 +56,131 @@ const capabilityRows = computed(() => [
   ['host_info', 'ri-computer-line'], ['ip_report', 'ri-map-pin-line'], ['http_probe', 'ri-global-line'], ['icmp_probe', 'ri-pulse-line'],
   ['tcp_probe', 'ri-router-line'], ['nat', 'ri-route-line'],
 ] as Array<[keyof MonitoringOptions, string]>)
-function applyProfile(value: typeof profile.value) {
+const profileOptions = computed(() => [
+  { label: t('presetStandardCloud'), value: 'standard_cloud' },
+  { label: t('presetStandardPhysical'), value: 'standard_physical' },
+  { label: t('presetLight'), value: 'light' },
+  { label: t('presetHeartbeat'), value: 'alive' },
+])
+function applyProfile(value: InstallProfile) {
   profile.value = value
-  Object.assign(capabilities, metadata.value.presets[value] || metadata.value.presets.standard)
+  const preset = metadata.value.presets[value] || fallbackPresets[value]
+  Object.assign(capabilities, fallbackPresets[value], preset)
 }
 async function refreshPreview() {
   if (!props.server) return
-  const preview = await getServerInstallPreview(props.server.id, { platform: platform.value, clean_install: cleanInstall.value, options: { ...capabilities } })
+  const preview = await getServerInstallPreview(props.server.id, {
+    platform: platform.value,
+    clean_install: cleanInstall.value,
+    options: { ...capabilities },
+    ip_report_config: capabilities.ip_report ? { ...ipReportConfig } : undefined,
+  })
   command.value = preview.command
 }
 async function open() {
   if (!props.server) return
-  loading.value = true; platform.value = 'linux'; profile.value = 'standard'; cleanInstall.value = true; cleanConfirmed.value = false; command.value = ''
+  loading.value = true
+  platform.value = 'linux'
+  profile.value = 'standard_cloud'
+  cleanInstall.value = true
+  cleanConfirmed.value = false
+  command.value = ''
+  ipReportConfig.interface = ''
+  ipReportConfig.country_code = ''
+  ipReportConfig.prefer_ipv6 = false
   try {
     const [credential, available] = await Promise.all([
-      props.secret ? Promise.resolve({ secret: props.secret }) : getServerCredential(props.server), getProbeCapabilities(),
+      props.secret ? Promise.resolve({ secret: props.secret }) : getServerCredential(props.server),
+      getProbeCapabilities(),
     ])
-    secret.value = credential.secret; metadata.value = available
-    applyProfile('standard'); await refreshPreview()
-  } catch (error) { notifyAPIError(error, t as never, te) }
-  finally { loading.value = false; await nextTick(); capture() }
+    secret.value = credential.secret
+    metadata.value = available
+    applyProfile('standard_cloud')
+    await refreshPreview()
+  } catch (error) {
+    notifyAPIError(error, t as never, te)
+  } finally {
+    loading.value = false
+    await nextTick()
+    capture()
+  }
 }
 async function copy() {
-  if (cleanInstall.value && !cleanConfirmed.value) { ElMessage.warning(t('confirmCleanInstallRequired')); return }
+  if (cleanInstall.value && !cleanConfirmed.value) {
+    ElMessage.warning(t('confirmCleanInstallRequired'))
+    return
+  }
   await refreshPreview()
   await navigator.clipboard.writeText(command.value)
-  capture(); ElMessage.success(t('copied'))
+  capture()
+  ElMessage.success(t('copied'))
 }
-async function copySecret() { await navigator.clipboard.writeText(secret.value); ElMessage.success(t('copied')) }
-function selectProfile(value: string | number | boolean) { applyProfile(value as typeof profile.value) }
+async function copySecret() {
+  await navigator.clipboard.writeText(secret.value)
+  ElMessage.success(t('copied'))
+}
+function selectProfile(value: string | number | boolean) {
+  applyProfile(value as InstallProfile)
+}
+function selectIPFamily(value: string | number | boolean) {
+  ipReportConfig.prefer_ipv6 = value === 'ipv6'
+}
 watch(() => props.modelValue, value => { if (value) void open() })
-watch([platform, snapshotValue], () => { command.value = ''; if (props.modelValue && !loading.value) void refreshPreview() }, { deep: true })
+watch([platform, snapshotValue], () => {
+  command.value = ''
+  if (props.modelValue && !loading.value) void refreshPreview()
+}, { deep: true })
 </script>
 
 <template>
   <AppDialog :model-value="modelValue" :title="`${t('installAgent')} · ${server?.name || ''}`" mode="edit" :dirty="dirty" :submitting="loading" width="min(960px, 97vw)" @update:model-value="emit('update:modelValue', $event)">
     <div v-loading="loading">
       <el-form label-position="top">
-        <el-form-item :label="t('secret')"><el-input :model-value="secret" readonly class="mono"><template #append><el-button :aria-label="t('copy')" @click="copySecret"><i class="ri-file-copy-line"></i></el-button></template></el-input></el-form-item>
-        <el-form-item :label="t('monitoringPreset')"><el-segmented :model-value="profile" :options="[{ label: t('presetStandard'), value: 'standard' }, { label: t('presetLight'), value: 'light' }, { label: t('presetHeartbeat'), value: 'alive' }]" @change="selectProfile" /></el-form-item>
+        <el-form-item :label="t('secret')">
+          <el-input :model-value="secret" readonly class="mono">
+            <template #append>
+              <el-button :aria-label="t('copy')" @click="copySecret"><i class="ri-file-copy-line"></i></el-button>
+            </template>
+          </el-input>
+        </el-form-item>
+        <el-form-item :label="t('monitoringPreset')">
+          <el-segmented :model-value="profile" :options="profileOptions" @change="selectProfile" />
+        </el-form-item>
         <div class="capability-grid">
-          <label v-for="([key, icon]) in capabilityRows" :key="key" class="capability-item"><span><i :class="icon"></i>{{ t(`capability_${key}`) }}</span><el-switch v-model="capabilities[key]" /></label>
+          <label v-for="([key, icon]) in capabilityRows" :key="key" class="capability-item">
+            <span><i :class="icon"></i>{{ t(`capability_${key}`) }}</span>
+            <el-switch v-model="capabilities[key]" />
+          </label>
         </div>
-        <div class="clean-install-box"><el-checkbox v-model="cleanInstall">{{ t('cleanInstall') }}</el-checkbox><el-checkbox v-if="cleanInstall" v-model="cleanConfirmed">{{ t('confirmCleanInstall') }}</el-checkbox></div>
+        <div v-if="capabilities.ip_report" class="ip-report-box">
+          <el-form-item :label="t('ipReportInterface')">
+            <el-select v-model="ipReportConfig.interface" filterable allow-create default-first-option clearable :placeholder="t('ipReportInterfacePlaceholder')">
+              <el-option v-for="name in nicPresets" :key="name" :label="name" :value="name" />
+            </el-select>
+          </el-form-item>
+          <el-form-item :label="t('ipReportCountryCode')">
+            <el-input v-model="ipReportConfig.country_code" placeholder="CN" maxlength="16" />
+          </el-form-item>
+          <el-form-item :label="t('ipReportFamily')">
+            <el-segmented :model-value="ipReportConfig.prefer_ipv6 ? 'ipv6' : 'ipv4'" :options="[{ label: 'IPv4', value: 'ipv4' }, { label: 'IPv6', value: 'ipv6' }]" @change="selectIPFamily" />
+          </el-form-item>
+        </div>
+        <div class="clean-install-box">
+          <el-checkbox v-model="cleanInstall">{{ t('cleanInstall') }}</el-checkbox>
+          <el-checkbox v-if="cleanInstall" v-model="cleanConfirmed">{{ t('confirmCleanInstall') }}</el-checkbox>
+          <p v-if="cleanInstall" class="clean-install-note">{{ t('cleanInstallLegacyNote') }}</p>
+        </div>
       </el-form>
-      <el-tabs v-model="platform" class="install-tabs"><el-tab-pane :label="t('linux')" name="linux"/><el-tab-pane :label="t('macos')" name="macos"/><el-tab-pane :label="t('windows')" name="windows"/></el-tabs>
+      <el-tabs v-model="platform" class="install-tabs">
+        <el-tab-pane :label="t('linux')" name="linux" />
+        <el-tab-pane :label="t('macos')" name="macos" />
+        <el-tab-pane :label="t('windows')" name="windows" />
+      </el-tabs>
       <el-input :model-value="command" readonly type="textarea" :rows="6" class="mono" />
     </div>
-    <template #footer="{ close }"><el-button :disabled="loading" @click="close()">{{ t('close') }}</el-button><el-button type="primary" :disabled="loading || (cleanInstall && !cleanConfirmed)" @click="copy"><i class="ri-file-copy-line"></i>{{ t('copyCommand') }}</el-button></template>
+    <template #footer="{ close }">
+      <el-button :disabled="loading" @click="close()">{{ t('close') }}</el-button>
+      <el-button type="primary" :disabled="loading || (cleanInstall && !cleanConfirmed)" @click="copy"><i class="ri-file-copy-line"></i>{{ t('copyCommand') }}</el-button>
+    </template>
   </AppDialog>
 </template>
