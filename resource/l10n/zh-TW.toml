@@ -1046,10 +1046,10 @@ other = "遙測"
 other = "遙測可靠性"
 
 [TelemetryReliabilityDescription]
-other = "查看收集器、觀測點、探針傳輸、故障修正與資料遺失情況"
+other = "查看從端、觀測點、探針傳輸、故障修正與資料遺失情況"
 
 [TelemetryCollectors]
-other = "收集器"
+other = "從端"
 
 [TelemetryObserverAssignments]
 other = "觀測點分配"
@@ -1067,7 +1067,7 @@ other = "遙測資料遺失"
 other = "遙測告警"
 
 [TelemetryCollectorID]
-other = "收集器識別碼"
+other = "從端識別碼"
 
 [TelemetryAddress]
 other = "位址"
@@ -1178,7 +1178,7 @@ other = "主機離線"
 other = "連線品質下降"
 
 [TelemetryAlertCollectorOffline]
-other = "收集器離線"
+other = "從端離線"
 
 [TelemetryAlertDataLoss]
 other = "遙測資料遺失"
