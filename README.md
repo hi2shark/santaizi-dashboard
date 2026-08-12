@@ -12,6 +12,23 @@
 产品品牌为 **三太子 / Santaizi**；Dashboard 与探针须成对升级。
 本仓库仅为个人使用方便进行调整修改。
 
+## 安全要求（必读）
+
+**强烈要求：不要把面板 Web 端口直接暴露在公网。**
+
+管理后台（`/admin/`）、OAuth 回调、API 与 WebSocket 一旦可被任意访问，即构成高风险控制面。部署时**必须**将面板置于可信访问控制之后，例如：
+
+- [Cloudflare Zero Trust](https://developers.cloudflare.com/cloudflare-one/)（Access / Tunnel 等）
+- 等价方案：自建 SSO + 反向代理鉴权、WireGuard / Tailscale 等私有网络、仅内网可达 + VPN
+
+建议做法：
+
+1. **Web 面**：仅通过 Zero Trust / 私有网络访问；公网侧不开放裸 HTTP(S) 到面板端口。
+2. **gRPC（探针上报，默认 `5555`）**：可按需要放行给探针，但不要与未受保护的管理 Web 混在同一公网入口。
+3. 仍须配置 OAuth2 管理员白名单；访问控制是**额外**防护，不能替代登录鉴权。
+
+未落实上述防护即公网裸奔面板，后果自负。本项目不以「直接对公网开放管理面」为推荐部署方式。
+
 ## Docker Compose 部署 Santaizi Dashboard
 
 ### 方式一：一键安装脚本（推荐）
@@ -112,14 +129,12 @@ oauth2:
 docker compose up -d
 ```
 
-启动后访问 `http://<服务器IP>:<SANTAIZI_PORT>`，使用 OAuth2 登录。
+启动后**不要**用公网 IP 直接打开面板。请先接入 Cloudflare Zero Trust（或等价私有网络 / SSO 反向代理），再通过受保护入口登录 OAuth2。本地调试可用 `http://127.0.0.1:<SANTAIZI_PORT>`。
 
 ### 开放防火墙端口
 
-确保服务器防火墙放行以下端口：
-
-- Web 端口：默认 `80`（或你自定义的 `SANTAIZI_PORT`）
-- gRPC 端口：`5555`
+- **Web 端口**（默认 `80` / `SANTAIZI_PORT`）：**强烈要求不对公网直接放行**；仅对本机、内网或 Zero Trust / Tunnel 出口开放。
+- **gRPC 端口**（`5555`）：按探针所在网络需要放行；与未受保护的管理 Web 入口分离。
 
 ### 更新 Dashboard
 
@@ -141,6 +156,7 @@ SANTAIZI_AGENT_REPO=your-repo/agent curl -fSL ... | bash -s -- install_agent ...
 
 ### 常见问题
 
+- **面板能否直接挂公网？**：**强烈不建议。** 须置于 Cloudflare Zero Trust 或等价可信访问控制之后，见上文「安全要求」。
 - **Agent 无法连接面板**：检查服务器防火墙是否放行 `5555` 端口，以及 `grpcport` 是否配置为 `5555`。
 - **一键安装脚本拉取失败**：可在 `config/dashboard.yaml` 的 `installscript` 段替换为可访问的脚本地址。
 - **登录后没有管理员权限**：确认 `oauth2.admin` 填写的是 OAuth2 平台返回的 **用户名/ID**。
