@@ -1,9 +1,9 @@
 extends:
   - recommended
 
-# operationId is the stable generated-client contract and is intentionally the
-# concise operation description. Human-oriented explanations live in API docs.
+# operationId is the stable generated-client contract.
+# summary is the human-oriented label for API docs / Scalar sidebar.
 rules:
-  operation-summary: off
+  operation-summary: error
   operation-4xx-response: off
   info-license: off
