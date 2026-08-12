@@ -9,7 +9,7 @@
 - [快速开始](quickstart.md) — 5 分钟部署 Dashboard 和第一台 Agent
 - [安装指南](installation.md) — Dashboard / Agent 的完整安装方式
 - [配置参考](configuration.md) — `config.yaml` 全量配置项说明
-- [可靠遥测运维指南](reliable-telemetry.md) — Primary / Collector / Agent、可用性、容量与升级
+- [可靠遥测运维指南](reliable-telemetry.md) — Primary / 从端（Collector） / 探针、可用性、容量与升级
 - [服务器管理](servers.md) — 添加服务器、分组、离线历史
 - [服务监控](monitoring.md) — HTTP / ICMP / TCP 监控与告警规则
 - [通知方式](notifications.md) — Webhook 通知与变量占位符
@@ -26,8 +26,8 @@
 | 术语 | 说明 |
 |------|------|
 | **Primary** | Dashboard 主控制面，负责 Web、API、业务与遥测事实汇总 |
-| **Collector** | Dashboard 的纯遥测模式，作为独立 Observer 接收 Agent 并复制到 Primary |
-| **Agent** | 部署在被监控机器上的探针，负责采集状态并写 WAL 后上报 |
+| **从端（Collector）** | Dashboard 的纯遥测模式，作为独立 Observer 接收探针并复制到 Primary |
+| **探针（Agent）** | 部署在被监控机器上的探针，负责采集状态并写 WAL 后上报 |
 | **服务器** | 被监控的节点，每台机器对应一个 Agent |
 | **监控** | 对目标地址的 HTTP / ICMP / TCP 检测 |
 | **通知** | 通过 Webhook 发送的告警/事件消息 |

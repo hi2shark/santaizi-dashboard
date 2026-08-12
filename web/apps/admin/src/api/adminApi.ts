@@ -76,6 +76,7 @@ export const deleteCollector = api.deleteCollector
 export const updateCollectorScope = api.updateCollectorScope
 export const rotateCollectorToken = api.rotateCollectorToken
 export const getCollectorToken = api.getCollectorToken
+export const getCollectorInstallPreview = api.getCollectorInstallPreview
 export const revokeCollector = api.revokeCollector
 export const telemetryList = api.telemetryList
 export const listServerAvailability = api.listServerAvailability

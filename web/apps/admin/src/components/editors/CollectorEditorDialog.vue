@@ -9,7 +9,7 @@ import { notifyAPIError } from '@/composables/notify'
 import type { CollectorScope } from '@santaizi/api'
 
 const props = defineProps<{ modelValue: boolean; value?: CollectorRecord }>()
-const emit = defineEmits<{ 'update:modelValue': [boolean]; saved: [string] }>()
+const emit = defineEmits<{ 'update:modelValue': [boolean]; saved: [string, CollectorRecord?] }>()
 const { t, te } = useI18n()
 const saving = ref(false)
 const formRef = ref<FormInstance>()
@@ -109,6 +109,7 @@ async function submit() {
   saving.value = true
   try {
     let token = ''
+    let created: CollectorRecord | undefined
     const payload = { name: form.name, address: form.address, tls: form.tls, insecure_tls: form.insecure_tls, scopes }
     if (form.id) {
       await updateCollector(form.id, payload)
@@ -116,10 +117,11 @@ async function submit() {
     } else {
       const result = await createCollector(payload)
       token = result.registration_token
+      created = result.collector as CollectorRecord
     }
     capture()
     emit('update:modelValue', false)
-    emit('saved', token)
+    emit('saved', token, created)
     ElMessage.success(t('saveSuccess'))
   } catch (error) { notifyAPIError(error, t as never, te) }
   finally { saving.value = false }

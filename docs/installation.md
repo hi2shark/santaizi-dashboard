@@ -75,6 +75,24 @@ CLI 参数：
 
 ---
 
+## 从端（Collector）安装
+
+从端与 Primary 使用同一 Dashboard 镜像，以 `mode: collector` 运行。推荐在管理后台「可靠遥测」创建从端后，使用「安装从端」复制一键命令。
+
+也可手动执行（参数需替换）：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install_collector.sh | bash -s -- \
+  --primary-endpoint primary.example.com:5555 \
+  --token <registration_token> \
+  --grpc-port 5556 \
+  --primary-tls
+```
+
+详细步骤见 [可靠遥测运维指南](reliable-telemetry.md)。
+
+---
+
 ## Agent 安装
 
 Agent 默认从 `hi2shark/santaizi-agent` 仓库下载，可通过环境变量 `SANTAIZI_AGENT_REPO` 覆盖。
@@ -119,13 +137,29 @@ curl -fSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/s
 
 ### 清洁安装
 
-管理后台默认选择清洁安装。确认后命令会同时带上 `--clean-install --confirm-clean-install`（PowerShell 使用 `-CleanInstall -ConfirmCleanInstall`），安装器才会停止现有服务并删除 Agent 配置、节点身份、WAL 和程序目录。缺少确认标志时安装器会拒绝执行清理。
+管理后台默认选择清洁安装。确认后命令会同时带上 `--clean-install --confirm-clean-install`（PowerShell 使用 `-CleanInstall -ConfirmCleanInstall`），安装器才会停止现有服务并删除 Agent 配置、节点身份、WAL 和程序目录；并尝试卸载删除本机旧版 `nezha-agent`（如 `/opt/nezha/agent`、`/etc/nezha` 及对应服务）。缺少确认标志时安装器会拒绝执行清理。
 
 清洁安装会生成全新身份与节点绑定，不导入已有历史数据。
 
 ### 采集与能力参数
 
-安装弹窗可选择 **标准**、**轻量**、**仅存活** 预设，也可以组合以下参数：
+安装弹窗可选择 **标准·云**、**标准·物理**、**轻量**、**仅存活** 预设，也可以组合以下参数：
+
+| 预设 | 温度 | GPU | 内网穿透 |
+|------|------|-----|----------|
+| 标准·云 | 关 | 关 | 关 |
+| 标准·物理 | 开 | 开 | 关 |
+| 轻量 / 仅存活 | 关 | 关 | 关 |
+
+所有预设默认关闭内网穿透；需要时在弹窗中手动开启。
+
+开启「IP 与位置」时可填写：
+
+| 参数 | 作用 |
+|------|------|
+| `--ip-report-interface eth0` | 绑定公网 IP 探测出口，并限制流量统计网卡 |
+| `--country-code CN` | 手填国家/区域识别码并直接上报 |
+| `--use-ipv6-countrycode` | 双栈时优先使用 IPv6 |
 
 | 参数 | 作用 |
 |------|------|
