@@ -62,12 +62,17 @@ onMounted(async () => {
         <RouterLink to="/network"><i class="ri-line-chart-line"></i><span>{{ t('statusNetwork') }}</span></RouterLink>
       </nav>
       <div class="status-actions">
-        <select :value="locale" :aria-label="t('language')" @change="setLocale(($event.target as HTMLSelectElement).value)">
-          <option value="zh-CN">简中</option>
-          <option value="zh-TW">繁中</option>
-          <option value="en-US">EN</option>
-          <option value="es-ES">ES</option>
-        </select>
+        <el-dropdown trigger="click" @command="setLocale">
+          <button type="button" :aria-label="t('language')"><i class="ri-translate-2"></i></button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="zh-CN">简体中文</el-dropdown-item>
+              <el-dropdown-item command="zh-TW">繁體中文</el-dropdown-item>
+              <el-dropdown-item command="en-US">English</el-dropdown-item>
+              <el-dropdown-item command="es-ES">Español</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
         <button type="button" :aria-label="t('transparent')" @click="toggleTransparent"><i class="ri-contrast-drop-2-line"></i></button>
         <button type="button" :aria-label="t('light')" @click="toggleTheme"><i :class="actualTheme === 'dark' ? 'ri-sun-line' : 'ri-moon-line'"></i></button>
         <a v-if="store.bootstrap?.authenticated" href="/admin/"><i class="ri-settings-3-line"></i></a>

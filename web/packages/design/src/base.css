@@ -206,6 +206,26 @@ html.dark .el-popper.is-light {
   box-shadow: 0 0 0 1px var(--accent);
 }
 
+/* 触控 / 粗指针：取消 cursor:pointer（移动端无鼠标手型） */
+@media (hover: none), (pointer: coarse) {
+  .el-button,
+  .el-button:hover,
+  .el-button:focus,
+  .el-button:active,
+  button,
+  a,
+  [role='button'],
+  .el-checkbox,
+  .el-radio,
+  .el-switch,
+  .el-dropdown,
+  .el-select__wrapper,
+  .el-pagination button,
+  .el-pager li {
+    cursor: default;
+  }
+}
+
 .el-dialog.app-dialog {
   box-shadow: var(--shadow-overlay);
 }

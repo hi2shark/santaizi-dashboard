@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
@@ -16,8 +16,6 @@ const router = useRouter()
 const collapsed = ref(localStorage.getItem('santaizi-admin-collapsed') === '1')
 const addonsOpen = ref(localStorage.getItem('santaizi-admin-addons-open') === '1')
 const mobileOpen = ref(false)
-const globalTarget = ref('')
-const globalSearch = ref<{ focus: () => void }>()
 const { setMode } = useTheme()
 const nav = computed(() => [
   ['overview', '/', 'ri-dashboard-line', t('overview')], ['servers', '/servers', 'ri-server-line', t('servers')],
@@ -26,7 +24,6 @@ const nav = computed(() => [
   ['settings', '/settings', 'ri-settings-3-line', t('settings')], ['api-tokens', '/api-tokens', 'ri-key-2-line', t('apiTokens')],
 ])
 const addonNav = computed(() => [['ddns', '/ddns', 'ri-global-line', t('ddns')], ['nat', '/nat', 'ri-route-line', t('nat')]])
-const searchNav = computed(() => [...nav.value, ...addonNav.value])
 const activeMessage = computed(() => messages.activeMessage)
 const fieldEntries = computed(() => Object.entries(activeMessage.value?.fields || {}))
 const drawerTitle = computed(() => activeMessage.value ? t('errorDetail') : t('messageCenter'))
@@ -34,16 +31,12 @@ function toggle() { collapsed.value = !collapsed.value; localStorage.setItem('sa
 function toggleAddons() { addonsOpen.value = !addonsOpen.value; localStorage.setItem('santaizi-admin-addons-open', addonsOpen.value ? '1' : '0') }
 function setLocale(value: string) { locale.value = value; localStorage.setItem('santaizi-locale', value) }
 function goHome() { location.assign('/') }
-function navigate(value: string) { if (value) router.push(value); globalTarget.value = '' }
-function focusSearch(event: KeyboardEvent) { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); globalSearch.value?.focus() } }
 function onPanelOpen(value: boolean) { if (!value) messages.closePanel() }
 async function clearAll() {
   await ElMessageBox.confirm(t('clearMessagesConfirm'), t('confirm'), { type: 'warning' })
   messages.clear()
 }
 function openItem(row: AdminMessage) { messages.openDetail(row.id) }
-onMounted(() => window.addEventListener('keydown', focusSearch))
-onBeforeUnmount(() => window.removeEventListener('keydown', focusSearch))
 </script>
 
 <template>
@@ -65,29 +58,38 @@ onBeforeUnmount(() => window.removeEventListener('keydown', focusSearch))
     <div class="admin-body">
       <header class="admin-topbar">
         <el-button class="mobile-menu" @click="mobileOpen=!mobileOpen" :aria-label="t('openNavigation')"><i class="ri-menu-line"></i></el-button>
-        <el-select ref="globalSearch" v-model="globalTarget" class="global-search" filterable clearable :placeholder="t('globalSearch')" @change="navigate">
-          <template #prefix><i class="ri-search-line"></i></template>
-          <el-option v-for="item in searchNav" :key="item[0]" :label="String(item[3])" :value="String(item[1])"><i :class="item[2]"></i><span>{{item[3]}}</span></el-option>
-        </el-select>
         <div class="topbar-spacer"></div>
         <el-badge :value="messages.unreadCount" :hidden="!messages.unreadCount" :max="99" class="topbar-badge">
           <el-button class="topbar-icon" :aria-label="t('messageCenter')" @click="messages.openPanel()"><i class="ri-notification-badge-line"></i></el-button>
         </el-badge>
-        <el-select :model-value="locale" class="locale-select" :aria-label="t('language')" @change="setLocale">
-          <el-option label="简体中文" value="zh-CN"/><el-option label="繁體中文" value="zh-TW"/><el-option label="English" value="en-US"/><el-option label="Español" value="es-ES"/>
-        </el-select>
+        <el-dropdown trigger="click" @command="setLocale">
+          <el-button class="topbar-icon" :aria-label="t('language')"><i class="ri-translate-2"></i></el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="zh-CN">简体中文</el-dropdown-item>
+              <el-dropdown-item command="zh-TW">繁體中文</el-dropdown-item>
+              <el-dropdown-item command="en-US">English</el-dropdown-item>
+              <el-dropdown-item command="es-ES">Español</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
         <el-dropdown trigger="click" @command="setMode">
           <el-button class="topbar-icon" :aria-label="t('light')"><i class="ri-contrast-2-line"></i></el-button>
           <template #dropdown><el-dropdown-menu><el-dropdown-item command="system"><i class="ri-computer-line"></i>{{ t('system') }}</el-dropdown-item><el-dropdown-item command="light"><i class="ri-sun-line"></i>{{ t('light') }}</el-dropdown-item><el-dropdown-item command="dark"><i class="ri-moon-line"></i>{{ t('dark') }}</el-dropdown-item></el-dropdown-menu></template>
         </el-dropdown>
         <el-dropdown trigger="click">
-          <el-button class="user-button"><img v-if="session.state.user?.avatar_url" :src="session.state.user.avatar_url" alt=""><span>{{ session.state.user?.name || session.state.user?.login || 'admin' }}</span><i class="ri-arrow-down-s-line"></i></el-button>
+          <el-button class="user-button" :aria-label="session.state.user?.name || session.state.user?.login || 'admin'">
+            <img v-if="session.state.user?.avatar_url" :src="session.state.user.avatar_url" alt="">
+            <i v-else class="ri-user-line" aria-hidden="true"></i>
+            <span class="user-button-name">{{ session.state.user?.name || session.state.user?.login || 'admin' }}</span>
+            <i class="ri-arrow-down-s-line" aria-hidden="true"></i>
+          </el-button>
           <template #dropdown><el-dropdown-menu><el-dropdown-item @click="goHome"><i class="ri-home-3-line"></i>{{ t('statusHome') }}</el-dropdown-item><el-dropdown-item @click="session.logout"><i class="ri-logout-box-r-line"></i>{{ t('logout') }}</el-dropdown-item></el-dropdown-menu></template>
         </el-dropdown>
       </header>
       <main id="main-content" class="admin-content"><slot /></main>
     </div>
-    <el-button v-if="mobileOpen" class="sidebar-backdrop" :aria-label="t('closeNavigation')" @click="mobileOpen=false"></el-button>
+    <button v-if="mobileOpen" type="button" class="sidebar-backdrop" :aria-label="t('closeNavigation')" @click="mobileOpen=false"></button>
     <AppDrawer :model-value="messages.panelOpen" :title="drawerTitle" mode="view" size="min(360px,92vw)" @update:model-value="onPanelOpen">
       <div class="message-panel">
         <template v-if="activeMessage">

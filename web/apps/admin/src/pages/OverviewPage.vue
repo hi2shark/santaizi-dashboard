@@ -25,7 +25,7 @@ onMounted(load)
 
 <template>
   <div class="page-head">
-    <div><h1>{{ t('overview') }}</h1></div>
+    <h1>{{ t('overview') }}</h1>
     <el-button @click="load"><i class="ri-refresh-line"></i>{{ t('refresh') }}</el-button>
   </div>
   <div v-loading="loading" class="metric-grid">

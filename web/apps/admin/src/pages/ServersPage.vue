@@ -10,6 +10,7 @@ import InstallAgentDialog from '@/components/InstallAgentDialog.vue'
 import { batchDeleteServers, batchUpdateServerGroup, deleteOfflineHistory, deleteServer, listOfflineHistory, listServerAvailability, listServers, resetServerAvailability, resetServerSecret, updateServerDisplayIndex, type ResourceRecord, type ServerRecord } from '@/api/adminApi'
 import {formatAdminValue} from '@/composables/format'
 import { notifyAPIError } from '@/composables/notify'
+import { isRowSelected, toggleRowSelection } from '@/composables/selection'
 import { parsePublicNote } from '@/domain/publicNote'
 
 const { t, te, locale } = useI18n()
@@ -37,11 +38,13 @@ async function load() {
 }
 function open(item?: ServerRecord) { editing.value = item; editor.value = true }
 function publicSummary(server: ServerRecord) { const parsed = parsePublicNote(server.public_note ? JSON.stringify(server.public_note) : ''); return parsed.form.presentation.slogan || parsed.form.presentation.locationLabel || server.note || '—' }
+function hasPublicSummary(server: ServerRecord) { return publicSummary(server) !== '—' }
 async function removeOne(server: ServerRecord) { await ElMessageBox.confirm(t('confirmDelete'), t('dangerousAction'), { type: 'warning' }); try { await deleteServer(server.id); ElMessage.success(t('deleteSuccess')); await load() } catch (error) { notifyAPIError(error, t as never, te) } }
 async function groupSelected() { try { const { value } = await ElMessageBox.prompt(t('group'), t('batchGroup'), { inputValue: selected.value[0]?.tag || '' }); await batchUpdateServerGroup(selected.value.map(server => server.id), value); await load() } catch { /* user cancelled */ } }
 async function deleteSelected() { await ElMessageBox.confirm(t('confirmDelete'), t('dangerousAction'), { type: 'warning' }); try { await batchDeleteServers(selected.value.map(server => server.id)); selected.value = []; await load(); ElMessage.success(t('deleteSuccess')) } catch (error) { notifyAPIError(error, t as never, te) } }
 function status(server: ServerRecord) { return server.online ? 'online' : (server.telemetry?.connectivity || 'offline') }
 function display(value: unknown, key: string) { return formatAdminValue(value, key, locale.value, t as never, te) }
+function onSelect(row: ServerRecord, checked: boolean | string | number) { selected.value = toggleRowSelection(selected.value, row, !!checked) }
 function showInstall(server: ServerRecord, secret = '') { installServer.value = server; installSecret.value = secret; installDialog.value = true }
 async function resetSecret(server: ServerRecord) { await ElMessageBox.confirm(t('confirmResetSecret'), t('confirm'), { type: 'warning' }); try { const result = await resetServerSecret(server.id); showInstall(server, result.secret) } catch (error) { notifyAPIError(error, t as never, te) } }
 async function resetAvailabilityHistory(server: ServerRecord) { await ElMessageBox.confirm(t('confirmResetAvailability'), t('confirm'), { type: 'warning' }); try { await resetServerAvailability(server.id); await load(); ElMessage.success(t('saveSuccess')) } catch (error) { notifyAPIError(error, t as never, te) } }
@@ -90,13 +93,17 @@ onMounted(async () => { await load(); if (route.query.create === '1') open() })
       <span class="toolbar-spacer"></span>
       <el-button @click="load"><i class="ri-refresh-line"></i>{{ t('refresh') }}</el-button>
     </div>
-    <el-table v-loading="loading" :data="items" row-key="id" @selection-change="selected=$event">
+    <el-table class="desktop-only" v-loading="loading" :data="items" row-key="id" @selection-change="selected=$event">
       <el-table-column type="selection" width="46"/>
+      <el-table-column class-name="col-status" label-class-name="col-status" width="44" align="center">
+        <template #default="{row}">
+          <span class="status-dot" :class="status(row)"></span>
+        </template>
+      </el-table-column>
       <el-table-column prop="name" :label="t('name')" min-width="200">
         <template #default="{row}">
           <div class="server-name">
-            <span class="status-dot" :class="status(row)"></span>
-            <div><strong>{{ row.name }}</strong><small>{{ publicSummary(row) }}</small></div>
+            <strong>{{ row.name }}</strong><small>{{ publicSummary(row) }}</small>
           </div>
         </template>
       </el-table-column>
@@ -124,10 +131,10 @@ onMounted(async () => { await load(); if (route.query.create === '1') open() })
       <el-table-column prop="last_active" :label="t('lastSeen')" width="190">
         <template #default="{row}">{{ display(row.last_active,'last_active') }}</template>
       </el-table-column>
-      <el-table-column :label="t('actions')" width="130" fixed="right">
+      <el-table-column :label="t('actions')" width="72" fixed="right">
         <template #default="{row}">
           <el-dropdown trigger="click">
-            <el-button><i class="ri-more-2-fill"></i>{{ t('actions') }}</el-button>
+            <el-button text class="actions-more" :aria-label="t('actions')"><i class="ri-more-fill"></i></el-button>
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item @click="open(row)"><i class="ri-edit-line"></i>{{ t('edit') }}</el-dropdown-item>
@@ -143,6 +150,59 @@ onMounted(async () => { await load(); if (route.query.create === '1') open() })
       </el-table-column>
       <template #empty><AppEmpty icon="ri-server-line" :description="t('noData')"/></template>
     </el-table>
+    <div class="mobile-only" v-loading="loading">
+      <AppEmpty v-if="!items.length && !loading" icon="ri-server-line" :description="t('noData')"/>
+      <div v-else class="mobile-card-list">
+        <article v-for="row in items" :key="row.id" class="mobile-card mobile-card--server">
+          <div class="mobile-card-head">
+            <el-checkbox :model-value="isRowSelected(selected, row)" @change="onSelect(row, $event)" />
+            <span class="mobile-card-status"><span class="status-dot" :class="status(row)"></span></span>
+            <div class="mobile-card-title">
+              <strong>{{ row.name }}</strong>
+              <small v-if="hasPublicSummary(row)">{{ publicSummary(row) }}</small>
+            </div>
+            <div class="mobile-card-actions">
+              <el-dropdown trigger="click">
+                <el-button text class="actions-more" :aria-label="t('actions')"><i class="ri-more-fill"></i></el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item @click="open(row)"><i class="ri-edit-line"></i>{{ t('edit') }}</el-dropdown-item>
+                    <el-dropdown-item @click="showInstall(row)"><i class="ri-download-cloud-2-line"></i>{{ t('installAgent') }}</el-dropdown-item>
+                    <el-dropdown-item @click="showHistory(row)"><i class="ri-history-line"></i>{{ t('offlineHistory') }}</el-dropdown-item>
+                    <el-dropdown-item @click="resetSecret(row)"><i class="ri-key-2-line"></i>{{ t('resetSecret') }}</el-dropdown-item>
+                    <el-dropdown-item @click="resetAvailabilityHistory(row)"><i class="ri-restart-line"></i>{{ t('resetAvailability') }}</el-dropdown-item>
+                    <el-dropdown-item divided @click="removeOne(row)"><i class="ri-delete-bin-6-line"></i>{{ t('delete') }}</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </div>
+          </div>
+          <div class="mobile-card-chips">
+            <el-tag effect="plain">{{ row.tag || 'default' }}</el-tag>
+            <span class="state-label"><i class="ri-checkbox-circle-fill"></i>{{ t(row.telemetry?.coverage || status(row)) }}</span>
+          </div>
+          <dl class="mobile-card-meta mobile-card-meta--stats">
+            <div><dt>{{ t('host') }}</dt><dd>{{ row.host?.Platform || row.host?.platform || '—' }}</dd></div>
+            <div><dt>{{ t('lastSeen') }}</dt><dd>{{ display(row.last_active,'last_active') }}</dd></div>
+          </dl>
+          <dl class="mobile-card-meta mobile-card-meta--sort">
+            <div>
+              <dt>{{ t('displayIndex') }}</dt>
+              <dd>
+                <el-input
+                  v-model="sortDraft[row.id]"
+                  class="sort-input"
+                  inputmode="numeric"
+                  :disabled="!!sortSaving[row.id]"
+                  @keyup.enter="commitDisplayIndex(row)"
+                  @blur="commitDisplayIndex(row)"
+                />
+              </dd>
+            </div>
+          </dl>
+        </article>
+      </div>
+    </div>
     <div class="pagination"><el-pagination v-model:current-page="query.page" v-model:page-size="query.page_size" layout="total, sizes, prev, pager, next" :total="total" @change="load"/></div>
   </section>
   <ServerEditorDialog v-model="editor" :value="editing" @saved="saved"/>
@@ -166,7 +226,7 @@ onMounted(async () => { await load(); if (route.query.create === '1') open() })
           <el-table-column prop="started_at" :label="t('startedAt')" min-width="190"><template #default="{row}">{{display(row.started_at,'started_at')}}</template></el-table-column>
           <el-table-column prop="ended_at" :label="t('endedAt')" min-width="190"><template #default="{row}">{{display(row.ended_at,'ended_at')}}</template></el-table-column>
           <el-table-column prop="duration" :label="t('duration')" width="120"/>
-          <el-table-column :label="t('actions')" width="90"><template #default="{row}"><el-button circle type="danger" plain :aria-label="t('delete')" @click="removeHistory(row)"><i class="ri-delete-bin-line"></i></el-button></template></el-table-column>
+          <el-table-column :label="t('actions')" width="72"><template #default="{row}"><el-button text class="actions-icon" type="danger" :aria-label="t('delete')" @click="removeHistory(row)"><i class="ri-delete-bin-line"></i></el-button></template></el-table-column>
         </el-table>
       </el-tab-pane>
     </el-tabs>

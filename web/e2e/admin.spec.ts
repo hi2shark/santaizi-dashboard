@@ -6,8 +6,9 @@ const probeMetadata = {
   required: ['heartbeat', 'identity'],
   optional: [{ id: 'cpu', disable_flag: '--disable-cpu' }, { id: 'memory', disable_flag: '--disable-memory' }, { id: 'nat', disable_flag: '--disable-nat' }],
   presets: {
-    standard: { cpu: true, memory: true, disk: true, network: true, connections: true, processes: true, temperature: true, gpu: true, host_info: true, ip_report: true, http_probe: true, icmp_probe: true, tcp_probe: true, nat: false },
-    light: { cpu: true, memory: true, disk: false, network: true, connections: false, processes: false, temperature: false, gpu: false, host_info: true, ip_report: true, http_probe: true, icmp_probe: true, tcp_probe: true, nat: false },
+    standard_cloud: { cpu: true, memory: true, disk: true, network: true, connections: true, processes: true, temperature: false, gpu: false, host_info: true, ip_report: true, http_probe: true, icmp_probe: true, tcp_probe: true, nat: false },
+    standard_physical: { cpu: true, memory: true, disk: true, network: true, connections: true, processes: true, temperature: true, gpu: true, host_info: true, ip_report: true, http_probe: true, icmp_probe: true, tcp_probe: true, nat: false },
+    light: { cpu: true, memory: true, disk: true, network: true, connections: false, processes: false, temperature: false, gpu: false, host_info: true, ip_report: true, http_probe: true, icmp_probe: true, tcp_probe: true, nat: false },
     alive: { cpu: false, memory: false, disk: false, network: false, connections: false, processes: false, temperature: false, gpu: false, host_info: false, ip_report: false, http_probe: false, icmp_probe: false, tcp_probe: false, nat: false },
   },
 }
@@ -211,6 +212,7 @@ test('collector and API token credentials can be viewed again by stable identifi
   await page.route('**/api/v2/admin/telemetry/collectors**', route => {
     const path = new URL(route.request().url()).pathname
     if (path.endsWith('/token')) return fulfillJSON(route, item({ collector_id: 'collector-1', registration_token: 'collector-token', revoked: false }))
+    if (path.endsWith('/install-preview')) return fulfillJSON(route, item({ command: "curl -fsSL 'https://example.invalid/install_collector.sh' | bash -s -- --primary-endpoint '127.0.0.1:5555' --token 'collector-token' --grpc-port 5555", primary_endpoint: '127.0.0.1:5555', grpc_port: 5555, primary_tls: true, primary_insecure_tls: false }))
     return fulfillJSON(route, list([collector]))
   })
   await page.goto('/admin/telemetry')
@@ -220,11 +222,13 @@ test('collector and API token credentials can be viewed again by stable identifi
 
   await page.route('**/api/v2/admin/api-tokens**', route => {
     const path = new URL(route.request().url()).pathname
-    if (path.endsWith('/17')) return fulfillJSON(route, item({ id: 17, note: 'automation', token: 'reusable-api-token', token_prefix: 'reus', created_at: '2026-08-11T12:00:00Z' }))
-    return fulfillJSON(route, list([{ id: 17, note: 'automation', token_prefix: 'reus', created_at: '2026-08-11T12:00:00Z' }]))
+    const base = { id: 17, note: 'automation', permission: 'write', enabled: true, expired: false, expires_at: null, created_at: '2026-08-11T12:00:00Z' }
+    if (path.endsWith('/17')) return fulfillJSON(route, item({ ...base, token: 'reusable-api-token', token_prefix: 'reus…' }))
+    return fulfillJSON(route, list([{ ...base, token_prefix: 'reus…' }]))
   })
   await page.goto('/admin/api-tokens')
-  await page.getByRole('button', { name: '查看 Token' }).click()
+  await page.locator('.el-table__body .actions-more').click()
+  await page.getByText('查看 Token', { exact: true }).click()
   await expect(page.getByRole('dialog', { name: 'Token' }).locator('input')).toHaveValue('reusable-api-token')
 })
 
@@ -232,7 +236,7 @@ test('switches locale without a page navigation', async ({ page }) => {
   await page.route('**/api/v2/admin/summary', route => fulfillJSON(route, item({})))
   await page.goto('/admin/')
   const before = page.url()
-  await page.locator('.locale-select').click()
+  await page.getByRole('button', { name: '语言' }).click()
   await page.getByText('English', { exact: true }).last().click()
   await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible()
   expect(page.url()).toBe(before)

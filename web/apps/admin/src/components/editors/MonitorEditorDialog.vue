@@ -94,9 +94,22 @@ watch(() => props.modelValue, value => { if (value) { reset(props.value); void l
         </div>
       </div>
       <div class="editor-section">
-        <h3>{{ t('serverScope') }}</h3>
-        <el-radio-group v-model="scopeMode" class="scope-mode"><el-radio-button value="all">{{ t('scopeAll') }}</el-radio-button><el-radio-button value="include">{{ t('scopeSelectedServers') }}</el-radio-button><el-radio-button value="exclude">{{ t('scopeExceptSelected') }}</el-radio-button></el-radio-group>
-        <el-transfer v-if="scopeMode !== 'all'" v-model="scopeServers" filterable :filter-placeholder="t('searchServers')" :data="transferData" :titles="[t('availableServers'), scopeMode === 'include' ? t('selectedServers') : t('excludedServers')]" class="server-transfer" />
+        <el-form-item :label="t('serverScope')" class="scope-field">
+          <el-radio-group v-model="scopeMode" class="scope-mode">
+            <el-radio-button value="all">{{ t('scopeAll') }}</el-radio-button>
+            <el-radio-button value="include">{{ t('scopeSelectedServers') }}</el-radio-button>
+            <el-radio-button value="exclude">{{ t('scopeExceptSelected') }}</el-radio-button>
+          </el-radio-group>
+          <el-transfer
+            v-if="scopeMode !== 'all'"
+            v-model="scopeServers"
+            filterable
+            :filter-placeholder="t('searchServers')"
+            :data="transferData"
+            :titles="[t('availableServers'), scopeMode === 'include' ? t('selectedServers') : t('excludedServers')]"
+            class="server-transfer"
+          />
+        </el-form-item>
       </div>
     </el-form>
     <template #footer="{ close }"><el-button :disabled="saving" @click="close()">{{ t('cancel') }}</el-button><el-button type="primary" :loading="saving" @click="submit">{{ t('save') }}</el-button></template>

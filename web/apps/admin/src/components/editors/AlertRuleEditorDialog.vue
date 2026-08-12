@@ -100,8 +100,22 @@ watch(() => props.modelValue, value => { if (value) { reset(props.value); void l
               <el-form-item v-if="condition.type !== 'offline'" :label="`${t('minimumThreshold')} ${unit(condition.type)}`"><el-input v-model.number="condition.min" inputmode="numeric" class="field-full" @blur="condition.min = clampNumber(condition.min, 0, undefined, 0)" /></el-form-item>
               <el-form-item v-if="condition.type !== 'offline'" :label="`${t('maximumThreshold')} ${unit(condition.type)}`"><el-input v-model.number="condition.max" inputmode="numeric" class="field-full" @blur="condition.max = clampNumber(condition.max, 0, undefined, 0)" /></el-form-item>
             </div>
-            <el-form-item :label="t('serverScope')"><el-radio-group v-model="condition.scope_mode"><el-radio-button value="all">{{ t('scopeAll') }}</el-radio-button><el-radio-button value="include">{{ t('scopeSelectedServers') }}</el-radio-button><el-radio-button value="exclude">{{ t('scopeExceptSelected') }}</el-radio-button></el-radio-group></el-form-item>
-            <el-transfer v-if="condition.scope_mode !== 'all'" v-model="condition.server_ids" filterable :filter-placeholder="t('searchServers')" :data="transferData" :titles="[t('availableServers'), condition.scope_mode === 'include' ? t('selectedServers') : t('excludedServers')]" class="server-transfer" />
+            <el-form-item :label="t('serverScope')" class="scope-field">
+              <el-radio-group v-model="condition.scope_mode" class="scope-mode">
+                <el-radio-button value="all">{{ t('scopeAll') }}</el-radio-button>
+                <el-radio-button value="include">{{ t('scopeSelectedServers') }}</el-radio-button>
+                <el-radio-button value="exclude">{{ t('scopeExceptSelected') }}</el-radio-button>
+              </el-radio-group>
+              <el-transfer
+                v-if="condition.scope_mode !== 'all'"
+                v-model="condition.server_ids"
+                filterable
+                :filter-placeholder="t('searchServers')"
+                :data="transferData"
+                :titles="[t('availableServers'), condition.scope_mode === 'include' ? t('selectedServers') : t('excludedServers')]"
+                class="server-transfer"
+              />
+            </el-form-item>
           </section>
         </div>
       </div>
