@@ -6,44 +6,76 @@ info:
     Santaizi Primary 的公开状态和管理接口。浏览器会话使用 Cookie 与 CSRF，
     自动化客户端使用 Bearer Token。Telemetry/Replication 可靠链路仍使用 gRPC。
 servers:
-  - url: /
+- url: /
+  description: 当前站点（同源）
+- url: https://monitor.example.com
+  description: 示例部署地址
 tags:
-  - { name: Auth, description: 管理会话 }
-  - { name: Public, description: ServerStatus 公开数据 }
-  - { name: Servers, description: 服务器管理 }
-  - { name: Monitors, description: 服务监控 }
-  - { name: Notifications, description: 通知和告警规则 }
-  - { name: Network, description: DDNS 与 NAT }
-  - { name: Settings, description: 站点设置 }
-  - { name: Telemetry, description: Collector、Observer 和可靠性 }
+- name: Auth
+  description: 管理会话
+- name: Public
+  description: ServerStatus 公开数据
+- name: Servers
+  description: 服务器管理
+- name: Monitors
+  description: 服务监控
+- name: Notifications
+  description: 通知和告警规则
+- name: Network
+  description: DDNS 与 NAT
+- name: Settings
+  description: 站点设置
+- name: Telemetry
+  description: Collector、Observer 和可靠性
 security:
-  - cookieAuth: []
-  - bearerAuth: []
+- cookieAuth: []
+- bearerAuth: []
 paths:
   /api/v2/auth/session:
     get:
-      tags: [Auth]
+      tags:
+      - Auth
+      summary: 获取当前会话
+      description: 返回当前管理员会话。浏览器写操作前需读取 `csrf_token`，并放在 `X-CSRF-Token` 请求头。
       operationId: getSession
       security: []
       responses:
-        '200': { $ref: '#/components/responses/SessionResponse' }
+        '200':
+          $ref: '#/components/responses/SessionResponse'
   /api/v2/auth/logout:
     post:
-      tags: [Auth]
+      tags:
+      - Auth
+      summary: 退出登录
+      description: 结束 Cookie 会话。使用 Cookie 鉴权时须携带 CSRF Token。
       operationId: logout
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
       responses:
-        '204': { description: Logged out }
-        default: { $ref: '#/components/responses/Problem' }
+        '204':
+          description: Logged out
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/public/bootstrap:
     get:
-      tags: [Public]
+      tags:
+      - Public
+      summary: 公开站点引导信息
       operationId: getPublicBootstrap
       security: []
       responses:
-        '200': { $ref: '#/components/responses/BootstrapResponse' }
+        '200':
+          $ref: '#/components/responses/BootstrapResponse'
   /api/v2/public/view-password/session:
     post:
-      tags: [Public]
+      tags:
+      - Public
+      summary: 校验站点访问密码
+      description: 站点启用访问密码时，校验密码并建立查看会话。
       operationId: createViewPasswordSession
       security: []
       requestBody:
@@ -52,1130 +84,3217 @@ paths:
           application/json:
             schema:
               type: object
-              required: [password]
-              properties: { password: { type: string, format: password } }
+              required:
+              - password
+              properties:
+                password:
+                  type: string
+                  format: password
       responses:
-        '204': { description: Verified }
-        default: { $ref: '#/components/responses/Problem' }
+        '204':
+          description: Verified
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/public/servers:
     get:
-      tags: [Public]
+      tags:
+      - Public
+      summary: 公开服务器列表
+      description: 公开 ServerStatus 服务器列表；可通过 `x-websocket` 订阅实时状态。
       operationId: listPublicServers
       x-websocket: /ws/v2/public/runtime
       security: []
       responses:
-        '200': { $ref: '#/components/responses/ServerListResponse' }
-        default: { $ref: '#/components/responses/Problem' }
+        '200':
+          $ref: '#/components/responses/ServerListResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/public/servers/{serverId}:
-    parameters: [ { $ref: '#/components/parameters/ServerId' } ]
+    parameters:
+    - $ref: '#/components/parameters/ServerId'
     get:
-      tags: [Public]
+      tags:
+      - Public
+      summary: 公开服务器详情
       operationId: getPublicServer
       security: []
       responses:
-        '200': { $ref: '#/components/responses/ServerResponse' }
-        default: { $ref: '#/components/responses/Problem' }
+        '200':
+          $ref: '#/components/responses/ServerResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/public/services:
     get:
-      tags: [Public]
+      tags:
+      - Public
+      summary: 公开服务监控列表
       operationId: listPublicServices
       security: []
       responses:
-        '200': { $ref: '#/components/responses/ObjectListResponse' }
-        default: { $ref: '#/components/responses/Problem' }
+        '200':
+          $ref: '#/components/responses/ObjectListResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/public/network/{serverId}:
-    parameters: [ { $ref: '#/components/parameters/ServerId' } ]
+    parameters:
+    - $ref: '#/components/parameters/ServerId'
     get:
-      tags: [Public]
+      tags:
+      - Public
+      summary: 公开网络延迟历史
       operationId: getPublicNetworkHistory
       security: []
       responses:
-        '200': { $ref: '#/components/responses/ObjectListResponse' }
-        default: { $ref: '#/components/responses/Problem' }
+        '200':
+          $ref: '#/components/responses/ObjectListResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/summary:
     get:
-      tags: [Settings]
+      tags:
+      - Settings
+      summary: 管理概览摘要
       operationId: getAdminSummary
       responses:
-        '200': { $ref: '#/components/responses/ObjectResponse' }
-        default: { $ref: '#/components/responses/Problem' }
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/servers:
     get:
-      tags: [Servers]
+      tags:
+      - Servers
+      summary: 服务器列表
       operationId: listServers
-      parameters: [ { $ref: '#/components/parameters/Page' }, { $ref: '#/components/parameters/PageSize' }, { $ref: '#/components/parameters/Search' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Order' } ]
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/Sort'
+      - $ref: '#/components/parameters/Order'
       responses:
-        '200': { $ref: '#/components/responses/ServerListResponse' }
-        default: { $ref: '#/components/responses/Problem' }
+        '200':
+          $ref: '#/components/responses/ServerListResponse'
+        default:
+          $ref: '#/components/responses/Problem'
     post:
-      tags: [Servers]
+      tags:
+      - Servers
+      summary: 创建服务器
       operationId: createServer
       x-ui-route: /admin/servers
-      requestBody: { $ref: '#/components/requestBodies/ServerWrite' }
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/ServerWrite'
       responses:
-        '201': { $ref: '#/components/responses/ServerResponse' }
-        default: { $ref: '#/components/responses/Problem' }
+        '201':
+          $ref: '#/components/responses/ServerResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/servers/{serverId}:
-    parameters: [ { $ref: '#/components/parameters/ServerId' } ]
+    parameters:
+    - $ref: '#/components/parameters/ServerId'
     get:
-      tags: [Servers]
+      tags:
+      - Servers
+      summary: 服务器详情
       operationId: getServer
       responses:
-        '200': { $ref: '#/components/responses/ServerResponse' }
-        default: { $ref: '#/components/responses/Problem' }
+        '200':
+          $ref: '#/components/responses/ServerResponse'
+        default:
+          $ref: '#/components/responses/Problem'
     patch:
-      tags: [Servers]
+      tags:
+      - Servers
+      summary: 更新服务器
       operationId: updateServer
       x-ui-route: /admin/servers
-      requestBody: { $ref: '#/components/requestBodies/ServerWrite' }
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/ServerWrite'
       responses:
-        '200': { $ref: '#/components/responses/ServerResponse' }
-        default: { $ref: '#/components/responses/Problem' }
+        '200':
+          $ref: '#/components/responses/ServerResponse'
+        default:
+          $ref: '#/components/responses/Problem'
     delete:
-      tags: [Servers]
+      tags:
+      - Servers
+      summary: 删除服务器
       operationId: deleteServer
       x-ui-route: /admin/servers
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
       responses:
-        '204': { description: Deleted }
-        default: { $ref: '#/components/responses/Problem' }
+        '204':
+          description: Deleted
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/servers/{serverId}/availability:
-    parameters: [ { $ref: '#/components/parameters/ServerId' } ]
+    parameters:
+    - $ref: '#/components/parameters/ServerId'
     get:
-      tags: [Servers]
+      tags:
+      - Servers
+      summary: 服务器可用性记录
       operationId: listServerAvailability
       x-ui-route: /admin/servers
-      parameters: [ { $ref: '#/components/parameters/From' }, { $ref: '#/components/parameters/To' }, { $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/Cursor' } ]
+      parameters:
+      - $ref: '#/components/parameters/From'
+      - $ref: '#/components/parameters/To'
+      - $ref: '#/components/parameters/Limit'
+      - $ref: '#/components/parameters/Cursor'
       responses:
-        '200': { $ref: '#/components/responses/ObjectListResponse' }
-        default: { $ref: '#/components/responses/Problem' }
+        '200':
+          $ref: '#/components/responses/ObjectListResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/servers/{serverId}/display-index:
-    parameters: [ { $ref: '#/components/parameters/ServerId' } ]
+    parameters:
+    - $ref: '#/components/parameters/ServerId'
     patch:
-      tags: [Servers]
+      tags:
+      - Servers
+      summary: 更新服务器排序权重
       operationId: updateServerDisplayIndex
       x-ui-route: /admin/servers
-      requestBody: { $ref: '#/components/requestBodies/ServerDisplayIndexWrite' }
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/ServerDisplayIndexWrite'
       responses:
-        '200': { $ref: '#/components/responses/ServerResponse' }
-        default: { $ref: '#/components/responses/Problem' }
+        '200':
+          $ref: '#/components/responses/ServerResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/server-groups:
     get:
-      tags: [Servers]
+      tags:
+      - Servers
+      summary: 服务器分组列表
       operationId: listServerGroups
       x-ui-route: /admin/servers
       responses:
-        '200': { $ref: '#/components/responses/ServerGroupListResponse' }
-        default: { $ref: '#/components/responses/Problem' }
+        '200':
+          $ref: '#/components/responses/ServerGroupListResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/server-groups/rename:
     post:
-      tags: [Servers]
+      tags:
+      - Servers
+      summary: 重命名服务器分组
       operationId: renameServerGroup
       x-ui-route: /admin/servers
-      requestBody: { $ref: '#/components/requestBodies/ServerGroupRenameWrite' }
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/ServerGroupRenameWrite'
       responses:
-        '200': { $ref: '#/components/responses/ObjectResponse' }
-        default: { $ref: '#/components/responses/Problem' }
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/servers/{serverId}/reset-secret:
-    parameters: [ { $ref: '#/components/parameters/ServerId' } ]
+    parameters:
+    - $ref: '#/components/parameters/ServerId'
     post:
-      tags: [Servers]
+      tags:
+      - Servers
+      summary: 重置服务器密钥
       operationId: resetServerSecret
       x-ui-route: /admin/servers
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
       responses:
-        '200': { $ref: '#/components/responses/ServerSecretResponse' }
-        default: { $ref: '#/components/responses/Problem' }
+        '200':
+          $ref: '#/components/responses/ServerSecretResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/servers/{serverId}/reset-availability:
-    parameters: [ { $ref: '#/components/parameters/ServerId' } ]
+    parameters:
+    - $ref: '#/components/parameters/ServerId'
     post:
-      tags: [Servers]
+      tags:
+      - Servers
+      summary: 重置服务器可用性统计
       operationId: resetServerAvailability
       x-ui-route: /admin/servers
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
       responses:
-        '200': { $ref: '#/components/responses/ObjectResponse' }
-        default: { $ref: '#/components/responses/Problem' }
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/servers/{serverId}/credential:
-    parameters: [ { $ref: '#/components/parameters/ServerId' } ]
+    parameters:
+    - $ref: '#/components/parameters/ServerId'
     get:
-      tags: [Servers]
+      tags:
+      - Servers
+      summary: 查看服务器密钥
       operationId: getServerCredential
       x-ui-route: /admin/servers
       responses:
-        '200': { $ref: '#/components/responses/ServerCredentialResponse' }
-        default: { $ref: '#/components/responses/Problem' }
+        '200':
+          $ref: '#/components/responses/ServerCredentialResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/servers/{serverId}/install-preview:
-    parameters: [ { $ref: '#/components/parameters/ServerId' } ]
+    parameters:
+    - $ref: '#/components/parameters/ServerId'
     post:
-      tags: [Servers]
+      tags:
+      - Servers
+      summary: 生成安装命令预览
       operationId: getServerInstallPreview
       x-ui-route: /admin/servers
-      requestBody: { $ref: '#/components/requestBodies/InstallPreviewWrite' }
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/InstallPreviewWrite'
       responses:
-        '200': { $ref: '#/components/responses/InstallPreviewResponse' }
-        default: { $ref: '#/components/responses/Problem' }
+        '200':
+          $ref: '#/components/responses/InstallPreviewResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/probe-capabilities:
     get:
-      tags: [Servers]
+      tags:
+      - Servers
+      summary: 探针能力清单
       operationId: getProbeCapabilities
       x-ui-route: /admin/servers
       responses:
-        '200': { $ref: '#/components/responses/ProbeCapabilitiesResponse' }
-        default: { $ref: '#/components/responses/Problem' }
+        '200':
+          $ref: '#/components/responses/ProbeCapabilitiesResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/servers/{serverId}/traffic-policies:
-    parameters: [ { $ref: '#/components/parameters/ServerId' } ]
+    parameters:
+    - $ref: '#/components/parameters/ServerId'
     get:
-      tags: [Servers]
+      tags:
+      - Servers
+      summary: 流量策略列表
       operationId: listTrafficPolicies
       x-ui-route: /admin/servers
       responses:
-        '200': { $ref: '#/components/responses/TrafficPolicyListResponse' }
-        default: { $ref: '#/components/responses/Problem' }
+        '200':
+          $ref: '#/components/responses/TrafficPolicyListResponse'
+        default:
+          $ref: '#/components/responses/Problem'
     post:
-      tags: [Servers]
+      tags:
+      - Servers
+      summary: 创建流量策略
       operationId: createTrafficPolicy
       x-ui-route: /admin/servers
-      requestBody: { $ref: '#/components/requestBodies/TrafficPolicyWrite' }
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/TrafficPolicyWrite'
       responses:
-        '201': { $ref: '#/components/responses/TrafficPolicyResponse' }
-        default: { $ref: '#/components/responses/Problem' }
+        '201':
+          $ref: '#/components/responses/TrafficPolicyResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/servers/{serverId}/traffic-policies/{policyId}:
     parameters:
-      - { $ref: '#/components/parameters/ServerId' }
-      - { name: policyId, in: path, required: true, schema: { type: integer, format: int64, minimum: 1 } }
-    get: { tags: [Servers], operationId: getTrafficPolicy, x-ui-route: /admin/servers, responses: { '200': { $ref: '#/components/responses/TrafficPolicyResponse' }, default: { $ref: '#/components/responses/Problem' } } }
-    patch: { tags: [Servers], operationId: updateTrafficPolicy, x-ui-route: /admin/servers, requestBody: { $ref: '#/components/requestBodies/TrafficPolicyWrite' }, responses: { '200': { $ref: '#/components/responses/TrafficPolicyResponse' }, default: { $ref: '#/components/responses/Problem' } } }
-    delete: { tags: [Servers], operationId: deleteTrafficPolicy, x-ui-route: /admin/servers, responses: { '204': { description: Deleted }, default: { $ref: '#/components/responses/Problem' } } }
+    - $ref: '#/components/parameters/ServerId'
+    - name: policyId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    get:
+      tags:
+      - Servers
+      summary: 流量策略详情
+      operationId: getTrafficPolicy
+      x-ui-route: /admin/servers
+      responses:
+        '200':
+          $ref: '#/components/responses/TrafficPolicyResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+    patch:
+      tags:
+      - Servers
+      summary: 更新流量策略
+      operationId: updateTrafficPolicy
+      x-ui-route: /admin/servers
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/TrafficPolicyWrite'
+      responses:
+        '200':
+          $ref: '#/components/responses/TrafficPolicyResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+    delete:
+      tags:
+      - Servers
+      summary: 删除流量策略
+      operationId: deleteTrafficPolicy
+      x-ui-route: /admin/servers
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '204':
+          description: Deleted
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/servers/{serverId}/traffic-policies/{policyId}/usage:
     parameters:
-      - { $ref: '#/components/parameters/ServerId' }
-      - { name: policyId, in: path, required: true, schema: { type: integer, format: int64, minimum: 1 } }
-    get: { tags: [Servers], operationId: getTrafficPolicyUsage, x-ui-route: /admin/servers, responses: { '200': { $ref: '#/components/responses/TrafficUsageResponse' }, default: { $ref: '#/components/responses/Problem' } } }
+    - $ref: '#/components/parameters/ServerId'
+    - name: policyId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    get:
+      tags:
+      - Servers
+      summary: 流量策略用量
+      operationId: getTrafficPolicyUsage
+      x-ui-route: /admin/servers
+      responses:
+        '200':
+          $ref: '#/components/responses/TrafficUsageResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/servers/batch/group:
     post:
-      tags: [Servers]
+      tags:
+      - Servers
+      summary: 批量更新服务器分组
       operationId: batchUpdateServerGroup
       x-ui-route: /admin/servers
-      requestBody: { $ref: '#/components/requestBodies/BatchServerGroupWrite' }
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/BatchServerGroupWrite'
       responses:
-        '200': { $ref: '#/components/responses/ObjectResponse' }
-        default: { $ref: '#/components/responses/Problem' }
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/servers/batch/delete:
     post:
-      tags: [Servers]
+      tags:
+      - Servers
+      summary: 批量删除服务器
       operationId: batchDeleteServers
       x-ui-route: /admin/servers
-      requestBody: { $ref: '#/components/requestBodies/BatchServerDeleteWrite' }
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/BatchServerDeleteWrite'
       responses:
-        '204': { description: Deleted }
-        default: { $ref: '#/components/responses/Problem' }
+        '204':
+          description: Deleted
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/monitors:
-    get: { tags: [Monitors], operationId: listMonitors, parameters: [ { $ref: '#/components/parameters/Page' }, { $ref: '#/components/parameters/PageSize' }, { $ref: '#/components/parameters/Search' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Order' } ], responses: { '200': { $ref: '#/components/responses/MonitorListResponse' }, default: { $ref: '#/components/responses/Problem' } } }
-    post: { tags: [Monitors], operationId: createMonitor, x-ui-route: /admin/services, requestBody: { $ref: '#/components/requestBodies/MonitorWrite' }, responses: { '201': { $ref: '#/components/responses/MonitorResponse' }, default: { $ref: '#/components/responses/Problem' } } }
+    get:
+      tags:
+      - Monitors
+      summary: 服务监控列表
+      operationId: listMonitors
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/Sort'
+      - $ref: '#/components/parameters/Order'
+      responses:
+        '200':
+          $ref: '#/components/responses/MonitorListResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+    post:
+      tags:
+      - Monitors
+      summary: 创建服务监控
+      operationId: createMonitor
+      x-ui-route: /admin/services
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/MonitorWrite'
+      responses:
+        '201':
+          $ref: '#/components/responses/MonitorResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/monitors/{id}:
-    parameters: [ { $ref: '#/components/parameters/Id' } ]
-    get: { tags: [Monitors], operationId: getMonitor, responses: { '200': { $ref: '#/components/responses/MonitorResponse' }, default: { $ref: '#/components/responses/Problem' } } }
-    patch: { tags: [Monitors], operationId: updateMonitor, x-ui-route: /admin/services, requestBody: { $ref: '#/components/requestBodies/MonitorWrite' }, responses: { '200': { $ref: '#/components/responses/MonitorResponse' }, default: { $ref: '#/components/responses/Problem' } } }
-    delete: { tags: [Monitors], operationId: deleteMonitor, x-ui-route: /admin/services, responses: { '204': { description: Deleted }, default: { $ref: '#/components/responses/Problem' } } }
+    parameters:
+    - $ref: '#/components/parameters/Id'
+    get:
+      tags:
+      - Monitors
+      summary: 服务监控详情
+      operationId: getMonitor
+      responses:
+        '200':
+          $ref: '#/components/responses/MonitorResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+    patch:
+      tags:
+      - Monitors
+      summary: 更新服务监控
+      operationId: updateMonitor
+      x-ui-route: /admin/services
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/MonitorWrite'
+      responses:
+        '200':
+          $ref: '#/components/responses/MonitorResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+    delete:
+      tags:
+      - Monitors
+      summary: 删除服务监控
+      operationId: deleteMonitor
+      x-ui-route: /admin/services
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '204':
+          description: Deleted
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/monitors/{id}/history:
-    parameters: [ { $ref: '#/components/parameters/Id' } ]
-    get: { tags: [Monitors], operationId: listMonitorHistory, parameters: [ { $ref: '#/components/parameters/From' }, { $ref: '#/components/parameters/To' }, { $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/Cursor' } ], responses: { '200': { $ref: '#/components/responses/ObjectListResponse' }, default: { $ref: '#/components/responses/Problem' } } }
+    parameters:
+    - $ref: '#/components/parameters/Id'
+    get:
+      tags:
+      - Monitors
+      summary: 服务监控历史
+      operationId: listMonitorHistory
+      parameters:
+      - $ref: '#/components/parameters/From'
+      - $ref: '#/components/parameters/To'
+      - $ref: '#/components/parameters/Limit'
+      - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectListResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/notifications:
-    get: { tags: [Notifications], operationId: listNotifications, parameters: [ { $ref: '#/components/parameters/Page' }, { $ref: '#/components/parameters/PageSize' }, { $ref: '#/components/parameters/Search' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Order' } ], responses: { '200': { $ref: '#/components/responses/NotificationChannelListResponse' }, default: { $ref: '#/components/responses/Problem' } } }
-    post: { tags: [Notifications], operationId: createNotification, x-ui-route: /admin/notifications, requestBody: { $ref: '#/components/requestBodies/NotificationChannelWrite' }, responses: { '201': { $ref: '#/components/responses/NotificationChannelResponse' }, default: { $ref: '#/components/responses/Problem' } } }
+    get:
+      tags:
+      - Notifications
+      summary: 通知渠道列表
+      operationId: listNotifications
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/Sort'
+      - $ref: '#/components/parameters/Order'
+      responses:
+        '200':
+          $ref: '#/components/responses/NotificationChannelListResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+    post:
+      tags:
+      - Notifications
+      summary: 创建通知渠道
+      operationId: createNotification
+      x-ui-route: /admin/notifications
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/NotificationChannelWrite'
+      responses:
+        '201':
+          $ref: '#/components/responses/NotificationChannelResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/notifications/{id}:
-    parameters: [ { $ref: '#/components/parameters/Id' } ]
-    get: { tags: [Notifications], operationId: getNotification, responses: { '200': { $ref: '#/components/responses/NotificationChannelResponse' }, default: { $ref: '#/components/responses/Problem' } } }
-    patch: { tags: [Notifications], operationId: updateNotification, x-ui-route: /admin/notifications, requestBody: { $ref: '#/components/requestBodies/NotificationChannelWrite' }, responses: { '200': { $ref: '#/components/responses/NotificationChannelResponse' }, default: { $ref: '#/components/responses/Problem' } } }
-    delete: { tags: [Notifications], operationId: deleteNotification, x-ui-route: /admin/notifications, responses: { '204': { description: Deleted }, default: { $ref: '#/components/responses/Problem' } } }
+    parameters:
+    - $ref: '#/components/parameters/Id'
+    get:
+      tags:
+      - Notifications
+      summary: 通知渠道详情
+      operationId: getNotification
+      responses:
+        '200':
+          $ref: '#/components/responses/NotificationChannelResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+    patch:
+      tags:
+      - Notifications
+      summary: 更新通知渠道
+      operationId: updateNotification
+      x-ui-route: /admin/notifications
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/NotificationChannelWrite'
+      responses:
+        '200':
+          $ref: '#/components/responses/NotificationChannelResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+    delete:
+      tags:
+      - Notifications
+      summary: 删除通知渠道
+      operationId: deleteNotification
+      x-ui-route: /admin/notifications
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '204':
+          description: Deleted
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/notifications/{id}/test:
-    parameters: [ { $ref: '#/components/parameters/Id' } ]
-    post: { tags: [Notifications], operationId: testNotification, x-ui-route: /admin/notifications, responses: { '202': { $ref: '#/components/responses/ObjectResponse' }, default: { $ref: '#/components/responses/Problem' } } }
+    parameters:
+    - $ref: '#/components/parameters/Id'
+    post:
+      tags:
+      - Notifications
+      summary: 测试通知渠道
+      operationId: testNotification
+      x-ui-route: /admin/notifications
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '202':
+          $ref: '#/components/responses/ObjectResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/alert-rules:
-    get: { tags: [Notifications], operationId: listAlertRules, parameters: [ { $ref: '#/components/parameters/Page' }, { $ref: '#/components/parameters/PageSize' }, { $ref: '#/components/parameters/Search' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Order' } ], responses: { '200': { $ref: '#/components/responses/AlertRuleListResponse' }, default: { $ref: '#/components/responses/Problem' } } }
-    post: { tags: [Notifications], operationId: createAlertRule, x-ui-route: /admin/alert-rules, requestBody: { $ref: '#/components/requestBodies/AlertRuleWrite' }, responses: { '201': { $ref: '#/components/responses/AlertRuleResponse' }, default: { $ref: '#/components/responses/Problem' } } }
+    get:
+      tags:
+      - Notifications
+      summary: 告警规则列表
+      operationId: listAlertRules
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/Sort'
+      - $ref: '#/components/parameters/Order'
+      responses:
+        '200':
+          $ref: '#/components/responses/AlertRuleListResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+    post:
+      tags:
+      - Notifications
+      summary: 创建告警规则
+      operationId: createAlertRule
+      x-ui-route: /admin/alert-rules
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/AlertRuleWrite'
+      responses:
+        '201':
+          $ref: '#/components/responses/AlertRuleResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/alert-rules/{id}:
-    parameters: [ { $ref: '#/components/parameters/Id' } ]
-    get: { tags: [Notifications], operationId: getAlertRule, responses: { '200': { $ref: '#/components/responses/AlertRuleResponse' }, default: { $ref: '#/components/responses/Problem' } } }
-    patch: { tags: [Notifications], operationId: updateAlertRule, x-ui-route: /admin/alert-rules, requestBody: { $ref: '#/components/requestBodies/AlertRuleWrite' }, responses: { '200': { $ref: '#/components/responses/AlertRuleResponse' }, default: { $ref: '#/components/responses/Problem' } } }
-    delete: { tags: [Notifications], operationId: deleteAlertRule, x-ui-route: /admin/alert-rules, responses: { '204': { description: Deleted }, default: { $ref: '#/components/responses/Problem' } } }
+    parameters:
+    - $ref: '#/components/parameters/Id'
+    get:
+      tags:
+      - Notifications
+      summary: 告警规则详情
+      operationId: getAlertRule
+      responses:
+        '200':
+          $ref: '#/components/responses/AlertRuleResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+    patch:
+      tags:
+      - Notifications
+      summary: 更新告警规则
+      operationId: updateAlertRule
+      x-ui-route: /admin/alert-rules
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/AlertRuleWrite'
+      responses:
+        '200':
+          $ref: '#/components/responses/AlertRuleResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+    delete:
+      tags:
+      - Notifications
+      summary: 删除告警规则
+      operationId: deleteAlertRule
+      x-ui-route: /admin/alert-rules
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '204':
+          description: Deleted
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/ddns/providers:
-    get: { tags: [Network], operationId: listDDNSProviders, responses: { '200': { $ref: '#/components/responses/DDNSProviderListResponse' }, default: { $ref: '#/components/responses/Problem' } } }
+    get:
+      tags:
+      - Network
+      summary: DDNS 提供商列表
+      operationId: listDDNSProviders
+      responses:
+        '200':
+          $ref: '#/components/responses/DDNSProviderListResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/ddns:
-    get: { tags: [Network], operationId: listDDNSProfiles, parameters: [ { $ref: '#/components/parameters/Page' }, { $ref: '#/components/parameters/PageSize' }, { $ref: '#/components/parameters/Search' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Order' } ], responses: { '200': { $ref: '#/components/responses/DDNSProfileListResponse' }, default: { $ref: '#/components/responses/Problem' } } }
-    post: { tags: [Network], operationId: createDDNSProfile, x-ui-route: /admin/ddns, requestBody: { $ref: '#/components/requestBodies/DDNSProfileWrite' }, responses: { '201': { $ref: '#/components/responses/DDNSProfileResponse' }, default: { $ref: '#/components/responses/Problem' } } }
+    get:
+      tags:
+      - Network
+      summary: DDNS 配置列表
+      operationId: listDDNSProfiles
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/Sort'
+      - $ref: '#/components/parameters/Order'
+      responses:
+        '200':
+          $ref: '#/components/responses/DDNSProfileListResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+    post:
+      tags:
+      - Network
+      summary: 创建 DDNS 配置
+      operationId: createDDNSProfile
+      x-ui-route: /admin/ddns
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/DDNSProfileWrite'
+      responses:
+        '201':
+          $ref: '#/components/responses/DDNSProfileResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/ddns/{id}:
-    parameters: [ { $ref: '#/components/parameters/Id' } ]
-    get: { tags: [Network], operationId: getDDNSProfile, responses: { '200': { $ref: '#/components/responses/DDNSProfileResponse' }, default: { $ref: '#/components/responses/Problem' } } }
-    patch: { tags: [Network], operationId: updateDDNSProfile, x-ui-route: /admin/ddns, requestBody: { $ref: '#/components/requestBodies/DDNSProfileWrite' }, responses: { '200': { $ref: '#/components/responses/DDNSProfileResponse' }, default: { $ref: '#/components/responses/Problem' } } }
-    delete: { tags: [Network], operationId: deleteDDNSProfile, x-ui-route: /admin/ddns, responses: { '204': { description: Deleted }, default: { $ref: '#/components/responses/Problem' } } }
+    parameters:
+    - $ref: '#/components/parameters/Id'
+    get:
+      tags:
+      - Network
+      summary: DDNS 配置详情
+      operationId: getDDNSProfile
+      responses:
+        '200':
+          $ref: '#/components/responses/DDNSProfileResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+    patch:
+      tags:
+      - Network
+      summary: 更新 DDNS 配置
+      operationId: updateDDNSProfile
+      x-ui-route: /admin/ddns
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/DDNSProfileWrite'
+      responses:
+        '200':
+          $ref: '#/components/responses/DDNSProfileResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+    delete:
+      tags:
+      - Network
+      summary: 删除 DDNS 配置
+      operationId: deleteDDNSProfile
+      x-ui-route: /admin/ddns
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '204':
+          description: Deleted
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/nat:
-    get: { tags: [Network], operationId: listNATTunnels, parameters: [ { $ref: '#/components/parameters/Page' }, { $ref: '#/components/parameters/PageSize' }, { $ref: '#/components/parameters/Search' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Order' } ], responses: { '200': { $ref: '#/components/responses/NATTunnelListResponse' }, default: { $ref: '#/components/responses/Problem' } } }
-    post: { tags: [Network], operationId: createNATTunnel, x-ui-route: /admin/nat, requestBody: { $ref: '#/components/requestBodies/NATTunnelWrite' }, responses: { '201': { $ref: '#/components/responses/NATTunnelResponse' }, default: { $ref: '#/components/responses/Problem' } } }
+    get:
+      tags:
+      - Network
+      summary: NAT 隧道列表
+      operationId: listNATTunnels
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/Sort'
+      - $ref: '#/components/parameters/Order'
+      responses:
+        '200':
+          $ref: '#/components/responses/NATTunnelListResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+    post:
+      tags:
+      - Network
+      summary: 创建 NAT 隧道
+      operationId: createNATTunnel
+      x-ui-route: /admin/nat
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/NATTunnelWrite'
+      responses:
+        '201':
+          $ref: '#/components/responses/NATTunnelResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/nat/{id}:
-    parameters: [ { $ref: '#/components/parameters/Id' } ]
-    get: { tags: [Network], operationId: getNATTunnel, responses: { '200': { $ref: '#/components/responses/NATTunnelResponse' }, default: { $ref: '#/components/responses/Problem' } } }
-    patch: { tags: [Network], operationId: updateNATTunnel, x-ui-route: /admin/nat, requestBody: { $ref: '#/components/requestBodies/NATTunnelWrite' }, responses: { '200': { $ref: '#/components/responses/NATTunnelResponse' }, default: { $ref: '#/components/responses/Problem' } } }
-    delete: { tags: [Network], operationId: deleteNATTunnel, x-ui-route: /admin/nat, responses: { '204': { description: Deleted }, default: { $ref: '#/components/responses/Problem' } } }
+    parameters:
+    - $ref: '#/components/parameters/Id'
+    get:
+      tags:
+      - Network
+      summary: NAT 隧道详情
+      operationId: getNATTunnel
+      responses:
+        '200':
+          $ref: '#/components/responses/NATTunnelResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+    patch:
+      tags:
+      - Network
+      summary: 更新 NAT 隧道
+      operationId: updateNATTunnel
+      x-ui-route: /admin/nat
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/NATTunnelWrite'
+      responses:
+        '200':
+          $ref: '#/components/responses/NATTunnelResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+    delete:
+      tags:
+      - Network
+      summary: 删除 NAT 隧道
+      operationId: deleteNATTunnel
+      x-ui-route: /admin/nat
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '204':
+          description: Deleted
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/settings:
-    get: { tags: [Settings], operationId: getSettings, responses: { '200': { $ref: '#/components/responses/ObjectResponse' }, default: { $ref: '#/components/responses/Problem' } } }
-    patch: { tags: [Settings], operationId: updateSettings, x-ui-route: /admin/settings, requestBody: { $ref: '#/components/requestBodies/GenericObject' }, responses: { '200': { $ref: '#/components/responses/ObjectResponse' }, default: { $ref: '#/components/responses/Problem' } } }
+    get:
+      tags:
+      - Settings
+      summary: 获取站点设置
+      operationId: getSettings
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+    patch:
+      tags:
+      - Settings
+      summary: 更新站点设置
+      operationId: updateSettings
+      x-ui-route: /admin/settings
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/GenericObject'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/api-tokens:
-    get: { tags: [Settings], operationId: listApiTokens, responses: { '200': { $ref: '#/components/responses/APITokenListResponse' }, default: { $ref: '#/components/responses/Problem' } } }
-    post: { tags: [Settings], operationId: createApiToken, x-ui-route: /admin/api-tokens, requestBody: { $ref: '#/components/requestBodies/APITokenWrite' }, responses: { '201': { $ref: '#/components/responses/APITokenResponse' }, default: { $ref: '#/components/responses/Problem' } } }
+    get:
+      tags:
+      - Settings
+      summary: API Token 列表
+      operationId: listApiTokens
+      responses:
+        '200':
+          $ref: '#/components/responses/APITokenListResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+    post:
+      tags:
+      - Settings
+      summary: 创建 API Token
+      operationId: createApiToken
+      x-ui-route: /admin/api-tokens
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/APITokenWrite'
+      responses:
+        '201':
+          $ref: '#/components/responses/APITokenResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/api-tokens/{id}:
-    parameters: [ { $ref: '#/components/parameters/Id' } ]
-    get: { tags: [Settings], operationId: getApiToken, x-ui-route: /admin/api-tokens, responses: { '200': { $ref: '#/components/responses/APITokenResponse' }, default: { $ref: '#/components/responses/Problem' } } }
-    delete: { tags: [Settings], operationId: deleteApiToken, x-ui-route: /admin/api-tokens, responses: { '204': { description: Deleted }, default: { $ref: '#/components/responses/Problem' } } }
+    parameters:
+    - $ref: '#/components/parameters/Id'
+    get:
+      tags:
+      - Settings
+      summary: API Token 详情
+      operationId: getApiToken
+      x-ui-route: /admin/api-tokens
+      responses:
+        '200':
+          $ref: '#/components/responses/APITokenResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+    patch:
+      tags:
+      - Settings
+      summary: 启用或禁用 API Token
+      operationId: patchApiToken
+      x-ui-route: /admin/api-tokens
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/APITokenPatch'
+      responses:
+        '200':
+          $ref: '#/components/responses/APITokenResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+    delete:
+      tags:
+      - Settings
+      summary: 删除 API Token
+      operationId: deleteApiToken
+      x-ui-route: /admin/api-tokens
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '204':
+          description: Deleted
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/offline-history:
-    get: { tags: [Servers], operationId: listOfflineHistory, parameters: [ { name: server_id, in: query, required: true, schema: { type: integer, format: int64 } }, { $ref: '#/components/parameters/Page' }, { $ref: '#/components/parameters/PageSize' } ], responses: { '200': { $ref: '#/components/responses/ObjectListResponse' }, default: { $ref: '#/components/responses/Problem' } } }
+    get:
+      tags:
+      - Servers
+      summary: 离线历史列表
+      operationId: listOfflineHistory
+      parameters:
+      - name: server_id
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectListResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/offline-history/{id}:
-    parameters: [ { $ref: '#/components/parameters/Id' } ]
-    delete: { tags: [Servers], operationId: deleteOfflineHistory, x-ui-route: /admin/servers, responses: { '204': { description: Deleted }, default: { $ref: '#/components/responses/Problem' } } }
+    parameters:
+    - $ref: '#/components/parameters/Id'
+    delete:
+      tags:
+      - Servers
+      summary: 删除离线历史
+      operationId: deleteOfflineHistory
+      x-ui-route: /admin/servers
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '204':
+          description: Deleted
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/offline-history/cleanup:
-    post: { tags: [Servers], operationId: cleanupOfflineHistory, x-ui-route: /admin/settings, requestBody: { $ref: '#/components/requestBodies/GenericObject' }, responses: { '200': { $ref: '#/components/responses/ObjectResponse' }, default: { $ref: '#/components/responses/Problem' } } }
+    post:
+      tags:
+      - Servers
+      summary: 清理离线历史
+      operationId: cleanupOfflineHistory
+      x-ui-route: /admin/settings
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/GenericObject'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/telemetry/overview:
-    get: { tags: [Telemetry], operationId: getTelemetryOverview, responses: { '200': { $ref: '#/components/responses/ObjectResponse' }, default: { $ref: '#/components/responses/Problem' } } }
+    get:
+      tags:
+      - Telemetry
+      summary: 遥测概览
+      operationId: getTelemetryOverview
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/telemetry/collectors:
-    get: { tags: [Telemetry], operationId: listCollectors, responses: { '200': { $ref: '#/components/responses/CollectorListResponse' }, default: { $ref: '#/components/responses/Problem' } } }
-    post: { tags: [Telemetry], operationId: createCollector, x-ui-route: /admin/telemetry, requestBody: { $ref: '#/components/requestBodies/CollectorWrite' }, responses: { '201': { $ref: '#/components/responses/CollectorCreatedResponse' }, default: { $ref: '#/components/responses/Problem' } } }
+    get:
+      tags:
+      - Telemetry
+      summary: 从端列表
+      operationId: listCollectors
+      responses:
+        '200':
+          $ref: '#/components/responses/CollectorListResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+    post:
+      tags:
+      - Telemetry
+      summary: 创建从端
+      operationId: createCollector
+      x-ui-route: /admin/telemetry
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/CollectorWrite'
+      responses:
+        '201':
+          $ref: '#/components/responses/CollectorCreatedResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/telemetry/collectors/{collectorId}:
-    parameters: [ { $ref: '#/components/parameters/CollectorId' } ]
-    get: { tags: [Telemetry], operationId: getCollector, responses: { '200': { $ref: '#/components/responses/CollectorResponse' }, default: { $ref: '#/components/responses/Problem' } } }
-    patch: { tags: [Telemetry], operationId: updateCollector, x-ui-route: /admin/telemetry, requestBody: { $ref: '#/components/requestBodies/CollectorWrite' }, responses: { '200': { $ref: '#/components/responses/CollectorResponse' }, default: { $ref: '#/components/responses/Problem' } } }
-    delete: { tags: [Telemetry], operationId: deleteCollector, x-ui-route: /admin/telemetry, responses: { '204': { description: Deleted }, default: { $ref: '#/components/responses/Problem' } } }
+    parameters:
+    - $ref: '#/components/parameters/CollectorId'
+    get:
+      tags:
+      - Telemetry
+      summary: 从端详情
+      operationId: getCollector
+      responses:
+        '200':
+          $ref: '#/components/responses/CollectorResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+    patch:
+      tags:
+      - Telemetry
+      summary: 更新从端
+      operationId: updateCollector
+      x-ui-route: /admin/telemetry
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/CollectorWrite'
+      responses:
+        '200':
+          $ref: '#/components/responses/CollectorResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+    delete:
+      tags:
+      - Telemetry
+      summary: 删除从端
+      operationId: deleteCollector
+      x-ui-route: /admin/telemetry
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '204':
+          description: Deleted
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/telemetry/collectors/{collectorId}/rotate-token:
-    parameters: [ { $ref: '#/components/parameters/CollectorId' } ]
-    post: { tags: [Telemetry], operationId: rotateCollectorToken, x-ui-route: /admin/telemetry, responses: { '200': { $ref: '#/components/responses/CollectorTokenResponse' }, default: { $ref: '#/components/responses/Problem' } } }
+    parameters:
+    - $ref: '#/components/parameters/CollectorId'
+    post:
+      tags:
+      - Telemetry
+      summary: 轮换从端 Token
+      operationId: rotateCollectorToken
+      x-ui-route: /admin/telemetry
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '200':
+          $ref: '#/components/responses/CollectorTokenResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/telemetry/collectors/{collectorId}/token:
-    parameters: [ { $ref: '#/components/parameters/CollectorId' } ]
-    get: { tags: [Telemetry], operationId: getCollectorToken, x-ui-route: /admin/telemetry, responses: { '200': { $ref: '#/components/responses/CollectorTokenResponse' }, default: { $ref: '#/components/responses/Problem' } } }
+    parameters:
+    - $ref: '#/components/parameters/CollectorId'
+    get:
+      tags:
+      - Telemetry
+      summary: 查看从端 Token
+      operationId: getCollectorToken
+      x-ui-route: /admin/telemetry
+      responses:
+        '200':
+          $ref: '#/components/responses/CollectorTokenResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/telemetry/collectors/{collectorId}/revoke:
-    parameters: [ { $ref: '#/components/parameters/CollectorId' } ]
-    post: { tags: [Telemetry], operationId: revokeCollector, x-ui-route: /admin/telemetry, responses: { '200': { $ref: '#/components/responses/CollectorResponse' }, default: { $ref: '#/components/responses/Problem' } } }
+    parameters:
+    - $ref: '#/components/parameters/CollectorId'
+    post:
+      tags:
+      - Telemetry
+      summary: 撤销从端
+      operationId: revokeCollector
+      x-ui-route: /admin/telemetry
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '200':
+          $ref: '#/components/responses/CollectorResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/telemetry/collectors/{collectorId}/scope:
-    parameters: [ { $ref: '#/components/parameters/CollectorId' } ]
-    put: { tags: [Telemetry], operationId: updateCollectorScope, x-ui-route: /admin/telemetry, requestBody: { $ref: '#/components/requestBodies/CollectorScopeWrite' }, responses: { '200': { $ref: '#/components/responses/CollectorResponse' }, default: { $ref: '#/components/responses/Problem' } } }
+    parameters:
+    - $ref: '#/components/parameters/CollectorId'
+    put:
+      tags:
+      - Telemetry
+      summary: 更新从端范围
+      operationId: updateCollectorScope
+      x-ui-route: /admin/telemetry
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/CollectorScopeWrite'
+      responses:
+        '200':
+          $ref: '#/components/responses/CollectorResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/v2/admin/telemetry/collectors/{collectorId}/install-preview:
+    parameters:
+    - $ref: '#/components/parameters/CollectorId'
+    post:
+      tags:
+      - Telemetry
+      summary: 生成从端安装命令预览
+      operationId: getCollectorInstallPreview
+      x-ui-route: /admin/telemetry
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/CollectorInstallPreviewWrite'
+      responses:
+        '200':
+          $ref: '#/components/responses/CollectorInstallPreviewResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/telemetry/assignments:
-    get: { tags: [Telemetry], operationId: listObserverAssignments, responses: { '200': { $ref: '#/components/responses/ObjectListResponse' }, default: { $ref: '#/components/responses/Problem' } } }
+    get:
+      tags:
+      - Telemetry
+      summary: Observer 分配列表
+      operationId: listObserverAssignments
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectListResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/telemetry/agents:
-    get: { tags: [Telemetry], operationId: listAgentReliability, responses: { '200': { $ref: '#/components/responses/ObjectListResponse' }, default: { $ref: '#/components/responses/Problem' } } }
+    get:
+      tags:
+      - Telemetry
+      summary: 探针可靠性列表
+      operationId: listAgentReliability
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectListResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/telemetry/incidents:
-    get: { tags: [Telemetry], operationId: listIncidents, responses: { '200': { $ref: '#/components/responses/ObjectListResponse' }, default: { $ref: '#/components/responses/Problem' } } }
+    get:
+      tags:
+      - Telemetry
+      summary: 事件列表
+      operationId: listIncidents
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectListResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/telemetry/incident-revisions:
-    get: { tags: [Telemetry], operationId: listIncidentRevisions, responses: { '200': { $ref: '#/components/responses/ObjectListResponse' }, default: { $ref: '#/components/responses/Problem' } } }
+    get:
+      tags:
+      - Telemetry
+      summary: 事件修订列表
+      operationId: listIncidentRevisions
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectListResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/telemetry/data-loss:
-    get: { tags: [Telemetry], operationId: listTelemetryDataLoss, responses: { '200': { $ref: '#/components/responses/ObjectListResponse' }, default: { $ref: '#/components/responses/Problem' } } }
+    get:
+      tags:
+      - Telemetry
+      summary: 遥测丢数记录
+      operationId: listTelemetryDataLoss
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectListResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/telemetry/alerts:
-    get: { tags: [Telemetry], operationId: listTelemetryAlerts, responses: { '200': { $ref: '#/components/responses/ObjectListResponse' }, default: { $ref: '#/components/responses/Problem' } } }
+    get:
+      tags:
+      - Telemetry
+      summary: 遥测告警列表
+      operationId: listTelemetryAlerts
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectListResponse'
+        default:
+          $ref: '#/components/responses/Problem'
 components:
   securitySchemes:
-    cookieAuth: { type: apiKey, in: cookie, name: santaizi-dashboard }
-    bearerAuth: { type: http, scheme: bearer }
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: santaizi-dashboard
+      description: 管理员 OAuth 会话 Cookie
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: 'API Token（Authorization: Bearer）'
+    csrfHeader:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
+      description: 浏览器 Cookie 会话写操作必填；值来自 GET /api/v2/auth/session 的 csrf_token
   parameters:
-    Id: { name: id, in: path, required: true, schema: { type: integer, format: int64, minimum: 1 } }
-    ServerId: { name: serverId, in: path, required: true, schema: { type: integer, format: int64, minimum: 1 } }
-    CollectorId: { name: collectorId, in: path, required: true, schema: { type: string } }
-    Page: { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-    PageSize: { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
-    Search: { name: q, in: query, schema: { type: string, maxLength: 200 } }
-    Sort: { name: sort, in: query, schema: { type: string, maxLength: 64 } }
-    Order: { name: order, in: query, schema: { type: string, enum: [asc, desc], default: desc } }
-    From: { name: from, in: query, schema: { type: string, format: date-time } }
-    To: { name: to, in: query, schema: { type: string, format: date-time } }
-    Limit: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 1000, default: 200 } }
-    Cursor: { name: cursor, in: query, schema: { type: string } }
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    ServerId:
+      name: serverId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    CollectorId:
+      name: collectorId
+      in: path
+      required: true
+      schema:
+        type: string
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: page_size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    Search:
+      name: q
+      in: query
+      schema:
+        type: string
+        maxLength: 200
+    Sort:
+      name: sort
+      in: query
+      schema:
+        type: string
+        maxLength: 64
+    Order:
+      name: order
+      in: query
+      schema:
+        type: string
+        enum:
+        - asc
+        - desc
+        default: desc
+    From:
+      name: from
+      in: query
+      schema:
+        type: string
+        format: date-time
+    To:
+      name: to
+      in: query
+      schema:
+        type: string
+        format: date-time
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 1000
+        default: 200
+    Cursor:
+      name: cursor
+      in: query
+      schema:
+        type: string
+    CsrfToken:
+      name: X-CSRF-Token
+      in: header
+      required: false
+      description: Cookie 会话写操作时必填；Bearer Token 调用可省略
+      schema:
+        type: string
   schemas:
     Problem:
       type: object
-      required: [title, status, code]
+      required:
+      - title
+      - status
+      - code
       properties:
-        type: { type: string }
-        title: { type: string }
-        status: { type: integer }
-        code: { type: string }
-        detail: { type: string }
-        trace_id: { type: string }
-        errors: { type: object, additionalProperties: { type: array, items: { type: string } } }
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        code:
+          type: string
+        detail:
+          type: string
+        trace_id:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
     Meta:
       type: object
       properties:
-        page: { type: integer }
-        page_size: { type: integer }
-        total: { type: integer, format: int64 }
-        next_cursor: { type: string }
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total:
+          type: integer
+          format: int64
+        next_cursor:
+          type: string
     Session:
       type: object
-      required: [authenticated, csrf_token, login_url, capabilities]
+      required:
+      - authenticated
+      - csrf_token
+      - login_url
+      - capabilities
       properties:
-        authenticated: { type: boolean }
-        csrf_token: { type: string }
-        login_url: { type: string }
-        capabilities: { type: array, items: { type: string } }
-        user: { $ref: '#/components/schemas/User' }
+        authenticated:
+          type: boolean
+        csrf_token:
+          type: string
+        login_url:
+          type: string
+        capabilities:
+          type: array
+          items:
+            type: string
+        user:
+          $ref: '#/components/schemas/User'
     User:
       type: object
-      required: [id, login, name, super_admin]
+      required:
+      - id
+      - login
+      - name
+      - super_admin
       properties:
-        id: { type: integer, format: int64 }
-        login: { type: string }
-        name: { type: string }
-        avatar_url: { type: string }
-        super_admin: { type: boolean }
+        id:
+          type: integer
+          format: int64
+        login:
+          type: string
+        name:
+          type: string
+        avatar_url:
+          type: string
+        super_admin:
+          type: boolean
     Bootstrap:
       type: object
-      required: [brand, locale, version, logo_url, requires_view_password, view_password_verified, show_availability, authenticated]
+      required:
+      - brand
+      - locale
+      - version
+      - logo_url
+      - requires_view_password
+      - view_password_verified
+      - show_availability
+      - authenticated
       properties:
-        brand: { type: string }
-        locale: { type: string, enum: [zh-CN, zh-TW, en-US, es-ES] }
-        version: { type: string }
-        csrf_token: { type: string }
-        logo_url: { type: string }
-        background_url: { type: string }
-        footer_text: { type: string }
-        primary_color: { type: string }
-        custom_css: { type: string }
-        requires_view_password: { type: boolean }
-        view_password_verified: { type: boolean }
-        show_availability: { type: boolean }
-        authenticated: { type: boolean }
+        brand:
+          type: string
+        locale:
+          type: string
+          enum:
+          - zh-CN
+          - zh-TW
+          - en-US
+          - es-ES
+        version:
+          type: string
+        csrf_token:
+          type: string
+        logo_url:
+          type: string
+        background_url:
+          type: string
+        footer_text:
+          type: string
+        primary_color:
+          type: string
+        custom_css:
+          type: string
+        requires_view_password:
+          type: boolean
+        view_password_verified:
+          type: boolean
+        show_availability:
+          type: boolean
+        authenticated:
+          type: boolean
     TelemetryPresentation:
       type: object
       properties:
-        host: { type: string, enum: [online, offline, unknown] }
-        connectivity: { type: string, enum: [full, partial, unavailable, unknown] }
-        available: { type: boolean, nullable: true }
-        coverage: { type: string }
+        host:
+          type: string
+          enum:
+          - online
+          - offline
+          - unknown
+        connectivity:
+          type: string
+          enum:
+          - full
+          - partial
+          - unavailable
+          - unknown
+        available:
+          type: boolean
+          nullable: true
+        coverage:
+          type: string
     PublicNote:
       type: object
       additionalProperties: true
       properties:
-        billingDataMod: { $ref: '#/components/schemas/PublicNoteBilling' }
-        planDataMod: { $ref: '#/components/schemas/PublicNotePlan' }
-        customData: { $ref: '#/components/schemas/PublicNotePresentation' }
+        billingDataMod:
+          $ref: '#/components/schemas/PublicNoteBilling'
+        planDataMod:
+          $ref: '#/components/schemas/PublicNotePlan'
+        customData:
+          $ref: '#/components/schemas/PublicNotePresentation'
     PublicNoteBilling:
       type: object
       additionalProperties: true
       properties:
-        startDate: { type: string }
-        endDate: { type: string, description: Use 0000-00-00 for an unlimited term. }
-        autoRenewal: { type: string, enum: ['0', '1'] }
-        cycle: { type: string }
-        amount: { type: string }
+        startDate:
+          type: string
+        endDate:
+          type: string
+          description: Use 0000-00-00 for an unlimited term.
+        autoRenewal:
+          type: string
+          enum:
+          - '0'
+          - '1'
+        cycle:
+          type: string
+        amount:
+          type: string
     PublicNotePlan:
       type: object
       additionalProperties: true
       properties:
-        bandwidth: { type: string }
-        trafficVol: { type: string }
-        trafficType: { type: string }
-        IPv4: { type: string, enum: ['0', '1'] }
-        IPv6: { type: string, enum: ['0', '1'] }
-        networkRoute: { type: string }
-        extra: { type: string }
+        bandwidth:
+          type: string
+        trafficVol:
+          type: string
+        trafficType:
+          type: string
+        IPv4:
+          type: string
+          enum:
+          - '0'
+          - '1'
+        IPv6:
+          type: string
+          enum:
+          - '0'
+          - '1'
+        networkRoute:
+          type: string
+        extra:
+          type: string
     PublicNotePresentation:
       type: object
       additionalProperties: true
       properties:
-        location: { type: string }
-        flag: { type: string }
-        orderLink: { type: string }
-        buyBtnText: { type: string }
-        buyBtnIcon: { type: string }
-        slogan: { type: string }
-        lat: { type: string }
-        lng: { type: string }
-        latlng: { type: string }
-        locationLabel: { type: string }
+        location:
+          type: string
+        flag:
+          type: string
+        orderLink:
+          type: string
+        buyBtnText:
+          type: string
+        buyBtnIcon:
+          type: string
+        slogan:
+          type: string
+        lat:
+          type: string
+        lng:
+          type: string
+        latlng:
+          type: string
+        locationLabel:
+          type: string
     MonitoringOptions:
       type: object
       additionalProperties: false
       properties:
-        cpu: { type: boolean }
-        memory: { type: boolean }
-        disk: { type: boolean }
-        network: { type: boolean }
-        connections: { type: boolean }
-        processes: { type: boolean }
-        temperature: { type: boolean }
-        gpu: { type: boolean }
-        host_info: { type: boolean }
-        ip_report: { type: boolean }
-        http_probe: { type: boolean }
-        icmp_probe: { type: boolean }
-        tcp_probe: { type: boolean }
-        nat: { type: boolean }
+        cpu:
+          type: boolean
+        memory:
+          type: boolean
+        disk:
+          type: boolean
+        network:
+          type: boolean
+        connections:
+          type: boolean
+        processes:
+          type: boolean
+        temperature:
+          type: boolean
+        gpu:
+          type: boolean
+        host_info:
+          type: boolean
+        ip_report:
+          type: boolean
+        http_probe:
+          type: boolean
+        icmp_probe:
+          type: boolean
+        tcp_probe:
+          type: boolean
+        nat:
+          type: boolean
     Server:
       type: object
-      required: [id, name, tag, display_index, hide_for_guest, enable_ddns]
+      required:
+      - id
+      - name
+      - tag
+      - display_index
+      - hide_for_guest
+      - enable_ddns
       properties:
-        id: { type: integer, format: int64 }
-        name: { type: string }
-        tag: { type: string }
-        secret: { type: string }
-        note: { type: string }
-        public_note: { $ref: '#/components/schemas/PublicNote' }
-        monitoring_options: { $ref: '#/components/schemas/MonitoringOptions' }
-        display_index: { type: integer }
-        hide_for_guest: { type: boolean }
-        enable_ddns: { type: boolean }
-        ddns_profiles: { type: array, items: { type: integer, format: int64 } }
-        host: { type: object, additionalProperties: true }
-        state: { type: object, additionalProperties: true }
-        last_active: { type: string, format: date-time }
-        online: { type: boolean }
-        telemetry: { $ref: '#/components/schemas/TelemetryPresentation' }
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        tag:
+          type: string
+        secret:
+          type: string
+        note:
+          type: string
+        public_note:
+          $ref: '#/components/schemas/PublicNote'
+        monitoring_options:
+          $ref: '#/components/schemas/MonitoringOptions'
+        display_index:
+          type: integer
+        hide_for_guest:
+          type: boolean
+        enable_ddns:
+          type: boolean
+        ddns_profiles:
+          type: array
+          items:
+            type: integer
+            format: int64
+        host:
+          type: object
+          additionalProperties: true
+        state:
+          type: object
+          additionalProperties: true
+        last_active:
+          type: string
+          format: date-time
+        online:
+          type: boolean
+        telemetry:
+          $ref: '#/components/schemas/TelemetryPresentation'
     ServerWrite:
       type: object
-      required: [name]
+      required:
+      - name
       properties:
-        name: { type: string, minLength: 1, maxLength: 100 }
-        tag: { type: string, maxLength: 100 }
-        note: { type: string, maxLength: 2000 }
-        public_note: { $ref: '#/components/schemas/PublicNote' }
-        monitoring_options: { $ref: '#/components/schemas/MonitoringOptions' }
-        display_index: { type: integer }
-        hide_for_guest: { type: boolean }
-        enable_ddns: { type: boolean }
-        ddns_profiles: { type: array, items: { type: integer, format: int64 } }
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        tag:
+          type: string
+          maxLength: 100
+        note:
+          type: string
+          maxLength: 2000
+        public_note:
+          $ref: '#/components/schemas/PublicNote'
+        monitoring_options:
+          $ref: '#/components/schemas/MonitoringOptions'
+        display_index:
+          type: integer
+        hide_for_guest:
+          type: boolean
+        enable_ddns:
+          type: boolean
+        ddns_profiles:
+          type: array
+          items:
+            type: integer
+            format: int64
     MonitorScope:
       type: object
-      required: [mode, server_ids]
+      required:
+      - mode
+      - server_ids
       properties:
-        mode: { type: string, enum: [all, include, exclude] }
-        server_ids: { type: array, items: { type: integer, format: int64 } }
+        mode:
+          type: string
+          enum:
+          - all
+          - include
+          - exclude
+        server_ids:
+          type: array
+          items:
+            type: integer
+            format: int64
     MonitorWrite:
       type: object
-      required: [name, type, target, scope]
+      required:
+      - name
+      - type
+      - target
+      - scope
       properties:
-        name: { type: string, minLength: 1, maxLength: 100 }
-        type: { type: string, enum: [http, icmp, tcp] }
-        target: { type: string, minLength: 1, maxLength: 2048 }
-        interval_seconds: { type: integer, format: int64, minimum: 5, maximum: 86400, default: 30 }
-        scope: { $ref: '#/components/schemas/MonitorScope' }
-        notify: { type: boolean }
-        notification_tag: { type: string }
-        show_in_service: { type: boolean }
-        latency_notify: { type: boolean }
-        min_latency_ms: { type: number, format: float }
-        max_latency_ms: { type: number, format: float }
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        type:
+          type: string
+          enum:
+          - http
+          - icmp
+          - tcp
+        target:
+          type: string
+          minLength: 1
+          maxLength: 2048
+        interval_seconds:
+          type: integer
+          format: int64
+          minimum: 5
+          maximum: 86400
+          default: 30
+        scope:
+          $ref: '#/components/schemas/MonitorScope'
+        notify:
+          type: boolean
+        notification_tag:
+          type: string
+        show_in_service:
+          type: boolean
+        latency_notify:
+          type: boolean
+        min_latency_ms:
+          type: number
+          format: float
+        max_latency_ms:
+          type: number
+          format: float
     Monitor:
       allOf:
-        - { $ref: '#/components/schemas/MonitorWrite' }
-        - type: object
-          required: [id]
-          properties:
-            id: { type: integer, format: int64 }
-            created_at: { type: string, format: date-time }
-            updated_at: { type: string, format: date-time }
+      - $ref: '#/components/schemas/MonitorWrite'
+      - type: object
+        required:
+        - id
+        properties:
+          id:
+            type: integer
+            format: int64
+          created_at:
+            type: string
+            format: date-time
+          updated_at:
+            type: string
+            format: date-time
     KeyValue:
       type: object
-      required: [key, value]
+      required:
+      - key
+      - value
       properties:
-        key: { type: string }
-        value: { type: string }
+        key:
+          type: string
+        value:
+          type: string
     NotificationChannelWrite:
       type: object
-      required: [name, tag, url, method, request_type]
+      required:
+      - name
+      - tag
+      - url
+      - method
+      - request_type
       properties:
-        name: { type: string, minLength: 1, maxLength: 100 }
-        tag: { type: string, minLength: 1, maxLength: 100 }
-        url: { type: string, format: uri }
-        method: { type: string, enum: [get, post] }
-        request_type: { type: string, enum: [json, form] }
-        headers: { type: array, items: { $ref: '#/components/schemas/KeyValue' } }
-        body: { type: string }
-        verify_tls: { type: boolean }
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        tag:
+          type: string
+          minLength: 1
+          maxLength: 100
+        url:
+          type: string
+          format: uri
+        method:
+          type: string
+          enum:
+          - get
+          - post
+        request_type:
+          type: string
+          enum:
+          - json
+          - form
+        headers:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
+        body:
+          type: string
+        verify_tls:
+          type: boolean
     NotificationChannel:
       allOf:
-        - { $ref: '#/components/schemas/NotificationChannelWrite' }
-        - type: object
-          required: [id]
-          properties:
-            id: { type: integer, format: int64 }
-            created_at: { type: string, format: date-time }
-            updated_at: { type: string, format: date-time }
+      - $ref: '#/components/schemas/NotificationChannelWrite'
+      - type: object
+        required:
+        - id
+        properties:
+          id:
+            type: integer
+            format: int64
+          created_at:
+            type: string
+            format: date-time
+          updated_at:
+            type: string
+            format: date-time
     AlertCondition:
       type: object
-      required: [type, duration_seconds, scope]
+      required:
+      - type
+      - duration_seconds
+      - scope
       properties:
-        type: { type: string, enum: [cpu, gpu, temperature_max, memory, swap, disk, net_in_speed, net_out_speed, net_all_speed, offline, load1, load5, load15, tcp_conn_count, udp_conn_count, process_count] }
-        min: { type: number, nullable: true }
-        max: { type: number, nullable: true }
-        duration_seconds: { type: integer, format: int64, minimum: 3 }
-        scope: { $ref: '#/components/schemas/MonitorScope' }
+        type:
+          type: string
+          enum:
+          - cpu
+          - gpu
+          - temperature_max
+          - memory
+          - swap
+          - disk
+          - net_in_speed
+          - net_out_speed
+          - net_all_speed
+          - offline
+          - load1
+          - load5
+          - load15
+          - tcp_conn_count
+          - udp_conn_count
+          - process_count
+        min:
+          type: number
+          nullable: true
+        max:
+          type: number
+          nullable: true
+        duration_seconds:
+          type: integer
+          format: int64
+          minimum: 3
+        scope:
+          $ref: '#/components/schemas/MonitorScope'
     AlertRuleWrite:
       type: object
-      required: [name, enabled, trigger_mode, notification_tag, conditions]
+      required:
+      - name
+      - enabled
+      - trigger_mode
+      - notification_tag
+      - conditions
       properties:
-        name: { type: string, minLength: 1, maxLength: 100 }
-        enabled: { type: boolean }
-        trigger_mode: { type: string, enum: [always, once] }
-        notification_tag: { type: string }
-        conditions: { type: array, minItems: 1, items: { $ref: '#/components/schemas/AlertCondition' } }
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        enabled:
+          type: boolean
+        trigger_mode:
+          type: string
+          enum:
+          - always
+          - once
+        notification_tag:
+          type: string
+        conditions:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/AlertCondition'
     AlertRule:
       allOf:
-        - { $ref: '#/components/schemas/AlertRuleWrite' }
-        - type: object
-          required: [id]
-          properties:
-            id: { type: integer, format: int64 }
-            created_at: { type: string, format: date-time }
-            updated_at: { type: string, format: date-time }
+      - $ref: '#/components/schemas/AlertRuleWrite'
+      - type: object
+        required:
+        - id
+        properties:
+          id:
+            type: integer
+            format: int64
+          created_at:
+            type: string
+            format: date-time
+          updated_at:
+            type: string
+            format: date-time
     DDNSProfileWrite:
       type: object
-      required: [name, provider, enable_ipv4, enable_ipv6, domains]
+      required:
+      - name
+      - provider
+      - enable_ipv4
+      - enable_ipv6
+      - domains
       properties:
-        name: { type: string, minLength: 1, maxLength: 100 }
-        provider: { type: string }
-        enable_ipv4: { type: boolean }
-        enable_ipv6: { type: boolean }
-        max_retries: { type: integer, format: int64, minimum: 1, maximum: 10 }
-        domains: { type: array, minItems: 1, items: { type: string } }
-        access_id: { type: string }
-        access_secret: { type: string, format: password }
-        webhook_url: { type: string }
-        webhook_method: { type: string, enum: [get, post] }
-        webhook_request_type: { type: string, enum: [json, form] }
-        webhook_body: { type: string }
-        webhook_headers: { type: array, items: { $ref: '#/components/schemas/KeyValue' } }
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        provider:
+          type: string
+        enable_ipv4:
+          type: boolean
+        enable_ipv6:
+          type: boolean
+        max_retries:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 10
+        domains:
+          type: array
+          minItems: 1
+          items:
+            type: string
+        access_id:
+          type: string
+        access_secret:
+          type: string
+          format: password
+        webhook_url:
+          type: string
+        webhook_method:
+          type: string
+          enum:
+          - get
+          - post
+        webhook_request_type:
+          type: string
+          enum:
+          - json
+          - form
+        webhook_body:
+          type: string
+        webhook_headers:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
     DDNSProvider:
       type: object
-      required: [id, name, access_id, access_secret, webhook_url, webhook_method, webhook_request_type, webhook_request_body, webhook_headers]
+      required:
+      - id
+      - name
+      - access_id
+      - access_secret
+      - webhook_url
+      - webhook_method
+      - webhook_request_type
+      - webhook_request_body
+      - webhook_headers
       properties:
-        id: { type: integer, format: int64 }
-        name: { type: string }
-        access_id: { type: boolean }
-        access_secret: { type: boolean }
-        webhook_url: { type: boolean }
-        webhook_method: { type: boolean }
-        webhook_request_type: { type: boolean }
-        webhook_request_body: { type: boolean }
-        webhook_headers: { type: boolean }
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        access_id:
+          type: boolean
+        access_secret:
+          type: boolean
+        webhook_url:
+          type: boolean
+        webhook_method:
+          type: boolean
+        webhook_request_type:
+          type: boolean
+        webhook_request_body:
+          type: boolean
+        webhook_headers:
+          type: boolean
     DDNSProfile:
       allOf:
-        - { $ref: '#/components/schemas/DDNSProfileWrite' }
-        - type: object
-          required: [id]
-          properties:
-            id: { type: integer, format: int64 }
-            created_at: { type: string, format: date-time }
-            updated_at: { type: string, format: date-time }
+      - $ref: '#/components/schemas/DDNSProfileWrite'
+      - type: object
+        required:
+        - id
+        properties:
+          id:
+            type: integer
+            format: int64
+          created_at:
+            type: string
+            format: date-time
+          updated_at:
+            type: string
+            format: date-time
     NATTunnelWrite:
       type: object
-      required: [name, server_id, target, domain]
+      required:
+      - name
+      - server_id
+      - target
+      - domain
       properties:
-        name: { type: string, minLength: 1, maxLength: 100 }
-        server_id: { type: integer, format: int64, minimum: 1 }
-        target: { type: string, pattern: '^.+:[0-9]+$' }
-        domain: { type: string }
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        server_id:
+          type: integer
+          format: int64
+          minimum: 1
+        target:
+          type: string
+          pattern: ^.+:[0-9]+$
+        domain:
+          type: string
     NATTunnel:
       allOf:
-        - { $ref: '#/components/schemas/NATTunnelWrite' }
-        - type: object
-          required: [id]
-          properties:
-            id: { type: integer, format: int64 }
-            created_at: { type: string, format: date-time }
-            updated_at: { type: string, format: date-time }
+      - $ref: '#/components/schemas/NATTunnelWrite'
+      - type: object
+        required:
+        - id
+        properties:
+          id:
+            type: integer
+            format: int64
+          created_at:
+            type: string
+            format: date-time
+          updated_at:
+            type: string
+            format: date-time
     TrafficPolicyWrite:
       type: object
-      required: [name, direction, mode, quota_bytes, warning_percent, enabled]
+      required:
+      - name
+      - direction
+      - mode
+      - quota_bytes
+      - warning_percent
+      - enabled
       properties:
-        name: { type: string, minLength: 1, maxLength: 100 }
-        direction: { type: string, enum: [inbound, outbound, total] }
-        mode: { type: string, enum: [cumulative, recurring] }
-        cycle_start: { type: string, format: date-time, nullable: true }
-        cycle_interval: { type: integer, format: int64, minimum: 1 }
-        cycle_unit: { type: string, enum: [hour, day, week, month, year] }
-        quota_bytes: { type: integer, format: int64, minimum: 1 }
-        warning_percent: { type: number, minimum: 0, maximum: 100 }
-        notification_tag: { type: string }
-        enabled: { type: boolean }
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        direction:
+          type: string
+          enum:
+          - inbound
+          - outbound
+          - total
+        mode:
+          type: string
+          enum:
+          - cumulative
+          - recurring
+        cycle_start:
+          type: string
+          format: date-time
+          nullable: true
+        cycle_interval:
+          type: integer
+          format: int64
+          minimum: 1
+        cycle_unit:
+          type: string
+          enum:
+          - hour
+          - day
+          - week
+          - month
+          - year
+        quota_bytes:
+          type: integer
+          format: int64
+          minimum: 1
+        warning_percent:
+          type: number
+          minimum: 0
+          maximum: 100
+        notification_tag:
+          type: string
+        enabled:
+          type: boolean
     TrafficPolicy:
       allOf:
-        - { $ref: '#/components/schemas/TrafficPolicyWrite' }
-        - type: object
-          required: [id, server_id]
-          properties:
-            id: { type: integer, format: int64 }
-            server_id: { type: integer, format: int64 }
-            usage: { $ref: '#/components/schemas/TrafficUsage' }
-            created_at: { type: string, format: date-time }
-            updated_at: { type: string, format: date-time }
+      - $ref: '#/components/schemas/TrafficPolicyWrite'
+      - type: object
+        required:
+        - id
+        - server_id
+        properties:
+          id:
+            type: integer
+            format: int64
+          server_id:
+            type: integer
+            format: int64
+          usage:
+            $ref: '#/components/schemas/TrafficUsage'
+          created_at:
+            type: string
+            format: date-time
+          updated_at:
+            type: string
+            format: date-time
     TrafficUsage:
       type: object
-      required: [policy_id, server_id, direction, mode, window_start, used_bytes, quota_bytes, warning_percent, usage_percent, status, updated_at]
+      required:
+      - policy_id
+      - server_id
+      - direction
+      - mode
+      - window_start
+      - used_bytes
+      - quota_bytes
+      - warning_percent
+      - usage_percent
+      - status
+      - updated_at
       properties:
-        policy_id: { type: integer, format: int64 }
-        server_id: { type: integer, format: int64 }
-        direction: { type: string, enum: [inbound, outbound, total] }
-        mode: { type: string, enum: [cumulative, recurring] }
-        window_start: { type: string, format: date-time }
-        window_end: { type: string, format: date-time, nullable: true }
-        used_bytes: { type: integer, format: int64 }
-        quota_bytes: { type: integer, format: int64 }
-        warning_percent: { type: number }
-        usage_percent: { type: number }
-        status: { type: string, enum: [normal, warning, exceeded] }
-        updated_at: { type: string, format: date-time }
+        policy_id:
+          type: integer
+          format: int64
+        server_id:
+          type: integer
+          format: int64
+        direction:
+          type: string
+          enum:
+          - inbound
+          - outbound
+          - total
+        mode:
+          type: string
+          enum:
+          - cumulative
+          - recurring
+        window_start:
+          type: string
+          format: date-time
+        window_end:
+          type: string
+          format: date-time
+          nullable: true
+        used_bytes:
+          type: integer
+          format: int64
+        quota_bytes:
+          type: integer
+          format: int64
+        warning_percent:
+          type: number
+        usage_percent:
+          type: number
+        status:
+          type: string
+          enum:
+          - normal
+          - warning
+          - exceeded
+        updated_at:
+          type: string
+          format: date-time
     InstallPreviewWrite:
       type: object
-      required: [platform, clean_install, options]
+      required:
+      - platform
+      - clean_install
+      - options
       properties:
-        platform: { type: string, enum: [linux, macos, windows] }
-        clean_install: { type: boolean }
-        options: { $ref: '#/components/schemas/MonitoringOptions' }
+        platform:
+          type: string
+          enum:
+          - linux
+          - macos
+          - windows
+        clean_install:
+          type: boolean
+        options:
+          $ref: '#/components/schemas/MonitoringOptions'
+        ip_report_config:
+          $ref: '#/components/schemas/IPReportConfig'
     InstallPreview:
       type: object
-      required: [platform, command, clean_install, options]
+      required:
+      - platform
+      - command
+      - clean_install
+      - options
       properties:
-        platform: { type: string, enum: [linux, macos, windows] }
-        command: { type: string }
-        clean_install: { type: boolean }
-        options: { $ref: '#/components/schemas/MonitoringOptions' }
+        platform:
+          type: string
+          enum:
+          - linux
+          - macos
+          - windows
+        command:
+          type: string
+        clean_install:
+          type: boolean
+        options:
+          $ref: '#/components/schemas/MonitoringOptions'
+        ip_report_config:
+          $ref: '#/components/schemas/IPReportConfig'
+    IPReportConfig:
+      type: object
+      additionalProperties: false
+      properties:
+        interface:
+          type: string
+        country_code:
+          type: string
+        prefer_ipv6:
+          type: boolean
     ProbeCapability:
       type: object
-      required: [id]
+      required:
+      - id
       properties:
-        id: { type: string }
-        enable_flag: { type: string }
-        disable_flag: { type: string }
+        id:
+          type: string
+        enable_flag:
+          type: string
+        disable_flag:
+          type: string
     ProbeCapabilities:
       type: object
-      required: [required, optional, presets]
+      required:
+      - required
+      - optional
+      - presets
       properties:
-        required: { type: array, items: { type: string } }
-        optional: { type: array, items: { $ref: '#/components/schemas/ProbeCapability' } }
-        presets: { type: object, additionalProperties: { $ref: '#/components/schemas/MonitoringOptions' } }
+        required:
+          type: array
+          items:
+            type: string
+        optional:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProbeCapability'
+        presets:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/MonitoringOptions'
     ServerCredential:
       type: object
-      required: [server_id, secret, grpc_host, grpc_port]
+      required:
+      - server_id
+      - secret
+      - grpc_host
+      - grpc_port
       properties:
-        server_id: { type: integer, format: int64 }
-        secret: { type: string }
-        grpc_host: { type: string }
-        grpc_port: { type: integer }
+        server_id:
+          type: integer
+          format: int64
+        secret:
+          type: string
+        grpc_host:
+          type: string
+        grpc_port:
+          type: integer
     ServerSecret:
       type: object
-      required: [secret]
+      required:
+      - secret
       properties:
-        secret: { type: string }
+        secret:
+          type: string
     APITokenWrite:
       type: object
-      required: [note]
+      required:
+      - note
+      - permission
       properties:
-        note: { type: string, minLength: 1, maxLength: 200 }
+        note:
+          type: string
+          minLength: 1
+          maxLength: 200
+        permission:
+          type: string
+          enum:
+          - read
+          - write
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: 到期时间；省略或 null 表示永不过期
+    APITokenPatch:
+      type: object
+      required:
+      - enabled
+      properties:
+        enabled:
+          type: boolean
     APIToken:
       type: object
-      required: [id, note, created_at]
+      required:
+      - id
+      - note
+      - permission
+      - enabled
+      - created_at
       properties:
-        id: { type: integer, format: int64 }
-        note: { type: string }
-        token: { type: string }
-        token_prefix: { type: string }
-        created_at: { type: string, format: date-time }
+        id:
+          type: integer
+          format: int64
+        note:
+          type: string
+        permission:
+          type: string
+          enum:
+          - read
+          - write
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        enabled:
+          type: boolean
+        expired:
+          type: boolean
+        token:
+          type: string
+        token_prefix:
+          type: string
+        created_at:
+          type: string
+          format: date-time
     CollectorToken:
       type: object
-      required: [collector_id, registration_token, revoked]
+      required:
+      - collector_id
+      - registration_token
+      - revoked
       properties:
-        collector_id: { type: string }
-        registration_token: { type: string }
-        revoked: { type: boolean }
+        collector_id:
+          type: string
+        registration_token:
+          type: string
+        revoked:
+          type: boolean
+    CollectorInstallPreviewWrite:
+      type: object
+      properties:
+        primary_endpoint:
+          type: string
+        primary_tls:
+          type: boolean
+        primary_insecure_tls:
+          type: boolean
+        grpc_port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+    CollectorInstallPreview:
+      type: object
+      required:
+      - command
+      - primary_endpoint
+      - grpc_port
+      - primary_tls
+      - primary_insecure_tls
+      properties:
+        command:
+          type: string
+        primary_endpoint:
+          type: string
+        grpc_port:
+          type: integer
+        primary_tls:
+          type: boolean
+        primary_insecure_tls:
+          type: boolean
     CollectorCreated:
       type: object
-      required: [collector, registration_token]
+      required:
+      - collector
+      - registration_token
       properties:
-        collector: { $ref: '#/components/schemas/Collector' }
-        registration_token: { type: string }
+        collector:
+          $ref: '#/components/schemas/Collector'
+        registration_token:
+          type: string
     BatchServerGroupWrite:
       type: object
-      required: [ids, group]
+      required:
+      - ids
+      - group
       properties:
-        ids: { type: array, minItems: 1, items: { type: integer, format: int64 } }
-        group: { type: string }
+        ids:
+          type: array
+          minItems: 1
+          items:
+            type: integer
+            format: int64
+        group:
+          type: string
     BatchServerDeleteWrite:
       type: object
-      required: [ids]
+      required:
+      - ids
       properties:
-        ids: { type: array, minItems: 1, items: { type: integer, format: int64 } }
+        ids:
+          type: array
+          minItems: 1
+          items:
+            type: integer
+            format: int64
     ServerDisplayIndexWrite:
       type: object
-      required: [display_index]
+      required:
+      - display_index
       properties:
-        display_index: { type: integer }
+        display_index:
+          type: integer
     ServerGroup:
       type: object
-      required: [name, count]
+      required:
+      - name
+      - count
       properties:
-        name: { type: string }
-        count: { type: integer, minimum: 0 }
+        name:
+          type: string
+        count:
+          type: integer
+          minimum: 0
     ServerGroupRenameWrite:
       type: object
-      required: [from, to]
+      required:
+      - from
+      - to
       properties:
-        from: { type: string, maxLength: 100 }
-        to: { type: string, maxLength: 100 }
+        from:
+          type: string
+          maxLength: 100
+        to:
+          type: string
+          maxLength: 100
     Collector:
       type: object
-      required: [id, name, address, tls, insecure_tls, generation, config_version, revoked]
+      required:
+      - id
+      - name
+      - address
+      - tls
+      - insecure_tls
+      - generation
+      - config_version
+      - revoked
       properties:
-        id: { type: string }
-        name: { type: string }
-        address: { type: string }
-        tls: { type: boolean }
-        insecure_tls: { type: boolean }
-        generation: { type: integer, format: int64 }
-        config_version: { type: integer, format: int64 }
-        revoked: { type: boolean }
-        status: { type: string }
-        last_seen: { type: string, format: date-time }
-        spool_size: { type: integer, format: int64 }
-        pending_records: { type: integer, format: int64 }
-        oldest_pending: { type: string, format: date-time }
-        replication_cursor: { type: integer, format: int64 }
-        connected_agents: { type: integer, format: int64 }
-        protocol_version: { type: string }
-        scopes: { type: array, items: { $ref: '#/components/schemas/CollectorScope' } }
+        id:
+          type: string
+        name:
+          type: string
+        address:
+          type: string
+        tls:
+          type: boolean
+        insecure_tls:
+          type: boolean
+        generation:
+          type: integer
+          format: int64
+        config_version:
+          type: integer
+          format: int64
+        revoked:
+          type: boolean
+        status:
+          type: string
+        last_seen:
+          type: string
+          format: date-time
+        spool_size:
+          type: integer
+          format: int64
+        pending_records:
+          type: integer
+          format: int64
+        oldest_pending:
+          type: string
+          format: date-time
+        replication_cursor:
+          type: integer
+          format: int64
+        connected_agents:
+          type: integer
+          format: int64
+        protocol_version:
+          type: string
+        scopes:
+          type: array
+          items:
+            $ref: '#/components/schemas/CollectorScope'
     CollectorScope:
       type: object
-      required: [type, value]
+      required:
+      - type
+      - value
       properties:
-        type: { type: string, enum: [all, server, group, tag] }
-        value: { type: string }
+        type:
+          type: string
+          enum:
+          - all
+          - server
+          - group
+          - tag
+        value:
+          type: string
     CollectorWrite:
       type: object
-      required: [name, address, scopes]
+      required:
+      - name
+      - address
+      - scopes
       properties:
-        name: { type: string, minLength: 1, maxLength: 100 }
-        address: { type: string, minLength: 1, maxLength: 255 }
-        tls: { type: boolean }
-        insecure_tls: { type: boolean }
-        scopes: { type: array, minItems: 1, items: { $ref: '#/components/schemas/CollectorScope' } }
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        address:
+          type: string
+          minLength: 1
+          maxLength: 255
+        tls:
+          type: boolean
+        insecure_tls:
+          type: boolean
+        scopes:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CollectorScope'
     CollectorScopeWrite:
       type: object
-      required: [scopes]
+      required:
+      - scopes
       properties:
-        scopes: { type: array, minItems: 1, items: { $ref: '#/components/schemas/CollectorScope' } }
-    GenericObject: { type: object, additionalProperties: true }
+        scopes:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CollectorScope'
+    GenericObject:
+      type: object
+      additionalProperties: true
     ObjectData:
       type: object
-      required: [data]
-      properties: { data: { $ref: '#/components/schemas/GenericObject' } }
+      required:
+      - data
+      properties:
+        data:
+          $ref: '#/components/schemas/GenericObject'
     ObjectList:
       type: object
-      required: [data, meta]
+      required:
+      - data
+      - meta
       properties:
-        data: { type: array, items: { $ref: '#/components/schemas/GenericObject' } }
-        meta: { $ref: '#/components/schemas/Meta' }
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/GenericObject'
+        meta:
+          $ref: '#/components/schemas/Meta'
   requestBodies:
     GenericObject:
       required: true
-      content: { application/json: { schema: { $ref: '#/components/schemas/GenericObject' } } }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/GenericObject'
     ServerWrite:
       required: true
-      content: { application/json: { schema: { $ref: '#/components/schemas/ServerWrite' } } }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ServerWrite'
     MonitorWrite:
       required: true
-      content: { application/json: { schema: { $ref: '#/components/schemas/MonitorWrite' } } }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MonitorWrite'
     NotificationChannelWrite:
       required: true
-      content: { application/json: { schema: { $ref: '#/components/schemas/NotificationChannelWrite' } } }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/NotificationChannelWrite'
     AlertRuleWrite:
       required: true
-      content: { application/json: { schema: { $ref: '#/components/schemas/AlertRuleWrite' } } }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AlertRuleWrite'
     DDNSProfileWrite:
       required: true
-      content: { application/json: { schema: { $ref: '#/components/schemas/DDNSProfileWrite' } } }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DDNSProfileWrite'
     NATTunnelWrite:
       required: true
-      content: { application/json: { schema: { $ref: '#/components/schemas/NATTunnelWrite' } } }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/NATTunnelWrite'
     TrafficPolicyWrite:
       required: true
-      content: { application/json: { schema: { $ref: '#/components/schemas/TrafficPolicyWrite' } } }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/TrafficPolicyWrite'
     InstallPreviewWrite:
       required: true
-      content: { application/json: { schema: { $ref: '#/components/schemas/InstallPreviewWrite' } } }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/InstallPreviewWrite'
     APITokenWrite:
       required: true
-      content: { application/json: { schema: { $ref: '#/components/schemas/APITokenWrite' } } }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/APITokenWrite'
+    APITokenPatch:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/APITokenPatch'
     BatchServerGroupWrite:
       required: true
-      content: { application/json: { schema: { $ref: '#/components/schemas/BatchServerGroupWrite' } } }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/BatchServerGroupWrite'
     BatchServerDeleteWrite:
       required: true
-      content: { application/json: { schema: { $ref: '#/components/schemas/BatchServerDeleteWrite' } } }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/BatchServerDeleteWrite'
     ServerDisplayIndexWrite:
       required: true
-      content: { application/json: { schema: { $ref: '#/components/schemas/ServerDisplayIndexWrite' } } }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ServerDisplayIndexWrite'
     ServerGroupRenameWrite:
       required: true
-      content: { application/json: { schema: { $ref: '#/components/schemas/ServerGroupRenameWrite' } } }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ServerGroupRenameWrite'
     CollectorWrite:
       required: true
-      content: { application/json: { schema: { $ref: '#/components/schemas/CollectorWrite' } } }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CollectorWrite'
     CollectorScopeWrite:
       required: true
-      content: { application/json: { schema: { $ref: '#/components/schemas/CollectorScopeWrite' } } }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CollectorScopeWrite'
+    CollectorInstallPreviewWrite:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CollectorInstallPreviewWrite'
   responses:
     Problem:
       description: Problem details
-      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
     ObjectResponse:
       description: Object response
-      content: { application/json: { schema: { $ref: '#/components/schemas/ObjectData' } } }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ObjectData'
     ObjectListResponse:
       description: List response
-      content: { application/json: { schema: { $ref: '#/components/schemas/ObjectList' } } }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ObjectList'
     SessionResponse:
       description: Session state
       content:
         application/json:
           schema:
             type: object
-            required: [data]
-            properties: { data: { $ref: '#/components/schemas/Session' } }
+            required:
+            - data
+            properties:
+              data:
+                $ref: '#/components/schemas/Session'
     BootstrapResponse:
       description: Public bootstrap
       content:
         application/json:
           schema:
             type: object
-            required: [data]
-            properties: { data: { $ref: '#/components/schemas/Bootstrap' } }
+            required:
+            - data
+            properties:
+              data:
+                $ref: '#/components/schemas/Bootstrap'
     ServerResponse:
       description: Server
       content:
         application/json:
           schema:
             type: object
-            required: [data]
-            properties: { data: { $ref: '#/components/schemas/Server' } }
+            required:
+            - data
+            properties:
+              data:
+                $ref: '#/components/schemas/Server'
     ServerListResponse:
       description: Server list
       content:
         application/json:
           schema:
             type: object
-            required: [data, meta]
+            required:
+            - data
+            - meta
             properties:
-              data: { type: array, items: { $ref: '#/components/schemas/Server' } }
-              meta: { $ref: '#/components/schemas/Meta' }
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Server'
+              meta:
+                $ref: '#/components/schemas/Meta'
     ServerGroupListResponse:
       description: Derived server group list
       content:
         application/json:
           schema:
             type: object
-            required: [data, meta]
+            required:
+            - data
+            - meta
             properties:
-              data: { type: array, items: { $ref: '#/components/schemas/ServerGroup' } }
-              meta: { $ref: '#/components/schemas/Meta' }
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ServerGroup'
+              meta:
+                $ref: '#/components/schemas/Meta'
     ServerCredentialResponse:
       description: Server credential
       content:
         application/json:
           schema:
             type: object
-            required: [data]
-            properties: { data: { $ref: '#/components/schemas/ServerCredential' } }
+            required:
+            - data
+            properties:
+              data:
+                $ref: '#/components/schemas/ServerCredential'
     ServerSecretResponse:
       description: Server connection secret
       content:
         application/json:
           schema:
             type: object
-            required: [data]
-            properties: { data: { $ref: '#/components/schemas/ServerSecret' } }
+            required:
+            - data
+            properties:
+              data:
+                $ref: '#/components/schemas/ServerSecret'
     InstallPreviewResponse:
       description: Probe installation preview
       content:
         application/json:
           schema:
             type: object
-            required: [data]
-            properties: { data: { $ref: '#/components/schemas/InstallPreview' } }
+            required:
+            - data
+            properties:
+              data:
+                $ref: '#/components/schemas/InstallPreview'
     ProbeCapabilitiesResponse:
       description: Probe capability metadata
       content:
         application/json:
           schema:
             type: object
-            required: [data]
-            properties: { data: { $ref: '#/components/schemas/ProbeCapabilities' } }
+            required:
+            - data
+            properties:
+              data:
+                $ref: '#/components/schemas/ProbeCapabilities'
     MonitorResponse:
       description: Monitor
       content:
         application/json:
           schema:
             type: object
-            required: [data]
-            properties: { data: { $ref: '#/components/schemas/Monitor' } }
+            required:
+            - data
+            properties:
+              data:
+                $ref: '#/components/schemas/Monitor'
     MonitorListResponse:
       description: Monitor list
       content:
         application/json:
           schema:
             type: object
-            required: [data, meta]
+            required:
+            - data
+            - meta
             properties:
-              data: { type: array, items: { $ref: '#/components/schemas/Monitor' } }
-              meta: { $ref: '#/components/schemas/Meta' }
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Monitor'
+              meta:
+                $ref: '#/components/schemas/Meta'
     NotificationChannelResponse:
       description: Notification channel
       content:
         application/json:
           schema:
             type: object
-            required: [data]
-            properties: { data: { $ref: '#/components/schemas/NotificationChannel' } }
+            required:
+            - data
+            properties:
+              data:
+                $ref: '#/components/schemas/NotificationChannel'
     NotificationChannelListResponse:
       description: Notification channel list
       content:
         application/json:
           schema:
             type: object
-            required: [data, meta]
+            required:
+            - data
+            - meta
             properties:
-              data: { type: array, items: { $ref: '#/components/schemas/NotificationChannel' } }
-              meta: { $ref: '#/components/schemas/Meta' }
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NotificationChannel'
+              meta:
+                $ref: '#/components/schemas/Meta'
     AlertRuleResponse:
       description: Alert rule
       content:
         application/json:
           schema:
             type: object
-            required: [data]
-            properties: { data: { $ref: '#/components/schemas/AlertRule' } }
+            required:
+            - data
+            properties:
+              data:
+                $ref: '#/components/schemas/AlertRule'
     AlertRuleListResponse:
       description: Alert rule list
       content:
         application/json:
           schema:
             type: object
-            required: [data, meta]
+            required:
+            - data
+            - meta
             properties:
-              data: { type: array, items: { $ref: '#/components/schemas/AlertRule' } }
-              meta: { $ref: '#/components/schemas/Meta' }
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AlertRule'
+              meta:
+                $ref: '#/components/schemas/Meta'
     DDNSProfileResponse:
       description: DDNS profile
       content:
         application/json:
           schema:
             type: object
-            required: [data]
-            properties: { data: { $ref: '#/components/schemas/DDNSProfile' } }
+            required:
+            - data
+            properties:
+              data:
+                $ref: '#/components/schemas/DDNSProfile'
     DDNSProviderListResponse:
       description: DDNS provider metadata list
       content:
         application/json:
           schema:
             type: object
-            required: [data, meta]
+            required:
+            - data
+            - meta
             properties:
-              data: { type: array, items: { $ref: '#/components/schemas/DDNSProvider' } }
-              meta: { $ref: '#/components/schemas/Meta' }
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DDNSProvider'
+              meta:
+                $ref: '#/components/schemas/Meta'
     DDNSProfileListResponse:
       description: DDNS profile list
       content:
         application/json:
           schema:
             type: object
-            required: [data, meta]
+            required:
+            - data
+            - meta
             properties:
-              data: { type: array, items: { $ref: '#/components/schemas/DDNSProfile' } }
-              meta: { $ref: '#/components/schemas/Meta' }
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DDNSProfile'
+              meta:
+                $ref: '#/components/schemas/Meta'
     NATTunnelResponse:
       description: NAT tunnel
       content:
         application/json:
           schema:
             type: object
-            required: [data]
-            properties: { data: { $ref: '#/components/schemas/NATTunnel' } }
+            required:
+            - data
+            properties:
+              data:
+                $ref: '#/components/schemas/NATTunnel'
     NATTunnelListResponse:
       description: NAT tunnel list
       content:
         application/json:
           schema:
             type: object
-            required: [data, meta]
+            required:
+            - data
+            - meta
             properties:
-              data: { type: array, items: { $ref: '#/components/schemas/NATTunnel' } }
-              meta: { $ref: '#/components/schemas/Meta' }
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NATTunnel'
+              meta:
+                $ref: '#/components/schemas/Meta'
     TrafficPolicyResponse:
       description: Traffic policy
       content:
         application/json:
           schema:
             type: object
-            required: [data]
-            properties: { data: { $ref: '#/components/schemas/TrafficPolicy' } }
+            required:
+            - data
+            properties:
+              data:
+                $ref: '#/components/schemas/TrafficPolicy'
     TrafficPolicyListResponse:
       description: Traffic policy list
       content:
         application/json:
           schema:
             type: object
-            required: [data, meta]
+            required:
+            - data
+            - meta
             properties:
-              data: { type: array, items: { $ref: '#/components/schemas/TrafficPolicy' } }
-              meta: { $ref: '#/components/schemas/Meta' }
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TrafficPolicy'
+              meta:
+                $ref: '#/components/schemas/Meta'
     TrafficUsageResponse:
       description: Traffic usage
       content:
         application/json:
           schema:
             type: object
-            required: [data]
-            properties: { data: { $ref: '#/components/schemas/TrafficUsage' } }
+            required:
+            - data
+            properties:
+              data:
+                $ref: '#/components/schemas/TrafficUsage'
     APITokenResponse:
       description: API token
       content:
         application/json:
           schema:
             type: object
-            required: [data]
-            properties: { data: { $ref: '#/components/schemas/APIToken' } }
+            required:
+            - data
+            properties:
+              data:
+                $ref: '#/components/schemas/APIToken'
     APITokenListResponse:
       description: API token list
       content:
         application/json:
           schema:
             type: object
-            required: [data, meta]
+            required:
+            - data
+            - meta
             properties:
-              data: { type: array, items: { $ref: '#/components/schemas/APIToken' } }
-              meta: { $ref: '#/components/schemas/Meta' }
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/APIToken'
+              meta:
+                $ref: '#/components/schemas/Meta'
     CollectorResponse:
       description: Collector
       content:
         application/json:
           schema:
             type: object
-            required: [data]
-            properties: { data: { $ref: '#/components/schemas/Collector' } }
+            required:
+            - data
+            properties:
+              data:
+                $ref: '#/components/schemas/Collector'
     CollectorCreatedResponse:
       description: Created collector and its registration token
       content:
         application/json:
           schema:
             type: object
-            required: [data]
-            properties: { data: { $ref: '#/components/schemas/CollectorCreated' } }
+            required:
+            - data
+            properties:
+              data:
+                $ref: '#/components/schemas/CollectorCreated'
     CollectorListResponse:
       description: Collector list
       content:
         application/json:
           schema:
             type: object
-            required: [data, meta]
+            required:
+            - data
+            - meta
             properties:
-              data: { type: array, items: { $ref: '#/components/schemas/Collector' } }
-              meta: { $ref: '#/components/schemas/Meta' }
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Collector'
+              meta:
+                $ref: '#/components/schemas/Meta'
+    CollectorInstallPreviewResponse:
+      description: Collector install command preview
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - data
+            properties:
+              data:
+                $ref: '#/components/schemas/CollectorInstallPreview'
     CollectorTokenResponse:
       description: Collector registration token
       content:
         application/json:
           schema:
             type: object
-            required: [data]
-            properties: { data: { $ref: '#/components/schemas/CollectorToken' } }
+            required:
+            - data
+            properties:
+              data:
+                $ref: '#/components/schemas/CollectorToken'

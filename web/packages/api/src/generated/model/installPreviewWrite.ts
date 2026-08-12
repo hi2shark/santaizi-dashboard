@@ -8,10 +8,12 @@
  * OpenAPI spec version: 2.0.0
  */
 import type { InstallPreviewWritePlatform } from './installPreviewWritePlatform';
+import type { IPReportConfig } from './iPReportConfig';
 import type { MonitoringOptions } from './monitoringOptions';
 
 export interface InstallPreviewWrite {
   platform: InstallPreviewWritePlatform;
   clean_install: boolean;
   options: MonitoringOptions;
+  ip_report_config?: IPReportConfig;
 }

@@ -9,6 +9,7 @@
  */
 import type {
   APITokenListResponseResponse,
+  APITokenPatchBody,
   APITokenResponseResponse,
   APITokenWriteBody,
   AlertRuleListResponseResponse,
@@ -18,6 +19,8 @@ import type {
   BatchServerGroupWriteBody,
   BootstrapResponseResponse,
   CollectorCreatedResponseResponse,
+  CollectorInstallPreviewResponseResponse,
+  CollectorInstallPreviewWriteBody,
   CollectorListResponseResponse,
   CollectorResponseResponse,
   CollectorScopeWriteBody,
@@ -72,6 +75,10 @@ import { santaiziRequest } from '../request';
 
 
   export const getSantaiziHTTPAPI = () => {
+/**
+ * 返回当前管理员会话。浏览器写操作前需读取 `csrf_token`，并放在 `X-CSRF-Token` 请求头。
+ * @summary 获取当前会话
+ */
 const getSession = (
 
  ) => {
@@ -81,6 +88,10 @@ const getSession = (
       );
     }
 
+/**
+ * 结束 Cookie 会话。使用 Cookie 鉴权时须携带 CSRF Token。
+ * @summary 退出登录
+ */
 const logout = (
 
  ) => {
@@ -90,6 +101,9 @@ const logout = (
       );
     }
 
+/**
+ * @summary 公开站点引导信息
+ */
 const getPublicBootstrap = (
 
  ) => {
@@ -99,6 +113,10 @@ const getPublicBootstrap = (
       );
     }
 
+/**
+ * 站点启用访问密码时，校验密码并建立查看会话。
+ * @summary 校验站点访问密码
+ */
 const createViewPasswordSession = (
     createViewPasswordSessionBody: CreateViewPasswordSessionBody,
  ) => {
@@ -110,6 +128,10 @@ const createViewPasswordSession = (
       );
     }
 
+/**
+ * 公开 ServerStatus 服务器列表；可通过 `x-websocket` 订阅实时状态。
+ * @summary 公开服务器列表
+ */
 const listPublicServers = (
 
  ) => {
@@ -119,6 +141,9 @@ const listPublicServers = (
       );
     }
 
+/**
+ * @summary 公开服务器详情
+ */
 const getPublicServer = (
     serverId: number,
  ) => {
@@ -128,6 +153,9 @@ const getPublicServer = (
       );
     }
 
+/**
+ * @summary 公开服务监控列表
+ */
 const listPublicServices = (
 
  ) => {
@@ -137,6 +165,9 @@ const listPublicServices = (
       );
     }
 
+/**
+ * @summary 公开网络延迟历史
+ */
 const getPublicNetworkHistory = (
     serverId: number,
  ) => {
@@ -146,6 +177,9 @@ const getPublicNetworkHistory = (
       );
     }
 
+/**
+ * @summary 管理概览摘要
+ */
 const getAdminSummary = (
 
  ) => {
@@ -155,6 +189,9 @@ const getAdminSummary = (
       );
     }
 
+/**
+ * @summary 服务器列表
+ */
 const listServers = (
     params?: ListServersParams,
  ) => {
@@ -165,6 +202,9 @@ const listServers = (
       );
     }
 
+/**
+ * @summary 创建服务器
+ */
 const createServer = (
     serverWriteBody: ServerWriteBody,
  ) => {
@@ -176,6 +216,9 @@ const createServer = (
       );
     }
 
+/**
+ * @summary 服务器详情
+ */
 const getServer = (
     serverId: number,
  ) => {
@@ -185,6 +228,9 @@ const getServer = (
       );
     }
 
+/**
+ * @summary 更新服务器
+ */
 const updateServer = (
     serverId: number,
     serverWriteBody: ServerWriteBody,
@@ -197,6 +243,9 @@ const updateServer = (
       );
     }
 
+/**
+ * @summary 删除服务器
+ */
 const deleteServer = (
     serverId: number,
  ) => {
@@ -206,6 +255,9 @@ const deleteServer = (
       );
     }
 
+/**
+ * @summary 服务器可用性记录
+ */
 const listServerAvailability = (
     serverId: number,
     params?: ListServerAvailabilityParams,
@@ -217,6 +269,9 @@ const listServerAvailability = (
       );
     }
 
+/**
+ * @summary 更新服务器排序权重
+ */
 const updateServerDisplayIndex = (
     serverId: number,
     serverDisplayIndexWriteBody: ServerDisplayIndexWriteBody,
@@ -229,6 +284,9 @@ const updateServerDisplayIndex = (
       );
     }
 
+/**
+ * @summary 服务器分组列表
+ */
 const listServerGroups = (
 
  ) => {
@@ -238,6 +296,9 @@ const listServerGroups = (
       );
     }
 
+/**
+ * @summary 重命名服务器分组
+ */
 const renameServerGroup = (
     serverGroupRenameWriteBody: ServerGroupRenameWriteBody,
  ) => {
@@ -249,6 +310,9 @@ const renameServerGroup = (
       );
     }
 
+/**
+ * @summary 重置服务器密钥
+ */
 const resetServerSecret = (
     serverId: number,
  ) => {
@@ -258,6 +322,9 @@ const resetServerSecret = (
       );
     }
 
+/**
+ * @summary 重置服务器可用性统计
+ */
 const resetServerAvailability = (
     serverId: number,
  ) => {
@@ -267,6 +334,9 @@ const resetServerAvailability = (
       );
     }
 
+/**
+ * @summary 查看服务器密钥
+ */
 const getServerCredential = (
     serverId: number,
  ) => {
@@ -276,6 +346,9 @@ const getServerCredential = (
       );
     }
 
+/**
+ * @summary 生成安装命令预览
+ */
 const getServerInstallPreview = (
     serverId: number,
     installPreviewWriteBody: InstallPreviewWriteBody,
@@ -288,6 +361,9 @@ const getServerInstallPreview = (
       );
     }
 
+/**
+ * @summary 探针能力清单
+ */
 const getProbeCapabilities = (
 
  ) => {
@@ -297,6 +373,9 @@ const getProbeCapabilities = (
       );
     }
 
+/**
+ * @summary 流量策略列表
+ */
 const listTrafficPolicies = (
     serverId: number,
  ) => {
@@ -306,6 +385,9 @@ const listTrafficPolicies = (
       );
     }
 
+/**
+ * @summary 创建流量策略
+ */
 const createTrafficPolicy = (
     serverId: number,
     trafficPolicyWriteBody: TrafficPolicyWriteBody,
@@ -318,6 +400,9 @@ const createTrafficPolicy = (
       );
     }
 
+/**
+ * @summary 流量策略详情
+ */
 const getTrafficPolicy = (
     serverId: number,
     policyId: number,
@@ -328,6 +413,9 @@ const getTrafficPolicy = (
       );
     }
 
+/**
+ * @summary 更新流量策略
+ */
 const updateTrafficPolicy = (
     serverId: number,
     policyId: number,
@@ -341,6 +429,9 @@ const updateTrafficPolicy = (
       );
     }
 
+/**
+ * @summary 删除流量策略
+ */
 const deleteTrafficPolicy = (
     serverId: number,
     policyId: number,
@@ -351,6 +442,9 @@ const deleteTrafficPolicy = (
       );
     }
 
+/**
+ * @summary 流量策略用量
+ */
 const getTrafficPolicyUsage = (
     serverId: number,
     policyId: number,
@@ -361,6 +455,9 @@ const getTrafficPolicyUsage = (
       );
     }
 
+/**
+ * @summary 批量更新服务器分组
+ */
 const batchUpdateServerGroup = (
     batchServerGroupWriteBody: BatchServerGroupWriteBody,
  ) => {
@@ -372,6 +469,9 @@ const batchUpdateServerGroup = (
       );
     }
 
+/**
+ * @summary 批量删除服务器
+ */
 const batchDeleteServers = (
     batchServerDeleteWriteBody: BatchServerDeleteWriteBody,
  ) => {
@@ -383,6 +483,9 @@ const batchDeleteServers = (
       );
     }
 
+/**
+ * @summary 服务监控列表
+ */
 const listMonitors = (
     params?: ListMonitorsParams,
  ) => {
@@ -393,6 +496,9 @@ const listMonitors = (
       );
     }
 
+/**
+ * @summary 创建服务监控
+ */
 const createMonitor = (
     monitorWriteBody: MonitorWriteBody,
  ) => {
@@ -404,6 +510,9 @@ const createMonitor = (
       );
     }
 
+/**
+ * @summary 服务监控详情
+ */
 const getMonitor = (
     id: number,
  ) => {
@@ -413,6 +522,9 @@ const getMonitor = (
       );
     }
 
+/**
+ * @summary 更新服务监控
+ */
 const updateMonitor = (
     id: number,
     monitorWriteBody: MonitorWriteBody,
@@ -425,6 +537,9 @@ const updateMonitor = (
       );
     }
 
+/**
+ * @summary 删除服务监控
+ */
 const deleteMonitor = (
     id: number,
  ) => {
@@ -434,6 +549,9 @@ const deleteMonitor = (
       );
     }
 
+/**
+ * @summary 服务监控历史
+ */
 const listMonitorHistory = (
     id: number,
     params?: ListMonitorHistoryParams,
@@ -445,6 +563,9 @@ const listMonitorHistory = (
       );
     }
 
+/**
+ * @summary 通知渠道列表
+ */
 const listNotifications = (
     params?: ListNotificationsParams,
  ) => {
@@ -455,6 +576,9 @@ const listNotifications = (
       );
     }
 
+/**
+ * @summary 创建通知渠道
+ */
 const createNotification = (
     notificationChannelWriteBody: NotificationChannelWriteBody,
  ) => {
@@ -466,6 +590,9 @@ const createNotification = (
       );
     }
 
+/**
+ * @summary 通知渠道详情
+ */
 const getNotification = (
     id: number,
  ) => {
@@ -475,6 +602,9 @@ const getNotification = (
       );
     }
 
+/**
+ * @summary 更新通知渠道
+ */
 const updateNotification = (
     id: number,
     notificationChannelWriteBody: NotificationChannelWriteBody,
@@ -487,6 +617,9 @@ const updateNotification = (
       );
     }
 
+/**
+ * @summary 删除通知渠道
+ */
 const deleteNotification = (
     id: number,
  ) => {
@@ -496,6 +629,9 @@ const deleteNotification = (
       );
     }
 
+/**
+ * @summary 测试通知渠道
+ */
 const testNotification = (
     id: number,
  ) => {
@@ -505,6 +641,9 @@ const testNotification = (
       );
     }
 
+/**
+ * @summary 告警规则列表
+ */
 const listAlertRules = (
     params?: ListAlertRulesParams,
  ) => {
@@ -515,6 +654,9 @@ const listAlertRules = (
       );
     }
 
+/**
+ * @summary 创建告警规则
+ */
 const createAlertRule = (
     alertRuleWriteBody: AlertRuleWriteBody,
  ) => {
@@ -526,6 +668,9 @@ const createAlertRule = (
       );
     }
 
+/**
+ * @summary 告警规则详情
+ */
 const getAlertRule = (
     id: number,
  ) => {
@@ -535,6 +680,9 @@ const getAlertRule = (
       );
     }
 
+/**
+ * @summary 更新告警规则
+ */
 const updateAlertRule = (
     id: number,
     alertRuleWriteBody: AlertRuleWriteBody,
@@ -547,6 +695,9 @@ const updateAlertRule = (
       );
     }
 
+/**
+ * @summary 删除告警规则
+ */
 const deleteAlertRule = (
     id: number,
  ) => {
@@ -556,6 +707,9 @@ const deleteAlertRule = (
       );
     }
 
+/**
+ * @summary DDNS 提供商列表
+ */
 const listDDNSProviders = (
 
  ) => {
@@ -565,6 +719,9 @@ const listDDNSProviders = (
       );
     }
 
+/**
+ * @summary DDNS 配置列表
+ */
 const listDDNSProfiles = (
     params?: ListDDNSProfilesParams,
  ) => {
@@ -575,6 +732,9 @@ const listDDNSProfiles = (
       );
     }
 
+/**
+ * @summary 创建 DDNS 配置
+ */
 const createDDNSProfile = (
     dDNSProfileWriteBody: DDNSProfileWriteBody,
  ) => {
@@ -586,6 +746,9 @@ const createDDNSProfile = (
       );
     }
 
+/**
+ * @summary DDNS 配置详情
+ */
 const getDDNSProfile = (
     id: number,
  ) => {
@@ -595,6 +758,9 @@ const getDDNSProfile = (
       );
     }
 
+/**
+ * @summary 更新 DDNS 配置
+ */
 const updateDDNSProfile = (
     id: number,
     dDNSProfileWriteBody: DDNSProfileWriteBody,
@@ -607,6 +773,9 @@ const updateDDNSProfile = (
       );
     }
 
+/**
+ * @summary 删除 DDNS 配置
+ */
 const deleteDDNSProfile = (
     id: number,
  ) => {
@@ -616,6 +785,9 @@ const deleteDDNSProfile = (
       );
     }
 
+/**
+ * @summary NAT 隧道列表
+ */
 const listNATTunnels = (
     params?: ListNATTunnelsParams,
  ) => {
@@ -626,6 +798,9 @@ const listNATTunnels = (
       );
     }
 
+/**
+ * @summary 创建 NAT 隧道
+ */
 const createNATTunnel = (
     nATTunnelWriteBody: NATTunnelWriteBody,
  ) => {
@@ -637,6 +812,9 @@ const createNATTunnel = (
       );
     }
 
+/**
+ * @summary NAT 隧道详情
+ */
 const getNATTunnel = (
     id: number,
  ) => {
@@ -646,6 +824,9 @@ const getNATTunnel = (
       );
     }
 
+/**
+ * @summary 更新 NAT 隧道
+ */
 const updateNATTunnel = (
     id: number,
     nATTunnelWriteBody: NATTunnelWriteBody,
@@ -658,6 +839,9 @@ const updateNATTunnel = (
       );
     }
 
+/**
+ * @summary 删除 NAT 隧道
+ */
 const deleteNATTunnel = (
     id: number,
  ) => {
@@ -667,6 +851,9 @@ const deleteNATTunnel = (
       );
     }
 
+/**
+ * @summary 获取站点设置
+ */
 const getSettings = (
 
  ) => {
@@ -676,6 +863,9 @@ const getSettings = (
       );
     }
 
+/**
+ * @summary 更新站点设置
+ */
 const updateSettings = (
     genericObjectBody: GenericObjectBody,
  ) => {
@@ -687,6 +877,9 @@ const updateSettings = (
       );
     }
 
+/**
+ * @summary API Token 列表
+ */
 const listApiTokens = (
 
  ) => {
@@ -696,6 +889,9 @@ const listApiTokens = (
       );
     }
 
+/**
+ * @summary 创建 API Token
+ */
 const createApiToken = (
     aPITokenWriteBody: APITokenWriteBody,
  ) => {
@@ -707,6 +903,9 @@ const createApiToken = (
       );
     }
 
+/**
+ * @summary API Token 详情
+ */
 const getApiToken = (
     id: number,
  ) => {
@@ -716,6 +915,24 @@ const getApiToken = (
       );
     }
 
+/**
+ * @summary 启用或禁用 API Token
+ */
+const patchApiToken = (
+    id: number,
+    aPITokenPatchBody: APITokenPatchBody,
+ ) => {
+      return santaiziRequest<APITokenResponseResponse>(
+      {url: `/api/v2/admin/api-tokens/${id}`, method: 'PATCH',
+      headers: {'Content-Type': 'application/json', },
+      data: aPITokenPatchBody
+    },
+      );
+    }
+
+/**
+ * @summary 删除 API Token
+ */
 const deleteApiToken = (
     id: number,
  ) => {
@@ -725,6 +942,9 @@ const deleteApiToken = (
       );
     }
 
+/**
+ * @summary 离线历史列表
+ */
 const listOfflineHistory = (
     params: ListOfflineHistoryParams,
  ) => {
@@ -735,6 +955,9 @@ const listOfflineHistory = (
       );
     }
 
+/**
+ * @summary 删除离线历史
+ */
 const deleteOfflineHistory = (
     id: number,
  ) => {
@@ -744,6 +967,9 @@ const deleteOfflineHistory = (
       );
     }
 
+/**
+ * @summary 清理离线历史
+ */
 const cleanupOfflineHistory = (
     genericObjectBody: GenericObjectBody,
  ) => {
@@ -755,6 +981,9 @@ const cleanupOfflineHistory = (
       );
     }
 
+/**
+ * @summary 遥测概览
+ */
 const getTelemetryOverview = (
 
  ) => {
@@ -764,6 +993,9 @@ const getTelemetryOverview = (
       );
     }
 
+/**
+ * @summary 从端列表
+ */
 const listCollectors = (
 
  ) => {
@@ -773,6 +1005,9 @@ const listCollectors = (
       );
     }
 
+/**
+ * @summary 创建从端
+ */
 const createCollector = (
     collectorWriteBody: CollectorWriteBody,
  ) => {
@@ -784,6 +1019,9 @@ const createCollector = (
       );
     }
 
+/**
+ * @summary 从端详情
+ */
 const getCollector = (
     collectorId: string,
  ) => {
@@ -793,6 +1031,9 @@ const getCollector = (
       );
     }
 
+/**
+ * @summary 更新从端
+ */
 const updateCollector = (
     collectorId: string,
     collectorWriteBody: CollectorWriteBody,
@@ -805,6 +1046,9 @@ const updateCollector = (
       );
     }
 
+/**
+ * @summary 删除从端
+ */
 const deleteCollector = (
     collectorId: string,
  ) => {
@@ -814,6 +1058,9 @@ const deleteCollector = (
       );
     }
 
+/**
+ * @summary 轮换从端 Token
+ */
 const rotateCollectorToken = (
     collectorId: string,
  ) => {
@@ -823,6 +1070,9 @@ const rotateCollectorToken = (
       );
     }
 
+/**
+ * @summary 查看从端 Token
+ */
 const getCollectorToken = (
     collectorId: string,
  ) => {
@@ -832,6 +1082,9 @@ const getCollectorToken = (
       );
     }
 
+/**
+ * @summary 撤销从端
+ */
 const revokeCollector = (
     collectorId: string,
  ) => {
@@ -841,6 +1094,9 @@ const revokeCollector = (
       );
     }
 
+/**
+ * @summary 更新从端范围
+ */
 const updateCollectorScope = (
     collectorId: string,
     collectorScopeWriteBody: CollectorScopeWriteBody,
@@ -853,6 +1109,24 @@ const updateCollectorScope = (
       );
     }
 
+/**
+ * @summary 生成从端安装命令预览
+ */
+const getCollectorInstallPreview = (
+    collectorId: string,
+    collectorInstallPreviewWriteBody: CollectorInstallPreviewWriteBody,
+ ) => {
+      return santaiziRequest<CollectorInstallPreviewResponseResponse>(
+      {url: `/api/v2/admin/telemetry/collectors/${collectorId}/install-preview`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: collectorInstallPreviewWriteBody
+    },
+      );
+    }
+
+/**
+ * @summary Observer 分配列表
+ */
 const listObserverAssignments = (
 
  ) => {
@@ -862,6 +1136,9 @@ const listObserverAssignments = (
       );
     }
 
+/**
+ * @summary 探针可靠性列表
+ */
 const listAgentReliability = (
 
  ) => {
@@ -871,6 +1148,9 @@ const listAgentReliability = (
       );
     }
 
+/**
+ * @summary 事件列表
+ */
 const listIncidents = (
 
  ) => {
@@ -880,6 +1160,9 @@ const listIncidents = (
       );
     }
 
+/**
+ * @summary 事件修订列表
+ */
 const listIncidentRevisions = (
 
  ) => {
@@ -889,6 +1172,9 @@ const listIncidentRevisions = (
       );
     }
 
+/**
+ * @summary 遥测丢数记录
+ */
 const listTelemetryDataLoss = (
 
  ) => {
@@ -898,6 +1184,9 @@ const listTelemetryDataLoss = (
       );
     }
 
+/**
+ * @summary 遥测告警列表
+ */
 const listTelemetryAlerts = (
 
  ) => {
@@ -907,7 +1196,7 @@ const listTelemetryAlerts = (
       );
     }
 
-return {getSession,logout,getPublicBootstrap,createViewPasswordSession,listPublicServers,getPublicServer,listPublicServices,getPublicNetworkHistory,getAdminSummary,listServers,createServer,getServer,updateServer,deleteServer,listServerAvailability,updateServerDisplayIndex,listServerGroups,renameServerGroup,resetServerSecret,resetServerAvailability,getServerCredential,getServerInstallPreview,getProbeCapabilities,listTrafficPolicies,createTrafficPolicy,getTrafficPolicy,updateTrafficPolicy,deleteTrafficPolicy,getTrafficPolicyUsage,batchUpdateServerGroup,batchDeleteServers,listMonitors,createMonitor,getMonitor,updateMonitor,deleteMonitor,listMonitorHistory,listNotifications,createNotification,getNotification,updateNotification,deleteNotification,testNotification,listAlertRules,createAlertRule,getAlertRule,updateAlertRule,deleteAlertRule,listDDNSProviders,listDDNSProfiles,createDDNSProfile,getDDNSProfile,updateDDNSProfile,deleteDDNSProfile,listNATTunnels,createNATTunnel,getNATTunnel,updateNATTunnel,deleteNATTunnel,getSettings,updateSettings,listApiTokens,createApiToken,getApiToken,deleteApiToken,listOfflineHistory,deleteOfflineHistory,cleanupOfflineHistory,getTelemetryOverview,listCollectors,createCollector,getCollector,updateCollector,deleteCollector,rotateCollectorToken,getCollectorToken,revokeCollector,updateCollectorScope,listObserverAssignments,listAgentReliability,listIncidents,listIncidentRevisions,listTelemetryDataLoss,listTelemetryAlerts}};
+return {getSession,logout,getPublicBootstrap,createViewPasswordSession,listPublicServers,getPublicServer,listPublicServices,getPublicNetworkHistory,getAdminSummary,listServers,createServer,getServer,updateServer,deleteServer,listServerAvailability,updateServerDisplayIndex,listServerGroups,renameServerGroup,resetServerSecret,resetServerAvailability,getServerCredential,getServerInstallPreview,getProbeCapabilities,listTrafficPolicies,createTrafficPolicy,getTrafficPolicy,updateTrafficPolicy,deleteTrafficPolicy,getTrafficPolicyUsage,batchUpdateServerGroup,batchDeleteServers,listMonitors,createMonitor,getMonitor,updateMonitor,deleteMonitor,listMonitorHistory,listNotifications,createNotification,getNotification,updateNotification,deleteNotification,testNotification,listAlertRules,createAlertRule,getAlertRule,updateAlertRule,deleteAlertRule,listDDNSProviders,listDDNSProfiles,createDDNSProfile,getDDNSProfile,updateDDNSProfile,deleteDDNSProfile,listNATTunnels,createNATTunnel,getNATTunnel,updateNATTunnel,deleteNATTunnel,getSettings,updateSettings,listApiTokens,createApiToken,getApiToken,patchApiToken,deleteApiToken,listOfflineHistory,deleteOfflineHistory,cleanupOfflineHistory,getTelemetryOverview,listCollectors,createCollector,getCollector,updateCollector,deleteCollector,rotateCollectorToken,getCollectorToken,revokeCollector,updateCollectorScope,getCollectorInstallPreview,listObserverAssignments,listAgentReliability,listIncidents,listIncidentRevisions,listTelemetryDataLoss,listTelemetryAlerts}};
 export type GetSessionResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getSession']>>>
 export type LogoutResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['logout']>>>
 export type GetPublicBootstrapResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getPublicBootstrap']>>>
@@ -972,6 +1261,7 @@ export type UpdateSettingsResult = NonNullable<Awaited<ReturnType<ReturnType<typ
 export type ListApiTokensResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['listApiTokens']>>>
 export type CreateApiTokenResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['createApiToken']>>>
 export type GetApiTokenResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getApiToken']>>>
+export type PatchApiTokenResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['patchApiToken']>>>
 export type DeleteApiTokenResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['deleteApiToken']>>>
 export type ListOfflineHistoryResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['listOfflineHistory']>>>
 export type DeleteOfflineHistoryResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['deleteOfflineHistory']>>>
@@ -986,6 +1276,7 @@ export type RotateCollectorTokenResult = NonNullable<Awaited<ReturnType<ReturnTy
 export type GetCollectorTokenResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getCollectorToken']>>>
 export type RevokeCollectorResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['revokeCollector']>>>
 export type UpdateCollectorScopeResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['updateCollectorScope']>>>
+export type GetCollectorInstallPreviewResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getCollectorInstallPreview']>>>
 export type ListObserverAssignmentsResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['listObserverAssignments']>>>
 export type ListAgentReliabilityResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['listAgentReliability']>>>
 export type ListIncidentsResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['listIncidents']>>>

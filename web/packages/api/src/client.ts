@@ -1,8 +1,8 @@
 import { setCSRFToken } from './request'
 import { getSantaiziHTTPAPI } from './generated/santaizi'
 import type {
-  AlertRule, AlertRuleWriteBody, APIToken, APITokenWriteBody, CollectorCreated,
-  CollectorScopeWriteBody, CollectorToken, CollectorWriteBody, DDNSProfile, DDNSProfileWriteBody, DDNSProvider,
+  AlertRule, AlertRuleWriteBody, APIToken, APITokenPatchBody, APITokenWriteBody, CollectorCreated,
+  CollectorInstallPreview, CollectorInstallPreviewWriteBody, CollectorScopeWriteBody, CollectorToken, CollectorWriteBody, DDNSProfile, DDNSProfileWriteBody, DDNSProvider,
   InstallPreview, InstallPreviewWriteBody, Monitor, MonitorWriteBody, NATTunnel,
   NATTunnelWriteBody, NotificationChannel, NotificationChannelWriteBody,
   ProbeCapabilities, ServerCredential, ServerDisplayIndexWriteBody, ServerGroup,
@@ -94,6 +94,7 @@ export const updateCollector = (id: string, body: CollectorWriteBody) => api.upd
 export const updateCollectorScope = (id: string, body: CollectorScopeWriteBody) => api.updateCollectorScope(id, body).then(value => data<CollectorRecord>(value))
 export const rotateCollectorToken = (id: string) => api.rotateCollectorToken(id).then(value => data<CollectorToken>(value))
 export const getCollectorToken = (id: string) => api.getCollectorToken(id).then(value => data<CollectorToken>(value))
+export const getCollectorInstallPreview = (id: string, body: CollectorInstallPreviewWriteBody) => api.getCollectorInstallPreview(id, body).then(value => data<CollectorInstallPreview>(value))
 export const revokeCollector = (id: string) => api.revokeCollector(id).then(value => data<CollectorRecord>(value))
 export const deleteCollector = (id: string) => api.deleteCollector(id)
 
@@ -114,6 +115,7 @@ export const telemetryList = (name: string, _params: ResourceQuery = {}) => {
 export const listApiTokens = () => api.listApiTokens().then(value => list<APIToken>(value))
 export const createApiToken = (body: APITokenWriteBody) => api.createApiToken(body).then(value => data<APIToken>(value))
 export const getApiToken = (id: number) => api.getApiToken(id).then(value => data<APIToken>(value))
+export const patchApiToken = (id: number, body: APITokenPatchBody) => api.patchApiToken(id, body).then(value => data<APIToken>(value))
 export const deleteApiToken = (id: number) => api.deleteApiToken(id)
 
 export const getSettings = () => api.getSettings().then(value => data<Record<string, unknown>>(value))

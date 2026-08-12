@@ -13,6 +13,42 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for APITokenPermission.
+const (
+	APITokenPermissionRead  APITokenPermission = "read"
+	APITokenPermissionWrite APITokenPermission = "write"
+)
+
+// Valid indicates whether the value is a known member of the APITokenPermission enum.
+func (e APITokenPermission) Valid() bool {
+	switch e {
+	case APITokenPermissionRead:
+		return true
+	case APITokenPermissionWrite:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for APITokenWritePermission.
+const (
+	APITokenWritePermissionRead  APITokenWritePermission = "read"
+	APITokenWritePermissionWrite APITokenWritePermission = "write"
+)
+
+// Valid indicates whether the value is a known member of the APITokenWritePermission enum.
+func (e APITokenWritePermission) Valid() bool {
+	switch e {
+	case APITokenWritePermissionRead:
+		return true
+	case APITokenWritePermissionWrite:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AlertConditionType.
 const (
 	AlertConditionTypeCpu            AlertConditionType = "cpu"
@@ -825,17 +861,35 @@ func (e ListServersParamsOrder) Valid() bool {
 
 // APIToken defines model for APIToken.
 type APIToken struct {
-	CreatedAt   time.Time `json:"created_at"`
-	Id          int64     `json:"id"`
-	Note        string    `json:"note"`
-	Token       *string   `json:"token,omitempty"`
-	TokenPrefix *string   `json:"token_prefix,omitempty"`
+	CreatedAt   time.Time          `json:"created_at"`
+	Enabled     bool               `json:"enabled"`
+	Expired     *bool              `json:"expired,omitempty"`
+	ExpiresAt   *time.Time         `json:"expires_at,omitempty"`
+	Id          int64              `json:"id"`
+	Note        string             `json:"note"`
+	Permission  APITokenPermission `json:"permission"`
+	Token       *string            `json:"token,omitempty"`
+	TokenPrefix *string            `json:"token_prefix,omitempty"`
+}
+
+// APITokenPermission defines model for APIToken.Permission.
+type APITokenPermission string
+
+// APITokenPatch defines model for APITokenPatch.
+type APITokenPatch struct {
+	Enabled bool `json:"enabled"`
 }
 
 // APITokenWrite defines model for APITokenWrite.
 type APITokenWrite struct {
-	Note string `json:"note"`
+	// ExpiresAt 到期时间；省略或 null 表示永不过期
+	ExpiresAt  *time.Time              `json:"expires_at,omitempty"`
+	Note       string                  `json:"note"`
+	Permission APITokenWritePermission `json:"permission"`
 }
+
+// APITokenWritePermission defines model for APITokenWrite.Permission.
+type APITokenWritePermission string
 
 // AlertCondition defines model for AlertCondition.
 type AlertCondition struct {
@@ -934,6 +988,23 @@ type CollectorCreated struct {
 	RegistrationToken string    `json:"registration_token"`
 }
 
+// CollectorInstallPreview defines model for CollectorInstallPreview.
+type CollectorInstallPreview struct {
+	Command            string `json:"command"`
+	GrpcPort           int    `json:"grpc_port"`
+	PrimaryEndpoint    string `json:"primary_endpoint"`
+	PrimaryInsecureTls bool   `json:"primary_insecure_tls"`
+	PrimaryTls         bool   `json:"primary_tls"`
+}
+
+// CollectorInstallPreviewWrite defines model for CollectorInstallPreviewWrite.
+type CollectorInstallPreviewWrite struct {
+	GrpcPort           *int    `json:"grpc_port,omitempty"`
+	PrimaryEndpoint    *string `json:"primary_endpoint,omitempty"`
+	PrimaryInsecureTls *bool   `json:"primary_insecure_tls,omitempty"`
+	PrimaryTls         *bool   `json:"primary_tls,omitempty"`
+}
+
 // CollectorScope defines model for CollectorScope.
 type CollectorScope struct {
 	Type  CollectorScopeType `json:"type"`
@@ -1029,12 +1100,20 @@ type DDNSProvider struct {
 // GenericObject defines model for GenericObject.
 type GenericObject map[string]interface{}
 
+// IPReportConfig defines model for IPReportConfig.
+type IPReportConfig struct {
+	CountryCode *string `json:"country_code,omitempty"`
+	Interface   *string `json:"interface,omitempty"`
+	PreferIpv6  *bool   `json:"prefer_ipv6,omitempty"`
+}
+
 // InstallPreview defines model for InstallPreview.
 type InstallPreview struct {
-	CleanInstall bool                   `json:"clean_install"`
-	Command      string                 `json:"command"`
-	Options      MonitoringOptions      `json:"options"`
-	Platform     InstallPreviewPlatform `json:"platform"`
+	CleanInstall   bool                   `json:"clean_install"`
+	Command        string                 `json:"command"`
+	IpReportConfig *IPReportConfig        `json:"ip_report_config,omitempty"`
+	Options        MonitoringOptions      `json:"options"`
+	Platform       InstallPreviewPlatform `json:"platform"`
 }
 
 // InstallPreviewPlatform defines model for InstallPreview.Platform.
@@ -1042,9 +1121,10 @@ type InstallPreviewPlatform string
 
 // InstallPreviewWrite defines model for InstallPreviewWrite.
 type InstallPreviewWrite struct {
-	CleanInstall bool                        `json:"clean_install"`
-	Options      MonitoringOptions           `json:"options"`
-	Platform     InstallPreviewWritePlatform `json:"platform"`
+	CleanInstall   bool                        `json:"clean_install"`
+	IpReportConfig *IPReportConfig             `json:"ip_report_config,omitempty"`
+	Options        MonitoringOptions           `json:"options"`
+	Platform       InstallPreviewWritePlatform `json:"platform"`
 }
 
 // InstallPreviewWritePlatform defines model for InstallPreviewWrite.Platform.
@@ -1454,6 +1534,9 @@ type User struct {
 // CollectorId defines model for CollectorId.
 type CollectorId = string
 
+// CsrfToken defines model for CsrfToken.
+type CsrfToken = string
+
 // Cursor defines model for Cursor.
 type Cursor = string
 
@@ -1517,6 +1600,11 @@ type BootstrapResponse struct {
 // CollectorCreatedResponse defines model for CollectorCreatedResponse.
 type CollectorCreatedResponse struct {
 	Data CollectorCreated `json:"data"`
+}
+
+// CollectorInstallPreviewResponse defines model for CollectorInstallPreviewResponse.
+type CollectorInstallPreviewResponse struct {
+	Data CollectorInstallPreview `json:"data"`
 }
 
 // CollectorListResponse defines model for CollectorListResponse.
@@ -1661,6 +1749,42 @@ type ListAlertRulesParams struct {
 // ListAlertRulesParamsOrder defines parameters for ListAlertRules.
 type ListAlertRulesParamsOrder string
 
+// CreateAlertRuleParams defines parameters for CreateAlertRule.
+type CreateAlertRuleParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// DeleteAlertRuleParams defines parameters for DeleteAlertRule.
+type DeleteAlertRuleParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// UpdateAlertRuleParams defines parameters for UpdateAlertRule.
+type UpdateAlertRuleParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// CreateApiTokenParams defines parameters for CreateApiToken.
+type CreateApiTokenParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// DeleteApiTokenParams defines parameters for DeleteApiToken.
+type DeleteApiTokenParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// PatchApiTokenParams defines parameters for PatchApiToken.
+type PatchApiTokenParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
 // ListDDNSProfilesParams defines parameters for ListDDNSProfiles.
 type ListDDNSProfilesParams struct {
 	Page     *Page                        `form:"page,omitempty" json:"page,omitempty"`
@@ -1673,6 +1797,24 @@ type ListDDNSProfilesParams struct {
 // ListDDNSProfilesParamsOrder defines parameters for ListDDNSProfiles.
 type ListDDNSProfilesParamsOrder string
 
+// CreateDDNSProfileParams defines parameters for CreateDDNSProfile.
+type CreateDDNSProfileParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// DeleteDDNSProfileParams defines parameters for DeleteDDNSProfile.
+type DeleteDDNSProfileParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// UpdateDDNSProfileParams defines parameters for UpdateDDNSProfile.
+type UpdateDDNSProfileParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
 // ListMonitorsParams defines parameters for ListMonitors.
 type ListMonitorsParams struct {
 	Page     *Page                    `form:"page,omitempty" json:"page,omitempty"`
@@ -1684,6 +1826,24 @@ type ListMonitorsParams struct {
 
 // ListMonitorsParamsOrder defines parameters for ListMonitors.
 type ListMonitorsParamsOrder string
+
+// CreateMonitorParams defines parameters for CreateMonitor.
+type CreateMonitorParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// DeleteMonitorParams defines parameters for DeleteMonitor.
+type DeleteMonitorParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// UpdateMonitorParams defines parameters for UpdateMonitor.
+type UpdateMonitorParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
 
 // ListMonitorHistoryParams defines parameters for ListMonitorHistory.
 type ListMonitorHistoryParams struct {
@@ -1705,6 +1865,24 @@ type ListNATTunnelsParams struct {
 // ListNATTunnelsParamsOrder defines parameters for ListNATTunnels.
 type ListNATTunnelsParamsOrder string
 
+// CreateNATTunnelParams defines parameters for CreateNATTunnel.
+type CreateNATTunnelParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// DeleteNATTunnelParams defines parameters for DeleteNATTunnel.
+type DeleteNATTunnelParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// UpdateNATTunnelParams defines parameters for UpdateNATTunnel.
+type UpdateNATTunnelParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
 // ListNotificationsParams defines parameters for ListNotifications.
 type ListNotificationsParams struct {
 	Page     *Page                         `form:"page,omitempty" json:"page,omitempty"`
@@ -1717,11 +1895,53 @@ type ListNotificationsParams struct {
 // ListNotificationsParamsOrder defines parameters for ListNotifications.
 type ListNotificationsParamsOrder string
 
+// CreateNotificationParams defines parameters for CreateNotification.
+type CreateNotificationParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// DeleteNotificationParams defines parameters for DeleteNotification.
+type DeleteNotificationParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// UpdateNotificationParams defines parameters for UpdateNotification.
+type UpdateNotificationParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// TestNotificationParams defines parameters for TestNotification.
+type TestNotificationParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
 // ListOfflineHistoryParams defines parameters for ListOfflineHistory.
 type ListOfflineHistoryParams struct {
 	ServerId int64     `form:"server_id" json:"server_id"`
 	Page     *Page     `form:"page,omitempty" json:"page,omitempty"`
 	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+}
+
+// CleanupOfflineHistoryParams defines parameters for CleanupOfflineHistory.
+type CleanupOfflineHistoryParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// DeleteOfflineHistoryParams defines parameters for DeleteOfflineHistory.
+type DeleteOfflineHistoryParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// RenameServerGroupParams defines parameters for RenameServerGroup.
+type RenameServerGroupParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // ListServersParams defines parameters for ListServers.
@@ -1736,12 +1956,138 @@ type ListServersParams struct {
 // ListServersParamsOrder defines parameters for ListServers.
 type ListServersParamsOrder string
 
+// CreateServerParams defines parameters for CreateServer.
+type CreateServerParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// BatchDeleteServersParams defines parameters for BatchDeleteServers.
+type BatchDeleteServersParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// BatchUpdateServerGroupParams defines parameters for BatchUpdateServerGroup.
+type BatchUpdateServerGroupParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// DeleteServerParams defines parameters for DeleteServer.
+type DeleteServerParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// UpdateServerParams defines parameters for UpdateServer.
+type UpdateServerParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
 // ListServerAvailabilityParams defines parameters for ListServerAvailability.
 type ListServerAvailabilityParams struct {
 	From   *From   `form:"from,omitempty" json:"from,omitempty"`
 	To     *To     `form:"to,omitempty" json:"to,omitempty"`
 	Limit  *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
 	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// UpdateServerDisplayIndexParams defines parameters for UpdateServerDisplayIndex.
+type UpdateServerDisplayIndexParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// GetServerInstallPreviewParams defines parameters for GetServerInstallPreview.
+type GetServerInstallPreviewParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// ResetServerAvailabilityParams defines parameters for ResetServerAvailability.
+type ResetServerAvailabilityParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// ResetServerSecretParams defines parameters for ResetServerSecret.
+type ResetServerSecretParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// CreateTrafficPolicyParams defines parameters for CreateTrafficPolicy.
+type CreateTrafficPolicyParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// DeleteTrafficPolicyParams defines parameters for DeleteTrafficPolicy.
+type DeleteTrafficPolicyParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// UpdateTrafficPolicyParams defines parameters for UpdateTrafficPolicy.
+type UpdateTrafficPolicyParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// UpdateSettingsParams defines parameters for UpdateSettings.
+type UpdateSettingsParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// CreateCollectorParams defines parameters for CreateCollector.
+type CreateCollectorParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// DeleteCollectorParams defines parameters for DeleteCollector.
+type DeleteCollectorParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// UpdateCollectorParams defines parameters for UpdateCollector.
+type UpdateCollectorParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// GetCollectorInstallPreviewParams defines parameters for GetCollectorInstallPreview.
+type GetCollectorInstallPreviewParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// RevokeCollectorParams defines parameters for RevokeCollector.
+type RevokeCollectorParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// RotateCollectorTokenParams defines parameters for RotateCollectorToken.
+type RotateCollectorTokenParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// UpdateCollectorScopeParams defines parameters for UpdateCollectorScope.
+type UpdateCollectorScopeParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// LogoutParams defines parameters for Logout.
+type LogoutParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // CreateViewPasswordSessionJSONBody defines parameters for CreateViewPasswordSession.
@@ -1757,6 +2103,9 @@ type UpdateAlertRuleJSONRequestBody = AlertRuleWrite
 
 // CreateApiTokenJSONRequestBody defines body for CreateApiToken for application/json ContentType.
 type CreateApiTokenJSONRequestBody = APITokenWrite
+
+// PatchApiTokenJSONRequestBody defines body for PatchApiToken for application/json ContentType.
+type PatchApiTokenJSONRequestBody = APITokenPatch
 
 // CreateDDNSProfileJSONRequestBody defines body for CreateDDNSProfile for application/json ContentType.
 type CreateDDNSProfileJSONRequestBody = DDNSProfileWrite
@@ -1820,6 +2169,9 @@ type CreateCollectorJSONRequestBody = CollectorWrite
 
 // UpdateCollectorJSONRequestBody defines body for UpdateCollector for application/json ContentType.
 type UpdateCollectorJSONRequestBody = CollectorWrite
+
+// GetCollectorInstallPreviewJSONRequestBody defines body for GetCollectorInstallPreview for application/json ContentType.
+type GetCollectorInstallPreviewJSONRequestBody = CollectorInstallPreviewWrite
 
 // UpdateCollectorScopeJSONRequestBody defines body for UpdateCollectorScope for application/json ContentType.
 type UpdateCollectorScopeJSONRequestBody = CollectorScopeWrite
@@ -2416,256 +2768,262 @@ func (a PublicNotePresentation) MarshalJSON() ([]byte, error) {
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-
+	// ListAlertRules 告警规则列表
 	// (GET /api/v2/admin/alert-rules)
 	ListAlertRules(c *gin.Context, params ListAlertRulesParams)
-
+	// CreateAlertRule 创建告警规则
 	// (POST /api/v2/admin/alert-rules)
-	CreateAlertRule(c *gin.Context)
-
+	CreateAlertRule(c *gin.Context, params CreateAlertRuleParams)
+	// DeleteAlertRule 删除告警规则
 	// (DELETE /api/v2/admin/alert-rules/{id})
-	DeleteAlertRule(c *gin.Context, id Id)
-
+	DeleteAlertRule(c *gin.Context, id Id, params DeleteAlertRuleParams)
+	// GetAlertRule 告警规则详情
 	// (GET /api/v2/admin/alert-rules/{id})
 	GetAlertRule(c *gin.Context, id Id)
-
+	// UpdateAlertRule 更新告警规则
 	// (PATCH /api/v2/admin/alert-rules/{id})
-	UpdateAlertRule(c *gin.Context, id Id)
-
+	UpdateAlertRule(c *gin.Context, id Id, params UpdateAlertRuleParams)
+	// ListApiTokens API Token 列表
 	// (GET /api/v2/admin/api-tokens)
 	ListApiTokens(c *gin.Context)
-
+	// CreateApiToken 创建 API Token
 	// (POST /api/v2/admin/api-tokens)
-	CreateApiToken(c *gin.Context)
-
+	CreateApiToken(c *gin.Context, params CreateApiTokenParams)
+	// DeleteApiToken 删除 API Token
 	// (DELETE /api/v2/admin/api-tokens/{id})
-	DeleteApiToken(c *gin.Context, id Id)
-
+	DeleteApiToken(c *gin.Context, id Id, params DeleteApiTokenParams)
+	// GetApiToken API Token 详情
 	// (GET /api/v2/admin/api-tokens/{id})
 	GetApiToken(c *gin.Context, id Id)
-
+	// PatchApiToken 启用或禁用 API Token
+	// (PATCH /api/v2/admin/api-tokens/{id})
+	PatchApiToken(c *gin.Context, id Id, params PatchApiTokenParams)
+	// ListDDNSProfiles DDNS 配置列表
 	// (GET /api/v2/admin/ddns)
 	ListDDNSProfiles(c *gin.Context, params ListDDNSProfilesParams)
-
+	// CreateDDNSProfile 创建 DDNS 配置
 	// (POST /api/v2/admin/ddns)
-	CreateDDNSProfile(c *gin.Context)
-
+	CreateDDNSProfile(c *gin.Context, params CreateDDNSProfileParams)
+	// ListDDNSProviders DDNS 提供商列表
 	// (GET /api/v2/admin/ddns/providers)
 	ListDDNSProviders(c *gin.Context)
-
+	// DeleteDDNSProfile 删除 DDNS 配置
 	// (DELETE /api/v2/admin/ddns/{id})
-	DeleteDDNSProfile(c *gin.Context, id Id)
-
+	DeleteDDNSProfile(c *gin.Context, id Id, params DeleteDDNSProfileParams)
+	// GetDDNSProfile DDNS 配置详情
 	// (GET /api/v2/admin/ddns/{id})
 	GetDDNSProfile(c *gin.Context, id Id)
-
+	// UpdateDDNSProfile 更新 DDNS 配置
 	// (PATCH /api/v2/admin/ddns/{id})
-	UpdateDDNSProfile(c *gin.Context, id Id)
-
+	UpdateDDNSProfile(c *gin.Context, id Id, params UpdateDDNSProfileParams)
+	// ListMonitors 服务监控列表
 	// (GET /api/v2/admin/monitors)
 	ListMonitors(c *gin.Context, params ListMonitorsParams)
-
+	// CreateMonitor 创建服务监控
 	// (POST /api/v2/admin/monitors)
-	CreateMonitor(c *gin.Context)
-
+	CreateMonitor(c *gin.Context, params CreateMonitorParams)
+	// DeleteMonitor 删除服务监控
 	// (DELETE /api/v2/admin/monitors/{id})
-	DeleteMonitor(c *gin.Context, id Id)
-
+	DeleteMonitor(c *gin.Context, id Id, params DeleteMonitorParams)
+	// GetMonitor 服务监控详情
 	// (GET /api/v2/admin/monitors/{id})
 	GetMonitor(c *gin.Context, id Id)
-
+	// UpdateMonitor 更新服务监控
 	// (PATCH /api/v2/admin/monitors/{id})
-	UpdateMonitor(c *gin.Context, id Id)
-
+	UpdateMonitor(c *gin.Context, id Id, params UpdateMonitorParams)
+	// ListMonitorHistory 服务监控历史
 	// (GET /api/v2/admin/monitors/{id}/history)
 	ListMonitorHistory(c *gin.Context, id Id, params ListMonitorHistoryParams)
-
+	// ListNATTunnels NAT 隧道列表
 	// (GET /api/v2/admin/nat)
 	ListNATTunnels(c *gin.Context, params ListNATTunnelsParams)
-
+	// CreateNATTunnel 创建 NAT 隧道
 	// (POST /api/v2/admin/nat)
-	CreateNATTunnel(c *gin.Context)
-
+	CreateNATTunnel(c *gin.Context, params CreateNATTunnelParams)
+	// DeleteNATTunnel 删除 NAT 隧道
 	// (DELETE /api/v2/admin/nat/{id})
-	DeleteNATTunnel(c *gin.Context, id Id)
-
+	DeleteNATTunnel(c *gin.Context, id Id, params DeleteNATTunnelParams)
+	// GetNATTunnel NAT 隧道详情
 	// (GET /api/v2/admin/nat/{id})
 	GetNATTunnel(c *gin.Context, id Id)
-
+	// UpdateNATTunnel 更新 NAT 隧道
 	// (PATCH /api/v2/admin/nat/{id})
-	UpdateNATTunnel(c *gin.Context, id Id)
-
+	UpdateNATTunnel(c *gin.Context, id Id, params UpdateNATTunnelParams)
+	// ListNotifications 通知渠道列表
 	// (GET /api/v2/admin/notifications)
 	ListNotifications(c *gin.Context, params ListNotificationsParams)
-
+	// CreateNotification 创建通知渠道
 	// (POST /api/v2/admin/notifications)
-	CreateNotification(c *gin.Context)
-
+	CreateNotification(c *gin.Context, params CreateNotificationParams)
+	// DeleteNotification 删除通知渠道
 	// (DELETE /api/v2/admin/notifications/{id})
-	DeleteNotification(c *gin.Context, id Id)
-
+	DeleteNotification(c *gin.Context, id Id, params DeleteNotificationParams)
+	// GetNotification 通知渠道详情
 	// (GET /api/v2/admin/notifications/{id})
 	GetNotification(c *gin.Context, id Id)
-
+	// UpdateNotification 更新通知渠道
 	// (PATCH /api/v2/admin/notifications/{id})
-	UpdateNotification(c *gin.Context, id Id)
-
+	UpdateNotification(c *gin.Context, id Id, params UpdateNotificationParams)
+	// TestNotification 测试通知渠道
 	// (POST /api/v2/admin/notifications/{id}/test)
-	TestNotification(c *gin.Context, id Id)
-
+	TestNotification(c *gin.Context, id Id, params TestNotificationParams)
+	// ListOfflineHistory 离线历史列表
 	// (GET /api/v2/admin/offline-history)
 	ListOfflineHistory(c *gin.Context, params ListOfflineHistoryParams)
-
+	// CleanupOfflineHistory 清理离线历史
 	// (POST /api/v2/admin/offline-history/cleanup)
-	CleanupOfflineHistory(c *gin.Context)
-
+	CleanupOfflineHistory(c *gin.Context, params CleanupOfflineHistoryParams)
+	// DeleteOfflineHistory 删除离线历史
 	// (DELETE /api/v2/admin/offline-history/{id})
-	DeleteOfflineHistory(c *gin.Context, id Id)
-
+	DeleteOfflineHistory(c *gin.Context, id Id, params DeleteOfflineHistoryParams)
+	// GetProbeCapabilities 探针能力清单
 	// (GET /api/v2/admin/probe-capabilities)
 	GetProbeCapabilities(c *gin.Context)
-
+	// ListServerGroups 服务器分组列表
 	// (GET /api/v2/admin/server-groups)
 	ListServerGroups(c *gin.Context)
-
+	// RenameServerGroup 重命名服务器分组
 	// (POST /api/v2/admin/server-groups/rename)
-	RenameServerGroup(c *gin.Context)
-
+	RenameServerGroup(c *gin.Context, params RenameServerGroupParams)
+	// ListServers 服务器列表
 	// (GET /api/v2/admin/servers)
 	ListServers(c *gin.Context, params ListServersParams)
-
+	// CreateServer 创建服务器
 	// (POST /api/v2/admin/servers)
-	CreateServer(c *gin.Context)
-
+	CreateServer(c *gin.Context, params CreateServerParams)
+	// BatchDeleteServers 批量删除服务器
 	// (POST /api/v2/admin/servers/batch/delete)
-	BatchDeleteServers(c *gin.Context)
-
+	BatchDeleteServers(c *gin.Context, params BatchDeleteServersParams)
+	// BatchUpdateServerGroup 批量更新服务器分组
 	// (POST /api/v2/admin/servers/batch/group)
-	BatchUpdateServerGroup(c *gin.Context)
-
+	BatchUpdateServerGroup(c *gin.Context, params BatchUpdateServerGroupParams)
+	// DeleteServer 删除服务器
 	// (DELETE /api/v2/admin/servers/{serverId})
-	DeleteServer(c *gin.Context, serverId ServerId)
-
+	DeleteServer(c *gin.Context, serverId ServerId, params DeleteServerParams)
+	// GetServer 服务器详情
 	// (GET /api/v2/admin/servers/{serverId})
 	GetServer(c *gin.Context, serverId ServerId)
-
+	// UpdateServer 更新服务器
 	// (PATCH /api/v2/admin/servers/{serverId})
-	UpdateServer(c *gin.Context, serverId ServerId)
-
+	UpdateServer(c *gin.Context, serverId ServerId, params UpdateServerParams)
+	// ListServerAvailability 服务器可用性记录
 	// (GET /api/v2/admin/servers/{serverId}/availability)
 	ListServerAvailability(c *gin.Context, serverId ServerId, params ListServerAvailabilityParams)
-
+	// GetServerCredential 查看服务器密钥
 	// (GET /api/v2/admin/servers/{serverId}/credential)
 	GetServerCredential(c *gin.Context, serverId ServerId)
-
+	// UpdateServerDisplayIndex 更新服务器排序权重
 	// (PATCH /api/v2/admin/servers/{serverId}/display-index)
-	UpdateServerDisplayIndex(c *gin.Context, serverId ServerId)
-
+	UpdateServerDisplayIndex(c *gin.Context, serverId ServerId, params UpdateServerDisplayIndexParams)
+	// GetServerInstallPreview 生成安装命令预览
 	// (POST /api/v2/admin/servers/{serverId}/install-preview)
-	GetServerInstallPreview(c *gin.Context, serverId ServerId)
-
+	GetServerInstallPreview(c *gin.Context, serverId ServerId, params GetServerInstallPreviewParams)
+	// ResetServerAvailability 重置服务器可用性统计
 	// (POST /api/v2/admin/servers/{serverId}/reset-availability)
-	ResetServerAvailability(c *gin.Context, serverId ServerId)
-
+	ResetServerAvailability(c *gin.Context, serverId ServerId, params ResetServerAvailabilityParams)
+	// ResetServerSecret 重置服务器密钥
 	// (POST /api/v2/admin/servers/{serverId}/reset-secret)
-	ResetServerSecret(c *gin.Context, serverId ServerId)
-
+	ResetServerSecret(c *gin.Context, serverId ServerId, params ResetServerSecretParams)
+	// ListTrafficPolicies 流量策略列表
 	// (GET /api/v2/admin/servers/{serverId}/traffic-policies)
 	ListTrafficPolicies(c *gin.Context, serverId ServerId)
-
+	// CreateTrafficPolicy 创建流量策略
 	// (POST /api/v2/admin/servers/{serverId}/traffic-policies)
-	CreateTrafficPolicy(c *gin.Context, serverId ServerId)
-
+	CreateTrafficPolicy(c *gin.Context, serverId ServerId, params CreateTrafficPolicyParams)
+	// DeleteTrafficPolicy 删除流量策略
 	// (DELETE /api/v2/admin/servers/{serverId}/traffic-policies/{policyId})
-	DeleteTrafficPolicy(c *gin.Context, serverId ServerId, policyId int64)
-
+	DeleteTrafficPolicy(c *gin.Context, serverId ServerId, policyId int64, params DeleteTrafficPolicyParams)
+	// GetTrafficPolicy 流量策略详情
 	// (GET /api/v2/admin/servers/{serverId}/traffic-policies/{policyId})
 	GetTrafficPolicy(c *gin.Context, serverId ServerId, policyId int64)
-
+	// UpdateTrafficPolicy 更新流量策略
 	// (PATCH /api/v2/admin/servers/{serverId}/traffic-policies/{policyId})
-	UpdateTrafficPolicy(c *gin.Context, serverId ServerId, policyId int64)
-
+	UpdateTrafficPolicy(c *gin.Context, serverId ServerId, policyId int64, params UpdateTrafficPolicyParams)
+	// GetTrafficPolicyUsage 流量策略用量
 	// (GET /api/v2/admin/servers/{serverId}/traffic-policies/{policyId}/usage)
 	GetTrafficPolicyUsage(c *gin.Context, serverId ServerId, policyId int64)
-
+	// GetSettings 获取站点设置
 	// (GET /api/v2/admin/settings)
 	GetSettings(c *gin.Context)
-
+	// UpdateSettings 更新站点设置
 	// (PATCH /api/v2/admin/settings)
-	UpdateSettings(c *gin.Context)
-
+	UpdateSettings(c *gin.Context, params UpdateSettingsParams)
+	// GetAdminSummary 管理概览摘要
 	// (GET /api/v2/admin/summary)
 	GetAdminSummary(c *gin.Context)
-
+	// ListAgentReliability 探针可靠性列表
 	// (GET /api/v2/admin/telemetry/agents)
 	ListAgentReliability(c *gin.Context)
-
+	// ListTelemetryAlerts 遥测告警列表
 	// (GET /api/v2/admin/telemetry/alerts)
 	ListTelemetryAlerts(c *gin.Context)
-
+	// ListObserverAssignments Observer 分配列表
 	// (GET /api/v2/admin/telemetry/assignments)
 	ListObserverAssignments(c *gin.Context)
-
+	// ListCollectors 从端列表
 	// (GET /api/v2/admin/telemetry/collectors)
 	ListCollectors(c *gin.Context)
-
+	// CreateCollector 创建从端
 	// (POST /api/v2/admin/telemetry/collectors)
-	CreateCollector(c *gin.Context)
-
+	CreateCollector(c *gin.Context, params CreateCollectorParams)
+	// DeleteCollector 删除从端
 	// (DELETE /api/v2/admin/telemetry/collectors/{collectorId})
-	DeleteCollector(c *gin.Context, collectorId CollectorId)
-
+	DeleteCollector(c *gin.Context, collectorId CollectorId, params DeleteCollectorParams)
+	// GetCollector 从端详情
 	// (GET /api/v2/admin/telemetry/collectors/{collectorId})
 	GetCollector(c *gin.Context, collectorId CollectorId)
-
+	// UpdateCollector 更新从端
 	// (PATCH /api/v2/admin/telemetry/collectors/{collectorId})
-	UpdateCollector(c *gin.Context, collectorId CollectorId)
-
+	UpdateCollector(c *gin.Context, collectorId CollectorId, params UpdateCollectorParams)
+	// GetCollectorInstallPreview 生成从端安装命令预览
+	// (POST /api/v2/admin/telemetry/collectors/{collectorId}/install-preview)
+	GetCollectorInstallPreview(c *gin.Context, collectorId CollectorId, params GetCollectorInstallPreviewParams)
+	// RevokeCollector 撤销从端
 	// (POST /api/v2/admin/telemetry/collectors/{collectorId}/revoke)
-	RevokeCollector(c *gin.Context, collectorId CollectorId)
-
+	RevokeCollector(c *gin.Context, collectorId CollectorId, params RevokeCollectorParams)
+	// RotateCollectorToken 轮换从端 Token
 	// (POST /api/v2/admin/telemetry/collectors/{collectorId}/rotate-token)
-	RotateCollectorToken(c *gin.Context, collectorId CollectorId)
-
+	RotateCollectorToken(c *gin.Context, collectorId CollectorId, params RotateCollectorTokenParams)
+	// UpdateCollectorScope 更新从端范围
 	// (PUT /api/v2/admin/telemetry/collectors/{collectorId}/scope)
-	UpdateCollectorScope(c *gin.Context, collectorId CollectorId)
-
+	UpdateCollectorScope(c *gin.Context, collectorId CollectorId, params UpdateCollectorScopeParams)
+	// GetCollectorToken 查看从端 Token
 	// (GET /api/v2/admin/telemetry/collectors/{collectorId}/token)
 	GetCollectorToken(c *gin.Context, collectorId CollectorId)
-
+	// ListTelemetryDataLoss 遥测丢数记录
 	// (GET /api/v2/admin/telemetry/data-loss)
 	ListTelemetryDataLoss(c *gin.Context)
-
+	// ListIncidentRevisions 事件修订列表
 	// (GET /api/v2/admin/telemetry/incident-revisions)
 	ListIncidentRevisions(c *gin.Context)
-
+	// ListIncidents 事件列表
 	// (GET /api/v2/admin/telemetry/incidents)
 	ListIncidents(c *gin.Context)
-
+	// GetTelemetryOverview 遥测概览
 	// (GET /api/v2/admin/telemetry/overview)
 	GetTelemetryOverview(c *gin.Context)
-
+	// Logout 退出登录
 	// (POST /api/v2/auth/logout)
-	Logout(c *gin.Context)
-
+	Logout(c *gin.Context, params LogoutParams)
+	// GetSession 获取当前会话
 	// (GET /api/v2/auth/session)
 	GetSession(c *gin.Context)
-
+	// GetPublicBootstrap 公开站点引导信息
 	// (GET /api/v2/public/bootstrap)
 	GetPublicBootstrap(c *gin.Context)
-
+	// GetPublicNetworkHistory 公开网络延迟历史
 	// (GET /api/v2/public/network/{serverId})
 	GetPublicNetworkHistory(c *gin.Context, serverId ServerId)
-
+	// ListPublicServers 公开服务器列表
 	// (GET /api/v2/public/servers)
 	ListPublicServers(c *gin.Context)
-
+	// GetPublicServer 公开服务器详情
 	// (GET /api/v2/public/servers/{serverId})
 	GetPublicServer(c *gin.Context, serverId ServerId)
-
+	// ListPublicServices 公开服务监控列表
 	// (GET /api/v2/public/services)
 	ListPublicServices(c *gin.Context)
-
+	// CreateViewPasswordSession 校验站点访问密码
 	// (POST /api/v2/public/view-password/session)
 	CreateViewPasswordSession(c *gin.Context)
 }
@@ -2741,6 +3099,33 @@ func (siw *ServerInterfaceWrapper) ListAlertRules(c *gin.Context) {
 // CreateAlertRule operation middleware
 func (siw *ServerInterfaceWrapper) CreateAlertRule(c *gin.Context) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateAlertRuleParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -2748,7 +3133,7 @@ func (siw *ServerInterfaceWrapper) CreateAlertRule(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.CreateAlertRule(c)
+	siw.Handler.CreateAlertRule(c, params)
 }
 
 // DeleteAlertRule operation middleware
@@ -2766,6 +3151,30 @@ func (siw *ServerInterfaceWrapper) DeleteAlertRule(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteAlertRuleParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -2773,7 +3182,7 @@ func (siw *ServerInterfaceWrapper) DeleteAlertRule(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.DeleteAlertRule(c, id)
+	siw.Handler.DeleteAlertRule(c, id, params)
 }
 
 // GetAlertRule operation middleware
@@ -2816,6 +3225,30 @@ func (siw *ServerInterfaceWrapper) UpdateAlertRule(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateAlertRuleParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -2823,7 +3256,7 @@ func (siw *ServerInterfaceWrapper) UpdateAlertRule(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.UpdateAlertRule(c, id)
+	siw.Handler.UpdateAlertRule(c, id, params)
 }
 
 // ListApiTokens operation middleware
@@ -2842,6 +3275,33 @@ func (siw *ServerInterfaceWrapper) ListApiTokens(c *gin.Context) {
 // CreateApiToken operation middleware
 func (siw *ServerInterfaceWrapper) CreateApiToken(c *gin.Context) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateApiTokenParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -2849,7 +3309,7 @@ func (siw *ServerInterfaceWrapper) CreateApiToken(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.CreateApiToken(c)
+	siw.Handler.CreateApiToken(c, params)
 }
 
 // DeleteApiToken operation middleware
@@ -2867,6 +3327,30 @@ func (siw *ServerInterfaceWrapper) DeleteApiToken(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteApiTokenParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -2874,7 +3358,7 @@ func (siw *ServerInterfaceWrapper) DeleteApiToken(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.DeleteApiToken(c, id)
+	siw.Handler.DeleteApiToken(c, id, params)
 }
 
 // GetApiToken operation middleware
@@ -2900,6 +3384,55 @@ func (siw *ServerInterfaceWrapper) GetApiToken(c *gin.Context) {
 	}
 
 	siw.Handler.GetApiToken(c, id)
+}
+
+// PatchApiToken operation middleware
+func (siw *ServerInterfaceWrapper) PatchApiToken(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PatchApiTokenParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.PatchApiToken(c, id, params)
 }
 
 // ListDDNSProfiles operation middleware
@@ -2964,6 +3497,33 @@ func (siw *ServerInterfaceWrapper) ListDDNSProfiles(c *gin.Context) {
 // CreateDDNSProfile operation middleware
 func (siw *ServerInterfaceWrapper) CreateDDNSProfile(c *gin.Context) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateDDNSProfileParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -2971,7 +3531,7 @@ func (siw *ServerInterfaceWrapper) CreateDDNSProfile(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.CreateDDNSProfile(c)
+	siw.Handler.CreateDDNSProfile(c, params)
 }
 
 // ListDDNSProviders operation middleware
@@ -3002,6 +3562,30 @@ func (siw *ServerInterfaceWrapper) DeleteDDNSProfile(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteDDNSProfileParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -3009,7 +3593,7 @@ func (siw *ServerInterfaceWrapper) DeleteDDNSProfile(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.DeleteDDNSProfile(c, id)
+	siw.Handler.DeleteDDNSProfile(c, id, params)
 }
 
 // GetDDNSProfile operation middleware
@@ -3052,6 +3636,30 @@ func (siw *ServerInterfaceWrapper) UpdateDDNSProfile(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateDDNSProfileParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -3059,7 +3667,7 @@ func (siw *ServerInterfaceWrapper) UpdateDDNSProfile(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.UpdateDDNSProfile(c, id)
+	siw.Handler.UpdateDDNSProfile(c, id, params)
 }
 
 // ListMonitors operation middleware
@@ -3124,6 +3732,33 @@ func (siw *ServerInterfaceWrapper) ListMonitors(c *gin.Context) {
 // CreateMonitor operation middleware
 func (siw *ServerInterfaceWrapper) CreateMonitor(c *gin.Context) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateMonitorParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -3131,7 +3766,7 @@ func (siw *ServerInterfaceWrapper) CreateMonitor(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.CreateMonitor(c)
+	siw.Handler.CreateMonitor(c, params)
 }
 
 // DeleteMonitor operation middleware
@@ -3149,6 +3784,30 @@ func (siw *ServerInterfaceWrapper) DeleteMonitor(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteMonitorParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -3156,7 +3815,7 @@ func (siw *ServerInterfaceWrapper) DeleteMonitor(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.DeleteMonitor(c, id)
+	siw.Handler.DeleteMonitor(c, id, params)
 }
 
 // GetMonitor operation middleware
@@ -3199,6 +3858,30 @@ func (siw *ServerInterfaceWrapper) UpdateMonitor(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateMonitorParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -3206,7 +3889,7 @@ func (siw *ServerInterfaceWrapper) UpdateMonitor(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.UpdateMonitor(c, id)
+	siw.Handler.UpdateMonitor(c, id, params)
 }
 
 // ListMonitorHistory operation middleware
@@ -3331,6 +4014,33 @@ func (siw *ServerInterfaceWrapper) ListNATTunnels(c *gin.Context) {
 // CreateNATTunnel operation middleware
 func (siw *ServerInterfaceWrapper) CreateNATTunnel(c *gin.Context) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateNATTunnelParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -3338,7 +4048,7 @@ func (siw *ServerInterfaceWrapper) CreateNATTunnel(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.CreateNATTunnel(c)
+	siw.Handler.CreateNATTunnel(c, params)
 }
 
 // DeleteNATTunnel operation middleware
@@ -3356,6 +4066,30 @@ func (siw *ServerInterfaceWrapper) DeleteNATTunnel(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteNATTunnelParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -3363,7 +4097,7 @@ func (siw *ServerInterfaceWrapper) DeleteNATTunnel(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.DeleteNATTunnel(c, id)
+	siw.Handler.DeleteNATTunnel(c, id, params)
 }
 
 // GetNATTunnel operation middleware
@@ -3406,6 +4140,30 @@ func (siw *ServerInterfaceWrapper) UpdateNATTunnel(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateNATTunnelParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -3413,7 +4171,7 @@ func (siw *ServerInterfaceWrapper) UpdateNATTunnel(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.UpdateNATTunnel(c, id)
+	siw.Handler.UpdateNATTunnel(c, id, params)
 }
 
 // ListNotifications operation middleware
@@ -3478,6 +4236,33 @@ func (siw *ServerInterfaceWrapper) ListNotifications(c *gin.Context) {
 // CreateNotification operation middleware
 func (siw *ServerInterfaceWrapper) CreateNotification(c *gin.Context) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateNotificationParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -3485,7 +4270,7 @@ func (siw *ServerInterfaceWrapper) CreateNotification(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.CreateNotification(c)
+	siw.Handler.CreateNotification(c, params)
 }
 
 // DeleteNotification operation middleware
@@ -3503,6 +4288,30 @@ func (siw *ServerInterfaceWrapper) DeleteNotification(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteNotificationParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -3510,7 +4319,7 @@ func (siw *ServerInterfaceWrapper) DeleteNotification(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.DeleteNotification(c, id)
+	siw.Handler.DeleteNotification(c, id, params)
 }
 
 // GetNotification operation middleware
@@ -3553,6 +4362,30 @@ func (siw *ServerInterfaceWrapper) UpdateNotification(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateNotificationParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -3560,7 +4393,7 @@ func (siw *ServerInterfaceWrapper) UpdateNotification(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.UpdateNotification(c, id)
+	siw.Handler.UpdateNotification(c, id, params)
 }
 
 // TestNotification operation middleware
@@ -3578,6 +4411,30 @@ func (siw *ServerInterfaceWrapper) TestNotification(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params TestNotificationParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -3585,7 +4442,7 @@ func (siw *ServerInterfaceWrapper) TestNotification(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.TestNotification(c, id)
+	siw.Handler.TestNotification(c, id, params)
 }
 
 // ListOfflineHistory operation middleware
@@ -3634,6 +4491,33 @@ func (siw *ServerInterfaceWrapper) ListOfflineHistory(c *gin.Context) {
 // CleanupOfflineHistory operation middleware
 func (siw *ServerInterfaceWrapper) CleanupOfflineHistory(c *gin.Context) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CleanupOfflineHistoryParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -3641,7 +4525,7 @@ func (siw *ServerInterfaceWrapper) CleanupOfflineHistory(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.CleanupOfflineHistory(c)
+	siw.Handler.CleanupOfflineHistory(c, params)
 }
 
 // DeleteOfflineHistory operation middleware
@@ -3659,6 +4543,30 @@ func (siw *ServerInterfaceWrapper) DeleteOfflineHistory(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteOfflineHistoryParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -3666,7 +4574,7 @@ func (siw *ServerInterfaceWrapper) DeleteOfflineHistory(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.DeleteOfflineHistory(c, id)
+	siw.Handler.DeleteOfflineHistory(c, id, params)
 }
 
 // GetProbeCapabilities operation middleware
@@ -3698,6 +4606,33 @@ func (siw *ServerInterfaceWrapper) ListServerGroups(c *gin.Context) {
 // RenameServerGroup operation middleware
 func (siw *ServerInterfaceWrapper) RenameServerGroup(c *gin.Context) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RenameServerGroupParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -3705,7 +4640,7 @@ func (siw *ServerInterfaceWrapper) RenameServerGroup(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.RenameServerGroup(c)
+	siw.Handler.RenameServerGroup(c, params)
 }
 
 // ListServers operation middleware
@@ -3770,6 +4705,33 @@ func (siw *ServerInterfaceWrapper) ListServers(c *gin.Context) {
 // CreateServer operation middleware
 func (siw *ServerInterfaceWrapper) CreateServer(c *gin.Context) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateServerParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -3777,12 +4739,39 @@ func (siw *ServerInterfaceWrapper) CreateServer(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.CreateServer(c)
+	siw.Handler.CreateServer(c, params)
 }
 
 // BatchDeleteServers operation middleware
 func (siw *ServerInterfaceWrapper) BatchDeleteServers(c *gin.Context) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params BatchDeleteServersParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -3790,12 +4779,39 @@ func (siw *ServerInterfaceWrapper) BatchDeleteServers(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.BatchDeleteServers(c)
+	siw.Handler.BatchDeleteServers(c, params)
 }
 
 // BatchUpdateServerGroup operation middleware
 func (siw *ServerInterfaceWrapper) BatchUpdateServerGroup(c *gin.Context) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params BatchUpdateServerGroupParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -3803,7 +4819,7 @@ func (siw *ServerInterfaceWrapper) BatchUpdateServerGroup(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.BatchUpdateServerGroup(c)
+	siw.Handler.BatchUpdateServerGroup(c, params)
 }
 
 // DeleteServer operation middleware
@@ -3821,6 +4837,30 @@ func (siw *ServerInterfaceWrapper) DeleteServer(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteServerParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -3828,7 +4868,7 @@ func (siw *ServerInterfaceWrapper) DeleteServer(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.DeleteServer(c, serverId)
+	siw.Handler.DeleteServer(c, serverId, params)
 }
 
 // GetServer operation middleware
@@ -3871,6 +4911,30 @@ func (siw *ServerInterfaceWrapper) UpdateServer(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateServerParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -3878,7 +4942,7 @@ func (siw *ServerInterfaceWrapper) UpdateServer(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.UpdateServer(c, serverId)
+	siw.Handler.UpdateServer(c, serverId, params)
 }
 
 // ListServerAvailability operation middleware
@@ -3981,6 +5045,30 @@ func (siw *ServerInterfaceWrapper) UpdateServerDisplayIndex(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateServerDisplayIndexParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -3988,7 +5076,7 @@ func (siw *ServerInterfaceWrapper) UpdateServerDisplayIndex(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.UpdateServerDisplayIndex(c, serverId)
+	siw.Handler.UpdateServerDisplayIndex(c, serverId, params)
 }
 
 // GetServerInstallPreview operation middleware
@@ -4006,6 +5094,30 @@ func (siw *ServerInterfaceWrapper) GetServerInstallPreview(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetServerInstallPreviewParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -4013,7 +5125,7 @@ func (siw *ServerInterfaceWrapper) GetServerInstallPreview(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.GetServerInstallPreview(c, serverId)
+	siw.Handler.GetServerInstallPreview(c, serverId, params)
 }
 
 // ResetServerAvailability operation middleware
@@ -4031,6 +5143,30 @@ func (siw *ServerInterfaceWrapper) ResetServerAvailability(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ResetServerAvailabilityParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -4038,7 +5174,7 @@ func (siw *ServerInterfaceWrapper) ResetServerAvailability(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.ResetServerAvailability(c, serverId)
+	siw.Handler.ResetServerAvailability(c, serverId, params)
 }
 
 // ResetServerSecret operation middleware
@@ -4056,6 +5192,30 @@ func (siw *ServerInterfaceWrapper) ResetServerSecret(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ResetServerSecretParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -4063,7 +5223,7 @@ func (siw *ServerInterfaceWrapper) ResetServerSecret(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.ResetServerSecret(c, serverId)
+	siw.Handler.ResetServerSecret(c, serverId, params)
 }
 
 // ListTrafficPolicies operation middleware
@@ -4106,6 +5266,30 @@ func (siw *ServerInterfaceWrapper) CreateTrafficPolicy(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateTrafficPolicyParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -4113,7 +5297,7 @@ func (siw *ServerInterfaceWrapper) CreateTrafficPolicy(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.CreateTrafficPolicy(c, serverId)
+	siw.Handler.CreateTrafficPolicy(c, serverId, params)
 }
 
 // DeleteTrafficPolicy operation middleware
@@ -4140,6 +5324,30 @@ func (siw *ServerInterfaceWrapper) DeleteTrafficPolicy(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteTrafficPolicyParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -4147,7 +5355,7 @@ func (siw *ServerInterfaceWrapper) DeleteTrafficPolicy(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.DeleteTrafficPolicy(c, serverId, policyId)
+	siw.Handler.DeleteTrafficPolicy(c, serverId, policyId, params)
 }
 
 // GetTrafficPolicy operation middleware
@@ -4208,6 +5416,30 @@ func (siw *ServerInterfaceWrapper) UpdateTrafficPolicy(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateTrafficPolicyParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -4215,7 +5447,7 @@ func (siw *ServerInterfaceWrapper) UpdateTrafficPolicy(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.UpdateTrafficPolicy(c, serverId, policyId)
+	siw.Handler.UpdateTrafficPolicy(c, serverId, policyId, params)
 }
 
 // GetTrafficPolicyUsage operation middleware
@@ -4268,6 +5500,33 @@ func (siw *ServerInterfaceWrapper) GetSettings(c *gin.Context) {
 // UpdateSettings operation middleware
 func (siw *ServerInterfaceWrapper) UpdateSettings(c *gin.Context) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateSettingsParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -4275,7 +5534,7 @@ func (siw *ServerInterfaceWrapper) UpdateSettings(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.UpdateSettings(c)
+	siw.Handler.UpdateSettings(c, params)
 }
 
 // GetAdminSummary operation middleware
@@ -4346,6 +5605,33 @@ func (siw *ServerInterfaceWrapper) ListCollectors(c *gin.Context) {
 // CreateCollector operation middleware
 func (siw *ServerInterfaceWrapper) CreateCollector(c *gin.Context) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateCollectorParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -4353,7 +5639,7 @@ func (siw *ServerInterfaceWrapper) CreateCollector(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.CreateCollector(c)
+	siw.Handler.CreateCollector(c, params)
 }
 
 // DeleteCollector operation middleware
@@ -4371,6 +5657,30 @@ func (siw *ServerInterfaceWrapper) DeleteCollector(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteCollectorParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -4378,7 +5688,7 @@ func (siw *ServerInterfaceWrapper) DeleteCollector(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.DeleteCollector(c, collectorId)
+	siw.Handler.DeleteCollector(c, collectorId, params)
 }
 
 // GetCollector operation middleware
@@ -4421,6 +5731,30 @@ func (siw *ServerInterfaceWrapper) UpdateCollector(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateCollectorParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -4428,7 +5762,56 @@ func (siw *ServerInterfaceWrapper) UpdateCollector(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.UpdateCollector(c, collectorId)
+	siw.Handler.UpdateCollector(c, collectorId, params)
+}
+
+// GetCollectorInstallPreview operation middleware
+func (siw *ServerInterfaceWrapper) GetCollectorInstallPreview(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "collectorId" -------------
+	var collectorId CollectorId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "collectorId", c.Param("collectorId"), &collectorId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter collectorId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetCollectorInstallPreviewParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetCollectorInstallPreview(c, collectorId, params)
 }
 
 // RevokeCollector operation middleware
@@ -4446,6 +5829,30 @@ func (siw *ServerInterfaceWrapper) RevokeCollector(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RevokeCollectorParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -4453,7 +5860,7 @@ func (siw *ServerInterfaceWrapper) RevokeCollector(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.RevokeCollector(c, collectorId)
+	siw.Handler.RevokeCollector(c, collectorId, params)
 }
 
 // RotateCollectorToken operation middleware
@@ -4471,6 +5878,30 @@ func (siw *ServerInterfaceWrapper) RotateCollectorToken(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RotateCollectorTokenParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -4478,7 +5909,7 @@ func (siw *ServerInterfaceWrapper) RotateCollectorToken(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.RotateCollectorToken(c, collectorId)
+	siw.Handler.RotateCollectorToken(c, collectorId, params)
 }
 
 // UpdateCollectorScope operation middleware
@@ -4496,6 +5927,30 @@ func (siw *ServerInterfaceWrapper) UpdateCollectorScope(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateCollectorScopeParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -4503,7 +5958,7 @@ func (siw *ServerInterfaceWrapper) UpdateCollectorScope(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.UpdateCollectorScope(c, collectorId)
+	siw.Handler.UpdateCollectorScope(c, collectorId, params)
 }
 
 // GetCollectorToken operation middleware
@@ -4586,6 +6041,33 @@ func (siw *ServerInterfaceWrapper) GetTelemetryOverview(c *gin.Context) {
 // Logout operation middleware
 func (siw *ServerInterfaceWrapper) Logout(c *gin.Context) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params LogoutParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -4593,7 +6075,7 @@ func (siw *ServerInterfaceWrapper) Logout(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.Logout(c)
+	siw.Handler.Logout(c, params)
 }
 
 // GetSession operation middleware
@@ -4803,6 +6285,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/api/v2/admin/api-tokens", wrapper.CreateApiToken)
 	router.DELETE(options.BaseURL+"/api/v2/admin/api-tokens/:id", wrapper.DeleteApiToken)
 	router.GET(options.BaseURL+"/api/v2/admin/api-tokens/:id", wrapper.GetApiToken)
+	router.PATCH(options.BaseURL+"/api/v2/admin/api-tokens/:id", wrapper.PatchApiToken)
 	router.GET(options.BaseURL+"/api/v2/admin/offline-history", wrapper.ListOfflineHistory)
 	router.DELETE(options.BaseURL+"/api/v2/admin/offline-history/:id", wrapper.DeleteOfflineHistory)
 	router.POST(options.BaseURL+"/api/v2/admin/offline-history/cleanup", wrapper.CleanupOfflineHistory)
@@ -4816,6 +6299,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/api/v2/admin/telemetry/collectors/:collectorId/token", wrapper.GetCollectorToken)
 	router.POST(options.BaseURL+"/api/v2/admin/telemetry/collectors/:collectorId/revoke", wrapper.RevokeCollector)
 	router.PUT(options.BaseURL+"/api/v2/admin/telemetry/collectors/:collectorId/scope", wrapper.UpdateCollectorScope)
+	router.POST(options.BaseURL+"/api/v2/admin/telemetry/collectors/:collectorId/install-preview", wrapper.GetCollectorInstallPreview)
 	router.GET(options.BaseURL+"/api/v2/admin/telemetry/assignments", wrapper.ListObserverAssignments)
 	router.GET(options.BaseURL+"/api/v2/admin/telemetry/agents", wrapper.ListAgentReliability)
 	router.GET(options.BaseURL+"/api/v2/admin/telemetry/incidents", wrapper.ListIncidents)

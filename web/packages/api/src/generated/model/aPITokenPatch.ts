@@ -7,17 +7,7 @@
  *
  * OpenAPI spec version: 2.0.0
  */
-import type { APITokenPermission } from './aPITokenPermission';
 
-export interface APIToken {
-  id: number;
-  note: string;
-  permission: APITokenPermission;
-  /** @nullable */
-  expires_at?: string | null;
+export interface APITokenPatch {
   enabled: boolean;
-  expired?: boolean;
-  token?: string;
-  token_prefix?: string;
-  created_at: string;
 }

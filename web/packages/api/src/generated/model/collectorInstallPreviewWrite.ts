@@ -7,18 +7,14 @@
  *
  * OpenAPI spec version: 2.0.0
  */
-import type { APITokenWritePermission } from './aPITokenWritePermission';
 
-export interface APITokenWrite {
+export interface CollectorInstallPreviewWrite {
+  primary_endpoint?: string;
+  primary_tls?: boolean;
+  primary_insecure_tls?: boolean;
   /**
-     * @minLength 1
-     * @maxLength 200
+     * @minimum 1
+     * @maximum 65535
      */
-  note: string;
-  permission: APITokenWritePermission;
-  /**
-     * 到期时间；省略或 null 表示永不过期
-     * @nullable
-     */
-  expires_at?: string | null;
+  grpc_port?: number;
 }
