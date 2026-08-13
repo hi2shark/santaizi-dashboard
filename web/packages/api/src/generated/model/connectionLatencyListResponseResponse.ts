@@ -7,12 +7,10 @@
  *
  * OpenAPI spec version: 2.0.0
  */
+import type { ConnectionLatencyBucket } from './connectionLatencyBucket';
+import type { Meta } from './meta';
 
-export interface ConnectionPathSink {
-  connected: boolean;
-  pending_events?: number;
-  last_error?: string;
-  ack_through?: number;
-  last_rtt_ms?: number;
-  rtt_sampled_at?: string;
-}
+export type ConnectionLatencyListResponseResponse = {
+  data: ConnectionLatencyBucket[];
+  meta: Meta;
+};

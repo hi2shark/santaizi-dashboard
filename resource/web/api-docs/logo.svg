@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200" role="img" aria-labelledby="title description">
   <title id="title">三太子监控</title>
-  <desc id="description">由三道观测轨迹、中心节点和遥测波形组成的抽象标志</desc>
+  <desc id="description">由三道观测轨迹、中心节点和探测波形组成的抽象标志</desc>
   <g fill="none" stroke-linecap="round" stroke-width="18">
     <path d="M61 31A80 80 0 0 1 165 62" stroke="#38BDF8"/>
     <path d="M177 91A80 80 0 0 1 112 177" stroke="#1473E6"/>

@@ -7,12 +7,10 @@
  *
  * OpenAPI spec version: 2.0.0
  */
+import type { Meta } from './meta';
+import type { PublicMetricPoint } from './publicMetricPoint';
 
-export interface ConnectionPathSink {
-  connected: boolean;
-  pending_events?: number;
-  last_error?: string;
-  ack_through?: number;
-  last_rtt_ms?: number;
-  rtt_sampled_at?: string;
-}
+export type PublicMetricListResponseResponse = {
+  data: PublicMetricPoint[];
+  meta: Meta;
+};

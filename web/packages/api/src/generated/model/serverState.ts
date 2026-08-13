@@ -7,5 +7,29 @@
  *
  * OpenAPI spec version: 2.0.0
  */
+import type { SensorTemperature } from './sensorTemperature';
 
-export type ServerState = { [key: string]: unknown };
+/**
+ * 探针运行态快照（PascalCase，与上游 HostState JSON 一致）。
+ * 用量字段在此；对应总量在 ServerHost。字段集合与 model.HostState 完全对应，不接受额外字段。
+ */
+export interface ServerState {
+  /** CPU 占用百分比 0–100。 */
+  CPU?: number;
+  MemUsed?: number;
+  SwapUsed?: number;
+  DiskUsed?: number;
+  NetInTransfer?: number;
+  NetOutTransfer?: number;
+  NetInSpeed?: number;
+  NetOutSpeed?: number;
+  Uptime?: number;
+  Load1?: number;
+  Load5?: number;
+  Load15?: number;
+  TcpConnCount?: number;
+  UdpConnCount?: number;
+  ProcessCount?: number;
+  Temperatures?: SensorTemperature[];
+  GPU?: number;
+}

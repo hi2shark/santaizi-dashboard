@@ -17,4 +17,6 @@ export interface AgentSink {
   pending_events?: number;
   last_error?: string;
   ack_through?: number;
+  last_rtt_ms?: number;
+  rtt_sampled_at?: string;
 }

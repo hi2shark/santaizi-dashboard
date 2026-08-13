@@ -8,11 +8,13 @@
  * OpenAPI spec version: 2.0.0
  */
 
-export interface ConnectionPathSink {
-  connected: boolean;
-  pending_events?: number;
-  last_error?: string;
-  ack_through?: number;
-  last_rtt_ms?: number;
-  rtt_sampled_at?: string;
+export interface MonitorHistory {
+  monitor_id?: number;
+  server_id?: number;
+  monitor_name?: string;
+  server_name?: string;
+  /** 分钟截断的 Unix 毫秒时间戳。 */
+  created_at?: number[];
+  /** 平均延迟（毫秒）。 */
+  avg_delay?: number[];
 }

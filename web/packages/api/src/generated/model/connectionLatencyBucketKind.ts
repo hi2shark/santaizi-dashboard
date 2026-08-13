@@ -8,11 +8,11 @@
  * OpenAPI spec version: 2.0.0
  */
 
-export interface ConnectionPathSink {
-  connected: boolean;
-  pending_events?: number;
-  last_error?: string;
-  ack_through?: number;
-  last_rtt_ms?: number;
-  rtt_sampled_at?: string;
-}
+export type ConnectionLatencyBucketKind = typeof ConnectionLatencyBucketKind[keyof typeof ConnectionLatencyBucketKind];
+
+
+export const ConnectionLatencyBucketKind = {
+  collector_heartbeat: 'collector_heartbeat',
+  collector_replication: 'collector_replication',
+  path: 'path',
+} as const;

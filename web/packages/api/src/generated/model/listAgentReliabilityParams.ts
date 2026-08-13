@@ -7,12 +7,17 @@
  *
  * OpenAPI spec version: 2.0.0
  */
+import type { PageParameter } from './pageParameter';
+import type { PageSizeParameter } from './pageSizeParameter';
 
-export interface ConnectionPathSink {
-  connected: boolean;
-  pending_events?: number;
-  last_error?: string;
-  ack_through?: number;
-  last_rtt_ms?: number;
-  rtt_sampled_at?: string;
-}
+export type ListAgentReliabilityParams = {
+/**
+ * @minimum 1
+ */
+page?: PageParameter;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+page_size?: PageSizeParameter;
+};

@@ -2,12 +2,13 @@ import { setCSRFToken } from './request'
 import { getSantaiziHTTPAPI } from './generated/santaizi'
 import type {
   AlertRule, AlertRuleWriteBody,   APIToken, APITokenPatchBody, APITokenWriteBody, AgentReliabilityRecord, CollectorCreated,
-  CollectorInstallPreview, CollectorInstallPreviewWriteBody, CollectorScopeWriteBody, CollectorToken, CollectorWriteBody, ConnectionPath, ConnectionSummary, DDNSProfile, DDNSProfileWriteBody, DDNSProvider,
-  IncidentRecord, IncidentRevisionRecord, InstallPreview, InstallPreviewWriteBody, Monitor, MonitorWriteBody, NATTunnel,
+  CollectorInstallPreview, CollectorInstallPreviewWriteBody, CollectorScopeWriteBody, CollectorToken, CollectorWriteBody, ConnectionLatencyBucket, ConnectionPath, ConnectionSummary, DDNSProfile, DDNSProfileWriteBody, DDNSProvider,
+  IncidentRecord, IncidentRevisionRecord, InstallPreview, InstallPreviewWriteBody, ListConnectionLatencyParams, Monitor, MonitorWriteBody, NATTunnel,
   NATTunnelWriteBody, NotificationChannel, NotificationChannelWriteBody, ObserverAssignmentRecord,
   ProbeCapabilities, ServerCredential, ServerDisplayIndexWriteBody, ServerGroup,
   ServerGroupRenameWriteBody, ServerWriteBody, TelemetryAlertRecord, TelemetryDataLossRecord, TrafficPolicy,
   TrafficPolicyWriteBody, TrafficUsage,
+  CycleTransfer, GetPublicMetricsParams, GetPublicServerAvailabilityParams, MonitorHistory, PublicAvailability, PublicMetricPoint,
 } from './generated/model'
 import type {
   ApiData, ApiList, CollectorRecord, ResourceQuery, ResourceRecord, ServerRecord,
@@ -34,10 +35,14 @@ export const verifyViewPassword = (password: string) => api.createViewPasswordSe
 export const listPublicServers = () => api.listPublicServers().then(value => list<ServerRecord>(value))
 export const getPublicServer = (id: number) => api.getPublicServer(id).then(value => data<ServerRecord>(value))
 export const listPublicServices = () => api.listPublicServices().then(value => list<ResourceRecord>(value))
-export const getPublicNetwork = (id: number) => api.getPublicNetworkHistory(id).then(value => list<ResourceRecord>(value))
+export const getPublicNetwork = (id: number) => api.getPublicNetworkHistory(id).then(value => list<MonitorHistory>(value))
 export const listPublicCycleTransfer = (serverId?: number) => api.listPublicCycleTransfer(
   serverId ? { server_id: serverId } : undefined,
-).then(value => list<ResourceRecord>(value))
+).then(value => list<CycleTransfer>(value))
+export const getPublicServerAvailability = (id: number, params?: GetPublicServerAvailabilityParams) =>
+  api.getPublicServerAvailability(id, params).then(value => data<PublicAvailability>(value))
+export const getPublicMetrics = (id: number, params?: GetPublicMetricsParams) =>
+  api.getPublicMetrics(id, params).then(value => list<PublicMetricPoint>(value))
 
 export const getAdminSummary = () => api.getAdminSummary().then(value => data<Record<string, unknown>>(value))
 export const listServers = (params: ResourceQuery = {}) => api.listServers(params).then(value => list<ServerRecord>(value))
@@ -94,6 +99,7 @@ export const getTrafficPolicyUsage = (serverId: number, id: number) => api.getTr
 export const listCollectors = () => api.listCollectors().then(value => list<CollectorRecord>(value))
 export const getConnectionSummary = () => api.getConnectionSummary().then(value => data<ConnectionSummary>(value))
 export const listConnectionPaths = (params: { server_id?: number; observer_id?: string } = {}) => api.listConnectionPaths(params).then(value => list<ConnectionPath>(value))
+export const listConnectionLatency = (params: ListConnectionLatencyParams = {}) => api.listConnectionLatency(params).then(value => list<ConnectionLatencyBucket>(value))
 export const createCollector = (body: CollectorWriteBody) => api.createCollector(body).then(value => data<CollectorCreated>(value))
 export const updateCollector = (id: string, body: CollectorWriteBody) => api.updateCollector(id, body).then(value => data<CollectorRecord>(value))
 export const updateCollectorScope = (id: string, body: CollectorScopeWriteBody) => api.updateCollectorScope(id, body).then(value => data<CollectorRecord>(value))
@@ -111,18 +117,18 @@ export type TelemetryDatasetRecord =
   | TelemetryDataLossRecord
   | TelemetryAlertRecord
 
-const telemetryOperations: Record<string, () => Promise<unknown>> = {
-  assignments: api.listObserverAssignments,
-  agents: api.listAgentReliability,
-  incidents: api.listIncidents,
-  'incident-revisions': api.listIncidentRevisions,
-  'data-loss': api.listTelemetryDataLoss,
-  alerts: api.listTelemetryAlerts,
+const telemetryOperations: Record<string, (params?: ResourceQuery) => Promise<unknown>> = {
+  assignments: params => api.listObserverAssignments(params),
+  agents: params => api.listAgentReliability(params),
+  incidents: params => api.listIncidents(params),
+  'incident-revisions': params => api.listIncidentRevisions(params),
+  'data-loss': params => api.listTelemetryDataLoss(params),
+  alerts: params => api.listTelemetryAlerts(params),
 }
-export const telemetryList = (name: string, _params: ResourceQuery = {}) => {
+export const telemetryList = (name: string, params: ResourceQuery = {}) => {
   const operation = telemetryOperations[name]
   if (!operation) return Promise.reject(new Error(`Unsupported telemetry dataset: ${name}`))
-  return operation().then(value => list<TelemetryDatasetRecord>(value))
+  return operation(params).then(value => list<TelemetryDatasetRecord>(value))
 }
 
 export const listApiTokens = () => api.listApiTokens().then(value => list<APIToken>(value))

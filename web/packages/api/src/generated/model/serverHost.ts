@@ -9,16 +9,33 @@
  */
 
 /**
- * 探针 Host 快照。管理接口以及带 Bearer Token 的公开服务器接口返回明文公网地址（`ip` / `ipv4` / `ipv6`），不脱敏。
+ * 探针 Host 快照。容量总量（MemTotal / DiskTotal / SwapTotal）与 CPU 型号数组在此对象；用量在 ServerState。
+ * 管理接口以及带 Bearer Token 的公开服务器接口返回明文公网地址（`ip` / `ipv4` / `ipv6`），不脱敏。
  * 匿名或查看密码访问的 `listPublicServers`、`getPublicServer` 与 `/ws/v2/public/runtime` 省略这些字段。
- * 其余字段为探针上报的 PascalCase 快照（如 Platform、CountryCode）。
+ * 探针快照字段保持 PascalCase，与上游 Host JSON 一致。字段集合与 model.Host 完全对应，不接受额外字段。
  */
 export interface ServerHost {
+  Platform?: string;
+  PlatformVersion?: string;
+  /** CPU 型号原文，如 `AMD EPYC 2 Physical Core`。 */
+  CPU?: string[];
+  /** 内存总量（字节）。用量在 State.MemUsed。 */
+  MemTotal?: number;
+  /** 磁盘总量（字节）。用量在 State.DiskUsed。 */
+  DiskTotal?: number;
+  SwapTotal?: number;
+  Arch?: string;
+  Virtualization?: string;
+  /** 启动时间 Unix 秒。 */
+  BootTime?: number;
+  CountryCode?: string;
+  /** 探针版本。 */
+  Version?: string;
+  GPU?: string[];
   /** 探针上报的公网地址；双栈为 `IPv4/IPv6`。管理接口与 Bearer Token 公开请求返回。 */
   ip?: string;
   /** 从 `ip` 拆出的 IPv4。管理接口与 Bearer Token 公开请求返回。 */
   ipv4?: string;
   /** 从 `ip` 拆出的 IPv6。管理接口与 Bearer Token 公开请求返回。 */
   ipv6?: string;
-  [key: string]: unknown;
- }
+}

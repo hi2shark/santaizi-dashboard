@@ -8,11 +8,13 @@
  * OpenAPI spec version: 2.0.0
  */
 
-export interface ConnectionPathSink {
-  connected: boolean;
-  pending_events?: number;
-  last_error?: string;
-  ack_through?: number;
-  last_rtt_ms?: number;
-  rtt_sampled_at?: string;
+export interface PublicMetricPoint {
+  window_start?: string;
+  cpu?: number;
+  mem_used?: number;
+  disk_used?: number;
+  net_in_speed?: number;
+  net_out_speed?: number;
+  net_in_total?: number;
+  net_out_total?: number;
 }

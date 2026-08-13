@@ -143,11 +143,12 @@ paths:
       tags:
       - Public
       summary: 公开网络延迟历史
+      description: 返回该服务器近 24 小时的服务监控延迟点。`data` 为数组，每项含 `monitor_name`、`created_at`（毫秒时间戳）与 `avg_delay`。
       operationId: getPublicNetworkHistory
       security: []
       responses:
         '200':
-          $ref: '#/components/responses/ObjectListResponse'
+          $ref: '#/components/responses/MonitorHistoryListResponse'
         default:
           $ref: '#/components/responses/Problem'
   /api/v2/public/cycle-transfer:
@@ -168,7 +169,67 @@ paths:
           minimum: 1
       responses:
         '200':
-          $ref: '#/components/responses/ObjectListResponse'
+          $ref: '#/components/responses/CycleTransferListResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/v2/public/servers/{serverId}/availability:
+    parameters:
+    - $ref: '#/components/parameters/ServerId'
+    get:
+      tags:
+      - Public
+      summary: 公开服务器可用性摘要
+      description: |
+        对齐上游前台可用性聚合。站点关闭 `show_availability_to_guest` 时，匿名与查看密码会话返回 403；管理员 Cookie 与 Bearer Token 仍可读取。
+        从未上报的服务器 `availability_percent` 为 null。
+      operationId: getPublicServerAvailability
+      security: []
+      parameters:
+      - name: days
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 3660
+          default: 30
+      responses:
+        '200':
+          $ref: '#/components/responses/PublicAvailabilityResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/v2/public/metrics/{serverId}:
+    parameters:
+    - $ref: '#/components/parameters/ServerId'
+    get:
+      tags:
+      - Public
+      summary: 公开资源历史
+      description: |
+        从 StateRollup 读取该服务器当前节点的 CPU / 内存 / 磁盘 / 网速平均值序列。
+        无节点绑定或无数据时返回空列表，不返回 404。`hours` 按保留期夹取。
+      operationId: getPublicMetrics
+      security: []
+      parameters:
+      - name: resolution
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - 1m
+          - 1h
+          default: 1m
+      - name: hours
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 24
+      responses:
+        '200':
+          $ref: '#/components/responses/PublicMetricListResponse'
         default:
           $ref: '#/components/responses/Problem'
   /api/v2/admin/summary:
@@ -1278,6 +1339,43 @@ paths:
           $ref: '#/components/responses/ConnectionPathListResponse'
         default:
           $ref: '#/components/responses/Problem'
+  /api/v2/admin/connections/latency:
+    get:
+      tags:
+      - Telemetry
+      summary: 连接延迟历史
+      operationId: listConnectionLatency
+      x-ui-route: /admin/connections
+      parameters:
+      - name: kind
+        in: query
+        schema:
+          type: string
+          enum:
+          - collector_heartbeat
+          - collector_replication
+          - path
+      - name: collector_id
+        in: query
+        schema:
+          type: string
+      - name: server_id
+        in: query
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      - name: observer_id
+        in: query
+        schema:
+          type: string
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          $ref: '#/components/responses/ConnectionLatencyListResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/telemetry/collectors:
     get:
       tags:
@@ -1462,6 +1560,9 @@ paths:
       summary: Observer 分配列表
       operationId: listObserverAssignments
       x-ui-route: /admin/telemetry
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
       responses:
         '200':
           $ref: '#/components/responses/ObserverAssignmentListResponse'
@@ -1474,6 +1575,9 @@ paths:
       summary: 探针可靠性列表
       operationId: listAgentReliability
       x-ui-route: /admin/telemetry
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
       responses:
         '200':
           $ref: '#/components/responses/AgentReliabilityListResponse'
@@ -1486,6 +1590,9 @@ paths:
       summary: 事件列表
       operationId: listIncidents
       x-ui-route: /admin/telemetry
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
       responses:
         '200':
           $ref: '#/components/responses/IncidentListResponse'
@@ -1498,6 +1605,9 @@ paths:
       summary: 事件修订列表
       operationId: listIncidentRevisions
       x-ui-route: /admin/telemetry
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
       responses:
         '200':
           $ref: '#/components/responses/IncidentRevisionListResponse'
@@ -1510,6 +1620,9 @@ paths:
       summary: 探测丢数记录
       operationId: listTelemetryDataLoss
       x-ui-route: /admin/telemetry
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
       responses:
         '200':
           $ref: '#/components/responses/TelemetryDataLossListResponse'
@@ -1522,6 +1635,9 @@ paths:
       summary: 探测告警列表
       operationId: listTelemetryAlerts
       x-ui-route: /admin/telemetry
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
       responses:
         '200':
           $ref: '#/components/responses/TelemetryAlertListResponse'
@@ -1893,11 +2009,49 @@ components:
     ServerHost:
       type: object
       description: |
-        探针 Host 快照。管理接口以及带 Bearer Token 的公开服务器接口返回明文公网地址（`ip` / `ipv4` / `ipv6`），不脱敏。
+        探针 Host 快照。容量总量（MemTotal / DiskTotal / SwapTotal）与 CPU 型号数组在此对象；用量在 ServerState。
+        管理接口以及带 Bearer Token 的公开服务器接口返回明文公网地址（`ip` / `ipv4` / `ipv6`），不脱敏。
         匿名或查看密码访问的 `listPublicServers`、`getPublicServer` 与 `/ws/v2/public/runtime` 省略这些字段。
-        其余字段为探针上报的 PascalCase 快照（如 Platform、CountryCode）。
-      additionalProperties: true
+        探针快照字段保持 PascalCase，与上游 Host JSON 一致。字段集合与 model.Host 完全对应，不接受额外字段。
+      additionalProperties: false
       properties:
+        Platform:
+          type: string
+        PlatformVersion:
+          type: string
+        CPU:
+          type: array
+          items:
+            type: string
+          description: CPU 型号原文，如 `AMD EPYC 2 Physical Core`。
+        MemTotal:
+          type: integer
+          format: int64
+          description: 内存总量（字节）。用量在 State.MemUsed。
+        DiskTotal:
+          type: integer
+          format: int64
+          description: 磁盘总量（字节）。用量在 State.DiskUsed。
+        SwapTotal:
+          type: integer
+          format: int64
+        Arch:
+          type: string
+        Virtualization:
+          type: string
+        BootTime:
+          type: integer
+          format: int64
+          description: 启动时间 Unix 秒。
+        CountryCode:
+          type: string
+        Version:
+          type: string
+          description: 探针版本。
+        GPU:
+          type: array
+          items:
+            type: string
         ip:
           type: string
           description: 探针上报的公网地址；双栈为 `IPv4/IPv6`。管理接口与 Bearer Token 公开请求返回。
@@ -1907,6 +2061,199 @@ components:
         ipv6:
           type: string
           description: 从 `ip` 拆出的 IPv6。管理接口与 Bearer Token 公开请求返回。
+    SensorTemperature:
+      type: object
+      additionalProperties: false
+      properties:
+        Name:
+          type: string
+        Temperature:
+          type: number
+          format: float
+    ServerState:
+      type: object
+      description: |
+        探针运行态快照（PascalCase，与上游 HostState JSON 一致）。
+        用量字段在此；对应总量在 ServerHost。字段集合与 model.HostState 完全对应，不接受额外字段。
+      additionalProperties: false
+      properties:
+        CPU:
+          type: number
+          format: double
+          description: CPU 占用百分比 0–100。
+        MemUsed:
+          type: integer
+          format: int64
+        SwapUsed:
+          type: integer
+          format: int64
+        DiskUsed:
+          type: integer
+          format: int64
+        NetInTransfer:
+          type: integer
+          format: int64
+        NetOutTransfer:
+          type: integer
+          format: int64
+        NetInSpeed:
+          type: integer
+          format: int64
+        NetOutSpeed:
+          type: integer
+          format: int64
+        Uptime:
+          type: integer
+          format: int64
+        Load1:
+          type: number
+          format: double
+        Load5:
+          type: number
+          format: double
+        Load15:
+          type: number
+          format: double
+        TcpConnCount:
+          type: integer
+          format: int64
+        UdpConnCount:
+          type: integer
+          format: int64
+        ProcessCount:
+          type: integer
+          format: int64
+        Temperatures:
+          type: array
+          items:
+            $ref: '#/components/schemas/SensorTemperature'
+        GPU:
+          type: number
+          format: double
+    MonitorHistory:
+      type: object
+      properties:
+        monitor_id:
+          type: integer
+          format: int64
+        server_id:
+          type: integer
+          format: int64
+        monitor_name:
+          type: string
+        server_name:
+          type: string
+        created_at:
+          type: array
+          items:
+            type: integer
+            format: int64
+          description: 分钟截断的 Unix 毫秒时间戳。
+        avg_delay:
+          type: array
+          items:
+            type: number
+            format: float
+          description: 平均延迟（毫秒）。
+    CycleTransfer:
+      type: object
+      properties:
+        policy_id:
+          type: integer
+          format: int64
+        server_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        direction:
+          type: string
+        mode:
+          type: string
+        cycle_unit:
+          type: string
+        window_start:
+          type: string
+          format: date-time
+        window_end:
+          type: string
+          format: date-time
+        used_bytes:
+          type: integer
+          format: int64
+        quota_bytes:
+          type: integer
+          format: int64
+        usage_percent:
+          type: number
+          format: double
+        status:
+          type: string
+        warning_percent:
+          type: number
+          format: double
+        warning_bytes:
+          type: integer
+          format: int64
+          description: 预警阈值对应字节，对齐上游 CycleTransferStats.Min。
+        remaining_bytes:
+          type: integer
+          format: int64
+        next_reset_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: 周期模式取 window_end；累计模式为 null。对齐上游 NextUpdate。
+    PublicAvailability:
+      type: object
+      required:
+      - server_id
+      - days
+      properties:
+        server_id:
+          type: integer
+          format: int64
+        days:
+          type: integer
+        offline_count:
+          type: integer
+        total_offline_seconds:
+          type: integer
+          format: int64
+        longest_offline_seconds:
+          type: integer
+          format: int64
+        availability_percent:
+          type: number
+          format: double
+          nullable: true
+    PublicMetricPoint:
+      type: object
+      properties:
+        window_start:
+          type: string
+          format: date-time
+        cpu:
+          type: number
+          format: double
+        mem_used:
+          type: integer
+          format: int64
+        disk_used:
+          type: integer
+          format: int64
+        net_in_speed:
+          type: integer
+          format: int64
+        net_out_speed:
+          type: integer
+          format: int64
+        net_in_total:
+          type: integer
+          format: int64
+        net_out_total:
+          type: integer
+          format: int64
     Server:
       type: object
       required:
@@ -1946,8 +2293,7 @@ components:
         host:
           $ref: '#/components/schemas/ServerHost'
         state:
-          type: object
-          additionalProperties: true
+          $ref: '#/components/schemas/ServerState'
         last_active:
           type: string
           format: date-time
@@ -2815,6 +3161,18 @@ components:
           format: int64
         protocol_version:
           type: string
+        heartbeat_rtt_ms:
+          type: number
+          format: double
+        heartbeat_rtt_sampled_at:
+          type: string
+          format: date-time
+        replication_rtt_ms:
+          type: number
+          format: double
+        replication_rtt_sampled_at:
+          type: string
+          format: date-time
         scopes:
           type: array
           items:
@@ -2881,6 +3239,12 @@ components:
         ack_through:
           type: integer
           format: int64
+        last_rtt_ms:
+          type: number
+          format: double
+        rtt_sampled_at:
+          type: string
+          format: date-time
     ConnectionPath:
       type: object
       required:
@@ -2916,6 +3280,53 @@ components:
           format: date-time
         sink:
           $ref: '#/components/schemas/ConnectionPathSink'
+    ConnectionLatencyBucket:
+      type: object
+      required:
+      - kind
+      - collector_id
+      - server_id
+      - server_name
+      - node_uuid
+      - observer_id
+      - bucket_start
+      - min_ms
+      - avg_ms
+      - max_ms
+      - count
+      properties:
+        kind:
+          type: string
+          enum:
+          - collector_heartbeat
+          - collector_replication
+          - path
+        collector_id:
+          type: string
+        server_id:
+          type: integer
+          format: int64
+        server_name:
+          type: string
+        node_uuid:
+          type: string
+        observer_id:
+          type: string
+        bucket_start:
+          type: string
+          format: date-time
+        min_ms:
+          type: number
+          format: double
+        avg_ms:
+          type: number
+          format: double
+        max_ms:
+          type: number
+          format: double
+        count:
+          type: integer
+          format: int64
     ObserverEvidenceItem:
       type: object
       required:
@@ -2961,6 +3372,12 @@ components:
         ack_through:
           type: integer
           format: int64
+        last_rtt_ms:
+          type: number
+          format: double
+        rtt_sampled_at:
+          type: string
+          format: date-time
     ObserverAssignmentRecord:
       type: object
       required:
@@ -3414,6 +3831,65 @@ components:
                   $ref: '#/components/schemas/Server'
               meta:
                 $ref: '#/components/schemas/Meta'
+    MonitorHistoryListResponse:
+      description: Public monitor latency history
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - data
+            - meta
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MonitorHistory'
+              meta:
+                $ref: '#/components/schemas/Meta'
+    CycleTransferListResponse:
+      description: Public cycle transfer list
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - data
+            - meta
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CycleTransfer'
+              meta:
+                $ref: '#/components/schemas/Meta'
+    PublicAvailabilityResponse:
+      description: Public availability summary
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - data
+            properties:
+              data:
+                $ref: '#/components/schemas/PublicAvailability'
+    PublicMetricListResponse:
+      description: Public resource history
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - data
+            - meta
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PublicMetricPoint'
+              meta:
+                $ref: '#/components/schemas/Meta'
     ServerGroupListResponse:
       description: Derived server group list
       content:
@@ -3775,6 +4251,22 @@ components:
                 type: array
                 items:
                   $ref: '#/components/schemas/ConnectionPath'
+              meta:
+                $ref: '#/components/schemas/Meta'
+    ConnectionLatencyListResponse:
+      description: Connection latency history buckets
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - data
+            - meta
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConnectionLatencyBucket'
               meta:
                 $ref: '#/components/schemas/Meta'
     ObserverAssignmentListResponse:

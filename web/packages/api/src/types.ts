@@ -1,3 +1,5 @@
+import type { ServerHost, ServerState } from './generated/model'
+
 export type Locale = 'zh-CN' | 'zh-TW' | 'en-US' | 'es-ES'
 export type ThemeMode = 'system' | 'light' | 'dark'
 
@@ -70,8 +72,8 @@ export interface ServerRecord extends ResourceRecord {
   hide_for_guest: boolean
   enable_ddns: boolean
   ddns_profiles?: number[]
-  host?: Record<string, unknown>
-  state?: Record<string, unknown>
+  host?: ServerHost
+  state?: ServerState
   last_active?: string
   online?: boolean
   telemetry?: ServerTelemetryPresentation
@@ -90,6 +92,10 @@ export interface CollectorRecord {
   last_seen?: string
   last_sync?: string
   last_primary_seen?: string
+  heartbeat_rtt_ms?: number
+  heartbeat_rtt_sampled_at?: string
+  replication_rtt_ms?: number
+  replication_rtt_sampled_at?: string
   spool_size?: number
   pending_records?: number
   oldest_pending?: string

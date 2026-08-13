@@ -27,29 +27,41 @@ import type {
   CollectorScopeWriteBody,
   CollectorTokenResponseResponse,
   CollectorWriteBody,
+  ConnectionLatencyListResponseResponse,
   ConnectionPathListResponseResponse,
   ConnectionSummaryResponseResponse,
   CreateViewPasswordSessionBody,
+  CycleTransferListResponseResponse,
   DDNSProfileListResponseResponse,
   DDNSProfileResponseResponse,
   DDNSProfileWriteBody,
   DDNSProviderListResponseResponse,
   GenericObjectBody,
+  GetPublicMetricsParams,
+  GetPublicServerAvailabilityParams,
   IncidentListResponseResponse,
   IncidentRevisionListResponseResponse,
   InstallPreviewResponseResponse,
   InstallPreviewWriteBody,
+  ListAgentReliabilityParams,
   ListAlertRulesParams,
+  ListConnectionLatencyParams,
   ListConnectionPathsParams,
   ListDDNSProfilesParams,
+  ListIncidentRevisionsParams,
+  ListIncidentsParams,
   ListMonitorHistoryParams,
   ListMonitorsParams,
   ListNATTunnelsParams,
   ListNotificationsParams,
+  ListObserverAssignmentsParams,
   ListOfflineHistoryParams,
   ListPublicCycleTransferParams,
   ListServerAvailabilityParams,
   ListServersParams,
+  ListTelemetryAlertsParams,
+  ListTelemetryDataLossParams,
+  MonitorHistoryListResponseResponse,
   MonitorListResponseResponse,
   MonitorResponseResponse,
   MonitorWriteBody,
@@ -63,6 +75,8 @@ import type {
   ObjectResponseResponse,
   ObserverAssignmentListResponseResponse,
   ProbeCapabilitiesResponseResponse,
+  PublicAvailabilityResponseResponse,
+  PublicMetricListResponseResponse,
   ServerCredentialResponseResponse,
   ServerDisplayIndexWriteBody,
   ServerGroupListResponseResponse,
@@ -177,12 +191,13 @@ const listPublicServices = (
     }
 
 /**
+ * 返回该服务器近 24 小时的服务监控延迟点。`data` 为数组，每项含 `monitor_name`、`created_at`（毫秒时间戳）与 `avg_delay`。
  * @summary 公开网络延迟历史
  */
 const getPublicNetworkHistory = (
     serverId: number,
  ) => {
-      return santaiziRequest<ObjectListResponseResponse>(
+      return santaiziRequest<MonitorHistoryListResponseResponse>(
       {url: `/api/v2/public/network/${serverId}`, method: 'GET'
     },
       );
@@ -195,8 +210,40 @@ const getPublicNetworkHistory = (
 const listPublicCycleTransfer = (
     params?: ListPublicCycleTransferParams,
  ) => {
-      return santaiziRequest<ObjectListResponseResponse>(
+      return santaiziRequest<CycleTransferListResponseResponse>(
       {url: `/api/v2/public/cycle-transfer`, method: 'GET',
+        params
+    },
+      );
+    }
+
+/**
+ * 对齐上游前台可用性聚合。站点关闭 `show_availability_to_guest` 时，匿名与查看密码会话返回 403；管理员 Cookie 与 Bearer Token 仍可读取。
+ * 从未上报的服务器 `availability_percent` 为 null。
+ * @summary 公开服务器可用性摘要
+ */
+const getPublicServerAvailability = (
+    serverId: number,
+    params?: GetPublicServerAvailabilityParams,
+ ) => {
+      return santaiziRequest<PublicAvailabilityResponseResponse>(
+      {url: `/api/v2/public/servers/${serverId}/availability`, method: 'GET',
+        params
+    },
+      );
+    }
+
+/**
+ * 从 StateRollup 读取该服务器当前节点的 CPU / 内存 / 磁盘 / 网速平均值序列。
+ * 无节点绑定或无数据时返回空列表，不返回 404。`hours` 按保留期夹取。
+ * @summary 公开资源历史
+ */
+const getPublicMetrics = (
+    serverId: number,
+    params?: GetPublicMetricsParams,
+ ) => {
+      return santaiziRequest<PublicMetricListResponseResponse>(
+      {url: `/api/v2/public/metrics/${serverId}`, method: 'GET',
         params
     },
       );
@@ -1051,6 +1098,19 @@ const listConnectionPaths = (
     }
 
 /**
+ * @summary 连接延迟历史
+ */
+const listConnectionLatency = (
+    params?: ListConnectionLatencyParams,
+ ) => {
+      return santaiziRequest<ConnectionLatencyListResponseResponse>(
+      {url: `/api/v2/admin/connections/latency`, method: 'GET',
+        params
+    },
+      );
+    }
+
+/**
  * @summary 从端列表
  */
 const listCollectors = (
@@ -1185,10 +1245,11 @@ const getCollectorInstallPreview = (
  * @summary Observer 分配列表
  */
 const listObserverAssignments = (
-
+    params?: ListObserverAssignmentsParams,
  ) => {
       return santaiziRequest<ObserverAssignmentListResponseResponse>(
-      {url: `/api/v2/admin/telemetry/assignments`, method: 'GET'
+      {url: `/api/v2/admin/telemetry/assignments`, method: 'GET',
+        params
     },
       );
     }
@@ -1197,10 +1258,11 @@ const listObserverAssignments = (
  * @summary 探针可靠性列表
  */
 const listAgentReliability = (
-
+    params?: ListAgentReliabilityParams,
  ) => {
       return santaiziRequest<AgentReliabilityListResponseResponse>(
-      {url: `/api/v2/admin/telemetry/agents`, method: 'GET'
+      {url: `/api/v2/admin/telemetry/agents`, method: 'GET',
+        params
     },
       );
     }
@@ -1209,10 +1271,11 @@ const listAgentReliability = (
  * @summary 事件列表
  */
 const listIncidents = (
-
+    params?: ListIncidentsParams,
  ) => {
       return santaiziRequest<IncidentListResponseResponse>(
-      {url: `/api/v2/admin/telemetry/incidents`, method: 'GET'
+      {url: `/api/v2/admin/telemetry/incidents`, method: 'GET',
+        params
     },
       );
     }
@@ -1221,10 +1284,11 @@ const listIncidents = (
  * @summary 事件修订列表
  */
 const listIncidentRevisions = (
-
+    params?: ListIncidentRevisionsParams,
  ) => {
       return santaiziRequest<IncidentRevisionListResponseResponse>(
-      {url: `/api/v2/admin/telemetry/incident-revisions`, method: 'GET'
+      {url: `/api/v2/admin/telemetry/incident-revisions`, method: 'GET',
+        params
     },
       );
     }
@@ -1233,10 +1297,11 @@ const listIncidentRevisions = (
  * @summary 探测丢数记录
  */
 const listTelemetryDataLoss = (
-
+    params?: ListTelemetryDataLossParams,
  ) => {
       return santaiziRequest<TelemetryDataLossListResponseResponse>(
-      {url: `/api/v2/admin/telemetry/data-loss`, method: 'GET'
+      {url: `/api/v2/admin/telemetry/data-loss`, method: 'GET',
+        params
     },
       );
     }
@@ -1245,15 +1310,16 @@ const listTelemetryDataLoss = (
  * @summary 探测告警列表
  */
 const listTelemetryAlerts = (
-
+    params?: ListTelemetryAlertsParams,
  ) => {
       return santaiziRequest<TelemetryAlertListResponseResponse>(
-      {url: `/api/v2/admin/telemetry/alerts`, method: 'GET'
+      {url: `/api/v2/admin/telemetry/alerts`, method: 'GET',
+        params
     },
       );
     }
 
-return {getSession,logout,getPublicBootstrap,createViewPasswordSession,listPublicServers,getPublicServer,listPublicServices,getPublicNetworkHistory,listPublicCycleTransfer,getAdminSummary,listServers,createServer,getServer,updateServer,deleteServer,listServerAvailability,updateServerDisplayIndex,listServerGroups,renameServerGroup,resetServerSecret,resetServerAvailability,getServerCredential,getServerInstallPreview,getProbeCapabilities,listTrafficPolicies,createTrafficPolicy,getTrafficPolicy,updateTrafficPolicy,deleteTrafficPolicy,getTrafficPolicyUsage,batchUpdateServerGroup,batchDeleteServers,listMonitors,createMonitor,getMonitor,updateMonitor,deleteMonitor,listMonitorHistory,listNotifications,createNotification,getNotification,updateNotification,deleteNotification,testNotification,listAlertRules,createAlertRule,getAlertRule,updateAlertRule,deleteAlertRule,listDDNSProviders,listDDNSProfiles,createDDNSProfile,getDDNSProfile,updateDDNSProfile,deleteDDNSProfile,listNATTunnels,createNATTunnel,getNATTunnel,updateNATTunnel,deleteNATTunnel,getSettings,updateSettings,listApiTokens,createApiToken,getApiToken,patchApiToken,deleteApiToken,listOfflineHistory,deleteOfflineHistory,cleanupOfflineHistory,getTelemetryOverview,getConnectionSummary,listConnectionPaths,listCollectors,createCollector,getCollector,updateCollector,deleteCollector,rotateCollectorToken,getCollectorToken,revokeCollector,updateCollectorScope,getCollectorInstallPreview,listObserverAssignments,listAgentReliability,listIncidents,listIncidentRevisions,listTelemetryDataLoss,listTelemetryAlerts}};
+return {getSession,logout,getPublicBootstrap,createViewPasswordSession,listPublicServers,getPublicServer,listPublicServices,getPublicNetworkHistory,listPublicCycleTransfer,getPublicServerAvailability,getPublicMetrics,getAdminSummary,listServers,createServer,getServer,updateServer,deleteServer,listServerAvailability,updateServerDisplayIndex,listServerGroups,renameServerGroup,resetServerSecret,resetServerAvailability,getServerCredential,getServerInstallPreview,getProbeCapabilities,listTrafficPolicies,createTrafficPolicy,getTrafficPolicy,updateTrafficPolicy,deleteTrafficPolicy,getTrafficPolicyUsage,batchUpdateServerGroup,batchDeleteServers,listMonitors,createMonitor,getMonitor,updateMonitor,deleteMonitor,listMonitorHistory,listNotifications,createNotification,getNotification,updateNotification,deleteNotification,testNotification,listAlertRules,createAlertRule,getAlertRule,updateAlertRule,deleteAlertRule,listDDNSProviders,listDDNSProfiles,createDDNSProfile,getDDNSProfile,updateDDNSProfile,deleteDDNSProfile,listNATTunnels,createNATTunnel,getNATTunnel,updateNATTunnel,deleteNATTunnel,getSettings,updateSettings,listApiTokens,createApiToken,getApiToken,patchApiToken,deleteApiToken,listOfflineHistory,deleteOfflineHistory,cleanupOfflineHistory,getTelemetryOverview,getConnectionSummary,listConnectionPaths,listConnectionLatency,listCollectors,createCollector,getCollector,updateCollector,deleteCollector,rotateCollectorToken,getCollectorToken,revokeCollector,updateCollectorScope,getCollectorInstallPreview,listObserverAssignments,listAgentReliability,listIncidents,listIncidentRevisions,listTelemetryDataLoss,listTelemetryAlerts}};
 export type GetSessionResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getSession']>>>
 export type LogoutResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['logout']>>>
 export type GetPublicBootstrapResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getPublicBootstrap']>>>
@@ -1263,6 +1329,8 @@ export type GetPublicServerResult = NonNullable<Awaited<ReturnType<ReturnType<ty
 export type ListPublicServicesResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['listPublicServices']>>>
 export type GetPublicNetworkHistoryResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getPublicNetworkHistory']>>>
 export type ListPublicCycleTransferResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['listPublicCycleTransfer']>>>
+export type GetPublicServerAvailabilityResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getPublicServerAvailability']>>>
+export type GetPublicMetricsResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getPublicMetrics']>>>
 export type GetAdminSummaryResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getAdminSummary']>>>
 export type ListServersResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['listServers']>>>
 export type CreateServerResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['createServer']>>>
@@ -1327,6 +1395,7 @@ export type CleanupOfflineHistoryResult = NonNullable<Awaited<ReturnType<ReturnT
 export type GetTelemetryOverviewResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getTelemetryOverview']>>>
 export type GetConnectionSummaryResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getConnectionSummary']>>>
 export type ListConnectionPathsResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['listConnectionPaths']>>>
+export type ListConnectionLatencyResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['listConnectionLatency']>>>
 export type ListCollectorsResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['listCollectors']>>>
 export type CreateCollectorResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['createCollector']>>>
 export type GetCollectorResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getCollector']>>>

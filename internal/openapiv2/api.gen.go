@@ -280,6 +280,27 @@ func (e CollectorScopeType) Valid() bool {
 	}
 }
 
+// Defines values for ConnectionLatencyBucketKind.
+const (
+	ConnectionLatencyBucketKindCollectorHeartbeat   ConnectionLatencyBucketKind = "collector_heartbeat"
+	ConnectionLatencyBucketKindCollectorReplication ConnectionLatencyBucketKind = "collector_replication"
+	ConnectionLatencyBucketKindPath                 ConnectionLatencyBucketKind = "path"
+)
+
+// Valid indicates whether the value is a known member of the ConnectionLatencyBucketKind enum.
+func (e ConnectionLatencyBucketKind) Valid() bool {
+	switch e {
+	case ConnectionLatencyBucketKindCollectorHeartbeat:
+		return true
+	case ConnectionLatencyBucketKindCollectorReplication:
+		return true
+	case ConnectionLatencyBucketKindPath:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ConnectionPathObserverKind.
 const (
 	ConnectionPathObserverKindCollector ConnectionPathObserverKind = "collector"
@@ -934,6 +955,27 @@ func (e ListAlertRulesParamsOrder) Valid() bool {
 	}
 }
 
+// Defines values for ListConnectionLatencyParamsKind.
+const (
+	ListConnectionLatencyParamsKindCollectorHeartbeat   ListConnectionLatencyParamsKind = "collector_heartbeat"
+	ListConnectionLatencyParamsKindCollectorReplication ListConnectionLatencyParamsKind = "collector_replication"
+	ListConnectionLatencyParamsKindPath                 ListConnectionLatencyParamsKind = "path"
+)
+
+// Valid indicates whether the value is a known member of the ListConnectionLatencyParamsKind enum.
+func (e ListConnectionLatencyParamsKind) Valid() bool {
+	switch e {
+	case ListConnectionLatencyParamsKindCollectorHeartbeat:
+		return true
+	case ListConnectionLatencyParamsKindCollectorReplication:
+		return true
+	case ListConnectionLatencyParamsKindPath:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListDDNSProfilesParamsOrder.
 const (
 	ListDDNSProfilesParamsOrderAsc  ListDDNSProfilesParamsOrder = "asc"
@@ -1024,6 +1066,24 @@ func (e ListServersParamsOrder) Valid() bool {
 	}
 }
 
+// Defines values for GetPublicMetricsParamsResolution.
+const (
+	N1h GetPublicMetricsParamsResolution = "1h"
+	N1m GetPublicMetricsParamsResolution = "1m"
+)
+
+// Valid indicates whether the value is a known member of the GetPublicMetricsParamsResolution enum.
+func (e GetPublicMetricsParamsResolution) Valid() bool {
+	switch e {
+	case N1h:
+		return true
+	case N1m:
+		return true
+	default:
+		return false
+	}
+}
+
 // APIToken defines model for APIToken.
 type APIToken struct {
 	CreatedAt   time.Time          `json:"created_at"`
@@ -1080,9 +1140,11 @@ type AgentSink struct {
 	Connected     bool                   `json:"connected"`
 	EndpointId    string                 `json:"endpoint_id"`
 	LastError     *string                `json:"last_error,omitempty"`
+	LastRttMs     *float64               `json:"last_rtt_ms,omitempty"`
 	ObserverKind  *AgentSinkObserverKind `json:"observer_kind,omitempty"`
 	ObserverName  *string                `json:"observer_name,omitempty"`
 	PendingEvents *int64                 `json:"pending_events,omitempty"`
+	RttSampledAt  *time.Time             `json:"rtt_sampled_at,omitempty"`
 }
 
 // AgentSinkObserverKind defines model for AgentSink.ObserverKind.
@@ -1165,25 +1227,29 @@ type BootstrapTheme string
 
 // Collector defines model for Collector.
 type Collector struct {
-	Address           string            `json:"address"`
-	ConfigVersion     int64             `json:"config_version"`
-	ConnectedAgents   *int64            `json:"connected_agents,omitempty"`
-	Generation        int64             `json:"generation"`
-	Id                string            `json:"id"`
-	InsecureTls       bool              `json:"insecure_tls"`
-	LastPrimarySeen   *time.Time        `json:"last_primary_seen,omitempty"`
-	LastSeen          *time.Time        `json:"last_seen,omitempty"`
-	LastSync          *time.Time        `json:"last_sync,omitempty"`
-	Name              string            `json:"name"`
-	OldestPending     *time.Time        `json:"oldest_pending,omitempty"`
-	PendingRecords    *int64            `json:"pending_records,omitempty"`
-	ProtocolVersion   *string           `json:"protocol_version,omitempty"`
-	ReplicationCursor *int64            `json:"replication_cursor,omitempty"`
-	Revoked           bool              `json:"revoked"`
-	Scopes            *[]CollectorScope `json:"scopes,omitempty"`
-	SpoolSize         *int64            `json:"spool_size,omitempty"`
-	Status            *CollectorStatus  `json:"status,omitempty"`
-	Tls               bool              `json:"tls"`
+	Address                 string            `json:"address"`
+	ConfigVersion           int64             `json:"config_version"`
+	ConnectedAgents         *int64            `json:"connected_agents,omitempty"`
+	Generation              int64             `json:"generation"`
+	HeartbeatRttMs          *float64          `json:"heartbeat_rtt_ms,omitempty"`
+	HeartbeatRttSampledAt   *time.Time        `json:"heartbeat_rtt_sampled_at,omitempty"`
+	Id                      string            `json:"id"`
+	InsecureTls             bool              `json:"insecure_tls"`
+	LastPrimarySeen         *time.Time        `json:"last_primary_seen,omitempty"`
+	LastSeen                *time.Time        `json:"last_seen,omitempty"`
+	LastSync                *time.Time        `json:"last_sync,omitempty"`
+	Name                    string            `json:"name"`
+	OldestPending           *time.Time        `json:"oldest_pending,omitempty"`
+	PendingRecords          *int64            `json:"pending_records,omitempty"`
+	ProtocolVersion         *string           `json:"protocol_version,omitempty"`
+	ReplicationCursor       *int64            `json:"replication_cursor,omitempty"`
+	ReplicationRttMs        *float64          `json:"replication_rtt_ms,omitempty"`
+	ReplicationRttSampledAt *time.Time        `json:"replication_rtt_sampled_at,omitempty"`
+	Revoked                 bool              `json:"revoked"`
+	Scopes                  *[]CollectorScope `json:"scopes,omitempty"`
+	SpoolSize               *int64            `json:"spool_size,omitempty"`
+	Status                  *CollectorStatus  `json:"status,omitempty"`
+	Tls                     bool              `json:"tls"`
 }
 
 // CollectorStatus defines model for Collector.Status.
@@ -1242,6 +1308,24 @@ type CollectorWrite struct {
 	Tls         *bool            `json:"tls,omitempty"`
 }
 
+// ConnectionLatencyBucket defines model for ConnectionLatencyBucket.
+type ConnectionLatencyBucket struct {
+	AvgMs       float64                     `json:"avg_ms"`
+	BucketStart time.Time                   `json:"bucket_start"`
+	CollectorId string                      `json:"collector_id"`
+	Count       int64                       `json:"count"`
+	Kind        ConnectionLatencyBucketKind `json:"kind"`
+	MaxMs       float64                     `json:"max_ms"`
+	MinMs       float64                     `json:"min_ms"`
+	NodeUuid    string                      `json:"node_uuid"`
+	ObserverId  string                      `json:"observer_id"`
+	ServerId    int64                       `json:"server_id"`
+	ServerName  string                      `json:"server_name"`
+}
+
+// ConnectionLatencyBucketKind defines model for ConnectionLatencyBucket.Kind.
+type ConnectionLatencyBucketKind string
+
 // ConnectionPath defines model for ConnectionPath.
 type ConnectionPath struct {
 	Assigned     bool                       `json:"assigned"`
@@ -1260,10 +1344,12 @@ type ConnectionPathObserverKind string
 
 // ConnectionPathSink defines model for ConnectionPathSink.
 type ConnectionPathSink struct {
-	AckThrough    *int64  `json:"ack_through,omitempty"`
-	Connected     bool    `json:"connected"`
-	LastError     *string `json:"last_error,omitempty"`
-	PendingEvents *int64  `json:"pending_events,omitempty"`
+	AckThrough    *int64     `json:"ack_through,omitempty"`
+	Connected     bool       `json:"connected"`
+	LastError     *string    `json:"last_error,omitempty"`
+	LastRttMs     *float64   `json:"last_rtt_ms,omitempty"`
+	PendingEvents *int64     `json:"pending_events,omitempty"`
+	RttSampledAt  *time.Time `json:"rtt_sampled_at,omitempty"`
 }
 
 // ConnectionSummary defines model for ConnectionSummary.
@@ -1275,6 +1361,30 @@ type ConnectionSummary struct {
 	PathsAssigned     int64 `json:"paths_assigned"`
 	PathsConnected    int64 `json:"paths_connected"`
 	PathsSeen         int64 `json:"paths_seen"`
+}
+
+// CycleTransfer defines model for CycleTransfer.
+type CycleTransfer struct {
+	CycleUnit *string `json:"cycle_unit,omitempty"`
+	Direction *string `json:"direction,omitempty"`
+	Mode      *string `json:"mode,omitempty"`
+	Name      *string `json:"name,omitempty"`
+
+	// NextResetAt 周期模式取 window_end；累计模式为 null。对齐上游 NextUpdate。
+	NextResetAt    *time.Time `json:"next_reset_at,omitempty"`
+	PolicyId       *int64     `json:"policy_id,omitempty"`
+	QuotaBytes     *int64     `json:"quota_bytes,omitempty"`
+	RemainingBytes *int64     `json:"remaining_bytes,omitempty"`
+	ServerId       *int64     `json:"server_id,omitempty"`
+	Status         *string    `json:"status,omitempty"`
+	UsagePercent   *float64   `json:"usage_percent,omitempty"`
+	UsedBytes      *int64     `json:"used_bytes,omitempty"`
+
+	// WarningBytes 预警阈值对应字节，对齐上游 CycleTransferStats.Min。
+	WarningBytes   *int64     `json:"warning_bytes,omitempty"`
+	WarningPercent *float64   `json:"warning_percent,omitempty"`
+	WindowEnd      *time.Time `json:"window_end,omitempty"`
+	WindowStart    *time.Time `json:"window_start,omitempty"`
 }
 
 // DDNSProfile defines model for DDNSProfile.
@@ -1434,6 +1544,19 @@ type Monitor struct {
 
 // MonitorType defines model for Monitor.Type.
 type MonitorType string
+
+// MonitorHistory defines model for MonitorHistory.
+type MonitorHistory struct {
+	// AvgDelay 平均延迟（毫秒）。
+	AvgDelay *[]float32 `json:"avg_delay,omitempty"`
+
+	// CreatedAt 分钟截断的 Unix 毫秒时间戳。
+	CreatedAt   *[]int64 `json:"created_at,omitempty"`
+	MonitorId   *int64   `json:"monitor_id,omitempty"`
+	MonitorName *string  `json:"monitor_name,omitempty"`
+	ServerId    *int64   `json:"server_id,omitempty"`
+	ServerName  *string  `json:"server_name,omitempty"`
+}
 
 // MonitorScope defines model for MonitorScope.
 type MonitorScope struct {
@@ -1603,6 +1726,28 @@ type Problem struct {
 	Type    *string              `json:"type,omitempty"`
 }
 
+// PublicAvailability defines model for PublicAvailability.
+type PublicAvailability struct {
+	AvailabilityPercent   *float64 `json:"availability_percent,omitempty"`
+	Days                  int      `json:"days"`
+	LongestOfflineSeconds *int64   `json:"longest_offline_seconds,omitempty"`
+	OfflineCount          *int     `json:"offline_count,omitempty"`
+	ServerId              int64    `json:"server_id"`
+	TotalOfflineSeconds   *int64   `json:"total_offline_seconds,omitempty"`
+}
+
+// PublicMetricPoint defines model for PublicMetricPoint.
+type PublicMetricPoint struct {
+	Cpu         *float64   `json:"cpu,omitempty"`
+	DiskUsed    *int64     `json:"disk_used,omitempty"`
+	MemUsed     *int64     `json:"mem_used,omitempty"`
+	NetInSpeed  *int64     `json:"net_in_speed,omitempty"`
+	NetInTotal  *int64     `json:"net_in_total,omitempty"`
+	NetOutSpeed *int64     `json:"net_out_speed,omitempty"`
+	NetOutTotal *int64     `json:"net_out_total,omitempty"`
+	WindowStart *time.Time `json:"window_start,omitempty"`
+}
+
 // PublicNote defines model for PublicNote.
 type PublicNote struct {
 	BillingDataMod       *PublicNoteBilling      `json:"billingDataMod,omitempty"`
@@ -1659,6 +1804,12 @@ type PublicNotePresentation struct {
 	AdditionalProperties map[string]interface{} `json:"-"`
 }
 
+// SensorTemperature defines model for SensorTemperature.
+type SensorTemperature struct {
+	Name        *string  `json:"Name,omitempty"`
+	Temperature *float32 `json:"Temperature,omitempty"`
+}
+
 // Server defines model for Server.
 type Server struct {
 	DdnsProfiles *[]int64 `json:"ddns_profiles,omitempty"`
@@ -1666,21 +1817,25 @@ type Server struct {
 	EnableDdns   bool     `json:"enable_ddns"`
 	HideForGuest bool     `json:"hide_for_guest"`
 
-	// Host 探针 Host 快照。管理接口以及带 Bearer Token 的公开服务器接口返回明文公网地址（`ip` / `ipv4` / `ipv6`），不脱敏。
+	// Host 探针 Host 快照。容量总量（MemTotal / DiskTotal / SwapTotal）与 CPU 型号数组在此对象；用量在 ServerState。
+	// 管理接口以及带 Bearer Token 的公开服务器接口返回明文公网地址（`ip` / `ipv4` / `ipv6`），不脱敏。
 	// 匿名或查看密码访问的 `listPublicServers`、`getPublicServer` 与 `/ws/v2/public/runtime` 省略这些字段。
-	// 其余字段为探针上报的 PascalCase 快照（如 Platform、CountryCode）。
-	Host              *ServerHost             `json:"host,omitempty"`
-	Id                int64                   `json:"id"`
-	LastActive        *time.Time              `json:"last_active,omitempty"`
-	MonitoringOptions *MonitoringOptions      `json:"monitoring_options,omitempty"`
-	Name              string                  `json:"name"`
-	Note              *string                 `json:"note,omitempty"`
-	Online            *bool                   `json:"online,omitempty"`
-	PublicNote        *PublicNote             `json:"public_note,omitempty"`
-	Secret            *string                 `json:"secret,omitempty"`
-	State             *map[string]interface{} `json:"state,omitempty"`
-	Tag               string                  `json:"tag"`
-	Telemetry         *TelemetryPresentation  `json:"telemetry,omitempty"`
+	// 探针快照字段保持 PascalCase，与上游 Host JSON 一致。字段集合与 model.Host 完全对应，不接受额外字段。
+	Host              *ServerHost        `json:"host,omitempty"`
+	Id                int64              `json:"id"`
+	LastActive        *time.Time         `json:"last_active,omitempty"`
+	MonitoringOptions *MonitoringOptions `json:"monitoring_options,omitempty"`
+	Name              string             `json:"name"`
+	Note              *string            `json:"note,omitempty"`
+	Online            *bool              `json:"online,omitempty"`
+	PublicNote        *PublicNote        `json:"public_note,omitempty"`
+	Secret            *string            `json:"secret,omitempty"`
+
+	// State 探针运行态快照（PascalCase，与上游 HostState JSON 一致）。
+	// 用量字段在此；对应总量在 ServerHost。字段集合与 model.HostState 完全对应，不接受额外字段。
+	State     *ServerState           `json:"state,omitempty"`
+	Tag       string                 `json:"tag"`
+	Telemetry *TelemetryPresentation `json:"telemetry,omitempty"`
 }
 
 // ServerCredential defines model for ServerCredential.
@@ -1708,10 +1863,34 @@ type ServerGroupRenameWrite struct {
 	To   string `json:"to"`
 }
 
-// ServerHost 探针 Host 快照。管理接口以及带 Bearer Token 的公开服务器接口返回明文公网地址（`ip` / `ipv4` / `ipv6`），不脱敏。
+// ServerHost 探针 Host 快照。容量总量（MemTotal / DiskTotal / SwapTotal）与 CPU 型号数组在此对象；用量在 ServerState。
+// 管理接口以及带 Bearer Token 的公开服务器接口返回明文公网地址（`ip` / `ipv4` / `ipv6`），不脱敏。
 // 匿名或查看密码访问的 `listPublicServers`、`getPublicServer` 与 `/ws/v2/public/runtime` 省略这些字段。
-// 其余字段为探针上报的 PascalCase 快照（如 Platform、CountryCode）。
+// 探针快照字段保持 PascalCase，与上游 Host JSON 一致。字段集合与 model.Host 完全对应，不接受额外字段。
 type ServerHost struct {
+	Arch *string `json:"Arch,omitempty"`
+
+	// BootTime 启动时间 Unix 秒。
+	BootTime *int64 `json:"BootTime,omitempty"`
+
+	// CPU CPU 型号原文，如 `AMD EPYC 2 Physical Core`。
+	CPU         *[]string `json:"CPU,omitempty"`
+	CountryCode *string   `json:"CountryCode,omitempty"`
+
+	// DiskTotal 磁盘总量（字节）。用量在 State.DiskUsed。
+	DiskTotal *int64    `json:"DiskTotal,omitempty"`
+	GPU       *[]string `json:"GPU,omitempty"`
+
+	// MemTotal 内存总量（字节）。用量在 State.MemUsed。
+	MemTotal        *int64  `json:"MemTotal,omitempty"`
+	Platform        *string `json:"Platform,omitempty"`
+	PlatformVersion *string `json:"PlatformVersion,omitempty"`
+	SwapTotal       *int64  `json:"SwapTotal,omitempty"`
+
+	// Version 探针版本。
+	Version        *string `json:"Version,omitempty"`
+	Virtualization *string `json:"Virtualization,omitempty"`
+
 	// Ip 探针上报的公网地址；双栈为 `IPv4/IPv6`。管理接口与 Bearer Token 公开请求返回。
 	Ip *string `json:"ip,omitempty"`
 
@@ -1719,13 +1898,35 @@ type ServerHost struct {
 	Ipv4 *string `json:"ipv4,omitempty"`
 
 	// Ipv6 从 `ip` 拆出的 IPv6。管理接口与 Bearer Token 公开请求返回。
-	Ipv6                 *string                `json:"ipv6,omitempty"`
-	AdditionalProperties map[string]interface{} `json:"-"`
+	Ipv6 *string `json:"ipv6,omitempty"`
 }
 
 // ServerSecret defines model for ServerSecret.
 type ServerSecret struct {
 	Secret string `json:"secret"`
+}
+
+// ServerState 探针运行态快照（PascalCase，与上游 HostState JSON 一致）。
+// 用量字段在此；对应总量在 ServerHost。字段集合与 model.HostState 完全对应，不接受额外字段。
+type ServerState struct {
+	// CPU CPU 占用百分比 0–100。
+	CPU            *float64             `json:"CPU,omitempty"`
+	DiskUsed       *int64               `json:"DiskUsed,omitempty"`
+	GPU            *float64             `json:"GPU,omitempty"`
+	Load1          *float64             `json:"Load1,omitempty"`
+	Load15         *float64             `json:"Load15,omitempty"`
+	Load5          *float64             `json:"Load5,omitempty"`
+	MemUsed        *int64               `json:"MemUsed,omitempty"`
+	NetInSpeed     *int64               `json:"NetInSpeed,omitempty"`
+	NetInTransfer  *int64               `json:"NetInTransfer,omitempty"`
+	NetOutSpeed    *int64               `json:"NetOutSpeed,omitempty"`
+	NetOutTransfer *int64               `json:"NetOutTransfer,omitempty"`
+	ProcessCount   *int64               `json:"ProcessCount,omitempty"`
+	SwapUsed       *int64               `json:"SwapUsed,omitempty"`
+	TcpConnCount   *int64               `json:"TcpConnCount,omitempty"`
+	Temperatures   *[]SensorTemperature `json:"Temperatures,omitempty"`
+	UdpConnCount   *int64               `json:"UdpConnCount,omitempty"`
+	Uptime         *int64               `json:"Uptime,omitempty"`
 }
 
 // ServerWrite defines model for ServerWrite.
@@ -1979,6 +2180,12 @@ type CollectorTokenResponse struct {
 	Data CollectorToken `json:"data"`
 }
 
+// ConnectionLatencyListResponse defines model for ConnectionLatencyListResponse.
+type ConnectionLatencyListResponse struct {
+	Data []ConnectionLatencyBucket `json:"data"`
+	Meta Meta                      `json:"meta"`
+}
+
 // ConnectionPathListResponse defines model for ConnectionPathListResponse.
 type ConnectionPathListResponse struct {
 	Data []ConnectionPath `json:"data"`
@@ -1988,6 +2195,12 @@ type ConnectionPathListResponse struct {
 // ConnectionSummaryResponse defines model for ConnectionSummaryResponse.
 type ConnectionSummaryResponse struct {
 	Data ConnectionSummary `json:"data"`
+}
+
+// CycleTransferListResponse defines model for CycleTransferListResponse.
+type CycleTransferListResponse struct {
+	Data []CycleTransfer `json:"data"`
+	Meta Meta            `json:"meta"`
 }
 
 // DDNSProfileListResponse defines model for DDNSProfileListResponse.
@@ -2022,6 +2235,12 @@ type IncidentRevisionListResponse struct {
 // InstallPreviewResponse defines model for InstallPreviewResponse.
 type InstallPreviewResponse struct {
 	Data InstallPreview `json:"data"`
+}
+
+// MonitorHistoryListResponse defines model for MonitorHistoryListResponse.
+type MonitorHistoryListResponse struct {
+	Data []MonitorHistory `json:"data"`
+	Meta Meta             `json:"meta"`
 }
 
 // MonitorListResponse defines model for MonitorListResponse.
@@ -2072,6 +2291,17 @@ type ObserverAssignmentListResponse struct {
 // ProbeCapabilitiesResponse defines model for ProbeCapabilitiesResponse.
 type ProbeCapabilitiesResponse struct {
 	Data ProbeCapabilities `json:"data"`
+}
+
+// PublicAvailabilityResponse defines model for PublicAvailabilityResponse.
+type PublicAvailabilityResponse struct {
+	Data PublicAvailability `json:"data"`
+}
+
+// PublicMetricListResponse defines model for PublicMetricListResponse.
+type PublicMetricListResponse struct {
+	Data []PublicMetricPoint `json:"data"`
+	Meta Meta                `json:"meta"`
 }
 
 // ServerCredentialResponse defines model for ServerCredentialResponse.
@@ -2181,6 +2411,19 @@ type PatchApiTokenParams struct {
 	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
 	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
 }
+
+// ListConnectionLatencyParams defines parameters for ListConnectionLatency.
+type ListConnectionLatencyParams struct {
+	Kind        *ListConnectionLatencyParamsKind `form:"kind,omitempty" json:"kind,omitempty"`
+	CollectorId *string                          `form:"collector_id,omitempty" json:"collector_id,omitempty"`
+	ServerId    *int64                           `form:"server_id,omitempty" json:"server_id,omitempty"`
+	ObserverId  *string                          `form:"observer_id,omitempty" json:"observer_id,omitempty"`
+	Page        *Page                            `form:"page,omitempty" json:"page,omitempty"`
+	PageSize    *PageSize                        `form:"page_size,omitempty" json:"page_size,omitempty"`
+}
+
+// ListConnectionLatencyParamsKind defines parameters for ListConnectionLatency.
+type ListConnectionLatencyParamsKind string
 
 // ListConnectionPathsParams defines parameters for ListConnectionPaths.
 type ListConnectionPathsParams struct {
@@ -2445,6 +2688,24 @@ type UpdateSettingsParams struct {
 	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
 }
 
+// ListAgentReliabilityParams defines parameters for ListAgentReliability.
+type ListAgentReliabilityParams struct {
+	Page     *Page     `form:"page,omitempty" json:"page,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+}
+
+// ListTelemetryAlertsParams defines parameters for ListTelemetryAlerts.
+type ListTelemetryAlertsParams struct {
+	Page     *Page     `form:"page,omitempty" json:"page,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+}
+
+// ListObserverAssignmentsParams defines parameters for ListObserverAssignments.
+type ListObserverAssignmentsParams struct {
+	Page     *Page     `form:"page,omitempty" json:"page,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+}
+
 // CreateCollectorParams defines parameters for CreateCollector.
 type CreateCollectorParams struct {
 	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
@@ -2487,6 +2748,24 @@ type UpdateCollectorScopeParams struct {
 	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
 }
 
+// ListTelemetryDataLossParams defines parameters for ListTelemetryDataLoss.
+type ListTelemetryDataLossParams struct {
+	Page     *Page     `form:"page,omitempty" json:"page,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+}
+
+// ListIncidentRevisionsParams defines parameters for ListIncidentRevisions.
+type ListIncidentRevisionsParams struct {
+	Page     *Page     `form:"page,omitempty" json:"page,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+}
+
+// ListIncidentsParams defines parameters for ListIncidents.
+type ListIncidentsParams struct {
+	Page     *Page     `form:"page,omitempty" json:"page,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+}
+
 // LogoutParams defines parameters for Logout.
 type LogoutParams struct {
 	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
@@ -2496,6 +2775,20 @@ type LogoutParams struct {
 // ListPublicCycleTransferParams defines parameters for ListPublicCycleTransfer.
 type ListPublicCycleTransferParams struct {
 	ServerId *int64 `form:"server_id,omitempty" json:"server_id,omitempty"`
+}
+
+// GetPublicMetricsParams defines parameters for GetPublicMetrics.
+type GetPublicMetricsParams struct {
+	Resolution *GetPublicMetricsParamsResolution `form:"resolution,omitempty" json:"resolution,omitempty"`
+	Hours      *int                              `form:"hours,omitempty" json:"hours,omitempty"`
+}
+
+// GetPublicMetricsParamsResolution defines parameters for GetPublicMetrics.
+type GetPublicMetricsParamsResolution string
+
+// GetPublicServerAvailabilityParams defines parameters for GetPublicServerAvailability.
+type GetPublicServerAvailabilityParams struct {
+	Days *int `form:"days,omitempty" json:"days,omitempty"`
 }
 
 // CreateViewPasswordSessionJSONBody defines parameters for CreateViewPasswordSession.
@@ -3174,104 +3467,6 @@ func (a PublicNotePresentation) MarshalJSON() ([]byte, error) {
 	return json.Marshal(object)
 }
 
-// Getter for additional properties for ServerHost. Returns the specified
-// element and whether it was found
-func (a ServerHost) Get(fieldName string) (value interface{}, found bool) {
-	if a.AdditionalProperties != nil {
-		value, found = a.AdditionalProperties[fieldName]
-	}
-	return
-}
-
-// Setter for additional properties for ServerHost
-func (a *ServerHost) Set(fieldName string, value interface{}) {
-	if a.AdditionalProperties == nil {
-		a.AdditionalProperties = make(map[string]interface{})
-	}
-	a.AdditionalProperties[fieldName] = value
-}
-
-// Override default JSON handling for ServerHost to handle AdditionalProperties
-func (a *ServerHost) UnmarshalJSON(b []byte) error {
-	object := make(map[string]json.RawMessage)
-	err := json.Unmarshal(b, &object)
-	if err != nil {
-		return err
-	}
-
-	if raw, found := object["ip"]; found {
-		err = json.Unmarshal(raw, &a.Ip)
-		if err != nil {
-			return fmt.Errorf("error reading 'ip': %w", err)
-		}
-		delete(object, "ip")
-	}
-
-	if raw, found := object["ipv4"]; found {
-		err = json.Unmarshal(raw, &a.Ipv4)
-		if err != nil {
-			return fmt.Errorf("error reading 'ipv4': %w", err)
-		}
-		delete(object, "ipv4")
-	}
-
-	if raw, found := object["ipv6"]; found {
-		err = json.Unmarshal(raw, &a.Ipv6)
-		if err != nil {
-			return fmt.Errorf("error reading 'ipv6': %w", err)
-		}
-		delete(object, "ipv6")
-	}
-
-	if len(object) != 0 {
-		a.AdditionalProperties = make(map[string]interface{})
-		for fieldName, fieldBuf := range object {
-			var fieldVal interface{}
-			err := json.Unmarshal(fieldBuf, &fieldVal)
-			if err != nil {
-				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
-			}
-			a.AdditionalProperties[fieldName] = fieldVal
-		}
-	}
-	return nil
-}
-
-// Override default JSON handling for ServerHost to handle AdditionalProperties
-func (a ServerHost) MarshalJSON() ([]byte, error) {
-	var err error
-	object := make(map[string]json.RawMessage)
-
-	if a.Ip != nil {
-		object["ip"], err = json.Marshal(a.Ip)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'ip': %w", err)
-		}
-	}
-
-	if a.Ipv4 != nil {
-		object["ipv4"], err = json.Marshal(a.Ipv4)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'ipv4': %w", err)
-		}
-	}
-
-	if a.Ipv6 != nil {
-		object["ipv6"], err = json.Marshal(a.Ipv6)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'ipv6': %w", err)
-		}
-	}
-
-	for fieldName, field := range a.AdditionalProperties {
-		object[fieldName], err = json.Marshal(field)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
-		}
-	}
-	return json.Marshal(object)
-}
-
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// ListAlertRules 告警规则列表
@@ -3304,6 +3499,9 @@ type ServerInterface interface {
 	// PatchApiToken 启用或禁用 API Token
 	// (PATCH /api/v2/admin/api-tokens/{id})
 	PatchApiToken(c *gin.Context, id Id, params PatchApiTokenParams)
+	// ListConnectionLatency 连接延迟历史
+	// (GET /api/v2/admin/connections/latency)
+	ListConnectionLatency(c *gin.Context, params ListConnectionLatencyParams)
 	// ListConnectionPaths 节点与观测点连接路径
 	// (GET /api/v2/admin/connections/paths)
 	ListConnectionPaths(c *gin.Context, params ListConnectionPathsParams)
@@ -3465,13 +3663,13 @@ type ServerInterface interface {
 	GetAdminSummary(c *gin.Context)
 	// ListAgentReliability 探针可靠性列表
 	// (GET /api/v2/admin/telemetry/agents)
-	ListAgentReliability(c *gin.Context)
+	ListAgentReliability(c *gin.Context, params ListAgentReliabilityParams)
 	// ListTelemetryAlerts 探测告警列表
 	// (GET /api/v2/admin/telemetry/alerts)
-	ListTelemetryAlerts(c *gin.Context)
+	ListTelemetryAlerts(c *gin.Context, params ListTelemetryAlertsParams)
 	// ListObserverAssignments Observer 分配列表
 	// (GET /api/v2/admin/telemetry/assignments)
-	ListObserverAssignments(c *gin.Context)
+	ListObserverAssignments(c *gin.Context, params ListObserverAssignmentsParams)
 	// ListCollectors 从端列表
 	// (GET /api/v2/admin/telemetry/collectors)
 	ListCollectors(c *gin.Context)
@@ -3504,13 +3702,13 @@ type ServerInterface interface {
 	GetCollectorToken(c *gin.Context, collectorId CollectorId)
 	// ListTelemetryDataLoss 探测丢数记录
 	// (GET /api/v2/admin/telemetry/data-loss)
-	ListTelemetryDataLoss(c *gin.Context)
+	ListTelemetryDataLoss(c *gin.Context, params ListTelemetryDataLossParams)
 	// ListIncidentRevisions 事件修订列表
 	// (GET /api/v2/admin/telemetry/incident-revisions)
-	ListIncidentRevisions(c *gin.Context)
+	ListIncidentRevisions(c *gin.Context, params ListIncidentRevisionsParams)
 	// ListIncidents 事件列表
 	// (GET /api/v2/admin/telemetry/incidents)
-	ListIncidents(c *gin.Context)
+	ListIncidents(c *gin.Context, params ListIncidentsParams)
 	// GetTelemetryOverview 探测概览
 	// (GET /api/v2/admin/telemetry/overview)
 	GetTelemetryOverview(c *gin.Context)
@@ -3526,6 +3724,9 @@ type ServerInterface interface {
 	// ListPublicCycleTransfer 公开周期流量摘要
 	// (GET /api/v2/public/cycle-transfer)
 	ListPublicCycleTransfer(c *gin.Context, params ListPublicCycleTransferParams)
+	// GetPublicMetrics 公开资源历史
+	// (GET /api/v2/public/metrics/{serverId})
+	GetPublicMetrics(c *gin.Context, serverId ServerId, params GetPublicMetricsParams)
 	// GetPublicNetworkHistory 公开网络延迟历史
 	// (GET /api/v2/public/network/{serverId})
 	GetPublicNetworkHistory(c *gin.Context, serverId ServerId)
@@ -3535,6 +3736,9 @@ type ServerInterface interface {
 	// GetPublicServer 公开服务器详情
 	// (GET /api/v2/public/servers/{serverId})
 	GetPublicServer(c *gin.Context, serverId ServerId)
+	// GetPublicServerAvailability 公开服务器可用性摘要
+	// (GET /api/v2/public/servers/{serverId}/availability)
+	GetPublicServerAvailability(c *gin.Context, serverId ServerId, params GetPublicServerAvailabilityParams)
 	// ListPublicServices 公开服务监控列表
 	// (GET /api/v2/public/services)
 	ListPublicServices(c *gin.Context)
@@ -3948,6 +4152,73 @@ func (siw *ServerInterfaceWrapper) PatchApiToken(c *gin.Context) {
 	}
 
 	siw.Handler.PatchApiToken(c, id, params)
+}
+
+// ListConnectionLatency operation middleware
+func (siw *ServerInterfaceWrapper) ListConnectionLatency(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListConnectionLatencyParams
+
+	// ------------- Optional query parameter "kind" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "kind", c.Request.URL.Query(), &params.Kind, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter kind: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "collector_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "collector_id", c.Request.URL.Query(), &params.CollectorId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter collector_id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "server_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "server_id", c.Request.URL.Query(), &params.ServerId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter server_id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "observer_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "observer_id", c.Request.URL.Query(), &params.ObserverId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter observer_id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", c.Request.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter page: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", c.Request.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter page_size: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListConnectionLatency(c, params)
 }
 
 // ListConnectionPaths operation middleware
@@ -6116,6 +6387,28 @@ func (siw *ServerInterfaceWrapper) GetAdminSummary(c *gin.Context) {
 // ListAgentReliability operation middleware
 func (siw *ServerInterfaceWrapper) ListAgentReliability(c *gin.Context) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAgentReliabilityParams
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", c.Request.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter page: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", c.Request.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter page_size: %w", err), http.StatusBadRequest)
+		return
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -6123,12 +6416,34 @@ func (siw *ServerInterfaceWrapper) ListAgentReliability(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.ListAgentReliability(c)
+	siw.Handler.ListAgentReliability(c, params)
 }
 
 // ListTelemetryAlerts operation middleware
 func (siw *ServerInterfaceWrapper) ListTelemetryAlerts(c *gin.Context) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListTelemetryAlertsParams
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", c.Request.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter page: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", c.Request.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter page_size: %w", err), http.StatusBadRequest)
+		return
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -6136,12 +6451,34 @@ func (siw *ServerInterfaceWrapper) ListTelemetryAlerts(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.ListTelemetryAlerts(c)
+	siw.Handler.ListTelemetryAlerts(c, params)
 }
 
 // ListObserverAssignments operation middleware
 func (siw *ServerInterfaceWrapper) ListObserverAssignments(c *gin.Context) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListObserverAssignmentsParams
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", c.Request.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter page: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", c.Request.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter page_size: %w", err), http.StatusBadRequest)
+		return
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -6149,7 +6486,7 @@ func (siw *ServerInterfaceWrapper) ListObserverAssignments(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.ListObserverAssignments(c)
+	siw.Handler.ListObserverAssignments(c, params)
 }
 
 // ListCollectors operation middleware
@@ -6552,6 +6889,28 @@ func (siw *ServerInterfaceWrapper) GetCollectorToken(c *gin.Context) {
 // ListTelemetryDataLoss operation middleware
 func (siw *ServerInterfaceWrapper) ListTelemetryDataLoss(c *gin.Context) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListTelemetryDataLossParams
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", c.Request.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter page: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", c.Request.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter page_size: %w", err), http.StatusBadRequest)
+		return
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -6559,12 +6918,34 @@ func (siw *ServerInterfaceWrapper) ListTelemetryDataLoss(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.ListTelemetryDataLoss(c)
+	siw.Handler.ListTelemetryDataLoss(c, params)
 }
 
 // ListIncidentRevisions operation middleware
 func (siw *ServerInterfaceWrapper) ListIncidentRevisions(c *gin.Context) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListIncidentRevisionsParams
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", c.Request.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter page: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", c.Request.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter page_size: %w", err), http.StatusBadRequest)
+		return
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -6572,12 +6953,34 @@ func (siw *ServerInterfaceWrapper) ListIncidentRevisions(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.ListIncidentRevisions(c)
+	siw.Handler.ListIncidentRevisions(c, params)
 }
 
 // ListIncidents operation middleware
 func (siw *ServerInterfaceWrapper) ListIncidents(c *gin.Context) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListIncidentsParams
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", c.Request.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter page: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", c.Request.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter page_size: %w", err), http.StatusBadRequest)
+		return
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -6585,7 +6988,7 @@ func (siw *ServerInterfaceWrapper) ListIncidents(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.ListIncidents(c)
+	siw.Handler.ListIncidents(c, params)
 }
 
 // GetTelemetryOverview operation middleware
@@ -6694,6 +7097,50 @@ func (siw *ServerInterfaceWrapper) ListPublicCycleTransfer(c *gin.Context) {
 	siw.Handler.ListPublicCycleTransfer(c, params)
 }
 
+// GetPublicMetrics operation middleware
+func (siw *ServerInterfaceWrapper) GetPublicMetrics(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "serverId" -------------
+	var serverId ServerId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "serverId", c.Param("serverId"), &serverId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter serverId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPublicMetricsParams
+
+	// ------------- Optional query parameter "resolution" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "resolution", c.Request.URL.Query(), &params.Resolution, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter resolution: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "hours" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "hours", c.Request.URL.Query(), &params.Hours, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter hours: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetPublicMetrics(c, serverId, params)
+}
+
 // GetPublicNetworkHistory operation middleware
 func (siw *ServerInterfaceWrapper) GetPublicNetworkHistory(c *gin.Context) {
 
@@ -6755,6 +7202,42 @@ func (siw *ServerInterfaceWrapper) GetPublicServer(c *gin.Context) {
 	}
 
 	siw.Handler.GetPublicServer(c, serverId)
+}
+
+// GetPublicServerAvailability operation middleware
+func (siw *ServerInterfaceWrapper) GetPublicServerAvailability(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "serverId" -------------
+	var serverId ServerId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "serverId", c.Param("serverId"), &serverId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter serverId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPublicServerAvailabilityParams
+
+	// ------------- Optional query parameter "days" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "days", c.Request.URL.Query(), &params.Days, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter days: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetPublicServerAvailability(c, serverId, params)
 }
 
 // ListPublicServices operation middleware
@@ -6819,6 +7302,8 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/api/v2/public/services", wrapper.ListPublicServices)
 	router.GET(options.BaseURL+"/api/v2/public/network/:serverId", wrapper.GetPublicNetworkHistory)
 	router.GET(options.BaseURL+"/api/v2/public/cycle-transfer", wrapper.ListPublicCycleTransfer)
+	router.GET(options.BaseURL+"/api/v2/public/servers/:serverId/availability", wrapper.GetPublicServerAvailability)
+	router.GET(options.BaseURL+"/api/v2/public/metrics/:serverId", wrapper.GetPublicMetrics)
 	router.GET(options.BaseURL+"/api/v2/admin/summary", wrapper.GetAdminSummary)
 	router.GET(options.BaseURL+"/api/v2/admin/servers", wrapper.ListServers)
 	router.POST(options.BaseURL+"/api/v2/admin/servers", wrapper.CreateServer)
@@ -6883,6 +7368,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/api/v2/admin/telemetry/overview", wrapper.GetTelemetryOverview)
 	router.GET(options.BaseURL+"/api/v2/admin/connections/summary", wrapper.GetConnectionSummary)
 	router.GET(options.BaseURL+"/api/v2/admin/connections/paths", wrapper.ListConnectionPaths)
+	router.GET(options.BaseURL+"/api/v2/admin/connections/latency", wrapper.ListConnectionLatency)
 	router.GET(options.BaseURL+"/api/v2/admin/telemetry/collectors", wrapper.ListCollectors)
 	router.POST(options.BaseURL+"/api/v2/admin/telemetry/collectors", wrapper.CreateCollector)
 	router.DELETE(options.BaseURL+"/api/v2/admin/telemetry/collectors/:collectorId", wrapper.DeleteCollector)

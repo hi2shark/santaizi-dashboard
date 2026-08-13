@@ -7,12 +7,12 @@
  *
  * OpenAPI spec version: 2.0.0
  */
+import type { GetPublicMetricsResolution } from './getPublicMetricsResolution';
 
-export interface ConnectionPathSink {
-  connected: boolean;
-  pending_events?: number;
-  last_error?: string;
-  ack_through?: number;
-  last_rtt_ms?: number;
-  rtt_sampled_at?: string;
-}
+export type GetPublicMetricsParams = {
+resolution?: GetPublicMetricsResolution;
+/**
+ * @minimum 1
+ */
+hours?: number;
+};

@@ -8,11 +8,12 @@
  * OpenAPI spec version: 2.0.0
  */
 
-export interface ConnectionPathSink {
-  connected: boolean;
-  pending_events?: number;
-  last_error?: string;
-  ack_through?: number;
-  last_rtt_ms?: number;
-  rtt_sampled_at?: string;
+export interface PublicAvailability {
+  server_id: number;
+  days: number;
+  offline_count?: number;
+  total_offline_seconds?: number;
+  longest_offline_seconds?: number;
+  /** @nullable */
+  availability_percent?: number | null;
 }
