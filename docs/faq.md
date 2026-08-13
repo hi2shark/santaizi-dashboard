@@ -100,6 +100,10 @@ A: 原因判定依赖 Agent 上报的 `BootTime` 和 `Uptime`。采集被关闭�
 
 A: 生产环境强烈建议使用 OAuth2 / OIDC。`mock` 类型仅在本地开发 `debug: true` 时可用，不适合生产。
 
+### Q: GitHub / 其他平台的 OAuth 回调地址填什么
+
+A: 固定为 `https://<你打开面板时的域名>/oauth2/callback`。GitHub 对应字段是 **Authorization callback URL**。只填首页（没有 `/oauth2/callback`）会导致授权后无法回到面板。完整控制台字段与 YAML 见 [配置参考](configuration.md#oauth2-登录配置)。
+
 ### Q: 如何保护 gRPC 端口
 
 A: 建议：

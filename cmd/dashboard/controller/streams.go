@@ -23,7 +23,8 @@ func (cp *commonPage) getServerStat(c *gin.Context, withPublicNote bool) ([]byte
 	_, member := c.Get(model.CtxKeyAuthorizedUser)
 	_, verified := c.Get(model.CtxKeyViewPasswordVerified)
 	authorized := member || verified
-	value, err, _ := cp.requestGroup.Do(fmt.Sprintf("serverStats::%t::%t", authorized, withPublicNote), func() (any, error) {
+	isAPI := isAPITokenRequest(c)
+	value, err, _ := cp.requestGroup.Do(fmt.Sprintf("serverStats::%t::%t::%t", authorized, withPublicNote, isAPI), func() (any, error) {
 		servers := publicServerSnapshot(c)
 		if !withPublicNote {
 			for _, row := range servers {

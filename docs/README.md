@@ -57,7 +57,7 @@
 
 ## 安全提示
 
-1. 生产环境务必配置 OAuth2 / OIDC 登录，不要使用 `mock` 类型。
+1. 生产环境务必配置 OAuth2 / OIDC 登录，不要使用 `mock` 类型。提供商控制台的回调地址必须为 `https://<面板域名>/oauth2/callback`，不要只填首页；见 [配置参考](configuration.md#oauth2-登录配置)。
 2. gRPC 端口建议只向 Agent 开放，不要直接暴露到公网。
 3. 使用 HTTPS 反向代理（如 Nginx / Caddy）保护 Web 面板。
 4. 定期备份 `/var/lib/santaizi-dashboard/` 与 `/etc/santaizi/dashboard.yaml`，尤其是探测签名私钥。

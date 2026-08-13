@@ -35,7 +35,7 @@ sh -c "$(curl -fsSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboar
 
 非 root 时先 `sudo -i`、`doas sh` 或 `su -` 再执行。也可先下载脚本再 `sh install_dashboard.sh`。
 
-脚本会引导填写工作目录、Web 端口、gRPC 端口、OAuth2 与站点标题，并生成 `docker-compose.yml` 与 `config/dashboard.yaml`。
+脚本会引导填写工作目录、Web 端口、gRPC 端口、OAuth2 与站点标题，并生成 `docker-compose.yml` 与 `config/dashboard.yaml`。填写 OAuth 前，先在提供商创建应用，回调地址必须为 `https://<面板域名>/oauth2/callback`。
 
 ### 手动部署
 
@@ -88,6 +88,8 @@ oauth2:
   endpoint: ""
 ```
 
+GitHub 请创建 **OAuth App**（不是 GitHub App）。**Authorization callback URL 必须填 `https://<面板域名>/oauth2/callback`**，不要只填首页。各提供商控制台字段见 [配置参考 · oauth2](docs/configuration.md#oauth2-登录配置)。
+
 ```bash
 docker compose up -d
 ```
@@ -118,6 +120,7 @@ docker compose up -d
 - **面板能否直接挂公网？** 不建议。须置于 Cloudflare Zero Trust 或等价访问控制之后。
 - **探针无法连接面板**：检查防火墙是否放行 `5555`，以及 `grpcport` 是否为 `5555`。
 - **一键安装脚本拉取失败**：可在 `config/dashboard.yaml` 的 `installscript` 段替换为可访问的脚本地址。
+- **OAuth 登录失败 / redirect_uri mismatch**：提供商控制台的回调必须是 `https://<面板域名>/oauth2/callback`，不能只填首页；反向代理须转发 `/oauth2` 并带上 `Host` 与 `X-Forwarded-Proto`。
 - **登录后没有管理员权限**：确认 `oauth2.admin` 填写的是 OAuth2 平台返回的用户名/ID。
 
 可靠探测、从端部署、保留策略和升级顺序见 [可靠探测运维指南](docs/reliable-telemetry.md)。本版本只接受全新数据库；若数据库非空且没有 `schema_migrations`，进程会拒绝启动并保留原文件供诊断。

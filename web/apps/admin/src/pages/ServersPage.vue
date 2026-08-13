@@ -4,13 +4,15 @@ import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { AppDrawer, AppEmpty } from '@santaizi/ui'
+import type { ConnectionPath } from '@santaizi/api'
 import ServerEditorDialog from '@/components/editors/ServerEditorDialog.vue'
 import ServerGroupManagerDialog from '@/components/editors/ServerGroupManagerDialog.vue'
 import InstallAgentDialog from '@/components/InstallAgentDialog.vue'
-import { batchDeleteServers, batchUpdateServerGroup, deleteOfflineHistory, deleteServer, listOfflineHistory, listServerAvailability, listServers, resetServerAvailability, resetServerSecret, updateServerDisplayIndex, type ResourceRecord, type ServerRecord } from '@/api/adminApi'
+import { batchDeleteServers, batchUpdateServerGroup, deleteOfflineHistory, deleteServer, listConnectionPaths, listOfflineHistory, listServerAvailability, listServers, resetServerAvailability, resetServerSecret, updateServerDisplayIndex, type ResourceRecord, type ServerRecord } from '@/api/adminApi'
 import {formatAdminValue} from '@/composables/format'
 import { notifyAPIError } from '@/composables/notify'
 import { isRowSelected, toggleRowSelection } from '@/composables/selection'
+import { hostAddresses } from '@/domain/hostAddress'
 import { parsePublicNote } from '@/domain/publicNote'
 
 const { t, te, locale } = useI18n()
@@ -19,7 +21,7 @@ const loading = ref(false), editor = ref(false), installDialog = ref(false), gro
 const items = ref<ServerRecord[]>([]), selected = ref<ServerRecord[]>([]), editing = ref<ServerRecord>(), installServer = ref<ServerRecord>(), installSecret = ref('')
 const total = ref(0)
 const query = reactive({ page: 1, page_size: 20, q: '', sort: 'display_index', order: 'desc' as const })
-const historyDrawer = ref(false), historyLoading = ref(false), historyServer = ref<ServerRecord>(), historyTab = ref('availability'), history = ref<ResourceRecord[]>([]), availability = ref<ResourceRecord[]>([])
+const historyDrawer = ref(false), historyLoading = ref(false), historyServer = ref<ServerRecord>(), historyTab = ref('availability'), history = ref<ResourceRecord[]>([]), availability = ref<ResourceRecord[]>([]), connectionPaths = ref<ConnectionPath[]>([])
 const sortDraft = ref<Record<number, string>>({})
 const sortSaving = ref<Record<number, boolean>>({})
 
@@ -39,17 +41,48 @@ async function load() {
 function open(item?: ServerRecord) { editing.value = item; editor.value = true }
 function publicSummary(server: ServerRecord) { const parsed = parsePublicNote(server.public_note ? JSON.stringify(server.public_note) : ''); return parsed.form.presentation.slogan || parsed.form.presentation.locationLabel || server.note || '—' }
 function hasPublicSummary(server: ServerRecord) { return publicSummary(server) !== '—' }
+function reportedAddresses(server: ServerRecord) { return hostAddresses(server.host) }
 async function removeOne(server: ServerRecord) { await ElMessageBox.confirm(t('confirmDelete'), t('dangerousAction'), { type: 'warning' }); try { await deleteServer(server.id); ElMessage.success(t('deleteSuccess')); await load() } catch (error) { notifyAPIError(error, t as never, te) } }
 async function groupSelected() { try { const { value } = await ElMessageBox.prompt(t('group'), t('batchGroup'), { inputValue: selected.value[0]?.tag || '' }); await batchUpdateServerGroup(selected.value.map(server => server.id), value); await load() } catch { /* user cancelled */ } }
 async function deleteSelected() { await ElMessageBox.confirm(t('confirmDelete'), t('dangerousAction'), { type: 'warning' }); try { await batchDeleteServers(selected.value.map(server => server.id)); selected.value = []; await load(); ElMessage.success(t('deleteSuccess')) } catch (error) { notifyAPIError(error, t as never, te) } }
 function status(server: ServerRecord) { return server.online ? 'online' : (server.telemetry?.connectivity || 'offline') }
 function display(value: unknown, key: string) { return formatAdminValue(value, key, locale.value, t as never, te) }
+function observerName(id: string) { return id === 'primary' ? t('observerKindPrimary') : id }
+function seenObserverText(row: ResourceRecord) {
+  const evidence = Array.isArray(row.observer_evidence) ? row.observer_evidence as Array<{ observer_id?: string; seen?: boolean }> : []
+  const names = evidence.filter(item => item.seen && item.observer_id).map(item => observerName(String(item.observer_id)))
+  return names.length ? names.join(', ') : '—'
+}
+function pathRowKey(row: ConnectionPath) { return `${row.node_uuid}:${row.observer_id}` }
+function pathObserverLabel(path: ConnectionPath) {
+  if (path.observer_kind === 'primary') return t('observerKindPrimary')
+  return path.observer_name || path.observer_id
+}
 function onSelect(row: ServerRecord, checked: boolean | string | number) { selected.value = toggleRowSelection(selected.value, row, !!checked) }
 function showInstall(server: ServerRecord, secret = '') { installServer.value = server; installSecret.value = secret; installDialog.value = true }
 async function resetSecret(server: ServerRecord) { await ElMessageBox.confirm(t('confirmResetSecret'), t('confirm'), { type: 'warning' }); try { const result = await resetServerSecret(server.id); showInstall(server, result.secret) } catch (error) { notifyAPIError(error, t as never, te) } }
 async function resetAvailabilityHistory(server: ServerRecord) { await ElMessageBox.confirm(t('confirmResetAvailability'), t('confirm'), { type: 'warning' }); try { await resetServerAvailability(server.id); await load(); ElMessage.success(t('saveSuccess')) } catch (error) { notifyAPIError(error, t as never, te) } }
 async function saved(server: ServerRecord, created: boolean) { await load(); if (created) showInstall(server, server.secret || '') }
-async function showHistory(server: ServerRecord) { historyServer.value = server; historyDrawer.value = true; historyLoading.value = true; try { const [offline, buckets] = await Promise.all([listOfflineHistory(server.id), listServerAvailability(server.id, { limit: 200 })]); history.value = offline.data; availability.value = buckets.data } catch (error) { notifyAPIError(error, t as never, te) } finally { historyLoading.value = false } }
+async function showHistory(server: ServerRecord) {
+  historyServer.value = server
+  historyDrawer.value = true
+  historyTab.value = 'availability'
+  historyLoading.value = true
+  try {
+    const [offline, buckets, paths] = await Promise.all([
+      listOfflineHistory(server.id),
+      listServerAvailability(server.id, { limit: 200 }),
+      listConnectionPaths({ server_id: server.id }),
+    ])
+    history.value = offline.data
+    availability.value = buckets.data
+    connectionPaths.value = paths.data
+  } catch (error) {
+    notifyAPIError(error, t as never, te)
+  } finally {
+    historyLoading.value = false
+  }
+}
 async function removeHistory(row: ResourceRecord) { await ElMessageBox.confirm(t('confirmDelete'), t('dangerousAction'), { type: 'warning' }); await deleteOfflineHistory(Number(row.id)); await showHistory(historyServer.value!) }
 
 async function commitDisplayIndex(server: ServerRecord) {
@@ -125,6 +158,14 @@ onMounted(async () => { await load(); if (route.query.create === '1') open() })
       <el-table-column :label="t('host')" min-width="170">
         <template #default="{row}">{{ row.host?.Platform || row.host?.platform || '—' }}</template>
       </el-table-column>
+      <el-table-column :label="`${t('ipv4')} / ${t('ipv6')}`" min-width="200">
+        <template #default="{row}">
+          <div class="server-ip">
+            <span>{{ reportedAddresses(row).ipv4 || '—' }}</span>
+            <span>{{ reportedAddresses(row).ipv6 || '—' }}</span>
+          </div>
+        </template>
+      </el-table-column>
       <el-table-column :label="t('availability')" width="140">
         <template #default="{row}"><span class="state-label"><i class="ri-checkbox-circle-fill"></i>{{ t(row.telemetry?.coverage || status(row)) }}</span></template>
       </el-table-column>
@@ -184,6 +225,8 @@ onMounted(async () => { await load(); if (route.query.create === '1') open() })
           <dl class="mobile-card-meta mobile-card-meta--stats">
             <div><dt>{{ t('host') }}</dt><dd>{{ row.host?.Platform || row.host?.platform || '—' }}</dd></div>
             <div><dt>{{ t('lastSeen') }}</dt><dd>{{ display(row.last_active,'last_active') }}</dd></div>
+            <div><dt>{{ t('ipv4') }}</dt><dd>{{ reportedAddresses(row).ipv4 || '—' }}</dd></div>
+            <div><dt>{{ t('ipv6') }}</dt><dd>{{ reportedAddresses(row).ipv6 || '—' }}</dd></div>
           </dl>
           <dl class="mobile-card-meta mobile-card-meta--sort">
             <div>
@@ -218,7 +261,20 @@ onMounted(async () => { await load(); if (route.query.create === '1') open() })
           <el-table-column prop="expected_observers" :label="t('expectedObservers')" width="130"/>
           <el-table-column prop="healthy_observers" :label="t('healthyObservers')" width="130"/>
           <el-table-column prop="seen_observers" :label="t('seenObservers')" width="120"/>
+          <el-table-column :label="t('observerEvidence')" min-width="180"><template #default="{row}">{{ seenObserverText(row) }}</template></el-table-column>
           <el-table-column prop="revision" :label="t('revision')" width="90"/>
+        </el-table>
+      </el-tab-pane>
+      <el-tab-pane :label="t('nodeLinks')" name="connections">
+        <el-table v-loading="historyLoading" :data="connectionPaths" :row-key="pathRowKey">
+          <el-table-column class-name="col-status" label-class-name="col-status" width="44" align="center">
+            <template #default="{row}"><span class="status-dot" :class="row.sink.connected ? 'online' : 'offline'"></span></template>
+          </el-table-column>
+          <el-table-column :label="t('observer')" min-width="160"><template #default="{row}">{{ pathObserverLabel(row) }}</template></el-table-column>
+          <el-table-column :label="t('linkStatus')" width="110"><template #default="{row}">{{ t(row.sink.connected ? 'connected' : 'disconnected') }}</template></el-table-column>
+          <el-table-column :label="t('lastObservation')" min-width="180"><template #default="{row}">{{ display(row.last_seen, 'last_seen') }}</template></el-table-column>
+          <el-table-column :label="t('pendingEvents')" width="120"><template #default="{row}">{{ display(row.sink.pending_events, 'pending_events') }}</template></el-table-column>
+          <template #empty><AppEmpty icon="ri-links-line" :title="t('noPathsTitle')" :description="t('noPathsHint')"/></template>
         </el-table>
       </el-tab-pane>
       <el-tab-pane :label="t('offlineHistory')" name="offline">
@@ -236,4 +292,6 @@ onMounted(async () => { await load(); if (route.query.create === '1') open() })
 <style scoped>
 .sort-input { width: 112px; }
 .sort-input :deep(.el-input__wrapper) { padding-left: 8px; padding-right: 8px; }
+.server-ip { min-width: 0; font-size: 12px; line-height: 1.35; }
+.server-ip span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 </style>

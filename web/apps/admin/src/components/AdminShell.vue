@@ -21,6 +21,7 @@ const nav = computed(() => [
   ['overview', '/', 'ri-dashboard-line', t('overview')], ['servers', '/servers', 'ri-server-line', t('servers')],
   ['services', '/services', 'ri-pulse-line', t('services')], ['notifications', '/notifications', 'ri-notification-3-line', t('notificationChannels')],
   ['alert-rules', '/alert-rules', 'ri-alarm-warning-line', t('alertRules')], ['telemetry', '/telemetry', 'ri-radar-line', t('telemetry')],
+  ['connections', '/connections', 'ri-links-line', t('connections')],
   ['settings', '/settings', 'ri-settings-3-line', t('settings')], ['api-tokens', '/api-tokens', 'ri-key-2-line', t('apiTokens')],
 ])
 const addonNav = computed(() => [['ddns', '/ddns', 'ri-global-line', t('ddns')], ['nat', '/nat', 'ri-route-line', t('nat')]])

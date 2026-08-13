@@ -3,7 +3,6 @@ package controller
 import (
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -67,6 +66,8 @@ func registerSPAAPIV2(root gin.IRouter) {
 	admin.Use(v2RequireAdmin)
 	admin.Use(mygin.RejectReadOnlyAPITokenWrites())
 	admin.GET("/summary", v2AdminSummary)
+	admin.GET("/connections/summary", v2ConnectionSummary)
+	admin.GET("/connections/paths", v2ConnectionPaths)
 	admin.GET("/servers", v2AdminServers)
 	admin.POST("/servers", v2CreateServer)
 	admin.GET("/servers/:id", v2AdminServer)
@@ -195,6 +196,18 @@ func requireV2PublicAccess(c *gin.Context) bool {
 	return false
 }
 
+func isAPITokenRequest(c *gin.Context) bool {
+	value, ok := c.Get(model.CtxKeyIsAPI)
+	return ok && value == true
+}
+
+func publicHostView(c *gin.Context, host *model.Host) any {
+	if isAPITokenRequest(c) {
+		return hostAdminDTO(host)
+	}
+	return host
+}
+
 func v2Session(c *gin.Context) {
 	state := gin.H{"authenticated": false, "csrf_token": mygin.CSRFToken(c), "login_url": "/oauth2/login", "capabilities": []string{}}
 	if value, ok := c.Get(model.CtxKeyAuthorizedUser); ok {
@@ -300,6 +313,7 @@ func v2PublicServer(c *gin.Context) {
 func publicServerSnapshot(c *gin.Context) []gin.H {
 	_, member := c.Get(model.CtxKeyAuthorizedUser)
 	_, verified := c.Get(model.CtxKeyViewPasswordVerified)
+	tokenFull := isAPITokenRequest(c)
 	singleton.SortedServerLock.RLock()
 	defer singleton.SortedServerLock.RUnlock()
 	source := singleton.SortedServerListForGuest
@@ -311,13 +325,21 @@ func publicServerSnapshot(c *gin.Context) []gin.H {
 		item := *running
 		presentation := runtimeForServer(item)
 		telemetry := gin.H{"host": presentation.HostState, "connectivity": presentation.Connectivity, "available": presentation.Availability, "coverage": presentation.Coverage}
-		servers = append(servers, gin.H{
+		row := gin.H{
 			"id": item.ID, "name": item.Name, "tag": item.Tag, "public_note": decodePublicNote(item.PublicNote),
 			"display_index": item.DisplayIndex, "hide_for_guest": item.HideForGuest, "enable_ddns": item.EnableDDNS,
-			"host": item.Host, "state": item.State, "last_active": formatOptionalTime(item.LastActive),
+			"host": publicHostView(c, item.Host), "state": item.State, "last_active": formatOptionalTime(item.LastActive),
 			"online":    serverOnline(item.LastActive),
 			"telemetry": telemetry,
-		})
+		}
+		if tokenFull {
+			monitoringOptions := map[string]bool{}
+			_ = json.Unmarshal([]byte(item.MonitoringOptionsRaw), &monitoringOptions)
+			row["note"] = item.Note
+			row["monitoring_options"] = monitoringOptions
+			row["ddns_profiles"] = item.DDNSProfiles
+		}
+		servers = append(servers, row)
 	}
 	return servers
 }
@@ -399,9 +421,8 @@ func v2PublicCycleTransfer(c *gin.Context) {
 }
 
 func v2AdminSummary(c *gin.Context) {
-	var total, collectors, incidents, losses, alerts int64
+	var total, incidents, losses, alerts int64
 	singleton.DB.Model(&model.Server{}).Count(&total)
-	singleton.DB.Model(&model.Collector{}).Where("deleted = ? AND revoked = ?", false, false).Count(&collectors)
 	singleton.DB.Model(&model.AvailabilityIncident{}).Where("ended_at = 0").Count(&incidents)
 	singleton.DB.Model(&model.TelemetryDataLoss{}).Count(&losses)
 	singleton.DB.Model(&model.TelemetryAlert{}).Count(&alerts)
@@ -413,7 +434,16 @@ func v2AdminSummary(c *gin.Context) {
 		}
 	}
 	singleton.SortedServerLock.RUnlock()
-	writeV2Data(c, http.StatusOK, gin.H{"total_servers": total, "online_servers": online, "active_collectors": collectors, "active_incidents": incidents, "data_loss": losses, "telemetry_alerts": alerts, "telemetry_pending": 0})
+	connection, err := telemetry.LoadConnectionSummary(singleton.DB, time.Now())
+	if err != nil {
+		writeV2Problem(c, http.StatusInternalServerError, "database_error", err.Error())
+		return
+	}
+	writeV2Data(c, http.StatusOK, gin.H{
+		"total_servers": total, "online_servers": online, "active_collectors": connection.CollectorsOnline,
+		"active_incidents": incidents, "data_loss": losses, "telemetry_alerts": alerts, "telemetry_pending": 0,
+		"collectors_offline": connection.CollectorsOffline, "paths_assigned": connection.PathsAssigned, "paths_connected": connection.PathsConnected,
+	})
 }
 
 type serverV2Write struct {
@@ -428,10 +458,40 @@ type serverV2Write struct {
 	DDNSProfiles      []uint64        `json:"ddns_profiles"`
 }
 
+func hostAdminDTO(host *model.Host) any {
+	if host == nil {
+		return nil
+	}
+	encoded, err := json.Marshal(host)
+	if err != nil {
+		return nil
+	}
+	var view map[string]any
+	if err := json.Unmarshal(encoded, &view); err != nil {
+		return nil
+	}
+	if view == nil {
+		view = map[string]any{}
+	}
+	ip := strings.TrimSpace(host.IP)
+	if ip == "" {
+		return view
+	}
+	view["ip"] = ip
+	ipv4, ipv6, _ := utils.SplitIPAddr(ip)
+	if ipv4 != "" {
+		view["ipv4"] = ipv4
+	}
+	if ipv6 != "" {
+		view["ipv6"] = ipv6
+	}
+	return view
+}
+
 func serverAdminDTO(server model.Server, reveal bool) gin.H {
 	monitoringOptions := map[string]bool{}
 	_ = json.Unmarshal([]byte(server.MonitoringOptionsRaw), &monitoringOptions)
-	result := gin.H{"id": server.ID, "name": server.Name, "tag": server.Tag, "note": server.Note, "public_note": decodePublicNote(server.PublicNote), "monitoring_options": monitoringOptions, "display_index": server.DisplayIndex, "hide_for_guest": server.HideForGuest, "enable_ddns": server.EnableDDNS, "ddns_profiles": server.DDNSProfiles, "last_active": formatOptionalTime(server.LastActive), "host": server.Host, "state": server.State}
+	result := gin.H{"id": server.ID, "name": server.Name, "tag": server.Tag, "note": server.Note, "public_note": decodePublicNote(server.PublicNote), "monitoring_options": monitoringOptions, "display_index": server.DisplayIndex, "hide_for_guest": server.HideForGuest, "enable_ddns": server.EnableDDNS, "ddns_profiles": server.DDNSProfiles, "last_active": formatOptionalTime(server.LastActive), "host": hostAdminDTO(server.Host), "state": server.State}
 	if reveal {
 		result["secret"] = server.Secret
 	}
@@ -1310,7 +1370,7 @@ func v2GetSettings(c *gin.Context) { writeV2Data(c, http.StatusOK, v2SettingsDTO
 func v2SettingsDTO() gin.H {
 	return gin.H{
 		"site_title": singleton.Conf.Site.Brand, "language": singleton.Conf.Language, "view_password": "", "view_password_configured": singleton.Conf.Site.ViewPassword != "",
-		"grpc_host": singleton.Conf.GRPCHost, "nameservers": splitNonEmpty(singleton.Conf.DNSServers), "enable_offline_history": singleton.Conf.EnableOfflineHistory,
+		"grpc_host": singleton.Conf.GRPCHost, "proxy_grpc_port": singleton.Conf.ProxyGRPCPort, "tls": singleton.Conf.TLS, "nameservers": splitNonEmpty(singleton.Conf.DNSServers), "enable_offline_history": singleton.Conf.EnableOfflineHistory,
 		"offline_threshold": singleton.Conf.OfflineThresholdSeconds, "check_interval": singleton.Conf.OfflineCheckIntervalSeconds, "merge_gap": singleton.Conf.OfflineMergeGapSeconds,
 		"retention_days": singleton.Conf.OfflineHistoryRetentionDays, "notify_offline": singleton.Conf.EnableOfflineNotification, "notify_recovery": singleton.Conf.EnableRecoveryNotification,
 		"show_availability_guest": singleton.Conf.ShowAvailabilityToGuest, "connectivity_notification": singleton.Conf.Telemetry.EnableConnectivityNotification,
@@ -1379,6 +1439,17 @@ func v2UpdateSettings(c *gin.Context) {
 	}
 	if value, exists := body["grpc_host"]; exists {
 		singleton.Conf.GRPCHost = stringValue(value)
+	}
+	if value, exists := body["proxy_grpc_port"]; exists {
+		port := uintValue(value, uint64(singleton.Conf.ProxyGRPCPort))
+		if port > 65535 {
+			writeV2Problem(c, 400, "invalid_proxy_grpc_port", "公网 gRPC 端口必须在 0–65535 之间，0 表示使用监听端口")
+			return
+		}
+		singleton.Conf.ProxyGRPCPort = uint(port)
+	}
+	if value, exists := body["tls"]; exists {
+		singleton.Conf.TLS = asBool(value)
 	}
 	if raw, exists := body["nameservers"]; exists {
 		switch values := raw.(type) {
@@ -1702,20 +1773,21 @@ func collectorDTO(collector model.Collector) gin.H {
 	var scopes []model.CollectorScope
 	_ = singleton.DB.Where("collector_uuid = ?", collector.CollectorUUID).Find(&scopes).Error
 	var runtime model.CollectorRuntime
-	_ = singleton.DB.First(&runtime, "collector_uuid = ?", collector.CollectorUUID).Error
+	_ = singleton.DB.Where("collector_uuid = ?", collector.CollectorUUID).Limit(1).Find(&runtime).Error
 	scopeItems := make([]gin.H, 0, len(scopes))
 	for _, scope := range scopes {
 		scopeItems = append(scopeItems, gin.H{"type": scope.ScopeType, "value": scope.ScopeValue})
 	}
-	lastSeen := ""
-	if runtime.LastSeen > 0 {
-		lastSeen = time.Unix(0, runtime.LastSeen).Format(time.RFC3339Nano)
+	return gin.H{
+		"id": collector.CollectorUUID, "name": collector.Name, "address": collector.Address, "tls": collector.TLS,
+		"insecure_tls": collector.InsecureTLS, "generation": collector.Generation, "config_version": collector.ConfigVersion,
+		"revoked": collector.Revoked, "status": telemetry.CollectorStatus(runtime.LastSeen, time.Now()),
+		"last_seen": optionalRFC3339Nano(runtime.LastSeen), "last_sync": optionalRFC3339Nano(runtime.LastSync),
+		"last_primary_seen": optionalRFC3339Nano(runtime.LastPrimarySeen), "spool_size": runtime.SpoolSize,
+		"pending_records": runtime.PendingRecords, "oldest_pending": optionalRFC3339Nano(runtime.OldestPending),
+		"replication_cursor": runtime.ReplicationCursor, "connected_agents": runtime.ConnectedAgents,
+		"protocol_version": runtime.ProtocolVersion, "scopes": scopeItems,
 	}
-	oldest := ""
-	if runtime.OldestPending > 0 {
-		oldest = time.Unix(0, runtime.OldestPending).Format(time.RFC3339Nano)
-	}
-	return gin.H{"id": collector.CollectorUUID, "name": collector.Name, "address": collector.Address, "tls": collector.TLS, "insecure_tls": collector.InsecureTLS, "generation": collector.Generation, "config_version": collector.ConfigVersion, "revoked": collector.Revoked, "status": runtime.Status, "last_seen": lastSeen, "spool_size": runtime.SpoolSize, "pending_records": runtime.PendingRecords, "oldest_pending": oldest, "replication_cursor": runtime.ReplicationCursor, "connected_agents": runtime.ConnectedAgents, "protocol_version": runtime.ProtocolVersion, "scopes": scopeItems}
 }
 func v2Collectors(c *gin.Context) {
 	var rows []model.Collector
@@ -1852,7 +1924,7 @@ func v2CollectorInstallPreview(c *gin.Context) {
 		if host == "" {
 			host = "127.0.0.1"
 		}
-		endpoint = fmt.Sprintf("%s:%d", host, singleton.Conf.GRPCPort)
+		endpoint = fmt.Sprintf("%s:%d", host, publicGRPCPort())
 	}
 	grpcPort := request.GRPCPort
 	if grpcPort == 0 {
@@ -1927,55 +1999,95 @@ func v2TelemetryOverview(c *gin.Context) {
 	writeV2Data(c, 200, gin.H{"collectors": collectors, "agents": agents, "active_assignments": assignments, "data_loss": losses, "alerts": alerts})
 }
 
+func v2ConnectionSummary(c *gin.Context) {
+	summary, err := telemetry.LoadConnectionSummary(singleton.DB, time.Now())
+	if err != nil {
+		writeV2Problem(c, http.StatusInternalServerError, "database_error", err.Error())
+		return
+	}
+	writeV2Data(c, http.StatusOK, gin.H{
+		"collectors_total": summary.CollectorsTotal, "collectors_online": summary.CollectorsOnline,
+		"collectors_offline": summary.CollectorsOffline, "collectors_unknown": summary.CollectorsUnknown,
+		"paths_assigned": summary.PathsAssigned, "paths_connected": summary.PathsConnected, "paths_seen": summary.PathsSeen,
+	})
+}
+
+func v2ConnectionPaths(c *gin.Context) {
+	var filter telemetry.PathFilter
+	if raw := strings.TrimSpace(c.Query("server_id")); raw != "" {
+		id, err := strconv.ParseUint(raw, 10, 64)
+		if err != nil || id == 0 {
+			writeV2Problem(c, http.StatusBadRequest, "invalid_server_id", "server_id 无效")
+			return
+		}
+		filter.ServerID = id
+	}
+	filter.ObserverID = strings.TrimSpace(c.Query("observer_id"))
+	paths, err := telemetry.LoadConnectionPaths(singleton.DB, filter)
+	if err != nil {
+		writeV2Problem(c, http.StatusInternalServerError, "database_error", err.Error())
+		return
+	}
+	items := make([]gin.H, 0, len(paths))
+	for _, path := range paths {
+		items = append(items, gin.H{
+			"server_id": path.ServerID, "server_name": path.ServerName, "node_uuid": path.NodeUUID,
+			"observer_id": path.ObserverID, "observer_kind": path.ObserverKind, "observer_name": path.ObserverName,
+			"assigned": path.Assigned, "last_seen": optionalRFC3339Nano(path.LastSeen),
+			"sink": gin.H{
+				"connected": path.Sink.Connected, "pending_events": path.Sink.PendingEvents,
+				"last_error": path.Sink.LastError, "ack_through": path.Sink.AckThrough,
+			},
+		})
+	}
+	writeV2List(c, items, v2Meta{Page: 1, PageSize: len(items), Total: int64(len(items))})
+}
+
 func v2TelemetryDataset(c *gin.Context) {
-	var rows any
+	var (
+		rows any
+		err  error
+	)
 	switch c.Param("dataset") {
 	case "observer-assignments", "assignments":
-		var value []model.ObserverAssignment
-		singleton.DB.Where("valid_to = 0").Order("valid_from DESC").Limit(1000).Find(&value)
-		rows = value
+		rows, err = telemetry.ListObserverAssignments(singleton.DB)
 	case "agents":
-		var value []model.AgentTelemetryRuntime
-		singleton.DB.Order("updated_at DESC").Limit(1000).Find(&value)
-		rows = value
+		rows, err = telemetry.ListAgentReliability(singleton.DB)
 	case "incidents":
-		var value []model.AvailabilityIncident
-		singleton.DB.Order("started_at DESC").Limit(1000).Find(&value)
-		rows = value
+		rows, err = telemetry.ListIncidents(singleton.DB)
 	case "incident-revisions":
-		var value []model.IncidentRevision
-		singleton.DB.Order("created_at DESC").Limit(1000).Find(&value)
-		rows = value
+		rows, err = telemetry.ListIncidentRevisions(singleton.DB)
 	case "data-loss":
-		var value []model.TelemetryDataLoss
-		singleton.DB.Order("occurred_at DESC").Limit(1000).Find(&value)
-		rows = value
+		rows, err = telemetry.ListDataLoss(singleton.DB)
 	case "alerts":
-		var value []model.TelemetryAlert
-		singleton.DB.Order("occurred_at DESC").Limit(1000).Find(&value)
-		rows = value
+		rows, err = telemetry.ListAlerts(singleton.DB)
 	default:
 		writeV2Problem(c, 404, "dataset_not_found", "探测数据集不存在")
 		return
 	}
-	output := snakeValue(rows)
-	normalizeHexIDs(output)
-	writeV2List(c, output, v2Meta{Page: 1})
+	if err != nil {
+		writeV2Problem(c, http.StatusInternalServerError, "database_error", err.Error())
+		return
+	}
+	n := telemetryDatasetLen(rows)
+	writeV2List(c, rows, v2Meta{Page: 1, PageSize: n, Total: int64(n)})
 }
-func normalizeHexIDs(value any) {
-	switch current := value.(type) {
-	case []any:
-		for _, item := range current {
-			normalizeHexIDs(item)
-		}
-	case map[string]any:
-		for key, item := range current {
-			if text, ok := item.(string); ok && (strings.HasSuffix(key, "_uuid") || strings.HasSuffix(key, "_id")) {
-				if decoded, err := base64.StdEncoding.DecodeString(text); err == nil && len(decoded) == 16 {
-					current[key] = hex.EncodeToString(decoded)
-				}
-			}
-			normalizeHexIDs(item)
-		}
+
+func telemetryDatasetLen(rows any) int {
+	switch value := rows.(type) {
+	case []telemetry.ObserverAssignmentRecord:
+		return len(value)
+	case []telemetry.AgentReliabilityRecord:
+		return len(value)
+	case []telemetry.IncidentRecord:
+		return len(value)
+	case []telemetry.IncidentRevisionRecord:
+		return len(value)
+	case []telemetry.DataLossRecord:
+		return len(value)
+	case []telemetry.AlertRecord:
+		return len(value)
+	default:
+		return 0
 	}
 }

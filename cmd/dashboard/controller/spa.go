@@ -30,9 +30,11 @@ func registerSPARoutes(r *gin.Engine) {
 	}
 
 	r.GET("/", serveWebApp("status", "/"))
+	r.GET("/assets/*filepath", serveWebAsset("status"))
 	r.GET("/service", serveWebApp("status", "/"))
 	r.GET("/network", serveWebApp("status", "/"))
 	r.GET("/network/:id", serveWebApp("status", "/"))
+	r.GET("/server/:serverId", serveWebApp("status", "/"))
 	r.GET("/view-password", serveWebApp("status", "/"))
 	r.GET("/admin", func(c *gin.Context) { c.Redirect(http.StatusPermanentRedirect, "/admin/") })
 	r.GET("/admin/*path", serveWebApp("admin", "/admin/"))
@@ -71,6 +73,14 @@ func serveOpenAPIJSON(c *gin.Context) {
 }
 
 func serveWebApp(app, prefix string) gin.HandlerFunc {
+	return serveWeb(app, prefix, true)
+}
+
+func serveWebAsset(app string) gin.HandlerFunc {
+	return serveWeb(app, "/", false)
+}
+
+func serveWeb(app, prefix string, fallbackIndex bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if singleton.Conf.Web.Delivery == "external" {
 			c.Status(http.StatusNotFound)
@@ -88,10 +98,18 @@ func serveWebApp(app, prefix string) gin.HandlerFunc {
 		}
 		info, statErr := fs.Stat(root, requested)
 		if statErr != nil || info.IsDir() {
+			if !fallbackIndex {
+				writeV2Problem(c, http.StatusNotFound, "web_asset_not_found", "请求的前端资源不存在")
+				return
+			}
 			requested = "index.html"
 		}
 		content, err := fs.ReadFile(root, requested)
 		if err != nil {
+			if !fallbackIndex {
+				writeV2Problem(c, http.StatusNotFound, "web_asset_not_found", "请求的前端资源不存在")
+				return
+			}
 			writeV2Problem(c, 503, "web_assets_not_built", "前端产物不存在，请先执行 pnpm build")
 			return
 		}

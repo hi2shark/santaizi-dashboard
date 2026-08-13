@@ -100,7 +100,7 @@ paths:
       tags:
       - Public
       summary: 公开服务器列表
-      description: 公开 ServerStatus 服务器列表；可通过 `x-websocket` 订阅实时状态。
+      description: 公开 ServerStatus 服务器列表；可通过 `x-websocket` 订阅实时状态。匿名与查看密码会话的 `host` 不含公网 IP；Bearer Token 返回与管理接口相同的明文 `ip` / `ipv4` / `ipv6`。
       operationId: listPublicServers
       x-websocket: /ws/v2/public/runtime
       security: []
@@ -116,6 +116,7 @@ paths:
       tags:
       - Public
       summary: 公开服务器详情
+      description: 公开 ServerStatus 服务器详情。匿名与查看密码会话的 `host` 不含公网 IP；Bearer Token 返回明文地址。
       operationId: getPublicServer
       security: []
       responses:
@@ -186,6 +187,7 @@ paths:
       tags:
       - Servers
       summary: 服务器列表
+      description: 管理服务器列表。`host.ip` / `host.ipv4` / `host.ipv6` 为探针上报的明文公网地址，不脱敏。
       operationId: listServers
       parameters:
       - $ref: '#/components/parameters/Page'
@@ -224,6 +226,7 @@ paths:
       tags:
       - Servers
       summary: 服务器详情
+      description: 管理服务器详情。`host.ip` / `host.ipv4` / `host.ipv6` 为探针上报的明文公网地址，不脱敏。
       operationId: getServer
       responses:
         '200':
@@ -1057,6 +1060,10 @@ paths:
       tags:
       - Settings
       summary: 获取站点设置
+      description: |
+        返回当前站点设置。网络相关字段包括 `grpc_host`（公网地址）、
+        `proxy_grpc_port`（公网 gRPC 端口，0 表示使用监听端口 `grpcport`）、
+        `tls`（探针安装命令是否附加 `--tls` / `-Tls`）。
       operationId: getSettings
       responses:
         '200':
@@ -1067,6 +1074,9 @@ paths:
       tags:
       - Settings
       summary: 更新站点设置
+      description: |
+        更新并保存站点设置。可写入 `grpc_host`、`proxy_grpc_port`（0–65535，0 表示使用监听端口）
+        和 `tls`。这两项用于生成探针/从端安装命令中的公网端口与 TLS 标志，不改变本机 gRPC 监听端口。
       operationId: updateSettings
       x-ui-route: /admin/settings
       security:
@@ -1231,6 +1241,41 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ObjectResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/v2/admin/connections/summary:
+    get:
+      tags:
+      - Telemetry
+      summary: 连接观察摘要
+      operationId: getConnectionSummary
+      x-ui-route: /admin/connections
+      responses:
+        '200':
+          $ref: '#/components/responses/ConnectionSummaryResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/v2/admin/connections/paths:
+    get:
+      tags:
+      - Telemetry
+      summary: 节点与观测点连接路径
+      operationId: listConnectionPaths
+      x-ui-route: /admin/connections
+      parameters:
+      - name: server_id
+        in: query
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      - name: observer_id
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/ConnectionPathListResponse'
         default:
           $ref: '#/components/responses/Problem'
   /api/v2/admin/telemetry/collectors:
@@ -1416,9 +1461,10 @@ paths:
       - Telemetry
       summary: Observer 分配列表
       operationId: listObserverAssignments
+      x-ui-route: /admin/telemetry
       responses:
         '200':
-          $ref: '#/components/responses/ObjectListResponse'
+          $ref: '#/components/responses/ObserverAssignmentListResponse'
         default:
           $ref: '#/components/responses/Problem'
   /api/v2/admin/telemetry/agents:
@@ -1427,9 +1473,10 @@ paths:
       - Telemetry
       summary: 探针可靠性列表
       operationId: listAgentReliability
+      x-ui-route: /admin/telemetry
       responses:
         '200':
-          $ref: '#/components/responses/ObjectListResponse'
+          $ref: '#/components/responses/AgentReliabilityListResponse'
         default:
           $ref: '#/components/responses/Problem'
   /api/v2/admin/telemetry/incidents:
@@ -1438,9 +1485,10 @@ paths:
       - Telemetry
       summary: 事件列表
       operationId: listIncidents
+      x-ui-route: /admin/telemetry
       responses:
         '200':
-          $ref: '#/components/responses/ObjectListResponse'
+          $ref: '#/components/responses/IncidentListResponse'
         default:
           $ref: '#/components/responses/Problem'
   /api/v2/admin/telemetry/incident-revisions:
@@ -1449,9 +1497,10 @@ paths:
       - Telemetry
       summary: 事件修订列表
       operationId: listIncidentRevisions
+      x-ui-route: /admin/telemetry
       responses:
         '200':
-          $ref: '#/components/responses/ObjectListResponse'
+          $ref: '#/components/responses/IncidentRevisionListResponse'
         default:
           $ref: '#/components/responses/Problem'
   /api/v2/admin/telemetry/data-loss:
@@ -1460,9 +1509,10 @@ paths:
       - Telemetry
       summary: 探测丢数记录
       operationId: listTelemetryDataLoss
+      x-ui-route: /admin/telemetry
       responses:
         '200':
-          $ref: '#/components/responses/ObjectListResponse'
+          $ref: '#/components/responses/TelemetryDataLossListResponse'
         default:
           $ref: '#/components/responses/Problem'
   /api/v2/admin/telemetry/alerts:
@@ -1471,9 +1521,10 @@ paths:
       - Telemetry
       summary: 探测告警列表
       operationId: listTelemetryAlerts
+      x-ui-route: /admin/telemetry
       responses:
         '200':
-          $ref: '#/components/responses/ObjectListResponse'
+          $ref: '#/components/responses/TelemetryAlertListResponse'
         default:
           $ref: '#/components/responses/Problem'
 components:
@@ -1839,6 +1890,23 @@ components:
           type: boolean
         nat:
           type: boolean
+    ServerHost:
+      type: object
+      description: |
+        探针 Host 快照。管理接口以及带 Bearer Token 的公开服务器接口返回明文公网地址（`ip` / `ipv4` / `ipv6`），不脱敏。
+        匿名或查看密码访问的 `listPublicServers`、`getPublicServer` 与 `/ws/v2/public/runtime` 省略这些字段。
+        其余字段为探针上报的 PascalCase 快照（如 Platform、CountryCode）。
+      additionalProperties: true
+      properties:
+        ip:
+          type: string
+          description: 探针上报的公网地址；双栈为 `IPv4/IPv6`。管理接口与 Bearer Token 公开请求返回。
+        ipv4:
+          type: string
+          description: 从 `ip` 拆出的 IPv4。管理接口与 Bearer Token 公开请求返回。
+        ipv6:
+          type: string
+          description: 从 `ip` 拆出的 IPv6。管理接口与 Bearer Token 公开请求返回。
     Server:
       type: object
       required:
@@ -1876,8 +1944,7 @@ components:
             type: integer
             format: int64
         host:
-          type: object
-          additionalProperties: true
+          $ref: '#/components/schemas/ServerHost'
         state:
           type: object
           additionalProperties: true
@@ -2718,7 +2785,17 @@ components:
           type: boolean
         status:
           type: string
+          enum:
+          - online
+          - offline
+          - unknown
         last_seen:
+          type: string
+          format: date-time
+        last_sync:
+          type: string
+          format: date-time
+        last_primary_seen:
           type: string
           format: date-time
         spool_size:
@@ -2756,6 +2833,353 @@ components:
           - group
           - tag
         value:
+          type: string
+    ConnectionSummary:
+      type: object
+      required:
+      - collectors_total
+      - collectors_online
+      - collectors_offline
+      - collectors_unknown
+      - paths_assigned
+      - paths_connected
+      - paths_seen
+      properties:
+        collectors_total:
+          type: integer
+          format: int64
+        collectors_online:
+          type: integer
+          format: int64
+        collectors_offline:
+          type: integer
+          format: int64
+        collectors_unknown:
+          type: integer
+          format: int64
+        paths_assigned:
+          type: integer
+          format: int64
+        paths_connected:
+          type: integer
+          format: int64
+        paths_seen:
+          type: integer
+          format: int64
+    ConnectionPathSink:
+      type: object
+      required:
+      - connected
+      properties:
+        connected:
+          type: boolean
+        pending_events:
+          type: integer
+          format: int64
+        last_error:
+          type: string
+        ack_through:
+          type: integer
+          format: int64
+    ConnectionPath:
+      type: object
+      required:
+      - server_id
+      - server_name
+      - node_uuid
+      - observer_id
+      - observer_kind
+      - observer_name
+      - assigned
+      - sink
+      properties:
+        server_id:
+          type: integer
+          format: int64
+        server_name:
+          type: string
+        node_uuid:
+          type: string
+        observer_id:
+          type: string
+        observer_kind:
+          type: string
+          enum:
+          - primary
+          - collector
+        observer_name:
+          type: string
+        assigned:
+          type: boolean
+        last_seen:
+          type: string
+          format: date-time
+        sink:
+          $ref: '#/components/schemas/ConnectionPathSink'
+    ObserverEvidenceItem:
+      type: object
+      required:
+      - observer_id
+      - healthy
+      - seen
+      properties:
+        observer_id:
+          type: string
+        observer_kind:
+          type: string
+          enum:
+          - primary
+          - collector
+        observer_name:
+          type: string
+        healthy:
+          type: boolean
+        seen:
+          type: boolean
+    AgentSink:
+      type: object
+      required:
+      - endpoint_id
+      - connected
+      properties:
+        endpoint_id:
+          type: string
+        observer_kind:
+          type: string
+          enum:
+          - primary
+          - collector
+        observer_name:
+          type: string
+        connected:
+          type: boolean
+        pending_events:
+          type: integer
+          format: int64
+        last_error:
+          type: string
+        ack_through:
+          type: integer
+          format: int64
+    ObserverAssignmentRecord:
+      type: object
+      required:
+      - node_uuid
+      - observer_id
+      - observer_kind
+      properties:
+        server_id:
+          type: integer
+          format: int64
+        server_name:
+          type: string
+        node_uuid:
+          type: string
+        observer_id:
+          type: string
+        observer_kind:
+          type: string
+          enum:
+          - primary
+          - collector
+        observer_name:
+          type: string
+        valid_from:
+          type: string
+          format: date-time
+        valid_to:
+          type: string
+          format: date-time
+        generation:
+          type: integer
+          format: int64
+        config_version:
+          type: integer
+          format: int64
+    AgentReliabilityRecord:
+      type: object
+      required:
+      - node_uuid
+      - wal_pressure
+      - clock_untrusted
+      - sinks
+      properties:
+        server_id:
+          type: integer
+          format: int64
+        server_name:
+          type: string
+        node_uuid:
+          type: string
+        wal_pressure:
+          type: string
+          enum:
+          - unknown
+          - healthy
+          - downsampled
+          - rollup
+          - critical
+          - telemetry_data_loss
+        wal_bytes:
+          type: integer
+          format: int64
+        pending_events:
+          type: integer
+          format: int64
+        oldest_pending:
+          type: string
+          format: date-time
+        clock_untrusted:
+          type: boolean
+        protocol_version:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+        sinks:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentSink'
+    IncidentRecord:
+      type: object
+      required:
+      - id
+      - node_uuid
+      - current_classification
+      - observer_evidence
+      properties:
+        id:
+          type: integer
+          format: int64
+        server_id:
+          type: integer
+          format: int64
+        server_name:
+          type: string
+        node_uuid:
+          type: string
+        initial_classification:
+          type: string
+        current_classification:
+          type: string
+        revision:
+          type: integer
+          format: int64
+        started_at:
+          type: string
+          format: date-time
+        ended_at:
+          type: string
+          format: date-time
+        recalculated_at:
+          type: string
+          format: date-time
+        reason:
+          type: string
+        observer_evidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/ObserverEvidenceItem'
+    IncidentRevisionRecord:
+      type: object
+      required:
+      - id
+      - incident_id
+      - classification
+      - observer_evidence
+      properties:
+        id:
+          type: integer
+          format: int64
+        incident_id:
+          type: integer
+          format: int64
+        revision:
+          type: integer
+          format: int64
+        classification:
+          type: string
+        reason:
+          type: string
+        recalculated_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        observer_evidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/ObserverEvidenceItem'
+    TelemetryDataLossRecord:
+      type: object
+      required:
+      - fact_id
+      - reason
+      - lost_records
+      properties:
+        fact_id:
+          type: string
+        component_id:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+        reason:
+          type: string
+          enum:
+          - unknown
+          - compacted
+          - hard_limit_data_loss
+          - corruption
+        first_spool_id:
+          type: integer
+          format: int64
+        last_spool_id:
+          type: integer
+          format: int64
+        lost_records:
+          type: integer
+          format: int64
+        detail:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    TelemetryAlertRecord:
+      type: object
+      required:
+      - id
+      - alert_type
+      - notified
+      properties:
+        id:
+          type: integer
+          format: int64
+        alert_type:
+          type: string
+        severity:
+          type: string
+        server_id:
+          type: integer
+          format: int64
+        server_name:
+          type: string
+        node_uuid:
+          type: string
+        component_id:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        notified:
+          type: boolean
+        message:
+          type: string
+        dedup_key:
           type: string
     CollectorWrite:
       type: object
@@ -3326,3 +3750,126 @@ components:
             properties:
               data:
                 $ref: '#/components/schemas/CollectorToken'
+    ConnectionSummaryResponse:
+      description: Connection observation summary
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - data
+            properties:
+              data:
+                $ref: '#/components/schemas/ConnectionSummary'
+    ConnectionPathListResponse:
+      description: Node-observer connection paths
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - data
+            - meta
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConnectionPath'
+              meta:
+                $ref: '#/components/schemas/Meta'
+    ObserverAssignmentListResponse:
+      description: Observer assignments
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - data
+            - meta
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ObserverAssignmentRecord'
+              meta:
+                $ref: '#/components/schemas/Meta'
+    AgentReliabilityListResponse:
+      description: Agent reliability
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - data
+            - meta
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AgentReliabilityRecord'
+              meta:
+                $ref: '#/components/schemas/Meta'
+    IncidentListResponse:
+      description: Availability incidents
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - data
+            - meta
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/IncidentRecord'
+              meta:
+                $ref: '#/components/schemas/Meta'
+    IncidentRevisionListResponse:
+      description: Incident revisions
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - data
+            - meta
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/IncidentRevisionRecord'
+              meta:
+                $ref: '#/components/schemas/Meta'
+    TelemetryDataLossListResponse:
+      description: Telemetry data loss
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - data
+            - meta
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TelemetryDataLossRecord'
+              meta:
+                $ref: '#/components/schemas/Meta'
+    TelemetryAlertListResponse:
+      description: Telemetry alerts
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - data
+            - meta
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TelemetryAlertRecord'
+              meta:
+                $ref: '#/components/schemas/Meta'

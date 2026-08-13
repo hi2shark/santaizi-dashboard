@@ -143,6 +143,7 @@ prepare_clean_install() {
     sudo systemctl disable santaizi-agent >/dev/null 2>&1 || true
     sudo rm -rf /opt/santaizi/agent /var/lib/santaizi-agent
     sudo rm -f /etc/santaizi/agent.yaml /etc/systemd/system/santaizi-agent.service
+    sudo rm -f /usr/local/bin/santaizi-agent-uninstall /usr/bin/santaizi-agent-uninstall
 
     # Migration cleanup for the legacy upstream agent (nezha-agent).
     if [ -x /opt/nezha/agent/nezha-agent ]; then

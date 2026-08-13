@@ -6,7 +6,7 @@ grpcport: santaizi_grpc_port
 oauth2:
   type: "santaizi_oauth2_type" #Oauth2 登录接入类型，github/gitlab/jihulab/gitee/gitea
   admin: "santaizi_admin_logins" #管理员列表，半角逗号隔开
-  clientid: "santaizi_github_oauth_client_id" # 在 https://github.com/settings/developers 创建，无需审核 Callback 填 http(s)://域名或IP/oauth2/callback
+  clientid: "santaizi_github_oauth_client_id" # GitHub OAuth App：https://github.com/settings/applications/new ；Authorization callback URL 必须填 https://<域名>/oauth2/callback（不要只填首页）
   clientsecret: "santaizi_github_oauth_client_secret"
   endpoint: "" # 如gitea自建需要设置
 site:

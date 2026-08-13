@@ -80,11 +80,11 @@ site:
 | 配置项 | 必填 | 说明 |
 |--------|------|------|
 | `oauth2.type` | 是 | 可选：`github`、`gitee`、`gitlab`、`jihulab`、`gitea`、`cloudflare`、`oidc`、`mock` |
-| `oauth2.admin` | 是 | 管理员用户名/ID，逗号分隔 |
+| `oauth2.admin` | 是 | 管理员用户名/ID，逗号分隔。GitHub / Gitee 填登录用户名；GitLab / Jihulab / Gitea 填 username；Cloudflare Access 填用户 `sub`；OIDC 填 `oidcloginclaim` 对应声明（默认 `sub`） |
 | `oauth2.admingroups` | 否 | OIDC 管理员用户组 |
 | `oauth2.clientid` | 除 `mock` 外 | OAuth2 Client ID |
 | `oauth2.clientsecret` | 除 `mock` 外 | OAuth2 Client Secret |
-| `oauth2.endpoint` | 自建时 | 自建 Gitea / Cloudflare Access 的 endpoint |
+| `oauth2.endpoint` | 自建时 | 自建 Gitea 源站，或 Cloudflare Access 团队域名（如 `https://<team>.cloudflareaccess.com`） |
 | `oauth2.oidcdisplayname` | 否 | 默认 `OIDC` |
 | `oauth2.oidcissuer` | OIDC | OIDC issuer URL |
 | `oauth2.oidclogouturl` | 否 | OIDC 登出地址 |
@@ -93,10 +93,146 @@ site:
 | `oauth2.oidcgroupclaim` | 否 | 默认 `groups` |
 | `oauth2.oidcscopes` | 否 | 默认 `openid,profile,email` |
 | `oauth2.oidcautocreate` | 否 | 是否自动创建用户，默认 `false` |
-| `oauth2.oidcautocreate` | 否 | 是否自动登录，默认 `false` |
+| `oauth2.oidcautologin` | 否 | 是否自动登录，默认 `false` |
 
 > `mock` 类型仅在 `debug: true` 时可用，仅用于本地开发。
 > OAuth2 只在 `mode: primary` 时要求配置；Collector 模式不会加载 OAuth、HTTP、业务 UI、告警或内部调度。
+
+### 回调地址（提供商控制台必填）
+
+面板登录入口是 `/oauth2/login`，提供商授权后必须回到 **`/oauth2/callback`**。完整回调 URL 由用户实际访问面板的协议和 Host 拼出：
+
+```text
+https://<你打开面板时的域名>/oauth2/callback
+```
+
+示例：面板是 `https://dash.example.com`，则回调填：
+
+```text
+https://dash.example.com/oauth2/callback
+```
+
+本地调试（`http://127.0.0.1:8000`）则填：
+
+```text
+http://127.0.0.1:8000/oauth2/callback
+```
+
+规则：
+
+- **不要只填首页**（`https://dash.example.com` 会登录失败）。
+- 必须与浏览器地址栏的协议、域名、端口完全一致（`www` / 非 `www`、`:443` 是否写出，都不能混用）。
+- 路径固定为 `/oauth2/callback`，不要加尾斜杠，不要改成 `/admin/` 或 `/oauth2/login`。
+- GitHub 请创建 **OAuth App**（不是 GitHub App）；Device Flow 不要勾。
+- 反向代理必须把 `/oauth2` 转到面板，并保留 `Host` 与 `X-Forwarded-Proto`（HTTPS 反代时设为 `https`），否则面板会把回调拼成 `http://...`，与控制台不一致。
+
+### GitHub OAuth App
+
+创建页：<https://github.com/settings/applications/new>（Settings → Developer settings → OAuth Apps → New OAuth App）。
+
+| 控制台字段 | 填什么 |
+|------------|--------|
+| Application name | `三太子` 或你的站点名 |
+| Homepage URL | `https://dash.example.com`（面板公网地址） |
+| Application description | 可空 |
+| **Authorization callback URL** | **`https://dash.example.com/oauth2/callback`** |
+| Enable Device Flow | 不勾 |
+
+注册后复制 **Client ID**，生成 **Client Secret**，写入配置：
+
+```yaml
+oauth2:
+  type: github
+  admin: your-github-username
+  clientid: xxxxxxxxxxxxxxxxxxxx
+  clientsecret: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+### Gitee
+
+创建页：<https://gitee.com/oauth/applications>。
+
+| 控制台字段 | 填什么 |
+|------------|--------|
+| 应用主页 | `https://dash.example.com` |
+| **应用回调地址** | **`https://dash.example.com/oauth2/callback`** |
+
+```yaml
+oauth2:
+  type: gitee
+  admin: your-gitee-username
+  clientid: xxx
+  clientsecret: xxx
+```
+
+### GitLab / Jihulab
+
+GitLab：User Settings → Applications。Jihulab 同理。权限勾选 `read_user`、`read_api`。
+
+| 控制台字段 | 填什么 |
+|------------|--------|
+| Redirect URI / 回调 URL | **`https://dash.example.com/oauth2/callback`** |
+
+```yaml
+oauth2:
+  type: gitlab   # 或 jihulab
+  admin: your-gitlab-username
+  clientid: xxx
+  clientsecret: xxx
+```
+
+### Gitea
+
+站点管理 → 应用 → 创建 OAuth2 应用。`oauth2.endpoint` 填 Gitea 源站，不要带路径。
+
+| 控制台字段 | 填什么 |
+|------------|--------|
+| Redirect URIs | **`https://dash.example.com/oauth2/callback`** |
+
+```yaml
+oauth2:
+  type: gitea
+  admin: your-gitea-username
+  clientid: xxx
+  clientsecret: xxx
+  endpoint: https://git.example.com
+```
+
+### Cloudflare Access
+
+在 Access 里创建 OIDC 应用。`oauth2.endpoint` 填团队域名。
+
+| 控制台字段 | 填什么 |
+|------------|--------|
+| Redirect URLs | **`https://dash.example.com/oauth2/callback`** |
+
+```yaml
+oauth2:
+  type: cloudflare
+  admin: "Access 返回的 sub"
+  clientid: xxx
+  clientsecret: xxx
+  endpoint: https://<team>.cloudflareaccess.com
+```
+
+### OIDC
+
+在 IdP 登记的 Redirect URI / callback 同样必须是 **`https://dash.example.com/oauth2/callback`**。
+
+```yaml
+oauth2:
+  type: oidc
+  admin: admin-user-id
+  admingroups: admin-group
+  clientid: santaizi-dashboard
+  clientsecret: xxxxxxxxxxxx
+  oidcdisplayname: SSO
+  oidcissuer: https://auth.example.com
+  oidclogouturl: https://auth.example.com/logout
+  oidcscopes: openid,profile,email
+  oidcgroupclaim: groups
+  oidcautocreate: true
+```
 
 ---
 
@@ -165,33 +301,6 @@ collector:
 
 Retention 使用小批后台清理；State Payload 只有在对应 Rollup 完成后才会被清空。
 
-### GitHub OAuth2 示例
-
-```yaml
-oauth2:
-  type: github
-  admin: your-github-username
-  clientid: xxxxxxxxxxxxxxxxxxxx
-  clientsecret: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-```
-
-### OIDC 示例
-
-```yaml
-oauth2:
-  type: oidc
-  admin: admin-user-id
-  admingroups: admin-group
-  clientid: santaizi-dashboard
-  clientsecret: xxxxxxxxxxxx
-  oidcdisplayname: SSO
-  oidcissuer: https://auth.example.com
-  oidclogouturl: https://auth.example.com/logout
-  oidcscopes: openid,profile,email
-  oidcgroupclaim: groups
-  oidcautocreate: true
-```
-
 ---
 
 ## `installscript` 安装脚本源
@@ -218,6 +327,8 @@ language: zh-CN
 httpport: 80
 grpcport: 5555
 grpchost: santaizi.example.com
+proxygrpcport: 443
+tls: true
 location: Asia/Shanghai
 
 site:
@@ -228,6 +339,7 @@ site:
 web:
   delivery: embedded
 
+# GitHub 控制台 Authorization callback URL 必须填 https://<面板域名>/oauth2/callback
 oauth2:
   type: github
   admin: "your-github-username"
@@ -244,7 +356,7 @@ enablerecoverynotification: false
 telemetry:
   data_dir: /var/lib/santaizi-dashboard
   secret_key_path: /var/lib/santaizi-dashboard/business-secrets.key
-  primary_endpoint: santaizi.example.com:5555
+  primary_endpoint: santaizi.example.com:443
   state_interval_seconds: 5
   heartbeat_interval_seconds: 10
   offline_threshold_seconds: 30
@@ -268,9 +380,9 @@ retention:
 
 ## 在线修改配置
 
-大部分业务配置可以在 Dashboard 的 **设置** 页面（`/admin/settings`）中在线修改并保存到 `/etc/santaizi/dashboard.yaml`。修改后无需重启，即时生效。
+大部分业务配置可以在 Dashboard 的 **设置** 页面（`/admin/settings`）中在线修改并保存到 `/etc/santaizi/dashboard.yaml`。修改后无需重启，即时生效。`grpchost`、`proxygrpcport` 和 `tls` 保存后立即用于探针/从端安装命令。
 
-`mode`、端口、TLS、数据目录、签名密钥、Collector 连接以及 Rollup/Retention Worker 配置需要重启才能完整生效。
+`mode`、本机监听端口（`httpport` / `grpcport`）、数据目录、签名密钥、Collector 连接以及 Rollup/Retention Worker 配置需要重启才能完整生效。
 
 `telemetry.secret_key_path` 保存业务凭证的 AES-256-GCM 主密钥。Primary 首次启动会以 `0600` 权限生成该文件；备份数据库时必须一并备份，且不得通过后台或 API 读取。
 

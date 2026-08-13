@@ -12,6 +12,7 @@ import type {
   APITokenPatchBody,
   APITokenResponseResponse,
   APITokenWriteBody,
+  AgentReliabilityListResponseResponse,
   AlertRuleListResponseResponse,
   AlertRuleResponseResponse,
   AlertRuleWriteBody,
@@ -26,15 +27,20 @@ import type {
   CollectorScopeWriteBody,
   CollectorTokenResponseResponse,
   CollectorWriteBody,
+  ConnectionPathListResponseResponse,
+  ConnectionSummaryResponseResponse,
   CreateViewPasswordSessionBody,
   DDNSProfileListResponseResponse,
   DDNSProfileResponseResponse,
   DDNSProfileWriteBody,
   DDNSProviderListResponseResponse,
   GenericObjectBody,
+  IncidentListResponseResponse,
+  IncidentRevisionListResponseResponse,
   InstallPreviewResponseResponse,
   InstallPreviewWriteBody,
   ListAlertRulesParams,
+  ListConnectionPathsParams,
   ListDDNSProfilesParams,
   ListMonitorHistoryParams,
   ListMonitorsParams,
@@ -55,6 +61,7 @@ import type {
   NotificationChannelWriteBody,
   ObjectListResponseResponse,
   ObjectResponseResponse,
+  ObserverAssignmentListResponseResponse,
   ProbeCapabilitiesResponseResponse,
   ServerCredentialResponseResponse,
   ServerDisplayIndexWriteBody,
@@ -65,6 +72,8 @@ import type {
   ServerSecretResponseResponse,
   ServerWriteBody,
   SessionResponseResponse,
+  TelemetryAlertListResponseResponse,
+  TelemetryDataLossListResponseResponse,
   TrafficPolicyListResponseResponse,
   TrafficPolicyResponseResponse,
   TrafficPolicyWriteBody,
@@ -130,7 +139,7 @@ const createViewPasswordSession = (
     }
 
 /**
- * 公开 ServerStatus 服务器列表；可通过 `x-websocket` 订阅实时状态。
+ * 公开 ServerStatus 服务器列表；可通过 `x-websocket` 订阅实时状态。匿名与查看密码会话的 `host` 不含公网 IP；Bearer Token 返回与管理接口相同的明文 `ip` / `ipv4` / `ipv6`。
  * @summary 公开服务器列表
  */
 const listPublicServers = (
@@ -143,6 +152,7 @@ const listPublicServers = (
     }
 
 /**
+ * 公开 ServerStatus 服务器详情。匿名与查看密码会话的 `host` 不含公网 IP；Bearer Token 返回明文地址。
  * @summary 公开服务器详情
  */
 const getPublicServer = (
@@ -205,6 +215,7 @@ const getAdminSummary = (
     }
 
 /**
+ * 管理服务器列表。`host.ip` / `host.ipv4` / `host.ipv6` 为探针上报的明文公网地址，不脱敏。
  * @summary 服务器列表
  */
 const listServers = (
@@ -232,6 +243,7 @@ const createServer = (
     }
 
 /**
+ * 管理服务器详情。`host.ip` / `host.ipv4` / `host.ipv6` 为探针上报的明文公网地址，不脱敏。
  * @summary 服务器详情
  */
 const getServer = (
@@ -867,6 +879,9 @@ const deleteNATTunnel = (
     }
 
 /**
+ * 返回当前站点设置。网络相关字段包括 `grpc_host`（公网地址）、
+ * `proxy_grpc_port`（公网 gRPC 端口，0 表示使用监听端口 `grpcport`）、
+ * `tls`（探针安装命令是否附加 `--tls` / `-Tls`）。
  * @summary 获取站点设置
  */
 const getSettings = (
@@ -879,6 +894,8 @@ const getSettings = (
     }
 
 /**
+ * 更新并保存站点设置。可写入 `grpc_host`、`proxy_grpc_port`（0–65535，0 表示使用监听端口）
+ * 和 `tls`。这两项用于生成探针/从端安装命令中的公网端口与 TLS 标志，不改变本机 gRPC 监听端口。
  * @summary 更新站点设置
  */
 const updateSettings = (
@@ -1004,6 +1021,31 @@ const getTelemetryOverview = (
  ) => {
       return santaiziRequest<ObjectResponseResponse>(
       {url: `/api/v2/admin/telemetry/overview`, method: 'GET'
+    },
+      );
+    }
+
+/**
+ * @summary 连接观察摘要
+ */
+const getConnectionSummary = (
+
+ ) => {
+      return santaiziRequest<ConnectionSummaryResponseResponse>(
+      {url: `/api/v2/admin/connections/summary`, method: 'GET'
+    },
+      );
+    }
+
+/**
+ * @summary 节点与观测点连接路径
+ */
+const listConnectionPaths = (
+    params?: ListConnectionPathsParams,
+ ) => {
+      return santaiziRequest<ConnectionPathListResponseResponse>(
+      {url: `/api/v2/admin/connections/paths`, method: 'GET',
+        params
     },
       );
     }
@@ -1145,7 +1187,7 @@ const getCollectorInstallPreview = (
 const listObserverAssignments = (
 
  ) => {
-      return santaiziRequest<ObjectListResponseResponse>(
+      return santaiziRequest<ObserverAssignmentListResponseResponse>(
       {url: `/api/v2/admin/telemetry/assignments`, method: 'GET'
     },
       );
@@ -1157,7 +1199,7 @@ const listObserverAssignments = (
 const listAgentReliability = (
 
  ) => {
-      return santaiziRequest<ObjectListResponseResponse>(
+      return santaiziRequest<AgentReliabilityListResponseResponse>(
       {url: `/api/v2/admin/telemetry/agents`, method: 'GET'
     },
       );
@@ -1169,7 +1211,7 @@ const listAgentReliability = (
 const listIncidents = (
 
  ) => {
-      return santaiziRequest<ObjectListResponseResponse>(
+      return santaiziRequest<IncidentListResponseResponse>(
       {url: `/api/v2/admin/telemetry/incidents`, method: 'GET'
     },
       );
@@ -1181,7 +1223,7 @@ const listIncidents = (
 const listIncidentRevisions = (
 
  ) => {
-      return santaiziRequest<ObjectListResponseResponse>(
+      return santaiziRequest<IncidentRevisionListResponseResponse>(
       {url: `/api/v2/admin/telemetry/incident-revisions`, method: 'GET'
     },
       );
@@ -1193,7 +1235,7 @@ const listIncidentRevisions = (
 const listTelemetryDataLoss = (
 
  ) => {
-      return santaiziRequest<ObjectListResponseResponse>(
+      return santaiziRequest<TelemetryDataLossListResponseResponse>(
       {url: `/api/v2/admin/telemetry/data-loss`, method: 'GET'
     },
       );
@@ -1205,13 +1247,13 @@ const listTelemetryDataLoss = (
 const listTelemetryAlerts = (
 
  ) => {
-      return santaiziRequest<ObjectListResponseResponse>(
+      return santaiziRequest<TelemetryAlertListResponseResponse>(
       {url: `/api/v2/admin/telemetry/alerts`, method: 'GET'
     },
       );
     }
 
-return {getSession,logout,getPublicBootstrap,createViewPasswordSession,listPublicServers,getPublicServer,listPublicServices,getPublicNetworkHistory,listPublicCycleTransfer,getAdminSummary,listServers,createServer,getServer,updateServer,deleteServer,listServerAvailability,updateServerDisplayIndex,listServerGroups,renameServerGroup,resetServerSecret,resetServerAvailability,getServerCredential,getServerInstallPreview,getProbeCapabilities,listTrafficPolicies,createTrafficPolicy,getTrafficPolicy,updateTrafficPolicy,deleteTrafficPolicy,getTrafficPolicyUsage,batchUpdateServerGroup,batchDeleteServers,listMonitors,createMonitor,getMonitor,updateMonitor,deleteMonitor,listMonitorHistory,listNotifications,createNotification,getNotification,updateNotification,deleteNotification,testNotification,listAlertRules,createAlertRule,getAlertRule,updateAlertRule,deleteAlertRule,listDDNSProviders,listDDNSProfiles,createDDNSProfile,getDDNSProfile,updateDDNSProfile,deleteDDNSProfile,listNATTunnels,createNATTunnel,getNATTunnel,updateNATTunnel,deleteNATTunnel,getSettings,updateSettings,listApiTokens,createApiToken,getApiToken,patchApiToken,deleteApiToken,listOfflineHistory,deleteOfflineHistory,cleanupOfflineHistory,getTelemetryOverview,listCollectors,createCollector,getCollector,updateCollector,deleteCollector,rotateCollectorToken,getCollectorToken,revokeCollector,updateCollectorScope,getCollectorInstallPreview,listObserverAssignments,listAgentReliability,listIncidents,listIncidentRevisions,listTelemetryDataLoss,listTelemetryAlerts}};
+return {getSession,logout,getPublicBootstrap,createViewPasswordSession,listPublicServers,getPublicServer,listPublicServices,getPublicNetworkHistory,listPublicCycleTransfer,getAdminSummary,listServers,createServer,getServer,updateServer,deleteServer,listServerAvailability,updateServerDisplayIndex,listServerGroups,renameServerGroup,resetServerSecret,resetServerAvailability,getServerCredential,getServerInstallPreview,getProbeCapabilities,listTrafficPolicies,createTrafficPolicy,getTrafficPolicy,updateTrafficPolicy,deleteTrafficPolicy,getTrafficPolicyUsage,batchUpdateServerGroup,batchDeleteServers,listMonitors,createMonitor,getMonitor,updateMonitor,deleteMonitor,listMonitorHistory,listNotifications,createNotification,getNotification,updateNotification,deleteNotification,testNotification,listAlertRules,createAlertRule,getAlertRule,updateAlertRule,deleteAlertRule,listDDNSProviders,listDDNSProfiles,createDDNSProfile,getDDNSProfile,updateDDNSProfile,deleteDDNSProfile,listNATTunnels,createNATTunnel,getNATTunnel,updateNATTunnel,deleteNATTunnel,getSettings,updateSettings,listApiTokens,createApiToken,getApiToken,patchApiToken,deleteApiToken,listOfflineHistory,deleteOfflineHistory,cleanupOfflineHistory,getTelemetryOverview,getConnectionSummary,listConnectionPaths,listCollectors,createCollector,getCollector,updateCollector,deleteCollector,rotateCollectorToken,getCollectorToken,revokeCollector,updateCollectorScope,getCollectorInstallPreview,listObserverAssignments,listAgentReliability,listIncidents,listIncidentRevisions,listTelemetryDataLoss,listTelemetryAlerts}};
 export type GetSessionResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getSession']>>>
 export type LogoutResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['logout']>>>
 export type GetPublicBootstrapResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getPublicBootstrap']>>>
@@ -1283,6 +1325,8 @@ export type ListOfflineHistoryResult = NonNullable<Awaited<ReturnType<ReturnType
 export type DeleteOfflineHistoryResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['deleteOfflineHistory']>>>
 export type CleanupOfflineHistoryResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['cleanupOfflineHistory']>>>
 export type GetTelemetryOverviewResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getTelemetryOverview']>>>
+export type GetConnectionSummaryResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getConnectionSummary']>>>
+export type ListConnectionPathsResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['listConnectionPaths']>>>
 export type ListCollectorsResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['listCollectors']>>>
 export type CreateCollectorResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['createCollector']>>>
 export type GetCollectorResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getCollector']>>>

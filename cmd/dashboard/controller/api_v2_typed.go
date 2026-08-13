@@ -1074,7 +1074,7 @@ func v2ServerCredential(c *gin.Context) {
 		writeV2Problem(c, 404, "server_not_found", "服务器不存在")
 		return
 	}
-	writeV2Data(c, 200, gin.H{"server_id": row.ID, "secret": row.Secret, "grpc_host": singleton.Conf.GRPCHost, "grpc_port": singleton.Conf.GRPCPort})
+	writeV2Data(c, 200, gin.H{"server_id": row.ID, "secret": row.Secret, "grpc_host": singleton.Conf.GRPCHost, "grpc_port": publicGRPCPort()})
 }
 func v2InstallPreview(c *gin.Context) {
 	id, ok := v2ID(c)
@@ -1102,14 +1102,24 @@ func v2InstallPreview(c *gin.Context) {
 	} else if platform == "windows" {
 		script = singleton.Conf.InstallScript.Windows
 	}
-	command, err := buildInstallCommand(platform, script, host, singleton.Conf.GRPCPort, row.Secret, request.CleanInstall, request.Options, request.IPReportConfig)
+	command, err := buildInstallCommand(platform, script, host, publicGRPCPort(), row.Secret, request.CleanInstall, singleton.Conf.TLS, request.Options, request.IPReportConfig)
 	if err != nil {
 		writeV2Problem(c, 400, "invalid_platform", err.Error())
 		return
 	}
 	writeV2Data(c, 200, gin.H{"platform": platform, "command": command, "clean_install": request.CleanInstall, "options": request.Options, "ip_report_config": request.IPReportConfig})
 }
-func buildInstallCommand(platform, script, host string, port uint, secret string, clean bool, options monitoringOptionsDTO, ipCfg ipReportConfigDTO) (string, error) {
+func publicGRPCPort() uint {
+	if singleton.Conf != nil && singleton.Conf.ProxyGRPCPort != 0 {
+		return singleton.Conf.ProxyGRPCPort
+	}
+	if singleton.Conf != nil && singleton.Conf.GRPCPort != 0 {
+		return singleton.Conf.GRPCPort
+	}
+	return 5555
+}
+
+func buildInstallCommand(platform, script, host string, port uint, secret string, clean, useTLS bool, options monitoringOptionsDTO, ipCfg ipReportConfigDTO) (string, error) {
 	flags := installFlags(options, platform == "windows", ipCfg)
 	switch platform {
 	case "linux", "macos":
@@ -1117,12 +1127,18 @@ func buildInstallCommand(platform, script, host string, port uint, secret string
 		if clean {
 			parts = append(parts, "--clean-install", "--confirm-clean-install")
 		}
+		if useTLS {
+			parts = append(parts, "--tls")
+		}
 		parts = append(parts, flags...)
 		return strings.Join(parts, " "), nil
 	case "windows":
 		parts := []string{"& ([scriptblock]::Create((irm", powershellQuote(script), "))) -Server", powershellQuote(host), "-Port", strconv.FormatUint(uint64(port), 10), "-Key", powershellQuote(secret)}
 		if clean {
 			parts = append(parts, "-CleanInstall", "-ConfirmCleanInstall")
+		}
+		if useTLS {
+			parts = append(parts, "-Tls")
 		}
 		parts = append(parts, flags...)
 		return strings.Join(parts, " "), nil

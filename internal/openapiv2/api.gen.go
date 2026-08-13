@@ -49,6 +49,54 @@ func (e APITokenWritePermission) Valid() bool {
 	}
 }
 
+// Defines values for AgentReliabilityRecordWalPressure.
+const (
+	AgentReliabilityRecordWalPressureCritical          AgentReliabilityRecordWalPressure = "critical"
+	AgentReliabilityRecordWalPressureDownsampled       AgentReliabilityRecordWalPressure = "downsampled"
+	AgentReliabilityRecordWalPressureHealthy           AgentReliabilityRecordWalPressure = "healthy"
+	AgentReliabilityRecordWalPressureRollup            AgentReliabilityRecordWalPressure = "rollup"
+	AgentReliabilityRecordWalPressureTelemetryDataLoss AgentReliabilityRecordWalPressure = "telemetry_data_loss"
+	AgentReliabilityRecordWalPressureUnknown           AgentReliabilityRecordWalPressure = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the AgentReliabilityRecordWalPressure enum.
+func (e AgentReliabilityRecordWalPressure) Valid() bool {
+	switch e {
+	case AgentReliabilityRecordWalPressureCritical:
+		return true
+	case AgentReliabilityRecordWalPressureDownsampled:
+		return true
+	case AgentReliabilityRecordWalPressureHealthy:
+		return true
+	case AgentReliabilityRecordWalPressureRollup:
+		return true
+	case AgentReliabilityRecordWalPressureTelemetryDataLoss:
+		return true
+	case AgentReliabilityRecordWalPressureUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AgentSinkObserverKind.
+const (
+	AgentSinkObserverKindCollector AgentSinkObserverKind = "collector"
+	AgentSinkObserverKindPrimary   AgentSinkObserverKind = "primary"
+)
+
+// Valid indicates whether the value is a known member of the AgentSinkObserverKind enum.
+func (e AgentSinkObserverKind) Valid() bool {
+	switch e {
+	case AgentSinkObserverKindCollector:
+		return true
+	case AgentSinkObserverKindPrimary:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AlertConditionType.
 const (
 	AlertConditionTypeCpu            AlertConditionType = "cpu"
@@ -187,6 +235,27 @@ func (e BootstrapTheme) Valid() bool {
 	}
 }
 
+// Defines values for CollectorStatus.
+const (
+	CollectorStatusOffline CollectorStatus = "offline"
+	CollectorStatusOnline  CollectorStatus = "online"
+	CollectorStatusUnknown CollectorStatus = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the CollectorStatus enum.
+func (e CollectorStatus) Valid() bool {
+	switch e {
+	case CollectorStatusOffline:
+		return true
+	case CollectorStatusOnline:
+		return true
+	case CollectorStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CollectorScopeType.
 const (
 	CollectorScopeTypeAll    CollectorScopeType = "all"
@@ -205,6 +274,24 @@ func (e CollectorScopeType) Valid() bool {
 	case CollectorScopeTypeServer:
 		return true
 	case CollectorScopeTypeTag:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ConnectionPathObserverKind.
+const (
+	ConnectionPathObserverKindCollector ConnectionPathObserverKind = "collector"
+	ConnectionPathObserverKindPrimary   ConnectionPathObserverKind = "primary"
+)
+
+// Valid indicates whether the value is a known member of the ConnectionPathObserverKind enum.
+func (e ConnectionPathObserverKind) Valid() bool {
+	switch e {
+	case ConnectionPathObserverKindCollector:
+		return true
+	case ConnectionPathObserverKindPrimary:
 		return true
 	default:
 		return false
@@ -460,6 +547,42 @@ func (e NotificationChannelWriteRequestType) Valid() bool {
 	}
 }
 
+// Defines values for ObserverAssignmentRecordObserverKind.
+const (
+	ObserverAssignmentRecordObserverKindCollector ObserverAssignmentRecordObserverKind = "collector"
+	ObserverAssignmentRecordObserverKindPrimary   ObserverAssignmentRecordObserverKind = "primary"
+)
+
+// Valid indicates whether the value is a known member of the ObserverAssignmentRecordObserverKind enum.
+func (e ObserverAssignmentRecordObserverKind) Valid() bool {
+	switch e {
+	case ObserverAssignmentRecordObserverKindCollector:
+		return true
+	case ObserverAssignmentRecordObserverKindPrimary:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ObserverEvidenceItemObserverKind.
+const (
+	ObserverEvidenceItemObserverKindCollector ObserverEvidenceItemObserverKind = "collector"
+	ObserverEvidenceItemObserverKindPrimary   ObserverEvidenceItemObserverKind = "primary"
+)
+
+// Valid indicates whether the value is a known member of the ObserverEvidenceItemObserverKind enum.
+func (e ObserverEvidenceItemObserverKind) Valid() bool {
+	switch e {
+	case ObserverEvidenceItemObserverKindCollector:
+		return true
+	case ObserverEvidenceItemObserverKindPrimary:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PublicNoteBillingAutoRenewal.
 const (
 	PublicNoteBillingAutoRenewalN0 PublicNoteBillingAutoRenewal = "0"
@@ -508,6 +631,30 @@ func (e PublicNotePlanIPv6) Valid() bool {
 	case PublicNotePlanIPv6N0:
 		return true
 	case PublicNotePlanIPv6N1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TelemetryDataLossRecordReason.
+const (
+	TelemetryDataLossRecordReasonCompacted         TelemetryDataLossRecordReason = "compacted"
+	TelemetryDataLossRecordReasonCorruption        TelemetryDataLossRecordReason = "corruption"
+	TelemetryDataLossRecordReasonHardLimitDataLoss TelemetryDataLossRecordReason = "hard_limit_data_loss"
+	TelemetryDataLossRecordReasonUnknown           TelemetryDataLossRecordReason = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the TelemetryDataLossRecordReason enum.
+func (e TelemetryDataLossRecordReason) Valid() bool {
+	switch e {
+	case TelemetryDataLossRecordReasonCompacted:
+		return true
+	case TelemetryDataLossRecordReasonCorruption:
+		return true
+	case TelemetryDataLossRecordReasonHardLimitDataLoss:
+		return true
+	case TelemetryDataLossRecordReasonUnknown:
 		return true
 	default:
 		return false
@@ -909,6 +1056,38 @@ type APITokenWrite struct {
 // APITokenWritePermission defines model for APITokenWrite.Permission.
 type APITokenWritePermission string
 
+// AgentReliabilityRecord defines model for AgentReliabilityRecord.
+type AgentReliabilityRecord struct {
+	ClockUntrusted  bool                              `json:"clock_untrusted"`
+	NodeUuid        string                            `json:"node_uuid"`
+	OldestPending   *time.Time                        `json:"oldest_pending,omitempty"`
+	PendingEvents   *int64                            `json:"pending_events,omitempty"`
+	ProtocolVersion *string                           `json:"protocol_version,omitempty"`
+	ServerId        *int64                            `json:"server_id,omitempty"`
+	ServerName      *string                           `json:"server_name,omitempty"`
+	Sinks           []AgentSink                       `json:"sinks"`
+	UpdatedAt       *time.Time                        `json:"updated_at,omitempty"`
+	WalBytes        *int64                            `json:"wal_bytes,omitempty"`
+	WalPressure     AgentReliabilityRecordWalPressure `json:"wal_pressure"`
+}
+
+// AgentReliabilityRecordWalPressure defines model for AgentReliabilityRecord.WalPressure.
+type AgentReliabilityRecordWalPressure string
+
+// AgentSink defines model for AgentSink.
+type AgentSink struct {
+	AckThrough    *int64                 `json:"ack_through,omitempty"`
+	Connected     bool                   `json:"connected"`
+	EndpointId    string                 `json:"endpoint_id"`
+	LastError     *string                `json:"last_error,omitempty"`
+	ObserverKind  *AgentSinkObserverKind `json:"observer_kind,omitempty"`
+	ObserverName  *string                `json:"observer_name,omitempty"`
+	PendingEvents *int64                 `json:"pending_events,omitempty"`
+}
+
+// AgentSinkObserverKind defines model for AgentSink.ObserverKind.
+type AgentSinkObserverKind string
+
 // AlertCondition defines model for AlertCondition.
 type AlertCondition struct {
 	DurationSeconds int64              `json:"duration_seconds"`
@@ -992,7 +1171,9 @@ type Collector struct {
 	Generation        int64             `json:"generation"`
 	Id                string            `json:"id"`
 	InsecureTls       bool              `json:"insecure_tls"`
+	LastPrimarySeen   *time.Time        `json:"last_primary_seen,omitempty"`
 	LastSeen          *time.Time        `json:"last_seen,omitempty"`
+	LastSync          *time.Time        `json:"last_sync,omitempty"`
 	Name              string            `json:"name"`
 	OldestPending     *time.Time        `json:"oldest_pending,omitempty"`
 	PendingRecords    *int64            `json:"pending_records,omitempty"`
@@ -1001,9 +1182,12 @@ type Collector struct {
 	Revoked           bool              `json:"revoked"`
 	Scopes            *[]CollectorScope `json:"scopes,omitempty"`
 	SpoolSize         *int64            `json:"spool_size,omitempty"`
-	Status            *string           `json:"status,omitempty"`
+	Status            *CollectorStatus  `json:"status,omitempty"`
 	Tls               bool              `json:"tls"`
 }
+
+// CollectorStatus defines model for Collector.Status.
+type CollectorStatus string
 
 // CollectorCreated defines model for CollectorCreated.
 type CollectorCreated struct {
@@ -1056,6 +1240,41 @@ type CollectorWrite struct {
 	Name        string           `json:"name"`
 	Scopes      []CollectorScope `json:"scopes"`
 	Tls         *bool            `json:"tls,omitempty"`
+}
+
+// ConnectionPath defines model for ConnectionPath.
+type ConnectionPath struct {
+	Assigned     bool                       `json:"assigned"`
+	LastSeen     *time.Time                 `json:"last_seen,omitempty"`
+	NodeUuid     string                     `json:"node_uuid"`
+	ObserverId   string                     `json:"observer_id"`
+	ObserverKind ConnectionPathObserverKind `json:"observer_kind"`
+	ObserverName string                     `json:"observer_name"`
+	ServerId     int64                      `json:"server_id"`
+	ServerName   string                     `json:"server_name"`
+	Sink         ConnectionPathSink         `json:"sink"`
+}
+
+// ConnectionPathObserverKind defines model for ConnectionPath.ObserverKind.
+type ConnectionPathObserverKind string
+
+// ConnectionPathSink defines model for ConnectionPathSink.
+type ConnectionPathSink struct {
+	AckThrough    *int64  `json:"ack_through,omitempty"`
+	Connected     bool    `json:"connected"`
+	LastError     *string `json:"last_error,omitempty"`
+	PendingEvents *int64  `json:"pending_events,omitempty"`
+}
+
+// ConnectionSummary defines model for ConnectionSummary.
+type ConnectionSummary struct {
+	CollectorsOffline int64 `json:"collectors_offline"`
+	CollectorsOnline  int64 `json:"collectors_online"`
+	CollectorsTotal   int64 `json:"collectors_total"`
+	CollectorsUnknown int64 `json:"collectors_unknown"`
+	PathsAssigned     int64 `json:"paths_assigned"`
+	PathsConnected    int64 `json:"paths_connected"`
+	PathsSeen         int64 `json:"paths_seen"`
 }
 
 // DDNSProfile defines model for DDNSProfile.
@@ -1128,6 +1347,34 @@ type IPReportConfig struct {
 	CountryCode *string `json:"country_code,omitempty"`
 	Interface   *string `json:"interface,omitempty"`
 	PreferIpv6  *bool   `json:"prefer_ipv6,omitempty"`
+}
+
+// IncidentRecord defines model for IncidentRecord.
+type IncidentRecord struct {
+	CurrentClassification string                 `json:"current_classification"`
+	EndedAt               *time.Time             `json:"ended_at,omitempty"`
+	Id                    int64                  `json:"id"`
+	InitialClassification *string                `json:"initial_classification,omitempty"`
+	NodeUuid              string                 `json:"node_uuid"`
+	ObserverEvidence      []ObserverEvidenceItem `json:"observer_evidence"`
+	Reason                *string                `json:"reason,omitempty"`
+	RecalculatedAt        *time.Time             `json:"recalculated_at,omitempty"`
+	Revision              *int64                 `json:"revision,omitempty"`
+	ServerId              *int64                 `json:"server_id,omitempty"`
+	ServerName            *string                `json:"server_name,omitempty"`
+	StartedAt             *time.Time             `json:"started_at,omitempty"`
+}
+
+// IncidentRevisionRecord defines model for IncidentRevisionRecord.
+type IncidentRevisionRecord struct {
+	Classification   string                 `json:"classification"`
+	CreatedAt        *time.Time             `json:"created_at,omitempty"`
+	Id               int64                  `json:"id"`
+	IncidentId       int64                  `json:"incident_id"`
+	ObserverEvidence []ObserverEvidenceItem `json:"observer_evidence"`
+	Reason           *string                `json:"reason,omitempty"`
+	RecalculatedAt   *time.Time             `json:"recalculated_at,omitempty"`
+	Revision         *int64                 `json:"revision,omitempty"`
 }
 
 // InstallPreview defines model for InstallPreview.
@@ -1302,6 +1549,35 @@ type ObjectList struct {
 	Meta Meta            `json:"meta"`
 }
 
+// ObserverAssignmentRecord defines model for ObserverAssignmentRecord.
+type ObserverAssignmentRecord struct {
+	ConfigVersion *int64                               `json:"config_version,omitempty"`
+	Generation    *int64                               `json:"generation,omitempty"`
+	NodeUuid      string                               `json:"node_uuid"`
+	ObserverId    string                               `json:"observer_id"`
+	ObserverKind  ObserverAssignmentRecordObserverKind `json:"observer_kind"`
+	ObserverName  *string                              `json:"observer_name,omitempty"`
+	ServerId      *int64                               `json:"server_id,omitempty"`
+	ServerName    *string                              `json:"server_name,omitempty"`
+	ValidFrom     *time.Time                           `json:"valid_from,omitempty"`
+	ValidTo       *time.Time                           `json:"valid_to,omitempty"`
+}
+
+// ObserverAssignmentRecordObserverKind defines model for ObserverAssignmentRecord.ObserverKind.
+type ObserverAssignmentRecordObserverKind string
+
+// ObserverEvidenceItem defines model for ObserverEvidenceItem.
+type ObserverEvidenceItem struct {
+	Healthy      bool                              `json:"healthy"`
+	ObserverId   string                            `json:"observer_id"`
+	ObserverKind *ObserverEvidenceItemObserverKind `json:"observer_kind,omitempty"`
+	ObserverName *string                           `json:"observer_name,omitempty"`
+	Seen         bool                              `json:"seen"`
+}
+
+// ObserverEvidenceItemObserverKind defines model for ObserverEvidenceItem.ObserverKind.
+type ObserverEvidenceItemObserverKind string
+
 // ProbeCapabilities defines model for ProbeCapabilities.
 type ProbeCapabilities struct {
 	Optional []ProbeCapability            `json:"optional"`
@@ -1385,11 +1661,15 @@ type PublicNotePresentation struct {
 
 // Server defines model for Server.
 type Server struct {
-	DdnsProfiles      *[]int64                `json:"ddns_profiles,omitempty"`
-	DisplayIndex      int                     `json:"display_index"`
-	EnableDdns        bool                    `json:"enable_ddns"`
-	HideForGuest      bool                    `json:"hide_for_guest"`
-	Host              *map[string]interface{} `json:"host,omitempty"`
+	DdnsProfiles *[]int64 `json:"ddns_profiles,omitempty"`
+	DisplayIndex int      `json:"display_index"`
+	EnableDdns   bool     `json:"enable_ddns"`
+	HideForGuest bool     `json:"hide_for_guest"`
+
+	// Host 探针 Host 快照。管理接口以及带 Bearer Token 的公开服务器接口返回明文公网地址（`ip` / `ipv4` / `ipv6`），不脱敏。
+	// 匿名或查看密码访问的 `listPublicServers`、`getPublicServer` 与 `/ws/v2/public/runtime` 省略这些字段。
+	// 其余字段为探针上报的 PascalCase 快照（如 Platform、CountryCode）。
+	Host              *ServerHost             `json:"host,omitempty"`
 	Id                int64                   `json:"id"`
 	LastActive        *time.Time              `json:"last_active,omitempty"`
 	MonitoringOptions *MonitoringOptions      `json:"monitoring_options,omitempty"`
@@ -1428,6 +1708,21 @@ type ServerGroupRenameWrite struct {
 	To   string `json:"to"`
 }
 
+// ServerHost 探针 Host 快照。管理接口以及带 Bearer Token 的公开服务器接口返回明文公网地址（`ip` / `ipv4` / `ipv6`），不脱敏。
+// 匿名或查看密码访问的 `listPublicServers`、`getPublicServer` 与 `/ws/v2/public/runtime` 省略这些字段。
+// 其余字段为探针上报的 PascalCase 快照（如 Platform、CountryCode）。
+type ServerHost struct {
+	// Ip 探针上报的公网地址；双栈为 `IPv4/IPv6`。管理接口与 Bearer Token 公开请求返回。
+	Ip *string `json:"ip,omitempty"`
+
+	// Ipv4 从 `ip` 拆出的 IPv4。管理接口与 Bearer Token 公开请求返回。
+	Ipv4 *string `json:"ipv4,omitempty"`
+
+	// Ipv6 从 `ip` 拆出的 IPv6。管理接口与 Bearer Token 公开请求返回。
+	Ipv6                 *string                `json:"ipv6,omitempty"`
+	AdditionalProperties map[string]interface{} `json:"-"`
+}
+
 // ServerSecret defines model for ServerSecret.
 type ServerSecret struct {
 	Secret string `json:"secret"`
@@ -1454,6 +1749,38 @@ type Session struct {
 	LoginUrl      string   `json:"login_url"`
 	User          *User    `json:"user,omitempty"`
 }
+
+// TelemetryAlertRecord defines model for TelemetryAlertRecord.
+type TelemetryAlertRecord struct {
+	AlertType   string     `json:"alert_type"`
+	ComponentId *string    `json:"component_id,omitempty"`
+	CreatedAt   *time.Time `json:"created_at,omitempty"`
+	DedupKey    *string    `json:"dedup_key,omitempty"`
+	Id          int64      `json:"id"`
+	Message     *string    `json:"message,omitempty"`
+	NodeUuid    *string    `json:"node_uuid,omitempty"`
+	Notified    bool       `json:"notified"`
+	OccurredAt  *time.Time `json:"occurred_at,omitempty"`
+	ServerId    *int64     `json:"server_id,omitempty"`
+	ServerName  *string    `json:"server_name,omitempty"`
+	Severity    *string    `json:"severity,omitempty"`
+}
+
+// TelemetryDataLossRecord defines model for TelemetryDataLossRecord.
+type TelemetryDataLossRecord struct {
+	ComponentId  *string                       `json:"component_id,omitempty"`
+	CreatedAt    *time.Time                    `json:"created_at,omitempty"`
+	Detail       *string                       `json:"detail,omitempty"`
+	FactId       string                        `json:"fact_id"`
+	FirstSpoolId *int64                        `json:"first_spool_id,omitempty"`
+	LastSpoolId  *int64                        `json:"last_spool_id,omitempty"`
+	LostRecords  int64                         `json:"lost_records"`
+	OccurredAt   *time.Time                    `json:"occurred_at,omitempty"`
+	Reason       TelemetryDataLossRecordReason `json:"reason"`
+}
+
+// TelemetryDataLossRecordReason defines model for TelemetryDataLossRecord.Reason.
+type TelemetryDataLossRecordReason string
 
 // TelemetryPresentation defines model for TelemetryPresentation.
 type TelemetryPresentation struct {
@@ -1604,6 +1931,12 @@ type APITokenResponse struct {
 	Data APIToken `json:"data"`
 }
 
+// AgentReliabilityListResponse defines model for AgentReliabilityListResponse.
+type AgentReliabilityListResponse struct {
+	Data []AgentReliabilityRecord `json:"data"`
+	Meta Meta                     `json:"meta"`
+}
+
 // AlertRuleListResponse defines model for AlertRuleListResponse.
 type AlertRuleListResponse struct {
 	Data []AlertRule `json:"data"`
@@ -1646,6 +1979,17 @@ type CollectorTokenResponse struct {
 	Data CollectorToken `json:"data"`
 }
 
+// ConnectionPathListResponse defines model for ConnectionPathListResponse.
+type ConnectionPathListResponse struct {
+	Data []ConnectionPath `json:"data"`
+	Meta Meta             `json:"meta"`
+}
+
+// ConnectionSummaryResponse defines model for ConnectionSummaryResponse.
+type ConnectionSummaryResponse struct {
+	Data ConnectionSummary `json:"data"`
+}
+
 // DDNSProfileListResponse defines model for DDNSProfileListResponse.
 type DDNSProfileListResponse struct {
 	Data []DDNSProfile `json:"data"`
@@ -1661,6 +2005,18 @@ type DDNSProfileResponse struct {
 type DDNSProviderListResponse struct {
 	Data []DDNSProvider `json:"data"`
 	Meta Meta           `json:"meta"`
+}
+
+// IncidentListResponse defines model for IncidentListResponse.
+type IncidentListResponse struct {
+	Data []IncidentRecord `json:"data"`
+	Meta Meta             `json:"meta"`
+}
+
+// IncidentRevisionListResponse defines model for IncidentRevisionListResponse.
+type IncidentRevisionListResponse struct {
+	Data []IncidentRevisionRecord `json:"data"`
+	Meta Meta                     `json:"meta"`
 }
 
 // InstallPreviewResponse defines model for InstallPreviewResponse.
@@ -1707,6 +2063,12 @@ type ObjectListResponse = ObjectList
 // ObjectResponse defines model for ObjectResponse.
 type ObjectResponse = ObjectData
 
+// ObserverAssignmentListResponse defines model for ObserverAssignmentListResponse.
+type ObserverAssignmentListResponse struct {
+	Data []ObserverAssignmentRecord `json:"data"`
+	Meta Meta                       `json:"meta"`
+}
+
 // ProbeCapabilitiesResponse defines model for ProbeCapabilitiesResponse.
 type ProbeCapabilitiesResponse struct {
 	Data ProbeCapabilities `json:"data"`
@@ -1742,6 +2104,18 @@ type ServerSecretResponse struct {
 // SessionResponse defines model for SessionResponse.
 type SessionResponse struct {
 	Data Session `json:"data"`
+}
+
+// TelemetryAlertListResponse defines model for TelemetryAlertListResponse.
+type TelemetryAlertListResponse struct {
+	Data []TelemetryAlertRecord `json:"data"`
+	Meta Meta                   `json:"meta"`
+}
+
+// TelemetryDataLossListResponse defines model for TelemetryDataLossListResponse.
+type TelemetryDataLossListResponse struct {
+	Data []TelemetryDataLossRecord `json:"data"`
+	Meta Meta                      `json:"meta"`
 }
 
 // TrafficPolicyListResponse defines model for TrafficPolicyListResponse.
@@ -1806,6 +2180,12 @@ type DeleteApiTokenParams struct {
 type PatchApiTokenParams struct {
 	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
 	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// ListConnectionPathsParams defines parameters for ListConnectionPaths.
+type ListConnectionPathsParams struct {
+	ServerId   *int64  `form:"server_id,omitempty" json:"server_id,omitempty"`
+	ObserverId *string `form:"observer_id,omitempty" json:"observer_id,omitempty"`
 }
 
 // ListDDNSProfilesParams defines parameters for ListDDNSProfiles.
@@ -2794,6 +3174,104 @@ func (a PublicNotePresentation) MarshalJSON() ([]byte, error) {
 	return json.Marshal(object)
 }
 
+// Getter for additional properties for ServerHost. Returns the specified
+// element and whether it was found
+func (a ServerHost) Get(fieldName string) (value interface{}, found bool) {
+	if a.AdditionalProperties != nil {
+		value, found = a.AdditionalProperties[fieldName]
+	}
+	return
+}
+
+// Setter for additional properties for ServerHost
+func (a *ServerHost) Set(fieldName string, value interface{}) {
+	if a.AdditionalProperties == nil {
+		a.AdditionalProperties = make(map[string]interface{})
+	}
+	a.AdditionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for ServerHost to handle AdditionalProperties
+func (a *ServerHost) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if raw, found := object["ip"]; found {
+		err = json.Unmarshal(raw, &a.Ip)
+		if err != nil {
+			return fmt.Errorf("error reading 'ip': %w", err)
+		}
+		delete(object, "ip")
+	}
+
+	if raw, found := object["ipv4"]; found {
+		err = json.Unmarshal(raw, &a.Ipv4)
+		if err != nil {
+			return fmt.Errorf("error reading 'ipv4': %w", err)
+		}
+		delete(object, "ipv4")
+	}
+
+	if raw, found := object["ipv6"]; found {
+		err = json.Unmarshal(raw, &a.Ipv6)
+		if err != nil {
+			return fmt.Errorf("error reading 'ipv6': %w", err)
+		}
+		delete(object, "ipv6")
+	}
+
+	if len(object) != 0 {
+		a.AdditionalProperties = make(map[string]interface{})
+		for fieldName, fieldBuf := range object {
+			var fieldVal interface{}
+			err := json.Unmarshal(fieldBuf, &fieldVal)
+			if err != nil {
+				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
+			}
+			a.AdditionalProperties[fieldName] = fieldVal
+		}
+	}
+	return nil
+}
+
+// Override default JSON handling for ServerHost to handle AdditionalProperties
+func (a ServerHost) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	if a.Ip != nil {
+		object["ip"], err = json.Marshal(a.Ip)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'ip': %w", err)
+		}
+	}
+
+	if a.Ipv4 != nil {
+		object["ipv4"], err = json.Marshal(a.Ipv4)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'ipv4': %w", err)
+		}
+	}
+
+	if a.Ipv6 != nil {
+		object["ipv6"], err = json.Marshal(a.Ipv6)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'ipv6': %w", err)
+		}
+	}
+
+	for fieldName, field := range a.AdditionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
+		}
+	}
+	return json.Marshal(object)
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// ListAlertRules 告警规则列表
@@ -2826,6 +3304,12 @@ type ServerInterface interface {
 	// PatchApiToken 启用或禁用 API Token
 	// (PATCH /api/v2/admin/api-tokens/{id})
 	PatchApiToken(c *gin.Context, id Id, params PatchApiTokenParams)
+	// ListConnectionPaths 节点与观测点连接路径
+	// (GET /api/v2/admin/connections/paths)
+	ListConnectionPaths(c *gin.Context, params ListConnectionPathsParams)
+	// GetConnectionSummary 连接观察摘要
+	// (GET /api/v2/admin/connections/summary)
+	GetConnectionSummary(c *gin.Context)
 	// ListDDNSProfiles DDNS 配置列表
 	// (GET /api/v2/admin/ddns)
 	ListDDNSProfiles(c *gin.Context, params ListDDNSProfilesParams)
@@ -3464,6 +3948,54 @@ func (siw *ServerInterfaceWrapper) PatchApiToken(c *gin.Context) {
 	}
 
 	siw.Handler.PatchApiToken(c, id, params)
+}
+
+// ListConnectionPaths operation middleware
+func (siw *ServerInterfaceWrapper) ListConnectionPaths(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListConnectionPathsParams
+
+	// ------------- Optional query parameter "server_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "server_id", c.Request.URL.Query(), &params.ServerId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter server_id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "observer_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "observer_id", c.Request.URL.Query(), &params.ObserverId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter observer_id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListConnectionPaths(c, params)
+}
+
+// GetConnectionSummary operation middleware
+func (siw *ServerInterfaceWrapper) GetConnectionSummary(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetConnectionSummary(c)
 }
 
 // ListDDNSProfiles operation middleware
@@ -6349,6 +6881,8 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.DELETE(options.BaseURL+"/api/v2/admin/offline-history/:id", wrapper.DeleteOfflineHistory)
 	router.POST(options.BaseURL+"/api/v2/admin/offline-history/cleanup", wrapper.CleanupOfflineHistory)
 	router.GET(options.BaseURL+"/api/v2/admin/telemetry/overview", wrapper.GetTelemetryOverview)
+	router.GET(options.BaseURL+"/api/v2/admin/connections/summary", wrapper.GetConnectionSummary)
+	router.GET(options.BaseURL+"/api/v2/admin/connections/paths", wrapper.ListConnectionPaths)
 	router.GET(options.BaseURL+"/api/v2/admin/telemetry/collectors", wrapper.ListCollectors)
 	router.POST(options.BaseURL+"/api/v2/admin/telemetry/collectors", wrapper.CreateCollector)
 	router.DELETE(options.BaseURL+"/api/v2/admin/telemetry/collectors/:collectorId", wrapper.DeleteCollector)

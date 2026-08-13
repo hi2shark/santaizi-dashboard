@@ -11,6 +11,7 @@ export const router = createRouter({
     { path: '/ddns', name: 'ddns', component: () => import('@/pages/DDNSPage.vue') },
     { path: '/nat', name: 'nat', component: () => import('@/pages/NATPage.vue') },
     { path: '/telemetry', name: 'telemetry', component: () => import('@/pages/TelemetryPage.vue') },
+    { path: '/connections', name: 'connections', component: () => import('@/pages/ConnectionsPage.vue') },
     { path: '/settings', name: 'settings', component: () => import('@/pages/SettingsPage.vue') },
     { path: '/api-tokens', name: 'api-tokens', component: () => import('@/pages/ApiTokensPage.vue') },
     { path: '/login', name: 'login', component: () => import('@/pages/LoginPage.vue'), meta: { bare: true } },

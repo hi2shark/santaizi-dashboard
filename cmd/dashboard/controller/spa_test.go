@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -10,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/hi2shark/santaizi-dashboard/model"
 	openapispec "github.com/hi2shark/santaizi-dashboard/openapi"
+	"github.com/hi2shark/santaizi-dashboard/resource"
 	"github.com/hi2shark/santaizi-dashboard/service/singleton"
 	"gopkg.in/yaml.v3"
 )
@@ -24,7 +26,8 @@ func TestServeWebRegistersSPAAndV2Routes(t *testing.T) {
 		t.Fatal("HTTP handler is not a Gin engine")
 	}
 	want := map[string]bool{
-		"GET /": false, "GET /admin/*path": false, "GET /docs/api/*path": false,
+		"GET /": false, "GET /assets/*filepath": false, "GET /server/:serverId": false,
+		"GET /admin/*path": false, "GET /docs/api/*path": false,
 		"GET /openapi/v2.yaml": false, "GET /api/v2/auth/session": false,
 		"GET /api/v2/admin/servers": false, "POST /api/v2/admin/telemetry/collectors": false,
 		"GET /ws/v2/public/runtime": false,
@@ -128,4 +131,82 @@ var contractParameter = regexp.MustCompile(`\{[^}]+\}|:[^/]+`)
 
 func normalizeContractPath(value string) string {
 	return contractParameter.ReplaceAllString(value, "{}")
+}
+
+func withEmbeddedWeb(t *testing.T) http.Handler {
+	t.Helper()
+	original := singleton.Conf
+	t.Cleanup(func() { singleton.Conf = original })
+	singleton.Conf = &model.Config{Site: model.SiteConfig{CookieName: "santaizi", Theme: "server-status", DashboardTheme: "spa"}, Web: model.WebConfig{Delivery: "embedded"}}
+	return ServeWeb(0).Handler
+}
+
+func TestPublicStatusRoutesServeSPANotAdminRedirect(t *testing.T) {
+	handler := withEmbeddedWeb(t)
+
+	legacy := httptest.NewRecorder()
+	handler.ServeHTTP(legacy, httptest.NewRequest(http.MethodGet, "/server", nil))
+	if legacy.Code != http.StatusPermanentRedirect {
+		t.Fatalf("GET /server status = %d, want 308", legacy.Code)
+	}
+	if loc := legacy.Header().Get("Location"); loc != "/admin/servers" {
+		t.Fatalf("GET /server Location = %q, want /admin/servers", loc)
+	}
+
+	detail := httptest.NewRecorder()
+	handler.ServeHTTP(detail, httptest.NewRequest(http.MethodGet, "/server/2", nil))
+	if detail.Code == http.StatusPermanentRedirect || detail.Code == http.StatusMovedPermanently {
+		t.Fatalf("GET /server/2 redirected to %q", detail.Header().Get("Location"))
+	}
+	if detail.Code == http.StatusNotFound {
+		t.Fatalf("GET /server/2 returned 404: %s", detail.Body.String())
+	}
+
+	missingAsset := httptest.NewRecorder()
+	handler.ServeHTTP(missingAsset, httptest.NewRequest(http.MethodGet, "/assets/missing-theme.js", nil))
+	if missingAsset.Code != http.StatusNotFound {
+		t.Fatalf("missing asset status = %d, want 404", missingAsset.Code)
+	}
+	if strings.Contains(missingAsset.Header().Get("Content-Type"), "text/html") {
+		t.Fatal("missing asset must not fall back to index.html")
+	}
+}
+
+func TestEmbeddedStatusAssetsAreServedWhenBuilt(t *testing.T) {
+	if _, err := fs.Stat(resource.WebFS, "web/status/index.html"); err != nil {
+		t.Skip("status SPA is not embedded; run pnpm build before go test")
+	}
+	handler := withEmbeddedWeb(t)
+
+	home := httptest.NewRecorder()
+	handler.ServeHTTP(home, httptest.NewRequest(http.MethodGet, "/", nil))
+	if home.Code != http.StatusOK {
+		t.Fatalf("GET / status = %d: %s", home.Code, home.Body.String())
+	}
+	html := home.Body.String()
+	if !strings.Contains(html, "<div id=\"app\">") {
+		t.Fatalf("GET / did not return status index.html: %s", html)
+	}
+
+	assetRefs := regexp.MustCompile(`(?:src|href)="(/assets/[^"]+)"`).FindAllStringSubmatch(html, -1)
+	if len(assetRefs) == 0 {
+		t.Fatal("status index.html has no /assets/ references")
+	}
+	for _, ref := range assetRefs {
+		asset := httptest.NewRecorder()
+		handler.ServeHTTP(asset, httptest.NewRequest(http.MethodGet, ref[1], nil))
+		if asset.Code != http.StatusOK {
+			t.Fatalf("GET %s status = %d: %s", ref[1], asset.Code, asset.Body.String())
+		}
+		contentType := asset.Header().Get("Content-Type")
+		if strings.Contains(contentType, "text/html") {
+			t.Fatalf("GET %s returned HTML instead of the hashed asset", ref[1])
+		}
+	}
+
+	nazhuaMap := httptest.NewRecorder()
+	handler.ServeHTTP(nazhuaMap, httptest.NewRequest(http.MethodGet, "/static/theme-nazhua/maps/world.geo.json", nil))
+	if nazhuaMap.Code != http.StatusOK {
+		t.Fatalf("GET nazhua world.geo.json status = %d: %s", nazhuaMap.Code, nazhuaMap.Body.String())
+	}
 }

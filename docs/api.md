@@ -18,7 +18,7 @@ Go 服务接口与 TypeScript Axios SDK 均从 `openapi/v2.yaml` 生成。接口
 Authorization: Bearer <api-token>
 ```
 
-Bearer Token 支持有效期与启用状态：过期或禁用视为未认证。只读 Token 可查看全部管理数据，但不能执行写操作；操作权 Token 具备完整管理写能力。
+Bearer Token 支持有效期与启用状态：过期或禁用视为未认证。只读 Token 可查看全部管理数据（含服务器 `host.ip` / `host.ipv4` / `host.ipv6` 明文），但不能执行写操作；操作权 Token 具备完整管理写能力。带 Bearer 请求公开服务器接口时同样返回这些地址；匿名与查看密码会话不返回。
 
 服务器连接密钥、Collector Token 与 API Token 可由已认证管理员在各自详情接口查看和复制。OAuth Client Secret、TLS 私钥和 Telemetry 签名私钥不会通过 HTTP API 返回。
 

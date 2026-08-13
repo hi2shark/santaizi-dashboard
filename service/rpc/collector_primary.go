@@ -14,7 +14,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	"gorm.io/gorm/clause"
 )
 
 type PrimaryCollectorHandler struct {
@@ -169,12 +168,6 @@ func collectorTokenFromMetadata(ctx context.Context) string {
 }
 
 func saveCollectorRuntime(ctx context.Context, collectorUUID string, runtime *pb.CollectorRuntime, now time.Time) error {
-	row := model.CollectorRuntime{
-		CollectorUUID: collectorUUID, Status: "online", LastSeen: now.UnixNano(),
-		SpoolSize: runtime.GetSpoolSize(), PendingRecords: runtime.GetPendingRecords(), OldestPending: runtime.GetOldestPendingUnixNano(),
-		ReplicationCursor: runtime.GetReplicationCursor(), ConnectedAgents: runtime.GetConnectedAgents(), ProtocolVersion: runtime.GetProtocolVersion(),
-	}
-	return singleton.DB.WithContext(ctx).Clauses(clause.OnConflict{
-		Columns: []clause.Column{{Name: "collector_uuid"}}, UpdateAll: true,
-	}).Create(&row).Error
+	row := telemetryservice.CollectorRuntimeFromProto(collectorUUID, runtime, now, false)
+	return telemetryservice.UpsertCollectorRuntime(singleton.DB.WithContext(ctx), row, false)
 }

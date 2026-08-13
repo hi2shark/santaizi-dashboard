@@ -129,6 +129,7 @@ type CollectorRuntime struct {
 	Status            string `gorm:"size:32;not null;index"`
 	LastSeen          int64  `gorm:"index"`
 	LastSync          int64  `gorm:"index"`
+	LastPrimarySeen   int64  `gorm:"index"`
 	SpoolSize         uint64
 	PendingRecords    uint64
 	OldestPending     int64

@@ -160,12 +160,8 @@ func (s *Store) Replicate(ctx context.Context, batch *pb.ReplicationBatch, recei
 			}
 		}
 		if runtime := batch.GetRuntime(); runtime != nil {
-			row := model.CollectorRuntime{
-				CollectorUUID: batch.GetCollectorUuid(), Status: "online", LastSeen: receivedAt.UnixNano(), LastSync: receivedAt.UnixNano(),
-				SpoolSize: runtime.GetSpoolSize(), PendingRecords: runtime.GetPendingRecords(), OldestPending: runtime.GetOldestPendingUnixNano(),
-				ReplicationCursor: runtime.GetReplicationCursor(), ConnectedAgents: runtime.GetConnectedAgents(), ProtocolVersion: runtime.GetProtocolVersion(),
-			}
-			if err := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "collector_uuid"}}, UpdateAll: true}).Create(&row).Error; err != nil {
+			row := CollectorRuntimeFromProto(batch.GetCollectorUuid(), runtime, receivedAt, true)
+			if err := UpsertCollectorRuntime(tx, row, true); err != nil {
 				return err
 			}
 		}

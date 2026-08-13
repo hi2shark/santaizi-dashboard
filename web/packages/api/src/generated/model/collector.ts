@@ -8,6 +8,7 @@
  * OpenAPI spec version: 2.0.0
  */
 import type { CollectorScope } from './collectorScope';
+import type { CollectorStatus } from './collectorStatus';
 
 export interface Collector {
   id: string;
@@ -18,8 +19,10 @@ export interface Collector {
   generation: number;
   config_version: number;
   revoked: boolean;
-  status?: string;
+  status?: CollectorStatus;
   last_seen?: string;
+  last_sync?: string;
+  last_primary_seen?: string;
   spool_size?: number;
   pending_records?: number;
   oldest_pending?: string;

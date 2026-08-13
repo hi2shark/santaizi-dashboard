@@ -44,6 +44,15 @@ onMounted(load)
       </div>
     </section>
     <section class="surface dashboard-panel">
+      <div class="section-title"><div><h2>{{ t('connectionSummary') }}</h2></div><RouterLink to="/connections">{{ t('details') }} <i class="ri-arrow-right-line"></i></RouterLink></div>
+      <div class="connection-grid">
+        <div><span>{{ t('collectorsOnline') }}</span><strong>{{ Number(summary.active_collectors || 0).toLocaleString() }}</strong></div>
+        <div><span>{{ t('collectorsOffline') }}</span><strong>{{ Number(summary.collectors_offline || 0).toLocaleString() }}</strong></div>
+        <div><span>{{ t('pathsConnected') }}</span><strong>{{ Number(summary.paths_connected || 0).toLocaleString() }}</strong></div>
+        <div><span>{{ t('pathsAssigned') }}</span><strong>{{ Number(summary.paths_assigned || 0).toLocaleString() }}</strong></div>
+      </div>
+    </section>
+    <section class="surface dashboard-panel dashboard-span">
       <div class="section-title"><div><h2>{{ t('quickActions') }}</h2></div></div>
       <div class="quick-grid">
         <RouterLink to="/servers?create=1"><i class="ri-add-circle-line"></i><span>{{ t('createServer') }}</span></RouterLink>

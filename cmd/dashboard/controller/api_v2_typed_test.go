@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/hi2shark/santaizi-dashboard/model"
+	"github.com/hi2shark/santaizi-dashboard/service/singleton"
 )
 
 func TestProbeCapabilityPresetsCloudPhysical(t *testing.T) {
@@ -18,7 +19,7 @@ func TestProbeCapabilityPresetsCloudPhysical(t *testing.T) {
 	if !physical.Temperature || !physical.GPU || physical.NAT {
 		t.Fatalf("physical should enable temperature/gpu and disable nat: %#v", physical)
 	}
-	posix, err := buildInstallCommand("linux", "https://example.invalid/install.sh", "h", 5555, "s", false, physical, ipReportConfigDTO{})
+	posix, err := buildInstallCommand("linux", "https://example.invalid/install.sh", "h", 5555, "s", false, false, physical, ipReportConfigDTO{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +31,7 @@ func TestProbeCapabilityPresetsCloudPhysical(t *testing.T) {
 func TestBuildInstallCommandMatchesInstallerArguments(t *testing.T) {
 	options := monitoringOptionsDTO{CPU: true, Memory: true, Disk: true, Network: true, HostInfo: true, IPReport: true, HTTPProbe: true, ICMPProbe: true, TCPProbe: true}
 	ipCfg := ipReportConfigDTO{Interface: "eth0", CountryCode: "CN", PreferIPv6: true}
-	posix, err := buildInstallCommand("linux", "https://example.invalid/install.sh", "grpc.example.invalid", 5555, "secret", true, options, ipCfg)
+	posix, err := buildInstallCommand("linux", "https://example.invalid/install.sh", "grpc.example.invalid", 5555, "secret", true, false, options, ipCfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +41,7 @@ func TestBuildInstallCommandMatchesInstallerArguments(t *testing.T) {
 	if !strings.Contains(posix, "--disable-nat") || !strings.Contains(posix, "--ip-report-interface 'eth0'") || !strings.Contains(posix, "--country-code 'CN'") || !strings.Contains(posix, "--use-ipv6-countrycode") {
 		t.Fatalf("posix flags=%s", posix)
 	}
-	windows, err := buildInstallCommand("windows", "https://example.invalid/install.ps1", "grpc.example.invalid", 5555, "secret", true, options, ipCfg)
+	windows, err := buildInstallCommand("windows", "https://example.invalid/install.ps1", "grpc.example.invalid", 5555, "secret", true, false, options, ipCfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,6 +50,37 @@ func TestBuildInstallCommandMatchesInstallerArguments(t *testing.T) {
 	}
 	if !strings.Contains(windows, "-DisableNAT") || !strings.Contains(windows, "-IpReportInterface 'eth0'") || !strings.Contains(windows, "-CountryCode 'CN'") || !strings.Contains(windows, "-UseIPv6CountryCode") {
 		t.Fatalf("windows flags=%s", windows)
+	}
+}
+
+func TestBuildInstallCommandUsesTLSAndPublicPort(t *testing.T) {
+	options := monitoringOptionsDTO{CPU: true, Memory: true, Disk: true, Network: true, HostInfo: true, IPReport: true, HTTPProbe: true, ICMPProbe: true, TCPProbe: true}
+	posix, err := buildInstallCommand("linux", "https://example.invalid/install.sh", "main.example.invalid", 443, "secret", false, true, options, ipReportConfigDTO{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(posix, "'main.example.invalid' 443 'secret' --tls") {
+		t.Fatalf("posix=%s", posix)
+	}
+	windows, err := buildInstallCommand("windows", "https://example.invalid/install.ps1", "main.example.invalid", 443, "secret", false, true, options, ipReportConfigDTO{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(windows, "-Server 'main.example.invalid' -Port 443 -Key 'secret' -Tls") {
+		t.Fatalf("windows=%s", windows)
+	}
+}
+
+func TestPublicGRPCPortUsesProxyWhenSet(t *testing.T) {
+	original := singleton.Conf
+	t.Cleanup(func() { singleton.Conf = original })
+	singleton.Conf = &model.Config{GRPCPort: 5555, ProxyGRPCPort: 443}
+	if got := publicGRPCPort(); got != 443 {
+		t.Fatalf("proxy port = %d, want 443", got)
+	}
+	singleton.Conf.ProxyGRPCPort = 0
+	if got := publicGRPCPort(); got != 5555 {
+		t.Fatalf("listen port = %d, want 5555", got)
 	}
 }
 

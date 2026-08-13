@@ -299,6 +299,8 @@ main() {
     GRPC_PORT=$(prompt_port "请输入 Agent gRPC 端口" "5555")
 
     info "请配置 OAuth2 登录（首次登录必须使用 OAuth2）"
+    info "请先在提供商创建应用。回调地址必须填：https://<你访问面板的域名>/oauth2/callback"
+    info "GitHub 字段名是 Authorization callback URL；不要只填首页。"
     OAUTH2_TYPE=$(prompt "OAuth2 类型 (github/gitlab/jihulab/gitee/gitea)" "github")
     OAUTH2_TYPE=${OAUTH2_TYPE:-github}
     OAUTH2_ADMIN=$(prompt_required "管理员账号（多个用半角逗号隔开）")

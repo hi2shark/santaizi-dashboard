@@ -2,7 +2,6 @@ package telemetry
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -37,7 +36,7 @@ type AlertWorker struct {
 
 func NewAlertWorker(db *gorm.DB, policy AlertPolicy, notifier func(string)) *AlertWorker {
 	if policy.CollectorTimeout <= 0 {
-		policy.CollectorTimeout = 90 * time.Second
+		policy.CollectorTimeout = CollectorTimeout
 	}
 	return &AlertWorker{db: db, policy: policy, notifier: notifier}
 }
@@ -80,13 +79,10 @@ func (w *AlertWorker) Scan(ctx context.Context, now time.Time) error {
 	}
 	for _, collector := range collectors {
 		var runtime model.CollectorRuntime
-		err := w.db.WithContext(ctx).First(&runtime, "collector_uuid = ?", collector.CollectorUUID).Error
-		lastSeen := int64(0)
-		if err == nil {
-			lastSeen = runtime.LastSeen
-		} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		if err := w.db.WithContext(ctx).Where("collector_uuid = ?", collector.CollectorUUID).Limit(1).Find(&runtime).Error; err != nil {
 			return err
 		}
+		lastSeen := runtime.LastSeen
 		if (lastSeen == 0 && collector.CreatedAt.After(now.Add(-w.policy.CollectorTimeout))) || lastSeen >= now.Add(-w.policy.CollectorTimeout).UnixNano() {
 			continue
 		}

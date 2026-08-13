@@ -61,7 +61,7 @@ func initSystem() {
 		NotifyCorrection:       singleton.Conf.Telemetry.EnableCorrectionNotification,
 		NotifyCollectorOffline: singleton.Conf.Telemetry.EnableCollectorOfflineNotification,
 		NotifyDataLoss:         singleton.Conf.Telemetry.EnableDataLossNotification,
-		CollectorTimeout:       90 * time.Second,
+		CollectorTimeout:       telemetryservice.CollectorTimeout,
 	}, func(message string) { singleton.SendNotification("default", message, nil) })
 	go telemetryAlerts.Run(context.Background())
 

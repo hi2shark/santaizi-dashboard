@@ -46,6 +46,8 @@ if ($CleanInstall) {
         try { & $AgentBinary service uninstall | Out-Null } catch { }
     }
     Stop-Service -Name "santaizi-agent" -Force -ErrorAction SilentlyContinue
+    $UninstallCommand = Join-Path $InstallDirectory "santaizi-agent-uninstall.cmd"
+    if (Test-Path $UninstallCommand) { Remove-Item -LiteralPath $UninstallCommand -Force }
     if (Test-Path $InstallDirectory) { Remove-Item -LiteralPath $InstallDirectory -Recurse -Force }
     if (Test-Path $ConfigurationPath) { Remove-Item -LiteralPath $ConfigurationPath -Force }
     if (Test-Path $DataDirectory) { Remove-Item -LiteralPath $DataDirectory -Recurse -Force }

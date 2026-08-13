@@ -12,12 +12,38 @@ export function formatBytes(value: unknown, locale: string) {
   return `${new Intl.NumberFormat(locale, { maximumFractionDigits: index ? 1 : 0 }).format(bytes)} ${units[index]}`
 }
 
+function asDate(value: unknown): Date | null {
+  if (value === null || value === undefined || value === '') return null
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const ms = value > 1e15 ? value / 1e6 : value > 1e11 ? value : value * 1000
+    const date = new Date(ms)
+    return Number.isNaN(date.valueOf()) ? null : date
+  }
+  const text = String(value).trim()
+  if (/^\d{16,}$/.test(text)) {
+    const nano = Number(text)
+    if (Number.isFinite(nano)) {
+      const date = new Date(nano / 1e6)
+      if (!Number.isNaN(date.valueOf())) return date
+    }
+  }
+  const date = new Date(text)
+  return Number.isNaN(date.valueOf()) ? null : date
+}
+
 export function formatDateTime(value: unknown, locale: string) {
   if (value === null || value === undefined || value === '') return '—'
-  const date = new Date(String(value))
-  if (Number.isNaN(date.valueOf())) return String(value)
+  const date = asDate(value)
+  if (!date) return String(value)
   if (date.getUTCFullYear() <= 1) return '—'
   return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'medium' }).format(date)
+}
+
+export function formatLabel(value: string, t: Translate, te: (key: string) => boolean) {
+  const folded = value.trim().replace(/\s+/g, '_').toLowerCase()
+  if (te(folded)) return t(folded)
+  if (te(value)) return t(value)
+  return value
 }
 
 export function formatAdminValue(value: unknown, key: string, locale: string, t: Translate, te: (key: string) => boolean) {
@@ -26,8 +52,8 @@ export function formatAdminValue(value: unknown, key: string, locale: string, t:
   if (Array.isArray(value)) return value.join(', ')
   if (typeof value === 'object') return JSON.stringify(value)
   if (/(?:bytes|spool_size)$/.test(key)) return formatBytes(value, locale)
-  if (/(?:_at|_from|_to|last_seen|last_active)$/.test(key)) return formatDateTime(value, locale)
-  if (typeof value === 'string' && te(value)) return t(value)
+  if (/(?:_at|_from|_to|last_seen|last_active|last_sync|last_primary_seen|oldest_pending)$/.test(key)) return formatDateTime(value, locale)
+  if (typeof value === 'string') return formatLabel(value, t, te)
   return String(value)
 }
 

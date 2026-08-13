@@ -20,6 +20,8 @@
 | API Token | `listApiTokens`, `createApiToken`, `getApiToken`, `patchApiToken`, `deleteApiToken` | `/admin/api-tokens` 签发（权限/有效期）、列表复制、启用/禁用与删除 | 只读/操作权、过期与禁用鉴权；明文仅详情返回 |
 | Collector 生命周期 | `createCollector`, `updateCollector`, `getCollectorToken`, `rotateCollectorToken`, `revokeCollector`, `deleteCollector`, `getCollectorInstallPreview` | `/admin/telemetry` 专用编辑弹窗、安装命令与操作菜单 | Token 查看/轮换、安装预览、撤销和删除 |
 | Collector Scope | `updateCollectorScope` | All/Server/Group/Tag 类型化范围 | Scope 选择与配置版本更新 |
+| 连接观察 | `getConnectionSummary`, `listConnectionPaths`, `listCollectors` | `/admin/connections` 主从表与节点路径；总览连接摘要；主机历史抽屉连接页 | 心跳派生从端状态、路径 sink 与观测证据 |
+| 可靠探测数据 | `listObserverAssignments`, `listAgentReliability`, `listIncidents`, `listIncidentRevisions`, `listTelemetryDataLoss`, `listTelemetryAlerts` | `/admin/telemetry` 六个数据 tab 固定列与只读抽屉 | 解码 sink/证据、RFC3339 时间、分类小写、截断 UUID |
 
 公开端由 `getPublicBootstrap`、`createViewPasswordSession`、`listPublicServers`、`getPublicServer`、`listPublicServices`、`getPublicNetworkHistory` 与 `listPublicCycleTransfer` 驱动；bootstrap 含 `theme` / `allow_frontend_theme_switch`。
 

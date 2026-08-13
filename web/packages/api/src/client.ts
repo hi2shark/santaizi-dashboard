@@ -1,12 +1,12 @@
 import { setCSRFToken } from './request'
 import { getSantaiziHTTPAPI } from './generated/santaizi'
 import type {
-  AlertRule, AlertRuleWriteBody, APIToken, APITokenPatchBody, APITokenWriteBody, CollectorCreated,
-  CollectorInstallPreview, CollectorInstallPreviewWriteBody, CollectorScopeWriteBody, CollectorToken, CollectorWriteBody, DDNSProfile, DDNSProfileWriteBody, DDNSProvider,
-  InstallPreview, InstallPreviewWriteBody, Monitor, MonitorWriteBody, NATTunnel,
-  NATTunnelWriteBody, NotificationChannel, NotificationChannelWriteBody,
+  AlertRule, AlertRuleWriteBody,   APIToken, APITokenPatchBody, APITokenWriteBody, AgentReliabilityRecord, CollectorCreated,
+  CollectorInstallPreview, CollectorInstallPreviewWriteBody, CollectorScopeWriteBody, CollectorToken, CollectorWriteBody, ConnectionPath, ConnectionSummary, DDNSProfile, DDNSProfileWriteBody, DDNSProvider,
+  IncidentRecord, IncidentRevisionRecord, InstallPreview, InstallPreviewWriteBody, Monitor, MonitorWriteBody, NATTunnel,
+  NATTunnelWriteBody, NotificationChannel, NotificationChannelWriteBody, ObserverAssignmentRecord,
   ProbeCapabilities, ServerCredential, ServerDisplayIndexWriteBody, ServerGroup,
-  ServerGroupRenameWriteBody, ServerWriteBody, TrafficPolicy,
+  ServerGroupRenameWriteBody, ServerWriteBody, TelemetryAlertRecord, TelemetryDataLossRecord, TrafficPolicy,
   TrafficPolicyWriteBody, TrafficUsage,
 } from './generated/model'
 import type {
@@ -92,6 +92,8 @@ export const deleteTrafficPolicy = (serverId: number, id: number) => api.deleteT
 export const getTrafficPolicyUsage = (serverId: number, id: number) => api.getTrafficPolicyUsage(serverId, id).then(value => data<TrafficUsage>(value))
 
 export const listCollectors = () => api.listCollectors().then(value => list<CollectorRecord>(value))
+export const getConnectionSummary = () => api.getConnectionSummary().then(value => data<ConnectionSummary>(value))
+export const listConnectionPaths = (params: { server_id?: number; observer_id?: string } = {}) => api.listConnectionPaths(params).then(value => list<ConnectionPath>(value))
 export const createCollector = (body: CollectorWriteBody) => api.createCollector(body).then(value => data<CollectorCreated>(value))
 export const updateCollector = (id: string, body: CollectorWriteBody) => api.updateCollector(id, body).then(value => data<CollectorRecord>(value))
 export const updateCollectorScope = (id: string, body: CollectorScopeWriteBody) => api.updateCollectorScope(id, body).then(value => data<CollectorRecord>(value))
@@ -100,6 +102,14 @@ export const getCollectorToken = (id: string) => api.getCollectorToken(id).then(
 export const getCollectorInstallPreview = (id: string, body: CollectorInstallPreviewWriteBody) => api.getCollectorInstallPreview(id, body).then(value => data<CollectorInstallPreview>(value))
 export const revokeCollector = (id: string) => api.revokeCollector(id).then(value => data<CollectorRecord>(value))
 export const deleteCollector = (id: string) => api.deleteCollector(id)
+
+export type TelemetryDatasetRecord =
+  | ObserverAssignmentRecord
+  | AgentReliabilityRecord
+  | IncidentRecord
+  | IncidentRevisionRecord
+  | TelemetryDataLossRecord
+  | TelemetryAlertRecord
 
 const telemetryOperations: Record<string, () => Promise<unknown>> = {
   assignments: api.listObserverAssignments,
@@ -112,7 +122,7 @@ const telemetryOperations: Record<string, () => Promise<unknown>> = {
 export const telemetryList = (name: string, _params: ResourceQuery = {}) => {
   const operation = telemetryOperations[name]
   if (!operation) return Promise.reject(new Error(`Unsupported telemetry dataset: ${name}`))
-  return operation().then(value => list<ResourceRecord>(value))
+  return operation().then(value => list<TelemetryDatasetRecord>(value))
 }
 
 export const listApiTokens = () => api.listApiTokens().then(value => list<APIToken>(value))

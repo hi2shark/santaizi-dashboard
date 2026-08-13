@@ -51,7 +51,7 @@ telemetry:
   data_dir: /var/lib/santaizi-dashboard
 ```
 
-将 `oauth2` 替换为你实际使用的 OAuth2 提供商信息。本地测试可使用 `type: mock`（需同时设置 `debug: true`）。
+将 `oauth2` 替换为你实际使用的 OAuth2 提供商信息。创建应用时，**回调地址必须填 `https://<面板域名>/oauth2/callback`**（GitHub 字段名是 Authorization callback URL），不要只填首页。各提供商字段与 YAML 见 [配置参考](configuration.md#oauth2-登录配置)。本地测试可使用 `type: mock`（需同时设置 `debug: true`）。
 
 ## 4. 启动 Dashboard
 

@@ -8,4 +8,17 @@
  * OpenAPI spec version: 2.0.0
  */
 
-export type ServerHost = { [key: string]: unknown };
+/**
+ * 探针 Host 快照。管理接口以及带 Bearer Token 的公开服务器接口返回明文公网地址（`ip` / `ipv4` / `ipv6`），不脱敏。
+ * 匿名或查看密码访问的 `listPublicServers`、`getPublicServer` 与 `/ws/v2/public/runtime` 省略这些字段。
+ * 其余字段为探针上报的 PascalCase 快照（如 Platform、CountryCode）。
+ */
+export interface ServerHost {
+  /** 探针上报的公网地址；双栈为 `IPv4/IPv6`。管理接口与 Bearer Token 公开请求返回。 */
+  ip?: string;
+  /** 从 `ip` 拆出的 IPv4。管理接口与 Bearer Token 公开请求返回。 */
+  ipv4?: string;
+  /** 从 `ip` 拆出的 IPv6。管理接口与 Bearer Token 公开请求返回。 */
+  ipv6?: string;
+  [key: string]: unknown;
+ }

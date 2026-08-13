@@ -38,6 +38,16 @@ func TestSantaiziBrandAssets(t *testing.T) {
 		t.Fatal("brand.svg must contain the Chinese and English Santaizi brand names")
 	}
 
+	for _, name := range []string{
+		"theme-nazhua/maps/world.geo.json",
+		"theme-server-status/maps/santaizi.world.geo.json",
+		"theme-server-status/img/bg.jpg",
+	} {
+		if _, err := staticFS.ReadFile("static/" + name); err != nil {
+			t.Fatalf("embedded theme asset %s: %v", name, err)
+		}
+	}
+
 	for name, want := range map[string]int{"manifest-192x192.png": 192, "manifest-512x512.png": 512} {
 		content, err := staticFS.ReadFile("static/" + name)
 		if err != nil {

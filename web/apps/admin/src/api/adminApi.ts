@@ -70,6 +70,8 @@ export const getProbeCapabilities = () => api.getProbeCapabilities() as Promise<
 export const getServerInstallPreview = api.getServerInstallPreview
 
 export const listCollectors = api.listCollectors
+export const getConnectionSummary = api.getConnectionSummary
+export const listConnectionPaths = api.listConnectionPaths
 export const createCollector = api.createCollector
 export const updateCollector = api.updateCollector
 export const deleteCollector = api.deleteCollector

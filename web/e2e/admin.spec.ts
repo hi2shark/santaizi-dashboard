@@ -247,7 +247,7 @@ test('dirty editor blocks escape and confirms cancellation', async ({ page }) =>
 })
 
 test('collector and API token credentials can be viewed again by stable identifier', async ({ page }) => {
-  const collector = { id: 'collector-1', name: 'Shanghai edge', address: 'collector.example.com:5555', tls: true, insecure_tls: false, generation: 1, config_version: 1, status: 'healthy', revoked: false, scopes: [{ type: 'all', value: '' }] }
+  const collector = { id: 'collector-1', name: 'Shanghai edge', address: 'collector.example.com:5555', tls: true, insecure_tls: false, generation: 1, config_version: 1, status: 'online', revoked: false, connected_agents: 3, pending_records: 1, scopes: [{ type: 'all', value: '' }] }
   await page.route('**/api/v2/admin/telemetry/collectors**', route => {
     const path = new URL(route.request().url()).pathname
     if (path.endsWith('/token')) return fulfillJSON(route, item({ collector_id: 'collector-1', registration_token: 'collector-token', revoked: false }))
@@ -255,6 +255,7 @@ test('collector and API token credentials can be viewed again by stable identifi
     return fulfillJSON(route, list([collector]))
   })
   await page.goto('/admin/telemetry')
+  await expect(page.getByText('连接探针').filter({ visible: true })).toBeVisible()
   await clickVisibleRowAction(page, '查看 Token')
   await expect(page.getByRole('dialog', { name: '注册 Token' }).locator('input')).toHaveValue('collector-token')
 
@@ -316,4 +317,108 @@ test('keeps light and dark surfaces coherent at all responsive baselines', async
       expect(measurements.mobileMenuVisible).toBe(width <= 860)
     }
   }
+})
+
+test('overview counts live collectors and links to connection observation', async ({ page }) => {
+  await page.route('**/api/v2/admin/summary', route => fulfillJSON(route, item({
+    total_servers: 4, online_servers: 3, active_collectors: 2, collectors_offline: 1,
+    paths_assigned: 4, paths_connected: 3, active_incidents: 0, data_loss: 0, telemetry_alerts: 1, telemetry_pending: 0,
+  })))
+  await page.goto('/admin/')
+  await expect(page.locator('.metric-card').filter({ hasText: '在线从端' }).locator('strong')).toHaveText('2')
+  await expect(page.getByRole('heading', { name: '连接摘要' })).toBeVisible()
+  await expect(page.locator('.connection-grid').getByText('从端离线')).toBeVisible()
+  await page.locator('.dashboard-panel').filter({ hasText: '连接摘要' }).getByRole('link', { name: /详情/ }).click()
+  await expect(page).toHaveURL(/\/admin\/connections$/)
+})
+
+test('connection observation shows collector links and node paths', async ({ page }) => {
+  const collector = {
+    id: 'collector-1', name: 'Shanghai edge', address: 'collector.example.com:5555', tls: true, insecure_tls: false,
+    generation: 1, config_version: 1, status: 'online', revoked: false, connected_agents: 3, pending_records: 1,
+    last_seen: '2026-08-13T06:00:00Z', last_sync: '2026-08-13T05:59:00Z', scopes: [{ type: 'all', value: '' }],
+  }
+  const path = {
+    server_id: 7, server_name: 'edge-a', node_uuid: '09090909090909090909090909090909', observer_id: 'primary',
+    observer_kind: 'primary', observer_name: '', assigned: true, last_seen: '2026-08-13T06:00:00Z',
+    sink: { connected: true, pending_events: 2, last_error: '', ack_through: 11 },
+  }
+  await page.route('**/api/v2/admin/telemetry/collectors**', route => fulfillJSON(route, list([collector])))
+  await page.route('**/api/v2/admin/connections/paths**', route => fulfillJSON(route, list([path])))
+  await page.goto('/admin/connections')
+  await expect(page.getByRole('heading', { name: '连接观察' })).toBeVisible()
+  await expect(page.getByText('主从连接').filter({ visible: true })).toBeVisible()
+  await expect(page.getByText('Shanghai edge').filter({ visible: true })).toBeVisible()
+  await expect(page.getByText('节点连接').filter({ visible: true })).toBeVisible()
+  await expect(page.getByText('edge-a').filter({ visible: true })).toBeVisible()
+})
+
+test('server history drawer shows observer evidence and connection paths', async ({ page }) => {
+  await page.route('**/api/v2/admin/servers**', route => {
+    const path = new URL(route.request().url()).pathname
+    if (path.endsWith('/availability')) {
+      return fulfillJSON(route, list([{
+        bucket_start: '2026-08-13T06:00:00Z', host: 'online', connectivity: 'full',
+        expected_observers: 1, healthy_observers: 1, seen_observers: 1,
+        observer_evidence: [{ observer_id: 'primary', healthy: true, seen: true }],
+        revision: 1, finalized: true,
+      }]))
+    }
+    return fulfillJSON(route, list([{
+      id: 7, name: 'edge-a', tag: 'edge', online: true, public_note: {}, monitoring_options: {},
+      display_index: 1, hide_for_guest: false, enable_ddns: false,
+    }]))
+  })
+  await page.route('**/api/v2/admin/offline-history**', route => fulfillJSON(route, list()))
+  await page.route('**/api/v2/admin/connections/paths**', route => fulfillJSON(route, list([{
+    server_id: 7, server_name: 'edge-a', node_uuid: 'aa', observer_id: 'primary', observer_kind: 'primary',
+    observer_name: '', assigned: true, last_seen: '2026-08-13T06:00:00Z',
+    sink: { connected: true, pending_events: 0 },
+  }])))
+  await page.goto('/admin/servers')
+  await clickVisibleRowAction(page, '离线历史')
+  await expect(page.getByText('观测证据').filter({ visible: true })).toBeVisible()
+  await expect(page.getByText('主面板').filter({ visible: true })).toBeVisible()
+  await page.getByRole('tab', { name: '节点连接' }).click()
+  await expect(page.getByText('已连接').filter({ visible: true })).toBeVisible()
+})
+
+test('telemetry datasets show readable rows without blobs or full uuids', async ({ page }) => {
+  const nodeUUID = 'dacee892aabbccddeeff001122334455'
+  await page.route('**/api/v2/admin/telemetry/agents**', route => fulfillJSON(route, list([{
+    server_id: 7, server_name: 'edge-a', node_uuid: nodeUUID, wal_pressure: 'healthy', wal_bytes: 2048,
+    pending_events: 2, oldest_pending: '2026-08-13T06:00:00Z', clock_untrusted: false, protocol_version: 'v2',
+    updated_at: '2026-08-13T06:01:00Z',
+    sinks: [{ endpoint_id: 'primary', observer_kind: 'primary', observer_name: '', connected: true, pending_events: 2, last_error: '', ack_through: 11 }],
+  }])))
+  await page.route('**/api/v2/admin/telemetry/incidents**', route => fulfillJSON(route, list([{
+    id: 3, server_id: 7, server_name: 'edge-a', node_uuid: nodeUUID, initial_classification: 'host_offline',
+    current_classification: 'connectivity_degraded', revision: 2, started_at: '2026-08-13T05:00:00Z',
+    ended_at: null, reason: 'availability_evidence',
+    observer_evidence: [{ observer_id: 'primary', observer_kind: 'primary', observer_name: '', healthy: true, seen: true }],
+  }])))
+
+  await page.goto('/admin/telemetry')
+  await page.getByRole('tab', { name: '探针投递' }).click()
+  const agentsList = page.locator('.dataset-table, .mobile-card-list').filter({ visible: true }).first()
+  await expect(agentsList.getByText('edge-a').filter({ visible: true })).toBeVisible()
+  await expect(agentsList.getByText('健康').filter({ visible: true })).toBeVisible()
+  await expect(agentsList).not.toContainText(nodeUUID)
+  await expect(agentsList).not.toContainText('CgkJCQk')
+  await agentsList.locator('.el-table__row, .mobile-card').first().click()
+  const drawer = page.locator('.el-drawer').filter({ visible: true })
+  await expect(drawer.getByText('主面板').filter({ visible: true })).toBeVisible()
+  await expect(drawer.getByText('已连接').filter({ visible: true })).toBeVisible()
+  await expect(drawer.getByText(nodeUUID).filter({ visible: true })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(drawer).toHaveCount(0)
+
+  await page.getByRole('tab', { name: '事件', exact: true }).click()
+  const incidentsList = page.locator('.dataset-table, .mobile-card-list').filter({ visible: true }).first()
+  await expect(incidentsList.getByText('连通性降级').filter({ visible: true })).toBeVisible()
+  await expect(incidentsList.getByText('进行中').filter({ visible: true })).toBeVisible()
+  await expect(incidentsList).not.toContainText(nodeUUID)
+  await expect(incidentsList).not.toContainText('observer_id')
+  await incidentsList.locator('.el-table__row, .mobile-card').first().click()
+  await expect(page.locator('.el-drawer').filter({ visible: true }).getByText(nodeUUID)).toBeVisible()
 })

@@ -222,11 +222,22 @@ func migrateDatabase(db *gorm.DB) error {
 		current = 5
 	}
 	if current < 6 {
-		return db.Transaction(func(tx *gorm.DB) error {
+		if err := db.Transaction(func(tx *gorm.DB) error {
 			if err := tx.AutoMigrate(&model.TrafficPolicy{}, &model.TrafficPolicyState{}); err != nil {
 				return err
 			}
 			return tx.Create(&model.SchemaMigration{Version: 6, AppliedAt: time.Now().UTC()}).Error
+		}); err != nil {
+			return err
+		}
+		current = 6
+	}
+	if current < 7 {
+		return db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.AutoMigrate(&model.CollectorRuntime{}); err != nil {
+				return err
+			}
+			return tx.Create(&model.SchemaMigration{Version: 7, AppliedAt: time.Now().UTC()}).Error
 		})
 	}
 	return nil

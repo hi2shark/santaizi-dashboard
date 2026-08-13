@@ -12,7 +12,7 @@ sh -c "$(curl -fsSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboar
 
 - 工作目录
 - Web 端口、gRPC 端口
-- OAuth2 类型及密钥
+- OAuth2 类型及密钥（先在提供商创建应用；回调地址必须为 `https://<面板域名>/oauth2/callback`，字段与 YAML 见 [配置参考](configuration.md#oauth2-登录配置)）
 - 站点标题与 ServerStatus 品牌外观
 
 确认后会自动生成 `docker-compose.yml` 和 `config/dashboard.yaml`，并启动容器。
@@ -197,6 +197,8 @@ journalctl -u santaizi-agent -f
 
 Windows 使用服务管理器查看 `Santaizi Agent` 服务。
 
+系统服务启动命令只有 `--config`（默认 `/etc/santaizi/agent.yaml`），密钥和能力开关在配置文件里，不会出现在进程参数中。卸载使用 `santaizi-agent-uninstall`（见下文）。
+
 ---
 
 ## 更新
@@ -227,12 +229,16 @@ rm -rf ~/santaizi
 
 ### Agent
 
+Linux / macOS（安装后已注册到 PATH）：
+
 ```bash
-systemctl stop santaizi-agent
-systemctl disable santaizi-agent
-rm -rf /opt/santaizi/agent
-rm -rf /var/lib/santaizi-agent
-rm -f /etc/santaizi/agent.yaml
-rm -f /etc/systemd/system/santaizi-agent.service
-systemctl daemon-reload
+santaizi-agent-uninstall
 ```
+
+Windows：
+
+```powershell
+C:\santaizi\santaizi-agent-uninstall.cmd
+```
+
+该命令会停止并删除服务，以及 `/opt/santaizi/agent`（Windows 为 `C:\santaizi`）、配置文件和数据目录。已用旧方式安装、服务启动参数里仍带密钥的实例，重新执行一次安装命令即可改为只读配置文件。

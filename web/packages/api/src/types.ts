@@ -88,6 +88,8 @@ export interface CollectorRecord {
   revoked: boolean
   status?: string
   last_seen?: string
+  last_sync?: string
+  last_primary_seen?: string
   spool_size?: number
   pending_records?: number
   oldest_pending?: string

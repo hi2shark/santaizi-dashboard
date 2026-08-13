@@ -7,6 +7,7 @@ import { createServer, listDDNSProfiles, listNotificationGroups, listServerGroup
 import { useEditorSnapshot } from '@/composables/editorSnapshot'
 import { notifyAPIError } from '@/composables/notify'
 import type { DDNSProfileRecord, TrafficPolicyRecord } from '@/types/admin'
+import { hostAddresses } from '@/domain/hostAddress'
 import PublicNoteEditor from './PublicNoteEditor.vue'
 import TrafficPoliciesEditor from './TrafficPoliciesEditor.vue'
 
@@ -23,6 +24,7 @@ const serverGroups = ref<string[]>([])
 const policies = ref<TrafficPolicyRecord[]>([])
 const originalPolicies = ref<TrafficPolicyRecord[]>([])
 const form = reactive({ id: 0, name: '', tag: '', note: '', public_note: '', monitoring_options: {} as Record<string, boolean>, display_index: 0, hide_for_guest: false, enable_ddns: false, ddns_profiles: [] as number[] })
+const reported = reactive({ ipv4: '', ipv6: '' })
 const snapshotValue = computed(() => ({ form, policies: policies.value }))
 const { dirty, capture } = useEditorSnapshot(snapshotValue, computed(() => props.modelValue))
 const groupOptions = computed(() => {
@@ -38,6 +40,7 @@ async function reset(value?: ServerRecord) {
     display_index: value?.display_index || 0, hide_for_guest: value?.hide_for_guest ?? false,
     enable_ddns: value?.enable_ddns ?? false, ddns_profiles: [...(value?.ddns_profiles || [])],
   })
+  Object.assign(reported, hostAddresses(value?.host))
   activeTab.value = 'basic'; loading.value = true
   try {
     const [profiles, groups, traffic, serverGroupResult] = await Promise.all([
@@ -81,6 +84,10 @@ watch(() => props.modelValue, value => { if (value) void reset(props.value) })
               <el-form-item :label="t('group')"><el-select v-model="form.tag" filterable allow-create default-first-option clearable class="field-full" :placeholder="t('PleaseSelect')"><el-option v-for="group in groupOptions" :key="group" :label="group" :value="group" /></el-select></el-form-item>
               <el-form-item :label="t('displayIndex')"><el-input v-model.number="form.display_index" inputmode="numeric" class="field-full" /></el-form-item>
               <el-form-item :label="t('hideForGuest')"><el-switch v-model="form.hide_for_guest" /></el-form-item>
+              <template v-if="form.id && (reported.ipv4 || reported.ipv6)">
+                <el-form-item :label="t('ipv4')"><el-input :model-value="reported.ipv4 || '—'" disabled /></el-form-item>
+                <el-form-item :label="t('ipv6')"><el-input :model-value="reported.ipv6 || '—'" disabled /></el-form-item>
+              </template>
               <el-form-item class="span-2" :label="t('note')"><el-input v-model="form.note" type="textarea" :rows="10" maxlength="4000" show-word-limit /></el-form-item>
             </div>
           </el-tab-pane>
