@@ -1,26 +1,15 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { ServerRecord } from '@santaizi/api'
+import type { CycleTransfer, ServerRecord } from '@santaizi/api'
 import { listPublicCycleTransfer } from '@santaizi/api'
-import { formatBinary } from '../../utils/host'
-
-type CycleRow = {
-  policy_id?: number
-  name?: string
-  direction?: string
-  mode?: string
-  used_bytes?: number
-  quota_bytes?: number
-  usage_percent?: number
-  status?: string
-  window_start?: string
-  window_end?: string
-}
+import { AppEmpty } from '@santaizi/ui'
+import { formatCompactBytes, percentOf } from '../../domain/nazhuaServerView'
+import { formatDateTime } from '../../utils/host'
 
 const props = defineProps<{ server: ServerRecord }>()
-const { t } = useI18n()
-const rows = ref<CycleRow[]>([])
+const { t, locale } = useI18n()
+const rows = ref<CycleTransfer[]>([])
 const loading = ref(false)
 const failed = ref(false)
 
@@ -29,7 +18,7 @@ async function load() {
   failed.value = false
   try {
     const result = await listPublicCycleTransfer(props.server.id)
-    rows.value = (result.data || []) as CycleRow[]
+    rows.value = result.data || []
   } catch {
     failed.value = true
     rows.value = []
@@ -39,6 +28,18 @@ async function load() {
 }
 
 const hasRows = computed(() => rows.value.length > 0)
+
+function statusKey(status?: string) {
+  if (!status || status === 'normal' || status === 'ok') return 'ok'
+  if (status === 'warning' || status === 'critical' || status === 'exceeded') return status
+  return 'ok'
+}
+
+function usage(row: CycleTransfer) {
+  const used = Number(row.used_bytes || 0)
+  const quota = Number(row.quota_bytes || 0)
+  return quota > 0 ? percentOf(used, quota) : Number(row.usage_percent || 0)
+}
 
 onMounted(load)
 watch(() => props.server.id, load)
@@ -50,23 +51,48 @@ watch(() => props.server.id, load)
       <h2>{{ t('nazhua.cycleTransfer') }}</h2>
       <button type="button" @click="load"><i class="ri-refresh-line"></i>{{ t('nazhua.refresh') }}</button>
     </header>
-    <p v-if="loading">{{ t('nazhua.loading') }}</p>
-    <p v-else-if="failed">{{ t('nazhua.requestFailed') }}</p>
-    <p v-else-if="!hasRows">{{ t('nazhua.noData') }}</p>
+    <div v-if="loading || failed || !hasRows" class="nazhua-cycle-transfer__empty">
+      <AppEmpty
+        :tone="failed ? 'danger' : 'default'"
+        :icon="failed ? 'ri-error-warning-line' : loading ? 'ri-loader-4-line' : 'ri-pie-chart-line'"
+        :title="failed ? t('nazhua.loadFailed') : ''"
+        :description="t(failed ? 'nazhua.requestFailed' : loading ? 'nazhua.loading' : 'nazhua.noData')"
+      />
+      <button v-if="failed" type="button" @click="load"><i class="ri-refresh-line"></i>{{ t('nazhua.refresh') }}</button>
+    </div>
     <div v-else class="nazhua-cycle-transfer__list">
       <article v-for="row in rows" :key="row.policy_id" class="nazhua-cycle-transfer__item">
         <header>
           <strong>{{ row.name || t('nazhua.cycleTransfer') }}</strong>
-          <span>{{ t(`nazhua.cycleStatus.${row.status === 'normal' || !row.status ? 'ok' : row.status}`, row.status || 'ok') }}</span>
+          <span class="nazhua-cycle-transfer__status" :class="`is-${statusKey(row.status)}`">
+            {{ t(`nazhua.cycleStatus.${statusKey(row.status)}`) }}
+          </span>
         </header>
         <div class="nazhua-cycle-transfer__bar">
-          <div :style="{ width: `${Math.min(100, Number(row.usage_percent || 0))}%` }" />
+          <div class="nazhua-cycle-transfer__fill" :style="{ width: `${Math.min(100, usage(row))}%` }" />
+          <i
+            v-if="row.warning_percent && row.warning_percent > 0 && row.warning_percent < 100"
+            class="nazhua-cycle-transfer__warn"
+            :style="{ left: `${row.warning_percent}%` }"
+          />
         </div>
         <p>
-          {{ formatBinary(Number(row.used_bytes || 0)).value }}{{ formatBinary(Number(row.used_bytes || 0)).unit }}
+          {{ formatCompactBytes(Number(row.used_bytes || 0), 1) }}
           /
-          {{ formatBinary(Number(row.quota_bytes || 0)).value }}{{ formatBinary(Number(row.quota_bytes || 0)).unit }}
-          ({{ Number(row.usage_percent || 0).toFixed(1) }}%)
+          {{ formatCompactBytes(Number(row.quota_bytes || 0), 1) }}
+          ({{ usage(row).toFixed(1) }}%)
+        </p>
+        <p v-if="(row.remaining_bytes ?? 0) > 0 || Number(row.quota_bytes || 0) > 0">
+          {{ t('nazhua.remainingBytes') }}
+          {{ formatCompactBytes(Number(row.remaining_bytes ?? Math.max(Number(row.quota_bytes || 0) - Number(row.used_bytes || 0), 0)), 1) }}
+        </p>
+        <p v-if="row.window_start || row.window_end">
+          {{ t('nazhua.windowRange') }}
+          {{ [formatDateTime(row.window_start, locale), formatDateTime(row.window_end, locale)].filter(Boolean).join(' ~ ') }}
+        </p>
+        <p v-if="row.next_reset_at">
+          {{ t('nazhua.nextReset') }}
+          {{ formatDateTime(row.next_reset_at, locale) }}
         </p>
       </article>
     </div>

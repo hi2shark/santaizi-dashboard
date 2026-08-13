@@ -1,15 +1,3 @@
-export function stateValue(state: Record<string, unknown> | undefined, ...keys: string[]) {
-  if (!state) return 0
-  for (const key of keys) {
-    const raw = state[key]
-    if (raw !== undefined && raw !== null) {
-      const n = typeof raw === 'number' ? raw : Number(raw)
-      if (Number.isFinite(n)) return n
-    }
-  }
-  return 0
-}
-
 export function calcBinary(value: number) {
   const units = { value: 0, k: 0, m: 0, g: 0, t: 0 }
   let n = Math.max(0, value)
@@ -47,4 +35,18 @@ export function formatSpeed(value: number) {
 export function formatPercent(current: number, total?: number) {
   const pct = total ? (100 * current) / total : current
   return `${Math.max(0, Math.min(100, pct)).toFixed(1)}%`
+}
+
+export function formatDateTime(value: unknown, locale = 'zh-CN') {
+  if (value === null || value === undefined || value === '') return ''
+  let date: Date | null = null
+  if (value instanceof Date) date = value
+  else if (typeof value === 'number' && Number.isFinite(value)) {
+    date = new Date(value > 1e12 ? value : value * 1000)
+  } else {
+    const parsed = Date.parse(String(value))
+    if (!Number.isNaN(parsed)) date = new Date(parsed)
+  }
+  if (!date || date.getUTCFullYear() <= 1) return ''
+  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(date)
 }

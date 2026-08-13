@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { listPublicCycleTransfer, type ResourceRecord } from '@santaizi/api'
+import { listPublicCycleTransfer, type CycleTransfer } from '@santaizi/api'
 import { useInjectedStatusStore } from '@santaizi/status-core'
 import { AppEmpty } from '@santaizi/ui'
 import NazhuaSearch from '../components/layout/NazhuaSearch.vue'
@@ -16,7 +16,7 @@ import { mapCycleTransfers, toNazhuaServerViews } from '../domain/nazhuaServerVi
 const { t } = useI18n()
 const store = useInjectedStatusStore()
 const viewportWidth = ref(window.innerWidth)
-const cycleRows = ref<ResourceRecord[]>([])
+const cycleRows = ref<CycleTransfer[]>([])
 
 const {
   listMode,
@@ -30,6 +30,8 @@ const {
   filteredServers,
   mapLocations,
   setListMode,
+  setSortProp,
+  setSortOrder,
 } = useServerListFilters(() => store.servers)
 
 const cycleMap = computed(() => mapCycleTransfers(cycleRows.value))
@@ -95,8 +97,8 @@ onBeforeUnmount(() => window.removeEventListener('resize', updateViewport))
         @update:tag-filter="tagFilter = $event"
         @update:online-filter="onlineFilter = $event"
         @update:list-mode="setListMode($event)"
-        @update:sort-prop="sortProp = $event"
-        @update:sort-order="sortOrder = $event"
+        @update:sort-prop="setSortProp($event)"
+        @update:sort-order="setSortOrder($event)"
       />
       <div v-if="serverViews.length" class="nazhua-home__list" :class="`mode-${effectiveListMode}`">
         <template v-if="effectiveListMode === 'card'">

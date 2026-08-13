@@ -20,9 +20,7 @@ const results = computed(() => {
       server.name,
       server.tag,
       server.host?.Platform,
-      server.host?.platform,
       server.host?.CountryCode,
-      server.host?.country_code,
     ].join(' ').toLowerCase()
     return haystack.includes(q)
   }).slice(0, 12)

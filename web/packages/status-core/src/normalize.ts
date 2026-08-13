@@ -1,4 +1,4 @@
-import type { ServerRecord } from '@santaizi/api'
+import type { ServerHost, ServerRecord, ServerState } from '@santaizi/api'
 
 function pick(object: Record<string, unknown>, ...keys: string[]) {
   for (const key of keys) {
@@ -53,8 +53,8 @@ export function normalizeServer(raw: Record<string, unknown>): ServerRecord {
     hide_for_guest: Boolean(pick(value, 'hide_for_guest', 'HideForGuest')),
     enable_ddns: Boolean(pick(value, 'enable_ddns', 'EnableDDNS')),
     public_note: publicNote(pick(value, 'public_note', 'PublicNote')),
-    host: asRecord(pick(value, 'host', 'Host')),
-    state: asRecord(pick(value, 'state', 'State')),
+    host: asRecord(pick(value, 'host', 'Host')) as ServerHost | undefined,
+    state: asRecord(pick(value, 'state', 'State')) as ServerState | undefined,
     last_active: lastActive,
     online: deriveOnline(pick(value, 'online', 'Online'), lastActive),
     telemetry: telemetryRaw
@@ -68,7 +68,7 @@ export function normalizeServer(raw: Record<string, unknown>): ServerRecord {
   }
 }
 
-function isEmptyRecord(value: Record<string, unknown> | undefined) {
+function isEmptyRecord(value: ServerHost | ServerState | Record<string, unknown> | undefined) {
   return !value || Object.keys(value).length === 0
 }
 

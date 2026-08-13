@@ -567,6 +567,18 @@
     "file": "assets/zw-U0m7oJ5e.svg",
     "src": "../../../node_modules/.pnpm/flag-icons@7.5.0/node_modules/flag-icons/flags/4x3/zw.svg"
   },
+  "../../../node_modules/.pnpm/font-logos@1.3.0/node_modules/font-logos/assets/font-logos.ttf": {
+    "file": "assets/font-logos-CEmVKCYl.ttf",
+    "src": "../../../node_modules/.pnpm/font-logos@1.3.0/node_modules/font-logos/assets/font-logos.ttf"
+  },
+  "../../../node_modules/.pnpm/font-logos@1.3.0/node_modules/font-logos/assets/font-logos.woff": {
+    "file": "assets/font-logos-C1ArSQoO.woff",
+    "src": "../../../node_modules/.pnpm/font-logos@1.3.0/node_modules/font-logos/assets/font-logos.woff"
+  },
+  "../../../node_modules/.pnpm/font-logos@1.3.0/node_modules/font-logos/assets/font-logos.woff2": {
+    "file": "assets/font-logos-BKI1XWaf.woff2",
+    "src": "../../../node_modules/.pnpm/font-logos@1.3.0/node_modules/font-logos/assets/font-logos.woff2"
+  },
   "../../../node_modules/.pnpm/remixicon@4.9.1/node_modules/remixicon/fonts/remixicon.eot": {
     "file": "assets/remixicon-B25hvfAs.eot",
     "src": "../../../node_modules/.pnpm/remixicon@4.9.1/node_modules/remixicon/fonts/remixicon.eot"
@@ -596,7 +608,7 @@
     "src": "../../packages/theme-nazhua/src/assets/world-map.svg"
   },
   "index.html": {
-    "file": "assets/index-BO5Evwun.js",
+    "file": "assets/index-BikFwS3a.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
@@ -604,7 +616,7 @@
       "src/pages/ViewPasswordPage.vue"
     ],
     "css": [
-      "assets/index-CtMFB1c_.css"
+      "assets/index-BwZEbU8c.css"
     ],
     "assets": [
       "assets/bg-DFFmeEMX.webp",
@@ -755,11 +767,14 @@
       "assets/un-Bqg4Cbbh.svg",
       "assets/un-DabL4p35.svg",
       "assets/xk-Bj15g7cp.svg",
-      "assets/xk-Cdz2uTvR.svg"
+      "assets/xk-Cdz2uTvR.svg",
+      "assets/font-logos-C1ArSQoO.woff",
+      "assets/font-logos-BKI1XWaf.woff2",
+      "assets/font-logos-CEmVKCYl.ttf"
     ]
   },
   "src/pages/ViewPasswordPage.vue": {
-    "file": "assets/ViewPasswordPage-Bkj_bjNL.js",
+    "file": "assets/ViewPasswordPage-BQhGPMY7.js",
     "name": "ViewPasswordPage",
     "src": "src/pages/ViewPasswordPage.vue",
     "isDynamicEntry": true,

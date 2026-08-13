@@ -5,6 +5,7 @@ import {
   formatCompactBytes,
   formatUptime,
   mapCycleTransfers,
+  parseCpuCores,
   percentOf,
   toNazhuaServerView,
 } from '../../../../packages/theme-nazhua/src/domain/nazhuaServerView'
@@ -18,13 +19,20 @@ function server(overrides: Partial<ServerRecord> = {}): ServerRecord {
     hide_for_guest: false,
     enable_ddns: false,
     online: true,
-    host: { CountryCode: 'HK', CPU: 2 },
+    host: {
+      CountryCode: 'HK',
+      CPU: ['AMD EPYC 2 Physical Core'],
+      MemTotal: 2_147_483_648,
+      DiskTotal: 21_474_836_480,
+      SwapTotal: 1_073_741_824,
+      Platform: 'debian',
+      Arch: 'amd64',
+    },
     state: {
       CPU: 12.5,
       MemUsed: 1_073_741_824,
-      MemTotal: 2_147_483_648,
       DiskUsed: 10_737_418_240,
-      DiskTotal: 21_474_836_480,
+      SwapUsed: 268_435_456,
       Uptime: 172_900,
       NetInSpeed: 4096,
       NetOutSpeed: 2048,
@@ -41,13 +49,17 @@ function server(overrides: Partial<ServerRecord> = {}): ServerRecord {
 }
 
 describe('Nazhua server view adapter', () => {
-  it('normalizes percentages, bytes, uptime and public note', () => {
+  it('reads totals from host, cores from CPU text, and builds used/total captions', () => {
     const view = toNazhuaServerView(server())
     expect(view.online).toBe(true)
     expect(view.cpuPercent).toBe(12.5)
+    expect(view.cpuCores).toBe(2)
+    expect(view.spec).toContain('2C')
     expect(view.memoryPercent).toBe(50)
     expect(view.diskPercent).toBe(50)
     expect(view.memoryValue).toBe('1G')
+    expect(view.memoryText).toBe('1.0G / 2.0G')
+    expect(view.memoryCaption).toBe('1.0G / 2.0G (50.0%)')
     expect(view.uptime).toBe('2')
     expect(view.slogan).toBe('香港边缘')
     expect(view.publicNote.planTags).toEqual(['CN2', 'GIA', '__dual_stack__'])
@@ -56,18 +68,34 @@ describe('Nazhua server view adapter', () => {
     expect(view.orderLink).toBe('https://example.com')
   })
 
+  it('takes capacity totals from host and usage from state', () => {
+    const view = toNazhuaServerView(server({
+      host: { CountryCode: 'HK', CPU: ['8'], MemTotal: 100, DiskTotal: 40 },
+      state: { CPU: 10, MemUsed: 50, DiskUsed: 20 },
+    }))
+    expect(view.cpuCores).toBe(8)
+    expect(view.memoryPercent).toBe(50)
+    expect(view.diskPercent).toBe(50)
+  })
+
+  it('parses physical and virtual cores and ignores unknown text as length fallback', () => {
+    expect(parseCpuCores(['AMD EPYC 2 Physical Core', 'Intel 4 Virtual Core'])).toBe(6)
+    expect(parseCpuCores(4)).toBe(4)
+    expect(parseCpuCores(['not a core count'])).toBe(1)
+  })
+
   it('does not infer online from stale telemetry', () => {
     expect(toNazhuaServerView(server({ online: false })).online).toBe(false)
   })
 
   it('maps and aggregates one homepage cycle-transfer response', () => {
     const rows: ResourceRecord[] = [
-      { server_id: 7, name: '月流量', direction: 'both', used_bytes: 30, quota_bytes: 100, status: 'normal' },
-      { server_id: 7, name: '附加', direction: 'both', used_bytes: 20, quota_bytes: 100, status: 'warning' },
+      { server_id: 7, name: '月流量', direction: 'both', used_bytes: 30, quota_bytes: 100, remaining_bytes: 70, status: 'normal' },
+      { server_id: 7, name: '附加', direction: 'both', used_bytes: 20, quota_bytes: 100, remaining_bytes: 80, status: 'warning' },
       { server_id: 8, used_bytes: 5, quota_bytes: 10 },
     ]
     const cycles = mapCycleTransfers(rows)
-    expect(cycles.get(7)).toMatchObject({ usedBytes: 50, quotaBytes: 200, usagePercent: 25, status: 'warning' })
+    expect(cycles.get(7)).toMatchObject({ usedBytes: 50, quotaBytes: 200, remainingBytes: 150, usagePercent: 25, status: 'warning' })
     expect(toNazhuaServerView(server(), cycles).trafficBytes).toBe(150)
   })
 

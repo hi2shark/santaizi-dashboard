@@ -1,3 +1,4 @@
+import type { ServerHost } from '@santaizi/api'
 import CODE_MAPS, { aliasMapping, countryCodeMapping, regionGeoPresets } from '../data/code-maps'
 
 type CodeInfo = { x?: number; y?: number; lon?: number; lat?: number; name?: string; country?: string }
@@ -90,7 +91,7 @@ export interface ServerLocation {
 }
 
 export function resolveServerLocation(
-  server: { host?: Record<string, unknown>; public_note?: Record<string, unknown> },
+  server: { host?: ServerHost; public_note?: Record<string, unknown> },
 ): ServerLocation | null {
   let aliasCode: string | undefined
   let locationCode: string | undefined
@@ -98,8 +99,8 @@ export function resolveServerLocation(
   if (custom?.location) {
     aliasCode = String(custom.location)
     locationCode = String(custom.location)
-  } else if (server.host?.CountryCode || server.host?.country_code) {
-    aliasCode = String(server.host.CountryCode || server.host.country_code).toUpperCase()
+  } else if (server.host?.CountryCode) {
+    aliasCode = server.host.CountryCode.toUpperCase()
   }
   const normalizedAliasCode = typeof aliasCode === 'string' ? aliasCode.toUpperCase() : aliasCode
   const code = alias2code(normalizedAliasCode) || locationCode || normalizedAliasCode
@@ -121,6 +122,6 @@ export function resolveServerLocation(
     y,
     lon: hasGeoCoord ? lon! : (x! / 1280) * 360 - 180,
     lat: hasGeoCoord ? lat! : 90 - (y! / 621) * 180,
-    countryCode: String(server.host?.CountryCode || server.host?.country_code || '').toLowerCase(),
+    countryCode: (server.host?.CountryCode || '').toLowerCase(),
   }
 }

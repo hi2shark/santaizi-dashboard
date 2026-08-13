@@ -4,12 +4,14 @@ import { useI18n } from 'vue-i18n'
 import type { NazhuaServerView } from '../../domain/nazhuaServerView'
 import { formatCompactBytes } from '../../domain/nazhuaServerView'
 import DonutChart from '../charts/DonutChart.vue'
+import OsLogo from '../common/OsLogo.vue'
 
 const props = defineProps<{ server: NazhuaServerView }>()
 const { t, te } = useI18n()
 
 const trafficLabel = computed(() => {
-  if (props.server.cycle?.direction === 'out') return t('nazhua.outboundTraffic')
+  if (props.server.cycle?.direction === 'out' || props.server.cycle?.direction === 'outbound') return t('nazhua.outboundTraffic')
+  if (props.server.cycle && props.server.cycle.quotaBytes > 0) return t('nazhua.remainingTraffic')
   if (props.server.publicNote.bill.trafficType === '1') return t('trafficOneWayOut')
   if (props.server.publicNote.bill.trafficType === '3') return t('trafficOneWayMax')
   return t('trafficBidirectionalQuota')
@@ -57,13 +59,16 @@ function planTag(tag: string) {
       <span v-else class="nazhua-flag-fallback"><i class="ri-global-line"></i></span>
       <strong>{{ server.name }}</strong>
       <span v-if="!server.online" class="nazhua-offline-label"><i class="ri-wifi-off-line"></i>{{ t('nazhua.offline') }}</span>
-      <span v-else class="nazhua-card__spec"><i class="ri-cpu-line"></i>{{ server.spec || '—' }}</span>
+      <span v-else class="nazhua-card__spec">
+        <OsLogo :platform="server.platform" />
+        {{ server.spec || '—' }}
+      </span>
     </RouterLink>
     <RouterLink :to="{ name: 'public-detail', params: { serverId: String(server.id) } }" class="nazhua-card__main" :aria-label="server.name">
       <div class="nazhua-card__metrics">
-        <DonutChart label="CPU" :percent="server.cpuPercent" color="blue" />
-        <DonutChart :label="t('nazhua.memory')" :percent="server.memoryPercent" :value="server.memoryValue" color="green" />
-        <DonutChart :label="t('nazhua.disk')" :percent="server.diskPercent" :value="server.diskValue" color="cyan" />
+        <DonutChart label="CPU" :percent="server.cpuPercent" :value="`${server.cpuPercent.toFixed(1)}%`" :caption="server.cpuCaption" color="blue" />
+        <DonutChart :label="t('nazhua.memory')" :percent="server.memoryPercent" :value="server.memoryValue" :caption="server.memoryCaption" color="green" />
+        <DonutChart :label="t('nazhua.disk')" :percent="server.diskPercent" :value="server.diskValue" :caption="server.diskCaption" color="cyan" />
       </div>
       <div class="nazhua-card__stats">
         <span><strong>{{ uptime.value }}<em>{{ uptime.unit }}</em></strong><small>{{ t('nazhua.uptime') }}</small></span>

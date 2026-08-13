@@ -6,6 +6,7 @@ import { resolveServerLocation } from '../utils/worldMap'
 import WorldMap from '../components/home/WorldMap.vue'
 import ServerNameBlock from '../components/detail/ServerNameBlock.vue'
 import ServerStatusBox from '../components/detail/ServerStatusBox.vue'
+import ServerResourceHistory from '../components/detail/ServerResourceHistory.vue'
 import ServerInfoBox from '../components/detail/ServerInfoBox.vue'
 import ServerCycleTransfer from '../components/detail/ServerCycleTransfer.vue'
 import ServerMonitor from '../components/detail/ServerMonitor.vue'
@@ -50,6 +51,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', updateViewport))
     <WorldMap v-if="mapLocations.length" :locations="mapLocations" :width="mapWidth" />
     <ServerNameBlock :server="server" :location="location" />
     <ServerStatusBox :server="server" />
+    <ServerResourceHistory :server-id="server.id" />
     <ServerCycleTransfer :server="server" />
     <ServerInfoBox :server="server" />
     <ServerMonitor :server-id="server.id" />

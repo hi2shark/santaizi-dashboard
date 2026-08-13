@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { ListMode, SortOrder, SortProp } from '../../composables/useServerListFilters'
+import { SORT_OPTIONS, type ListMode, type SortOrder, type SortProp } from '../../composables/useServerListFilters'
 
 const emit = defineEmits<{
   'update:tagFilter': [value: string]
@@ -22,11 +22,10 @@ const props = defineProps<{
   showOnlineFilter: boolean
 }>()
 
-const sortLabel = computed(() => t({
-  display_index: 'nazhua.sortWeight',
-  name: 'nazhua.sortName',
-  online: 'nazhua.sortOnline',
-}[props.sortProp]))
+const sortLabel = computed(() => {
+  const option = SORT_OPTIONS.find(item => item.prop === props.sortProp)
+  return t(option?.labelKey || 'nazhua.sortWeight')
+})
 
 function toggleGroup(name: string) {
   emit('update:tagFilter', props.tagFilter === name ? '' : name)
@@ -60,9 +59,12 @@ function toggleOnline(value: 'online' | 'offline') {
         </el-button>
         <template #dropdown>
           <el-dropdown-menu>
-            <el-dropdown-item command="display_index">{{ t('nazhua.sortWeight') }}</el-dropdown-item>
-            <el-dropdown-item command="name">{{ t('nazhua.sortName') }}</el-dropdown-item>
-            <el-dropdown-item command="online">{{ t('nazhua.sortOnline') }}</el-dropdown-item>
+            <el-dropdown-item
+              v-for="(option, index) in SORT_OPTIONS"
+              :key="option.prop"
+              :command="option.prop"
+              :divided="index > 0 && option.group !== SORT_OPTIONS[index - 1]?.group"
+            >{{ t(option.labelKey) }}</el-dropdown-item>
           </el-dropdown-menu>
         </template>
       </el-dropdown>
