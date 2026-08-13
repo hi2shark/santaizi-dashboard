@@ -21,6 +21,7 @@ import (
 	"github.com/hi2shark/santaizi-dashboard/pkg/utils"
 	"github.com/hi2shark/santaizi-dashboard/service/singleton"
 	"github.com/hi2shark/santaizi-dashboard/service/telemetry"
+	trafficservice "github.com/hi2shark/santaizi-dashboard/service/traffic"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -57,6 +58,7 @@ func registerSPAAPIV2(root gin.IRouter) {
 	public.GET("/servers/:id", v2PublicServer)
 	public.GET("/services", v2PublicServices)
 	public.GET("/network/:id", v2PublicNetwork)
+	public.GET("/cycle-transfer", v2PublicCycleTransfer)
 
 	admin := root.Group("v2/admin")
 	admin.Use(mygin.Authorize(mygin.AuthorizeOption{AllowAPI: true}))
@@ -228,6 +230,8 @@ func v2PublicBootstrap(c *gin.Context) {
 		"footer_text": singleton.Conf.Site.FooterText, "primary_color": singleton.Conf.Site.PrimaryColor, "custom_css": singleton.Conf.Site.SafeCustomCSS,
 		"requires_view_password": singleton.Conf.Site.ViewPassword != "", "view_password_verified": member || verified,
 		"show_availability": singleton.Conf.ShowAvailabilityToGuest, "authenticated": member,
+		"theme":                       model.NormalizePublicTheme(singleton.Conf.Site.Theme),
+		"allow_frontend_theme_switch": !singleton.Conf.DisableSwitchTemplateInFrontend,
 	})
 }
 
@@ -346,6 +350,50 @@ func v2PublicNetwork(c *gin.Context) {
 	}
 	rows := singleton.MonitorAPI.GetMonitorHistories(map[string]any{"server_id": id})
 	writeV2List(c, snakeValue(rows), v2Meta{Page: 1})
+}
+
+func v2PublicCycleTransfer(c *gin.Context) {
+	if !requireV2PublicAccess(c) {
+		return
+	}
+	query := singleton.DB.Model(&model.TrafficPolicy{}).Where("enabled = ?", true)
+	if raw := strings.TrimSpace(c.Query("server_id")); raw != "" {
+		serverID, err := strconv.ParseUint(raw, 10, 64)
+		if err != nil || serverID == 0 {
+			writeV2Problem(c, http.StatusBadRequest, "invalid_server_id", "server_id 无效")
+			return
+		}
+		query = query.Where("server_id = ?", serverID)
+	}
+	var rows []model.TrafficPolicy
+	if err := query.Order("server_id ASC, id ASC").Find(&rows).Error; err != nil {
+		writeV2Problem(c, http.StatusInternalServerError, "database_error", err.Error())
+		return
+	}
+	now := time.Now()
+	items := make([]gin.H, 0, len(rows))
+	for _, row := range rows {
+		item := gin.H{
+			"policy_id":  row.ID,
+			"server_id":  row.ServerID,
+			"name":       row.Name,
+			"direction":  row.Direction,
+			"mode":       row.Mode,
+			"cycle_unit": row.CycleUnit,
+		}
+		if usage, err := trafficservice.Calculate(singleton.DB, row, now); err == nil {
+			item["window_start"] = usage.WindowStart.Format(time.RFC3339)
+			if usage.WindowEnd != nil {
+				item["window_end"] = usage.WindowEnd.Format(time.RFC3339)
+			}
+			item["used_bytes"] = usage.UsedBytes
+			item["quota_bytes"] = usage.QuotaBytes
+			item["usage_percent"] = usage.UsagePercent
+			item["status"] = usage.Status
+		}
+		items = append(items, item)
+	}
+	writeV2List(c, items, v2Meta{Page: 1, PageSize: len(items), Total: int64(len(items))})
 }
 
 func v2AdminSummary(c *gin.Context) {
@@ -1267,6 +1315,7 @@ func v2SettingsDTO() gin.H {
 		"correction_notification": singleton.Conf.Telemetry.EnableCorrectionNotification, "collector_offline_notification": singleton.Conf.Telemetry.EnableCollectorOfflineNotification,
 		"data_loss_notification": singleton.Conf.Telemetry.EnableDataLossNotification, "primary_color": singleton.Conf.Site.PrimaryColor, "footer_text": singleton.Conf.Site.FooterText,
 		"logo_url": singleton.Conf.Site.LogoURL, "background_url": singleton.Conf.Site.BackgroundURL, "custom_css": singleton.Conf.Site.SafeCustomCSS,
+		"theme": model.NormalizePublicTheme(singleton.Conf.Site.Theme), "allow_frontend_theme_switch": !singleton.Conf.DisableSwitchTemplateInFrontend,
 		"retention": snakeValue(singleton.Conf.Retention), "web_delivery": singleton.Conf.Web.Delivery,
 	}
 }
@@ -1374,6 +1423,12 @@ func v2UpdateSettings(c *gin.Context) {
 	}
 	if value, exists := body["data_loss_notification"]; exists {
 		singleton.Conf.Telemetry.EnableDataLossNotification = asBool(value)
+	}
+	if value, exists := body["theme"]; exists {
+		singleton.Conf.Site.Theme = model.NormalizePublicTheme(stringValue(value))
+	}
+	if value, exists := body["allow_frontend_theme_switch"]; exists {
+		singleton.Conf.DisableSwitchTemplateInFrontend = !asBool(value)
 	}
 	if value := stringValue(body["primary_color"]); value != "" {
 		if !safeColor.MatchString(value) {

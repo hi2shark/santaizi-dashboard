@@ -23,6 +23,21 @@ var Languages = map[string]string{
 }
 
 const (
+	PublicThemeServerStatus = "server-status"
+	PublicThemeNazhua       = "nazhua"
+)
+
+// NormalizePublicTheme 将公开站主题收敛到内置白名单。
+func NormalizePublicTheme(theme string) string {
+	switch strings.TrimSpace(theme) {
+	case PublicThemeNazhua:
+		return PublicThemeNazhua
+	default:
+		return PublicThemeServerStatus
+	}
+}
+
+const (
 	ConfigTypeGitHub     = "github"
 	ConfigTypeGitee      = "gitee"
 	ConfigTypeGitlab     = "gitlab"
@@ -246,7 +261,9 @@ func (c *Config) Read(path string) error {
 		c.Site.CookieName = "santaizi-dashboard"
 	}
 	if c.Site.Theme == "" || c.Site.Theme == "default" {
-		c.Site.Theme = "server-status"
+		c.Site.Theme = PublicThemeServerStatus
+	} else {
+		c.Site.Theme = NormalizePublicTheme(c.Site.Theme)
 	}
 	if c.Site.DashboardTheme == "" || c.Site.DashboardTheme == "default" {
 		c.Site.DashboardTheme = "spa"

@@ -8,7 +8,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/hi2shark/santaizi-dashboard/model"
 	"github.com/hi2shark/santaizi-dashboard/pkg/utils"
-	"github.com/hi2shark/santaizi-dashboard/service/singleton"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -17,36 +16,21 @@ type commonPage struct {
 	requestGroup singleflight.Group
 }
 
-type Data struct {
-	Now     int64           `json:"now,omitempty"`
-	Servers []*model.Server `json:"servers,omitempty"`
-}
-
 var upgrader = websocket.Upgrader{ReadBufferSize: 32768, WriteBufferSize: 32768}
 
+// getServerStat 公开 WS 载荷必须与 publicServerSnapshot（HTTP）同形，禁止直接 Marshal model.Server。
 func (cp *commonPage) getServerStat(c *gin.Context, withPublicNote bool) ([]byte, error) {
 	_, member := c.Get(model.CtxKeyAuthorizedUser)
 	_, verified := c.Get(model.CtxKeyViewPasswordVerified)
 	authorized := member || verified
 	value, err, _ := cp.requestGroup.Do(fmt.Sprintf("serverStats::%t::%t", authorized, withPublicNote), func() (any, error) {
-		singleton.SortedServerLock.RLock()
-		defer singleton.SortedServerLock.RUnlock()
-		source := singleton.SortedServerListForGuest
-		if authorized {
-			source = singleton.SortedServerList
-		}
-		servers := make([]*model.Server, 0, len(source))
-		for _, running := range source {
-			item := *running
-			presentation := runtimeForServer(item)
-			item.Secret, item.Note = "", ""
-			if !withPublicNote {
-				item.PublicNote = ""
+		servers := publicServerSnapshot(c)
+		if !withPublicNote {
+			for _, row := range servers {
+				delete(row, "public_note")
 			}
-			item.Telemetry = &model.TelemetryPresentation{Host: presentation.HostState, Connectivity: presentation.Connectivity, Available: presentation.Availability, Coverage: presentation.Coverage}
-			servers = append(servers, &item)
 		}
-		return utils.Json.Marshal(Data{Now: time.Now().UnixMilli(), Servers: servers})
+		return utils.Json.Marshal(gin.H{"now": time.Now().UnixMilli(), "servers": servers})
 	})
 	if err != nil {
 		return nil, err
@@ -64,7 +48,7 @@ func (cp *commonPage) ws(c *gin.Context) {
 	defer ticker.Stop()
 	count := 0
 	for {
-		stat, err := cp.getServerStat(c, false)
+		stat, err := cp.getServerStat(c, true)
 		if err != nil {
 			<-ticker.C
 			continue

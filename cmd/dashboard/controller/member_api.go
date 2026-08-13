@@ -824,7 +824,7 @@ func (ma *memberAPI) updateSetting(c *gin.Context) {
 		return
 	}
 
-	sf.Theme = "server-status"
+	sf.Theme = model.NormalizePublicTheme(sf.Theme)
 	sf.DashboardTheme = "spa"
 
 	singleton.Conf.Language = sf.Language
