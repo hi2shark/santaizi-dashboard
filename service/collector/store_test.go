@@ -3,6 +3,7 @@ package collector
 import (
 	"bytes"
 	"context"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -14,6 +15,27 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
+
+func openTestStore(t *testing.T) *Store {
+	t.Helper()
+	store, err := OpenStore(filepath.Join(t.TempDir(), "collector.db"), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := store.Close(); err != nil {
+			t.Errorf("close collector store: %v", err)
+		}
+	})
+	return store
+}
+
+func closeTestGorm(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	if err := closeGormDB(db); err != nil {
+		t.Fatalf("close sqlite: %v", err)
+	}
+}
 
 func collectorEvent(t *testing.T, node, session []byte, sequence uint64) *pb.TelemetryEvent {
 	t.Helper()
@@ -33,10 +55,7 @@ func collectorEvent(t *testing.T, node, session []byte, sequence uint64) *pb.Tel
 }
 
 func TestCollectorIngestCommitsFactsOutboxAndCursorTogether(t *testing.T) {
-	store, err := OpenStore(filepath.Join(t.TempDir(), "collector.db"), false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	store := openTestStore(t)
 	node, session := bytes.Repeat([]byte{1}, 16), bytes.Repeat([]byte{2}, 16)
 	batch := &pb.TelemetryBatch{Records: []*pb.TelemetryRecord{
 		{Record: &pb.TelemetryRecord_Event{Event: collectorEvent(t, node, session, 1)}},
@@ -86,10 +105,7 @@ func TestCollectorIngestCommitsFactsOutboxAndCursorTogether(t *testing.T) {
 }
 
 func TestCollectorAuthorizationCacheHonorsAssignmentAndRevocation(t *testing.T) {
-	store, err := OpenStore(filepath.Join(t.TempDir(), "collector.db"), false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	store := openTestStore(t)
 	node := bytes.Repeat([]byte{9}, 16)
 	now := time.Now()
 	config := &pb.CollectorAuthorizationConfig{
@@ -112,10 +128,7 @@ func TestCollectorAuthorizationCacheHonorsAssignmentAndRevocation(t *testing.T) 
 }
 
 func TestCollectorHardLimitCreatesReplicableGapAndDataLoss(t *testing.T) {
-	store, err := OpenStore(filepath.Join(t.TempDir(), "collector.db"), false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	store := openTestStore(t)
 	node, session := bytes.Repeat([]byte{6}, 16), bytes.Repeat([]byte{7}, 16)
 	batch := &pb.TelemetryBatch{Records: []*pb.TelemetryRecord{{
 		Record: &pb.TelemetryRecord_Event{Event: collectorEvent(t, node, session, 1)},
@@ -147,9 +160,11 @@ func TestCollectorRejectsUnversionedExistingDatabase(t *testing.T) {
 	if err := db.Exec("CREATE TABLE existing_data (id INTEGER)").Error; err != nil {
 		t.Fatal(err)
 	}
-	sqlDB, _ := db.DB()
-	_ = sqlDB.Close()
+	closeTestGorm(t, db)
 	if _, err := OpenStore(path, false); err == nil || !strings.Contains(err.Error(), "without collector_schema_migrations") {
 		t.Fatalf("expected unversioned database rejection, got %v", err)
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatalf("rejected open left the sqlite file locked: %v", err)
 	}
 }

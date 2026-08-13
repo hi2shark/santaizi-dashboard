@@ -14,14 +14,12 @@ import (
 )
 
 func TestAgentCollectorPrimaryPipelineSurvivesLostReplicationAck(t *testing.T) {
-	collectorStore, err := OpenStore(t.TempDir()+"/collector.db", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	collectorStore := openTestStore(t)
 	primaryDB, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = closeGormDB(primaryDB) })
 	if err := primaryDB.AutoMigrate(
 		&model.TelemetryEvent{}, &model.TelemetryObservation{}, &model.TelemetryGap{},
 		&model.ObserverHealthBucket{}, &model.ObserverPathBucket{}, &model.ObserverAssignment{},

@@ -132,10 +132,16 @@ func runCollector() {
 	runtime, err := collectorservice.NewRuntime(ctx, store, singleton.Conf.Collector,
 		time.Duration(singleton.Conf.Telemetry.CredentialGraceDays)*24*time.Hour)
 	if err != nil {
+		_ = store.Close()
 		log.Fatalf("SANTAIZI>> collector runtime: %v", err)
 	}
 	runtime.Start()
-	defer runtime.Close()
+	defer func() {
+		runtime.Close()
+		if err := store.Close(); err != nil {
+			log.Printf("SANTAIZI>> collector database close: %v", err)
+		}
+	}()
 	if err := rpc.ServeCollectorRPC(ctx, singleton.Conf.GRPCPort, runtime); err != nil && ctx.Err() == nil {
 		log.Fatalf("SANTAIZI>> collector gRPC: %v", err)
 	}

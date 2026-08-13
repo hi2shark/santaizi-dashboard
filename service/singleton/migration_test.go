@@ -16,6 +16,11 @@ func TestOpenDBFromPathCreatesVersionedSchema(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		if err := CloseDB(db); err != nil {
+			t.Errorf("close db: %v", err)
+		}
+	})
 	var migration model.SchemaMigration
 	if err := db.First(&migration, 1).Error; err != nil {
 		t.Fatal(err)
@@ -34,13 +39,17 @@ func TestOpenDBFromPathRejectsUnversionedDatabase(t *testing.T) {
 	if err := db.Exec("CREATE TABLE old_data (id INTEGER PRIMARY KEY)").Error; err != nil {
 		t.Fatal(err)
 	}
-	sqlDB, _ := db.DB()
-	_ = sqlDB.Close()
+	if err := CloseDB(db); err != nil {
+		t.Fatal(err)
+	}
 
 	if _, err := OpenDBFromPath(path, false); err == nil {
 		t.Fatal("expected an unversioned database to be rejected")
 	}
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("database should remain available for diagnosis: %v", err)
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatalf("rejected open left the sqlite file locked: %v", err)
 	}
 }

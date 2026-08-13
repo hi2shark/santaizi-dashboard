@@ -44,6 +44,12 @@ func OpenStore(path string, debug bool) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
+	ready := false
+	defer func() {
+		if !ready {
+			_ = closeGormDB(db)
+		}
+	}()
 	if debug {
 		db = db.Debug()
 	}
@@ -59,7 +65,30 @@ func OpenStore(path string, debug bool) (*Store, error) {
 	if err := migrate(db); err != nil {
 		return nil, err
 	}
+	ready = true
 	return &Store{db: db, path: path}, nil
+}
+
+func closeGormDB(db *gorm.DB) error {
+	if db == nil {
+		return nil
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		return err
+	}
+	// WAL checkpoint then Close: Windows cannot unlink a still-mapped sqlite file.
+	_, _ = sqlDB.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
+	return sqlDB.Close()
+}
+
+func (s *Store) Close() error {
+	if s == nil {
+		return nil
+	}
+	err := closeGormDB(s.db)
+	s.db = nil
+	return err
 }
 
 func migrate(db *gorm.DB) error {

@@ -19,6 +19,7 @@ func newTestDB(t *testing.T) *gorm.DB {
 	if err := db.AutoMigrate(&model.ServerRuntime{}, &model.ServerOfflineHistory{}); err != nil {
 		t.Fatalf("自动迁移失败: %v", err)
 	}
+	t.Cleanup(func() { _ = CloseDB(db) })
 	// 清空表，避免 cache=shared 模式下残留
 	db.Exec("DELETE FROM server_offline_histories")
 	db.Exec("DELETE FROM server_runtimes")

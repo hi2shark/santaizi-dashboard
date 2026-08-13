@@ -90,6 +90,12 @@ func OpenDBFromPath(path string, debug bool) (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
+	ready := false
+	defer func() {
+		if !ready {
+			_ = CloseDB(db)
+		}
+	}()
 	if debug {
 		db = db.Debug()
 	}
@@ -110,7 +116,21 @@ func OpenDBFromPath(path string, debug bool) (*gorm.DB, error) {
 	if err := migrateDatabase(db); err != nil {
 		return nil, err
 	}
+	ready = true
 	return db, nil
+}
+
+// CloseDB releases a SQLite handle so Windows can delete the file (WAL checkpoint + sql.DB.Close).
+func CloseDB(db *gorm.DB) error {
+	if db == nil {
+		return nil
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		return err
+	}
+	_, _ = sqlDB.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
+	return sqlDB.Close()
 }
 
 func migrateDatabase(db *gorm.DB) error {

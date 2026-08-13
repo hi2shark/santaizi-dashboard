@@ -28,7 +28,10 @@ func TestV2NodeReplacementCreatesIdentityLifecycleFact(t *testing.T) {
 	}
 	previousDB := DB
 	DB = db
-	t.Cleanup(func() { DB = previousDB })
+	t.Cleanup(func() {
+		DB = previousDB
+		_ = CloseDB(db)
+	})
 
 	oldNode := bytes.Repeat([]byte{0x11}, 16)
 	newNode := bytes.Repeat([]byte{0x22}, 16)
@@ -86,6 +89,7 @@ func TestHistoricalReplayDoesNotOverwriteFreshRuntime(t *testing.T) {
 	ServerList = map[uint64]*model.Server{9: {Common: model.Common{ID: 9}, State: &model.HostState{}, Host: &model.Host{}}}
 	t.Cleanup(func() {
 		DB, Conf, ServerList = previousDB, previousConf, previousServers
+		_ = CloseDB(db)
 	})
 
 	node := bytes.Repeat([]byte{0x31}, 16)
@@ -145,7 +149,10 @@ func TestBindingAndTagChangeRefreshCollectorAssignments(t *testing.T) {
 	}
 	previousDB := DB
 	DB = db
-	t.Cleanup(func() { DB = previousDB })
+	t.Cleanup(func() {
+		DB = previousDB
+		_ = CloseDB(db)
+	})
 
 	node := bytes.Repeat([]byte{0x41}, 16)
 	now := time.Unix(1_800_100_000, 0)
