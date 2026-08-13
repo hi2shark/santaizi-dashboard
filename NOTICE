@@ -9,3 +9,9 @@ in the LICENSE file.
 
 The product brand "三太子 / Santaizi" is a derivative rebrand; it does
 not claim ownership of the original Nezha Monitoring trademarks or branding.
+
+The built-in Nazhua public theme includes design and asset work derived from
+Nazhua (https://github.com/hi2shark/nazhua) at commit
+d08c973bb4446a24356f49b81d75d6773286596e, Copyright (c) 2024 hi2hi,
+used under the MIT License. A copy is retained in
+web/packages/theme-nazhua/LICENSE.
