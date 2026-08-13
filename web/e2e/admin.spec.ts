@@ -336,21 +336,61 @@ test('connection observation shows collector links and node paths', async ({ pag
   const collector = {
     id: 'collector-1', name: 'Shanghai edge', address: 'collector.example.com:5555', tls: true, insecure_tls: false,
     generation: 1, config_version: 1, status: 'online', revoked: false, connected_agents: 3, pending_records: 1,
-    last_seen: '2026-08-13T06:00:00Z', last_sync: '2026-08-13T05:59:00Z', scopes: [{ type: 'all', value: '' }],
+    last_seen: '2026-08-13T06:00:00Z', last_sync: '2026-08-13T05:59:00Z', heartbeat_rtt_ms: 18.5, heartbeat_rtt_sampled_at: '2026-08-13T06:00:00Z', scopes: [{ type: 'all', value: '' }],
   }
   const path = {
     server_id: 7, server_name: 'edge-a', node_uuid: '09090909090909090909090909090909', observer_id: 'primary',
     observer_kind: 'primary', observer_name: '', assigned: true, last_seen: '2026-08-13T06:00:00Z',
-    sink: { connected: true, pending_events: 2, last_error: '', ack_through: 11 },
+    sink: { connected: true, pending_events: 2, last_error: '', ack_through: 11, last_rtt_ms: 12.5, rtt_sampled_at: '2026-08-13T06:00:00Z' },
   }
   await page.route('**/api/v2/admin/telemetry/collectors**', route => fulfillJSON(route, list([collector])))
   await page.route('**/api/v2/admin/connections/paths**', route => fulfillJSON(route, list([path])))
+  await page.route('**/api/v2/admin/connections/latency**', route => fulfillJSON(route, list([{
+    kind: 'collector_heartbeat', collector_id: 'collector-1', server_id: 0, server_name: '', node_uuid: '', observer_id: '',
+    bucket_start: '2026-08-13T06:00:00Z', min_ms: 16, avg_ms: 18.5, max_ms: 21, count: 4,
+  }])))
   await page.goto('/admin/connections')
   await expect(page.getByRole('heading', { name: '连接观察' })).toBeVisible()
   await expect(page.getByText('主从连接').filter({ visible: true })).toBeVisible()
   await expect(page.getByText('Shanghai edge').filter({ visible: true })).toBeVisible()
+  await expect(page.getByText('18.5 ms').filter({ visible: true }).first()).toBeVisible()
   await expect(page.getByText('节点连接').filter({ visible: true })).toBeVisible()
   await expect(page.getByText('edge-a').filter({ visible: true })).toBeVisible()
+  await expect(page.getByText('12.5 ms').filter({ visible: true }).first()).toBeVisible()
+  await page.getByText('Shanghai edge').filter({ visible: true }).first().click()
+  const drawer = page.locator('.el-drawer').filter({ visible: true })
+  await expect(drawer.getByText('心跳', { exact: true })).toBeVisible()
+  await expect(drawer.getByText('16 ms', { exact: true })).toBeVisible()
+  await expect(drawer.getByText('21 ms', { exact: true })).toBeVisible()
+})
+
+test('connection observation truncates long path errors until the drawer opens', async ({ page }) => {
+  const collectorId = 'collector-2aee9892d4c14e4c8b9a112233445566'
+  const lastError = 'rpc error: code = Unavailable desc = connection error: desc = "transport: authentication handshake failed: tls: first record does not look like a TLS handshake"'
+  await page.route('**/api/v2/admin/telemetry/collectors**', route => fulfillJSON(route, list([{
+    id: collectorId, name: '盐湖城1212', address: 'collector.example.com:5555', tls: true, insecure_tls: false,
+    generation: 1, config_version: 1, status: 'online', revoked: false, connected_agents: 0, pending_records: 0,
+    last_seen: '2026-08-13T06:00:00Z', last_sync: '2026-08-13T05:59:00Z', scopes: [{ type: 'all', value: '' }],
+  }])))
+  await page.route('**/api/v2/admin/connections/paths**', route => fulfillJSON(route, list([{
+    server_id: 7, server_name: 'LAX-DMIT.PRO', node_uuid: '09090909090909090909090909090909', observer_id: 'primary',
+    observer_kind: 'primary', observer_name: '', assigned: true, last_seen: '2026-08-13T06:00:00Z',
+    sink: { connected: false, pending_events: 0, last_error: lastError, ack_through: 0 },
+  }])))
+  await page.route('**/api/v2/admin/connections/latency**', route => fulfillJSON(route, list()))
+  await page.goto('/admin/connections')
+  const collectorList = page.locator('.dataset-table, .mobile-card-list').filter({ visible: true }).first()
+  await expect(collectorList.getByText('盐湖城1212').filter({ visible: true })).toBeVisible()
+  await expect(collectorList.getByText('collector-2aee9892…').filter({ visible: true })).toBeVisible()
+  await expect(collectorList).not.toContainText(collectorId)
+  const pathList = page.locator('.dataset-table, .mobile-card-list').filter({ visible: true }).last()
+  const errorEl = pathList.locator('.cell-ellipsis').filter({ hasText: 'rpc error' })
+  await expect(errorEl).toBeVisible()
+  const box = await errorEl.boundingBox()
+  expect(box?.height ?? 99).toBeLessThan(40)
+  await pathList.locator('.el-table__row, .mobile-card').first().click()
+  const drawer = page.locator('.el-drawer').filter({ visible: true })
+  await expect(drawer.getByText(lastError).filter({ visible: true })).toBeVisible()
 })
 
 test('server history drawer shows observer evidence and connection paths', async ({ page }) => {
@@ -367,20 +407,23 @@ test('server history drawer shows observer evidence and connection paths', async
     return fulfillJSON(route, list([{
       id: 7, name: 'edge-a', tag: 'edge', online: true, public_note: {}, monitoring_options: {},
       display_index: 1, hide_for_guest: false, enable_ddns: false,
+      telemetry: { host: 'online', connectivity: 'full', available: true, coverage: '2/2' },
     }]))
   })
   await page.route('**/api/v2/admin/offline-history**', route => fulfillJSON(route, list()))
   await page.route('**/api/v2/admin/connections/paths**', route => fulfillJSON(route, list([{
     server_id: 7, server_name: 'edge-a', node_uuid: 'aa', observer_id: 'primary', observer_kind: 'primary',
     observer_name: '', assigned: true, last_seen: '2026-08-13T06:00:00Z',
-    sink: { connected: true, pending_events: 0 },
+    sink: { connected: true, pending_events: 0, last_rtt_ms: 9, rtt_sampled_at: '2026-08-13T06:00:00Z' },
   }])))
   await page.goto('/admin/servers')
-  await clickVisibleRowAction(page, '离线历史')
+  await expect(page.locator('.availability-entry').filter({ visible: true }).first()).toContainText('2/2')
+  await page.locator('.availability-entry').filter({ visible: true }).first().click()
   await expect(page.getByText('观测证据').filter({ visible: true })).toBeVisible()
   await expect(page.getByText('主面板').filter({ visible: true })).toBeVisible()
   await page.getByRole('tab', { name: '节点连接' }).click()
   await expect(page.getByText('已连接').filter({ visible: true })).toBeVisible()
+  await expect(page.getByText('9 ms').filter({ visible: true })).toBeVisible()
 })
 
 test('telemetry datasets show readable rows without blobs or full uuids', async ({ page }) => {
@@ -421,4 +464,26 @@ test('telemetry datasets show readable rows without blobs or full uuids', async 
   await expect(incidentsList).not.toContainText('observer_id')
   await incidentsList.locator('.el-table__row, .mobile-card').first().click()
   await expect(page.locator('.el-drawer').filter({ visible: true }).getByText(nodeUUID)).toBeVisible()
+})
+
+test('telemetry dataset tabs paginate incident revisions', async ({ page }) => {
+  const pages: string[] = []
+  await page.route('**/api/v2/admin/telemetry/incident-revisions**', route => {
+    const url = new URL(route.request().url())
+    pages.push(url.searchParams.get('page') || '1')
+    const pageNum = Number(url.searchParams.get('page') || '1')
+    const rows = Array.from({ length: pageNum === 1 ? 20 : 5 }, (_, i) => ({
+      id: pageNum === 1 ? 268 - i : 248 - i, incident_id: pageNum === 1 ? 268 - i : 248 - i, revision: 1,
+      classification: 'host_offline', reason: 'availability_evidence',
+      created_at: '2026-08-13T08:19:13Z', recalculated_at: '2026-08-13T08:19:13Z', observer_evidence: [],
+    }))
+    return fulfillJSON(route, JSON.stringify({ data: rows, meta: { page: pageNum, page_size: 20, total: 45 } }))
+  })
+  await page.goto('/admin/telemetry')
+  await page.getByRole('tab', { name: '事件修订' }).click()
+  const pagination = page.locator('.pagination .el-pagination').filter({ visible: true })
+  await expect(pagination).toBeVisible()
+  await expect(pagination.locator('.el-pagination__total')).toContainText('45')
+  await pagination.locator('.btn-next').click()
+  await expect.poll(() => pages.includes('2')).toBeTruthy()
 })

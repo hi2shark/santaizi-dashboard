@@ -12,6 +12,15 @@ export function formatBytes(value: unknown, locale: string) {
   return `${new Intl.NumberFormat(locale, { maximumFractionDigits: index ? 1 : 0 }).format(bytes)} ${units[index]}`
 }
 
+export function formatLatencyMs(value: unknown, locale: string) {
+  const ms = Number(value)
+  if (!Number.isFinite(ms) || ms < 0) return '—'
+  if (ms < 1000) {
+    return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(ms)} ms`
+  }
+  return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(ms / 1000)} s`
+}
+
 function asDate(value: unknown): Date | null {
   if (value === null || value === undefined || value === '') return null
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -52,7 +61,8 @@ export function formatAdminValue(value: unknown, key: string, locale: string, t:
   if (Array.isArray(value)) return value.join(', ')
   if (typeof value === 'object') return JSON.stringify(value)
   if (/(?:bytes|spool_size)$/.test(key)) return formatBytes(value, locale)
-  if (/(?:_at|_from|_to|last_seen|last_active|last_sync|last_primary_seen|oldest_pending)$/.test(key)) return formatDateTime(value, locale)
+  if (/(?:rtt_ms|latency_ms|min_ms|avg_ms|max_ms)$/.test(key)) return formatLatencyMs(value, locale)
+  if (/(?:_at|_from|_to|last_seen|last_active|last_sync|last_primary_seen|oldest_pending|bucket_start)$/.test(key)) return formatDateTime(value, locale)
   if (typeof value === 'string') return formatLabel(value, t, te)
   return String(value)
 }

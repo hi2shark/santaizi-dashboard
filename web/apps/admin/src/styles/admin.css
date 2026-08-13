@@ -141,11 +141,34 @@ html.dark .metric-icon.blue,html.dark .metric-icon.green,html.dark .metric-icon.
 .copyable-id__text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
 .copyable-id__full{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}
 .copyable-id--full{align-items:flex-start}
+.mobile-card-meta dd .cell-ellipsis{flex:1 1 0}
+.mobile-card-meta dd .copyable-id--full{display:flex;width:100%;max-width:100%}
+.mobile-card-meta dd .copyable-id__full{flex:1;min-width:0}
 .drawer-sinks{width:100%;margin-top:16px}
 /* 状态列独占；margin 仅预留 4px 外发光，避免被 cell 裁切 */
 .col-status .cell{display:flex;align-items:center;justify-content:center;padding-left:8px;padding-right:8px;overflow:visible}
 .status-dot{flex-shrink:0;width:8px;height:8px;margin:4px;border-radius:50%;background:var(--sz-text-muted);box-shadow:0 0 0 4px color-mix(in srgb,var(--sz-text-muted) 12%,transparent)}.status-dot.online,.status-dot.healthy{background:var(--sz-success);box-shadow:0 0 0 4px color-mix(in srgb,var(--sz-success) 12%,transparent)}.status-dot.offline,.status-dot.revoked{background:var(--sz-danger);box-shadow:0 0 0 4px color-mix(in srgb,var(--sz-danger) 12%,transparent)}.status-dot.degraded{background:var(--sz-warning);box-shadow:0 0 0 4px color-mix(in srgb,var(--sz-warning) 12%,transparent)}
 .state-label{display:inline-flex;align-items:center;gap:var(--icon-text-gap);font-size:13px}.state-label i{color:var(--sz-success)}
+.availability-entry.el-button.is-text {
+  height: var(--control-height);
+  min-height: var(--control-height);
+  padding: 0 8px;
+  border: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sz-text);
+  background: transparent;
+}
+.availability-entry.el-button.is-text:hover,
+.availability-entry.el-button.is-text:focus {
+  background: transparent;
+  border-color: transparent;
+  color: var(--sz-text);
+}
+.availability-entry.el-button.is-text i { font-size: 16px; line-height: 1; }
+.availability-entry.is-ok i { color: var(--sz-success); }
+.availability-entry.is-bad i { color: var(--sz-danger); }
+.availability-entry.is-unknown i { color: var(--sz-text-muted); }
 .telemetry-shell{padding:0 18px 18px;overflow:hidden}.telemetry-shell>.el-tabs .el-tabs__header{margin:0 0 16px}.token-display{margin-top:18px}
 .settings-stack{display:grid;gap:18px}.settings-section{padding:24px}.settings-heading{display:flex;align-items:center;gap:14px;margin-bottom:24px}.settings-heading>i{display:grid;place-items:center;width:40px;height:40px;border-radius:10px;background:var(--sz-primary-soft);color:var(--sz-primary);font-size:20px}.settings-heading>.el-button{margin-left:auto}.settings-heading h2{margin:0;font-size:18px}.setting-switches{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.setting-switches label{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:16px;border:1px solid var(--sz-border);border-radius:10px}.token-create{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:18px;margin-bottom:18px}.token-create .el-input{flex:1 1 220px;max-width:520px;min-width:180px}.token-create .token-expiry-select{width:160px}.token-create .token-expiry-picker{width:min(260px,100%)}.token-create .el-segmented{flex:0 0 auto}
 .auth-page{min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 20% 0%,rgba(37,99,235,.13),transparent 40%),var(--sz-bg)}.auth-card{width:min(440px,100%);padding:36px;text-align:center}.auth-brand{display:flex;align-items:center;justify-content:center;gap:10px;color:var(--sz-text);text-decoration:none;font-weight:750}.auth-brand img{width:34px;height:34px}.auth-icon{width:64px;height:64px;display:grid;place-items:center;margin:28px auto 18px;border-radius:20px;background:var(--sz-primary-soft);color:var(--sz-primary);font-size:28px}.auth-card h1{margin:0 0 24px}.auth-submit{width:100%}
@@ -162,6 +185,26 @@ html.dark .metric-icon.blue,html.dark .metric-icon.green,html.dark .metric-icon.
 .toolbar .el-button {
   min-height: var(--control-height);
   height: var(--control-height);
+}
+.page-stack { display: grid; gap: 18px; }
+.table-card-title {
+  margin: 0;
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--icon-text-gap);
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.25;
+}
+.table-card-title small {
+  color: var(--sz-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.toolbar-filter {
+  width: 220px;
+  flex: 0 0 220px;
+  min-width: 0;
 }
 .table-card { overflow: hidden; }
 .table-card .el-table { --el-table-header-bg-color: color-mix(in srgb,var(--sz-bg) 76%,var(--sz-surface)); --el-table-row-hover-bg-color: var(--sz-primary-soft); }
@@ -206,6 +249,36 @@ html.dark .metric-icon.blue,html.dark .metric-icon.green,html.dark .metric-icon.
 .actions-icon.el-button.is-text i {
   font-size: 18px;
   line-height: 1;
+}
+.admin-note-btn.el-button.is-text i { color: var(--sz-text); }
+.admin-note-empty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-height);
+  min-width: var(--control-height);
+  height: var(--control-height);
+  min-height: var(--control-height);
+  color: var(--sz-text-muted);
+  cursor: default;
+}
+.admin-note-empty i { font-size: 18px; line-height: 1; }
+.admin-note-tip {
+  max-width: 320px;
+  max-height: 240px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.admin-note-body {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--sz-text);
 }
 .column-picker { display: grid; gap: 8px; }
 .column-picker .el-checkbox { margin-right: 0; }
@@ -634,6 +707,13 @@ html.dark .metric-icon.blue,html.dark .metric-icon.green,html.dark .metric-icon.
     height: var(--control-height);
   }
   .toolbar .toolbar-spacer { display: none; }
+  .toolbar > .table-card-title { flex: 1 1 100%; }
+  .toolbar > .toolbar-filter {
+    flex: 1 1 calc((100% - var(--space-2)) / 2);
+    width: auto;
+    min-width: 0;
+    max-width: 100%;
+  }
   .toolbar > .el-button {
     flex: 1 1 calc((100% - 2 * var(--space-2)) / 3);
     width: auto;
@@ -874,6 +954,8 @@ html.dark .metric-icon.blue,html.dark .metric-icon.green,html.dark .metric-icon.
   .mobile-card-actions .el-button,
   .mobile-card-actions .el-button:hover,
   .mobile-card-actions .el-button:focus,
+  .admin-note-btn.el-button.is-text,
+  .availability-entry.el-button.is-text,
   .user-button,
   .topbar-icon {
     cursor: default;

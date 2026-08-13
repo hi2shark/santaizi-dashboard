@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { AppDrawer, AppEmpty } from '@santaizi/ui'
+import { AppDialog, AppDrawer, AppEmpty } from '@santaizi/ui'
 import type { ConnectionPath } from '@santaizi/api'
 import ServerEditorDialog from '@/components/editors/ServerEditorDialog.vue'
 import ServerGroupManagerDialog from '@/components/editors/ServerGroupManagerDialog.vue'
@@ -24,6 +24,14 @@ const query = reactive({ page: 1, page_size: 20, q: '', sort: 'display_index', o
 const historyDrawer = ref(false), historyLoading = ref(false), historyServer = ref<ServerRecord>(), historyTab = ref('availability'), history = ref<ResourceRecord[]>([]), availability = ref<ResourceRecord[]>([]), connectionPaths = ref<ConnectionPath[]>([])
 const sortDraft = ref<Record<number, string>>({})
 const sortSaving = ref<Record<number, boolean>>({})
+const hoverCapable = ref(false)
+const noteDialog = ref(false)
+const noteServer = ref<ServerRecord>()
+let hoverMedia: MediaQueryList | undefined
+
+function onHoverMediaChange() {
+  hoverCapable.value = !!hoverMedia?.matches
+}
 
 async function load() {
   loading.value = true
@@ -39,13 +47,38 @@ async function load() {
   }
 }
 function open(item?: ServerRecord) { editing.value = item; editor.value = true }
-function publicSummary(server: ServerRecord) { const parsed = parsePublicNote(server.public_note ? JSON.stringify(server.public_note) : ''); return parsed.form.presentation.slogan || parsed.form.presentation.locationLabel || server.note || '—' }
-function hasPublicSummary(server: ServerRecord) { return publicSummary(server) !== '—' }
+function publicSummary(server: ServerRecord) {
+  const parsed = parsePublicNote(server.public_note ? JSON.stringify(server.public_note) : '')
+  return parsed.form.presentation.slogan || parsed.form.presentation.locationLabel || ''
+}
+function hasPublicSummary(server: ServerRecord) { return Boolean(publicSummary(server)) }
+function hasAdminNote(server: ServerRecord) { return Boolean(server.note?.trim()) }
+function openNote(server: ServerRecord) {
+  if (!hasAdminNote(server)) return
+  noteServer.value = server
+  noteDialog.value = true
+}
 function reportedAddresses(server: ServerRecord) { return hostAddresses(server.host) }
 async function removeOne(server: ServerRecord) { await ElMessageBox.confirm(t('confirmDelete'), t('dangerousAction'), { type: 'warning' }); try { await deleteServer(server.id); ElMessage.success(t('deleteSuccess')); await load() } catch (error) { notifyAPIError(error, t as never, te) } }
 async function groupSelected() { try { const { value } = await ElMessageBox.prompt(t('group'), t('batchGroup'), { inputValue: selected.value[0]?.tag || '' }); await batchUpdateServerGroup(selected.value.map(server => server.id), value); await load() } catch { /* user cancelled */ } }
 async function deleteSelected() { await ElMessageBox.confirm(t('confirmDelete'), t('dangerousAction'), { type: 'warning' }); try { await batchDeleteServers(selected.value.map(server => server.id)); selected.value = []; await load(); ElMessage.success(t('deleteSuccess')) } catch (error) { notifyAPIError(error, t as never, te) } }
 function status(server: ServerRecord) { return server.online ? 'online' : (server.telemetry?.connectivity || 'offline') }
+function coverageText(server: ServerRecord) {
+  const coverage = server.telemetry?.coverage
+  if (coverage && /^\d+\/\d+$/.test(coverage)) return coverage
+  const key = coverage || status(server)
+  return te(key) ? t(key) : (key || '—')
+}
+function availabilityTone(server: ServerRecord) {
+  if (server.telemetry?.available === true) return 'is-ok'
+  if (server.telemetry?.available === false) return 'is-bad'
+  return 'is-unknown'
+}
+function availabilityIcon(server: ServerRecord) {
+  if (server.telemetry?.available === true) return 'ri-checkbox-circle-fill'
+  if (server.telemetry?.available === false) return 'ri-close-circle-fill'
+  return 'ri-question-fill'
+}
 function display(value: unknown, key: string) { return formatAdminValue(value, key, locale.value, t as never, te) }
 function observerName(id: string) { return id === 'primary' ? t('observerKindPrimary') : id }
 function seenObserverText(row: ResourceRecord) {
@@ -109,7 +142,14 @@ async function commitDisplayIndex(server: ServerRecord) {
   }
 }
 
-onMounted(async () => { await load(); if (route.query.create === '1') open() })
+onMounted(async () => {
+  hoverMedia = window.matchMedia('(hover: hover) and (pointer: fine)')
+  onHoverMediaChange()
+  hoverMedia.addEventListener('change', onHoverMediaChange)
+  await load()
+  if (route.query.create === '1') open()
+})
+onUnmounted(() => { hoverMedia?.removeEventListener('change', onHoverMediaChange) })
 </script>
 
 <template>
@@ -136,8 +176,22 @@ onMounted(async () => { await load(); if (route.query.create === '1') open() })
       <el-table-column prop="name" :label="t('name')" min-width="200">
         <template #default="{row}">
           <div class="server-name">
-            <strong>{{ row.name }}</strong><small>{{ publicSummary(row) }}</small>
+            <strong>{{ row.name }}</strong>
+            <small v-if="hasPublicSummary(row)">{{ publicSummary(row) }}</small>
           </div>
+        </template>
+      </el-table-column>
+      <el-table-column :label="t('note')" width="120" align="center">
+        <template #default="{row}">
+          <el-tooltip v-if="hasAdminNote(row)" :disabled="!hoverCapable || noteDialog" placement="top" :show-after="300" :enterable="true">
+            <template #content>
+              <div class="admin-note-tip">{{ row.note }}</div>
+            </template>
+            <el-button text class="actions-icon admin-note-btn" :aria-label="t('note')" @click="openNote(row)">
+              <i class="ri-sticky-note-fill"></i>
+            </el-button>
+          </el-tooltip>
+          <span v-else class="admin-note-empty" aria-hidden="true"><i class="ri-sticky-note-line"></i></span>
         </template>
       </el-table-column>
       <el-table-column prop="tag" :label="t('group')" width="140">
@@ -156,7 +210,7 @@ onMounted(async () => { await load(); if (route.query.create === '1') open() })
         </template>
       </el-table-column>
       <el-table-column :label="t('host')" min-width="170">
-        <template #default="{row}">{{ row.host?.Platform || row.host?.platform || '—' }}</template>
+        <template #default="{row}">{{ row.host?.Platform || '—' }}</template>
       </el-table-column>
       <el-table-column :label="`${t('ipv4')} / ${t('ipv6')}`" min-width="200">
         <template #default="{row}">
@@ -167,7 +221,11 @@ onMounted(async () => { await load(); if (route.query.create === '1') open() })
         </template>
       </el-table-column>
       <el-table-column :label="t('availability')" width="140">
-        <template #default="{row}"><span class="state-label"><i class="ri-checkbox-circle-fill"></i>{{ t(row.telemetry?.coverage || status(row)) }}</span></template>
+        <template #default="{row}">
+          <el-button text class="availability-entry" :class="availabilityTone(row)" :aria-label="t('availabilityHistory')" @click="showHistory(row)">
+            <i :class="availabilityIcon(row)"></i>{{ coverageText(row) }}
+          </el-button>
+        </template>
       </el-table-column>
       <el-table-column prop="last_active" :label="t('lastSeen')" width="190">
         <template #default="{row}">{{ display(row.last_active,'last_active') }}</template>
@@ -180,7 +238,7 @@ onMounted(async () => { await load(); if (route.query.create === '1') open() })
               <el-dropdown-menu>
                 <el-dropdown-item @click="open(row)"><i class="ri-edit-line"></i>{{ t('edit') }}</el-dropdown-item>
                 <el-dropdown-item @click="showInstall(row)"><i class="ri-download-cloud-2-line"></i>{{ t('installAgent') }}</el-dropdown-item>
-                <el-dropdown-item @click="showHistory(row)"><i class="ri-history-line"></i>{{ t('offlineHistory') }}</el-dropdown-item>
+                <el-dropdown-item @click="showHistory(row)"><i class="ri-history-line"></i>{{ t('availabilityHistory') }}</el-dropdown-item>
                 <el-dropdown-item @click="resetSecret(row)"><i class="ri-key-2-line"></i>{{ t('resetSecret') }}</el-dropdown-item>
                 <el-dropdown-item @click="resetAvailabilityHistory(row)"><i class="ri-restart-line"></i>{{ t('resetAvailability') }}</el-dropdown-item>
                 <el-dropdown-item divided @click="removeOne(row)"><i class="ri-delete-bin-6-line"></i>{{ t('delete') }}</el-dropdown-item>
@@ -203,13 +261,22 @@ onMounted(async () => { await load(); if (route.query.create === '1') open() })
               <small v-if="hasPublicSummary(row)">{{ publicSummary(row) }}</small>
             </div>
             <div class="mobile-card-actions">
+              <el-tooltip v-if="hasAdminNote(row)" :disabled="!hoverCapable || noteDialog" placement="top" :show-after="300" :enterable="true">
+                <template #content>
+                  <div class="admin-note-tip">{{ row.note }}</div>
+                </template>
+                <el-button text class="actions-icon admin-note-btn" :aria-label="t('note')" @click="openNote(row)">
+                  <i class="ri-sticky-note-fill"></i>
+                </el-button>
+              </el-tooltip>
+              <span v-else class="admin-note-empty" aria-hidden="true"><i class="ri-sticky-note-line"></i></span>
               <el-dropdown trigger="click">
                 <el-button text class="actions-more" :aria-label="t('actions')"><i class="ri-more-fill"></i></el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item @click="open(row)"><i class="ri-edit-line"></i>{{ t('edit') }}</el-dropdown-item>
                     <el-dropdown-item @click="showInstall(row)"><i class="ri-download-cloud-2-line"></i>{{ t('installAgent') }}</el-dropdown-item>
-                    <el-dropdown-item @click="showHistory(row)"><i class="ri-history-line"></i>{{ t('offlineHistory') }}</el-dropdown-item>
+                    <el-dropdown-item @click="showHistory(row)"><i class="ri-history-line"></i>{{ t('availabilityHistory') }}</el-dropdown-item>
                     <el-dropdown-item @click="resetSecret(row)"><i class="ri-key-2-line"></i>{{ t('resetSecret') }}</el-dropdown-item>
                     <el-dropdown-item @click="resetAvailabilityHistory(row)"><i class="ri-restart-line"></i>{{ t('resetAvailability') }}</el-dropdown-item>
                     <el-dropdown-item divided @click="removeOne(row)"><i class="ri-delete-bin-6-line"></i>{{ t('delete') }}</el-dropdown-item>
@@ -220,10 +287,12 @@ onMounted(async () => { await load(); if (route.query.create === '1') open() })
           </div>
           <div class="mobile-card-chips">
             <el-tag effect="plain">{{ row.tag || 'default' }}</el-tag>
-            <span class="state-label"><i class="ri-checkbox-circle-fill"></i>{{ t(row.telemetry?.coverage || status(row)) }}</span>
+            <el-button text class="availability-entry" :class="availabilityTone(row)" :aria-label="t('availabilityHistory')" @click="showHistory(row)">
+              <i :class="availabilityIcon(row)"></i>{{ coverageText(row) }}
+            </el-button>
           </div>
           <dl class="mobile-card-meta mobile-card-meta--stats">
-            <div><dt>{{ t('host') }}</dt><dd>{{ row.host?.Platform || row.host?.platform || '—' }}</dd></div>
+            <div><dt>{{ t('host') }}</dt><dd>{{ row.host?.Platform || '—' }}</dd></div>
             <div><dt>{{ t('lastSeen') }}</dt><dd>{{ display(row.last_active,'last_active') }}</dd></div>
             <div><dt>{{ t('ipv4') }}</dt><dd>{{ reportedAddresses(row).ipv4 || '—' }}</dd></div>
             <div><dt>{{ t('ipv6') }}</dt><dd>{{ reportedAddresses(row).ipv6 || '—' }}</dd></div>
@@ -251,6 +320,9 @@ onMounted(async () => { await load(); if (route.query.create === '1') open() })
   <ServerEditorDialog v-model="editor" :value="editing" @saved="saved"/>
   <ServerGroupManagerDialog v-model="groupManager" @changed="load"/>
   <InstallAgentDialog v-model="installDialog" :server="installServer" :secret="installSecret"/>
+  <AppDialog v-model="noteDialog" :title="`${t('note')} · ${noteServer?.name || ''}`" mode="view" width="min(560px,92vw)">
+    <p class="admin-note-body">{{ noteServer?.note }}</p>
+  </AppDialog>
   <AppDrawer v-model="historyDrawer" :title="`${t('availabilityHistory')} · ${historyServer?.name || ''}`" mode="view" size="min(980px,96vw)">
     <el-tabs v-model="historyTab">
       <el-tab-pane :label="t('availabilityHistory')" name="availability">
@@ -273,6 +345,7 @@ onMounted(async () => { await load(); if (route.query.create === '1') open() })
           <el-table-column :label="t('observer')" min-width="160"><template #default="{row}">{{ pathObserverLabel(row) }}</template></el-table-column>
           <el-table-column :label="t('linkStatus')" width="110"><template #default="{row}">{{ t(row.sink.connected ? 'connected' : 'disconnected') }}</template></el-table-column>
           <el-table-column :label="t('lastObservation')" min-width="180"><template #default="{row}">{{ display(row.last_seen, 'last_seen') }}</template></el-table-column>
+          <el-table-column :label="t('latency')" width="110"><template #default="{row}">{{ row.sink.rtt_sampled_at ? display(row.sink.last_rtt_ms, 'last_rtt_ms') : '—' }}</template></el-table-column>
           <el-table-column :label="t('pendingEvents')" width="120"><template #default="{row}">{{ display(row.sink.pending_events, 'pending_events') }}</template></el-table-column>
           <template #empty><AppEmpty icon="ri-links-line" :title="t('noPathsTitle')" :description="t('noPathsHint')"/></template>
         </el-table>

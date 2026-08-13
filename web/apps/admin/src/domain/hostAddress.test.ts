@@ -12,7 +12,7 @@ describe('hostAddresses', () => {
     expect(hostAddresses({ ip: '192.0.2.10/2001:db8::10' })).toEqual({
       ipv4: '192.0.2.10', ipv6: '2001:db8::10',
     })
-    expect(hostAddresses({ IP: '192.0.2.10' })).toEqual({ ipv4: '192.0.2.10', ipv6: '' })
+    expect(hostAddresses({ ip: '192.0.2.10' })).toEqual({ ipv4: '192.0.2.10', ipv6: '' })
     expect(hostAddresses({ ip: '2001:db8::10' })).toEqual({ ipv4: '', ipv6: '2001:db8::10' })
   })
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatAdminValue, formatAPIError, formatBytes, formatDateTime } from './format'
+import { formatAdminValue, formatAPIError, formatBytes, formatDateTime, formatLatencyMs } from './format'
 
 const values: Record<string, string> = {
   yes: '是', no: '否', healthy: '健康', loadFailed: '加载失败', requestFailedWithCode: '请求失败（错误码：x）',
@@ -16,6 +16,12 @@ describe('localized value formatting', () => {
     expect(formatAdminValue('2026-08-13T06:00:00.000Z', 'last_sync', 'en-US', t, te)).not.toBe('2026-08-13T06:00:00.000Z')
     expect(formatAdminValue('2026-08-13T06:00:00.000Z', 'last_primary_seen', 'en-US', t, te)).not.toBe('2026-08-13T06:00:00.000Z')
     expect(formatDateTime(1_700_000_000_000_000_000, 'en-US')).not.toBe('1700000000000000000')
+    expect(formatLatencyMs(12.5, 'en-US')).toBe('12.5 ms')
+    expect(formatLatencyMs(18.5, 'zh-CN')).toBe('18.5 ms')
+    expect(formatLatencyMs(16, 'zh-CN')).toBe('16 ms')
+    expect(formatLatencyMs(1500, 'en-US')).toContain('s')
+    expect(formatAdminValue(18.5, 'heartbeat_rtt_ms', 'en-US', t, te)).toBe('18.5 ms')
+    expect(formatAdminValue('2026-08-13T06:00:00.000Z', 'bucket_start', 'en-US', t, te)).not.toBe('2026-08-13T06:00:00.000Z')
     expect(formatAdminValue('CONNECTIVITY_DEGRADED', 'current_classification', 'zh-CN', t, te)).toBe('连通性降级')
   })
 

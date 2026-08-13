@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -23,6 +23,8 @@ const route = useRoute()
 const active = ref('collectors'), loading = ref(false), editor = ref(false)
 const actionBusy = ref('')
 const collectors = ref<CollectorRecord[]>([]), records = ref<DatasetRow[]>([])
+const total = ref(0)
+const query = reactive({ page: 1, page_size: 20 })
 const editing = ref<CollectorRecord>()
 const token = ref(''), tokenDialog = ref(false)
 const installDialog = ref(false)
@@ -46,12 +48,21 @@ async function load() {
   loading.value = true
   try {
     if (active.value === 'collectors') collectors.value = (await listCollectors()).data
-    else records.value = (await telemetryList(datasets[active.value as DatasetKey] || active.value)).data as DatasetRow[]
+    else {
+      const result = await telemetryList(datasets[active.value as DatasetKey] || active.value, query)
+      records.value = result.data as DatasetRow[]
+      total.value = result.meta.total || result.data.length
+    }
   } catch (e) {
     notifyAPIError(e, t as never, te)
   } finally {
     loading.value = false
   }
+}
+
+function onTabChange() {
+  query.page = 1
+  load()
 }
 
 function open(item?: CollectorRecord) {
@@ -158,7 +169,7 @@ onMounted(async () => {
     <el-button v-if="active==='collectors'" type="primary" @click="open()"><i class="ri-add-line"></i>{{ t('createCollector') }}</el-button>
   </div>
   <section class="surface telemetry-shell">
-    <el-tabs v-model="active" @tab-change="load">
+    <el-tabs v-model="active" @tab-change="onTabChange">
       <el-tab-pane :label="t('collectors')" name="collectors" />
       <el-tab-pane :label="t('observerAssignments')" name="assignments" />
       <el-tab-pane :label="t('agentDelivery')" name="agents" />
@@ -446,6 +457,7 @@ onMounted(async () => {
           </article>
         </div>
       </div>
+      <div class="pagination"><el-pagination v-model:current-page="query.page" v-model:page-size="query.page_size" layout="total, sizes, prev, pager, next" :total="total" @change="load"/></div>
     </template>
   </section>
   <CollectorEditorDialog v-model="editor" :value="editing" @saved="editorSaved" />
