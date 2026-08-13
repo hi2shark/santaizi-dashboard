@@ -1,4 +1,4 @@
-import { expect, test, type Page, type Route } from '@playwright/test'
+import { expect, test, type Locator, type Page, type Route } from '@playwright/test'
 
 const list = (data: unknown[] = []) => JSON.stringify({ data, meta: { page: 1, page_size: 20, total: data.length } })
 const item = (data: unknown) => JSON.stringify({ data })
@@ -18,19 +18,55 @@ async function fulfillJSON(route: Route, body: string, status = 200) {
 }
 
 test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => { localStorage.setItem('santaizi-locale', 'zh-CN') })
   await page.route('**/static/logo.svg', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><path fill="#2563eb" d="M4 4h24v24H4z"/></svg>' }))
-  await page.route('**/api/v2/auth/session', route => fulfillJSON(route, item({ authenticated: true, csrf_token: 'test-csrf', login_url: '/oauth2/login', capabilities: ['*'], user: { id: 1, login: 'admin', name: 'Admin', super_admin: true } })))
+  // `/api/v2/**` only: `/api/**` also matches Vite modules under `/admin/src/api/`.
+  await page.route('**/api/v2/**', route => {
+    const path = new URL(route.request().url()).pathname
+    const method = route.request().method()
+    if (path.endsWith('/auth/session')) {
+      return fulfillJSON(route, item({
+        authenticated: true, csrf_token: 'test-csrf', login_url: '/oauth2/login',
+        capabilities: ['*'], user: { id: 1, login: 'admin', name: 'Admin', super_admin: true },
+      }))
+    }
+    if (path.endsWith('/probe-capabilities')) return fulfillJSON(route, item(probeMetadata))
+    if (method === 'GET') return fulfillJSON(route, list())
+    return fulfillJSON(route, item({}), method === 'POST' || method === 'PUT' ? 201 : 200)
+  })
 })
+
+async function chooseSelectValue(page: Page, dialog: Locator, label: string, value: string) {
+  const field = dialog.getByLabel(label)
+  await field.click()
+  await field.fill(value)
+  await page.getByRole('option', { name: value, exact: true }).click()
+}
+
+async function clickVisibleRowAction(page: Page, name: string) {
+  await page.locator('.actions-more').filter({ visible: true }).first().click()
+  await page.getByRole('menuitem', { name: new RegExp(name) }).filter({ visible: true }).click()
+}
 
 async function mockEditorOptions(page: Page) {
   await page.route('**/api/v2/admin/servers?**', route => fulfillJSON(route, list([{ id: 7, name: 'edge-a', tag: 'edge', online: true, public_note: {}, monitoring_options: {} }])))
   await page.route('**/api/v2/admin/notifications?**', route => fulfillJSON(route, list([{ id: 3, name: 'Ops', tag: 'ops', url: 'https://example.test/hook', method: 'post', request_type: 'json', headers: [], body: '', verify_tls: true }])))
 }
 
-test('creates a server with structured public notes and reusable installation credentials', async ({ page }) => {
-  let submitted: Record<string, unknown> | undefined
+async function mockServerEditorLookups(page: Page) {
+  await page.route('**/api/v2/admin/server-groups**', route => fulfillJSON(route, list([{ name: 'edge' }])))
   await page.route('**/api/v2/admin/ddns?**', route => fulfillJSON(route, list()))
   await page.route('**/api/v2/admin/notifications?**', route => fulfillJSON(route, list()))
+}
+
+async function waitForEditorReady(dialog: Locator) {
+  await expect(dialog.getByLabel('服务器名称')).toBeVisible()
+  await expect(dialog.locator('.el-loading-mask')).toHaveCount(0)
+}
+
+test('creates a server with structured public notes and reusable installation credentials', async ({ page }) => {
+  let submitted: Record<string, unknown> | undefined
+  await mockServerEditorLookups(page)
   await page.route('**/api/v2/admin/servers**', route => {
     if (route.request().method() === 'POST') {
       submitted = route.request().postDataJSON() as Record<string, unknown>
@@ -44,8 +80,9 @@ test('creates a server with structured public notes and reusable installation cr
   await page.goto('/admin/servers')
   await page.getByRole('button', { name: '添加服务器' }).click()
   const dialog = page.getByRole('dialog', { name: '添加服务器' })
+  await waitForEditorReady(dialog)
   await dialog.getByLabel('服务器名称').fill('edge-b')
-  await dialog.getByLabel('分组').fill('edge')
+  await chooseSelectValue(page, dialog, '分组', 'edge')
   await dialog.getByRole('tab', { name: '公开备注' }).click()
   await dialog.getByLabel('金额').fill('12.00')
   await dialog.getByRole('tab', { name: '套餐' }).click()
@@ -55,7 +92,8 @@ test('creates a server with structured public notes and reusable installation cr
   await expect.poll(() => submitted).toMatchObject({ name: 'edge-b', tag: 'edge', public_note: { billingDataMod: { amount: '12.00' }, planDataMod: { bandwidth: '1 Gbps' } } })
   const install = page.getByRole('dialog', { name: /安装探针/ })
   await expect(install.getByLabel('密钥')).toHaveValue('reusable-secret')
-  await expect(install.getByText('标准', { exact: true })).toBeVisible()
+  await expect(install.getByText('标准·云', { exact: true })).toBeVisible()
+  await expect(install.getByText('标准·物理', { exact: true })).toBeVisible()
   await expect(install.getByText('轻量', { exact: true })).toBeVisible()
   await expect(install.getByText('仅存活', { exact: true })).toBeVisible()
   await expect(install.getByText('CPU 与负载', { exact: true })).toBeVisible()
@@ -63,8 +101,7 @@ test('creates a server with structured public notes and reusable installation cr
 
 test('manages multiple traffic policies inside the server editor', async ({ page }) => {
   const policies: Record<string, unknown>[] = []
-  await page.route('**/api/v2/admin/ddns?**', route => fulfillJSON(route, list()))
-  await page.route('**/api/v2/admin/notifications?**', route => fulfillJSON(route, list()))
+  await mockServerEditorLookups(page)
   await page.route('**/api/v2/admin/servers**', route => {
     if (route.request().method() === 'POST') return fulfillJSON(route, item({ id: 4, ...route.request().postDataJSON(), secret: 'server-secret' }), 201)
     return fulfillJSON(route, list())
@@ -79,6 +116,7 @@ test('manages multiple traffic policies inside the server editor', async ({ page
   await page.goto('/admin/servers')
   await page.getByRole('button', { name: '添加服务器' }).click()
   const dialog = page.getByRole('dialog', { name: '添加服务器' })
+  await waitForEditorReady(dialog)
   await dialog.getByLabel('服务器名称').fill('traffic-node')
   await dialog.getByRole('tab', { name: '流量策略' }).click()
   await dialog.getByRole('button', { name: '添加流量策略' }).click()
@@ -190,6 +228,7 @@ test('dirty editor blocks escape and confirms cancellation', async ({ page }) =>
   await page.goto('/admin/servers')
   await page.getByRole('button', { name: '添加服务器' }).click()
   const dialog = page.getByRole('dialog', { name: '添加服务器' })
+  await waitForEditorReady(dialog)
   await dialog.getByLabel('服务器名称').fill('unsaved')
   await page.keyboard.press('Escape')
   await expect(dialog).toBeVisible()
@@ -216,8 +255,7 @@ test('collector and API token credentials can be viewed again by stable identifi
     return fulfillJSON(route, list([collector]))
   })
   await page.goto('/admin/telemetry')
-  await page.locator('.el-table__body .el-dropdown button').click()
-  await page.getByText('查看 Token', { exact: true }).click()
+  await clickVisibleRowAction(page, '查看 Token')
   await expect(page.getByRole('dialog', { name: '注册 Token' }).locator('input')).toHaveValue('collector-token')
 
   await page.route('**/api/v2/admin/api-tokens**', route => {
@@ -227,8 +265,7 @@ test('collector and API token credentials can be viewed again by stable identifi
     return fulfillJSON(route, list([{ ...base, token_prefix: 'reus…' }]))
   })
   await page.goto('/admin/api-tokens')
-  await page.locator('.el-table__body .actions-more').click()
-  await page.getByText('查看 Token', { exact: true }).click()
+  await clickVisibleRowAction(page, '查看 Token')
   await expect(page.getByRole('dialog', { name: 'Token' }).locator('input')).toHaveValue('reusable-api-token')
 })
 
