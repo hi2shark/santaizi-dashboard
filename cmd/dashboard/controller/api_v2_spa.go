@@ -26,6 +26,8 @@ import (
 	"gorm.io/gorm"
 )
 
+const ddnsRedactedPlaceholder = "••••••" // #nosec G101 -- UI mask sentinel, not a credential
+
 type v2Problem struct {
 	Type    string              `json:"type,omitempty"`
 	Title   string              `json:"title"`
@@ -1072,7 +1074,7 @@ func decodeResource(name string, body map[string]any, target any) error {
 			converted["DomainsRaw"] = strings.Join(values, ",")
 		}
 		if profile, ok := target.(*model.DDNSProfile); ok && profile.ID > 0 {
-			if secret := strings.TrimSpace(fmt.Sprint(body["access_secret"])); secret == "" || secret == "••••••" {
+			if secret := strings.TrimSpace(fmt.Sprint(body["access_secret"])); secret == "" || secret == ddnsRedactedPlaceholder {
 				converted["AccessSecret"] = profile.AccessSecret
 			}
 		}
@@ -1211,7 +1213,7 @@ func scrubResource(name string, value any) {
 		}
 	case map[string]any:
 		if name == "ddns" && current["access_secret"] != "" {
-			current["access_secret"] = "••••••"
+			current["access_secret"] = ddnsRedactedPlaceholder
 		}
 		if name == "monitors" {
 			if raw, ok := current["skip_servers_raw"].(string); ok {

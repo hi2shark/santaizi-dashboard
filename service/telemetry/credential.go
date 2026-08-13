@@ -31,7 +31,7 @@ func LoadOrCreateSigner(path string) (*Signer, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return nil, err
 	}
-	seed, err := os.ReadFile(path)
+	seed, err := os.ReadFile(path) // #nosec G304 -- operator-configured signing key path, not request input
 	if errors.Is(err, os.ErrNotExist) {
 		seed = make([]byte, ed25519.SeedSize)
 		if _, err := io.ReadFull(rand.Reader, seed); err != nil {

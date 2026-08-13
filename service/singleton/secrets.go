@@ -20,13 +20,13 @@ func initBusinessSecretEncryption(path string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return fmt.Errorf("create secret key directory: %w", err)
 	}
-	key, err := os.ReadFile(path)
+	key, err := os.ReadFile(path) // #nosec G304 -- operator-configured business key path, not request input
 	if errors.Is(err, os.ErrNotExist) {
 		key = make([]byte, businessSecretKeySize)
 		if _, err := io.ReadFull(rand.Reader, key); err != nil {
 			return fmt.Errorf("generate business secret key: %w", err)
 		}
-		file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+		file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600) // #nosec G304 -- operator-configured business key path, not request input
 		if err != nil {
 			return fmt.Errorf("create business secret key: %w", err)
 		}
