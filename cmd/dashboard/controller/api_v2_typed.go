@@ -54,6 +54,7 @@ func registerTypedAdminRoutes(admin *gin.RouterGroup) {
 	admin.GET("/probe-capabilities", v2ProbeCapabilities)
 	admin.GET("/servers/:id/credential", v2ServerCredential)
 	admin.POST("/servers/:id/install-preview", v2InstallPreview)
+	admin.POST("/servers/:id/upgrade-preview", v2UpgradePreview)
 	admin.GET("/servers/:id/traffic-policies", v2ListTrafficPolicies)
 	admin.POST("/servers/:id/traffic-policies", v2CreateTrafficPolicy)
 	admin.GET("/servers/:id/traffic-policies/:policyId", v2GetTrafficPolicy)
@@ -1109,6 +1110,43 @@ func v2InstallPreview(c *gin.Context) {
 	}
 	writeV2Data(c, 200, gin.H{"platform": platform, "command": command, "clean_install": request.CleanInstall, "options": request.Options, "ip_report_config": request.IPReportConfig})
 }
+
+type upgradePreviewDTO struct {
+	Platform string `json:"platform" binding:"required"`
+}
+
+func v2UpgradePreview(c *gin.Context) {
+	id, ok := v2ID(c)
+	if !ok {
+		return
+	}
+	var row model.Server
+	if singleton.DB.First(&row, id).Error != nil {
+		writeV2Problem(c, 404, "server_not_found", "服务器不存在")
+		return
+	}
+	var request upgradePreviewDTO
+	if err := c.ShouldBindJSON(&request); err != nil {
+		writeV2Problem(c, 400, "invalid_upgrade_preview", err.Error())
+		return
+	}
+	platform := strings.ToLower(request.Platform)
+	script := ""
+	if singleton.Conf != nil {
+		script = singleton.Conf.InstallScript.UpgradeLinux
+		if platform == "macos" {
+			script = singleton.Conf.InstallScript.UpgradeMacOS
+		} else if platform == "windows" {
+			script = singleton.Conf.InstallScript.UpgradeWindows
+		}
+	}
+	command, err := buildUpgradeCommand(platform, script)
+	if err != nil {
+		writeV2Problem(c, 400, "invalid_platform", err.Error())
+		return
+	}
+	writeV2Data(c, 200, gin.H{"platform": platform, "command": command})
+}
 func publicGRPCPort() uint {
 	if singleton.Conf != nil && singleton.Conf.ProxyGRPCPort != 0 {
 		return singleton.Conf.ProxyGRPCPort
@@ -1142,6 +1180,22 @@ func buildInstallCommand(platform, script, host string, port uint, secret string
 		}
 		parts = append(parts, flags...)
 		return strings.Join(parts, " "), nil
+	default:
+		return "", errors.New("platform must be linux, macos, or windows")
+	}
+}
+
+func buildUpgradeCommand(platform, script string) (string, error) {
+	if strings.TrimSpace(script) == "" {
+		return "", errors.New("upgrade script url is empty")
+	}
+	switch platform {
+	case "linux":
+		return strings.Join([]string{"curl -fsSL", shellQuote(script), "| bash"}, " "), nil
+	case "macos":
+		return strings.Join([]string{"curl -fsSL", shellQuote(script), "| sudo bash"}, " "), nil
+	case "windows":
+		return strings.Join([]string{"& ([scriptblock]::Create((irm", powershellQuote(script), ")))"}, " "), nil
 	default:
 		return "", errors.New("platform must be linux, macos, or windows")
 	}

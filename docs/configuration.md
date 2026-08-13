@@ -305,7 +305,7 @@ Retention 使用小批后台清理；State Payload 只有在对应 Rollup 完成
 
 ## `installscript` 安装脚本源
 
-用于 Dashboard 中生成 Agent 一键安装命令的脚本地址。
+用于 Dashboard 中生成 Agent 一键安装命令和升级命令的脚本地址。
 
 | 配置项 | 默认值 |
 |--------|--------|
@@ -313,6 +313,10 @@ Retention 使用小批后台清理；State Payload 只有在对应 Rollup 完成
 | `installscript.linuxen` | `https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install_agent_en.sh` |
 | `installscript.windows` | `https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install.ps1` |
 | `installscript.macos` | `https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install.command` |
+| `installscript.upgrade_linux` | `https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/upgrade_agent.sh` |
+| `installscript.upgrade_linuxen` | `https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/upgrade_agent_en.sh` |
+| `installscript.upgrade_windows` | `https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/upgrade.ps1` |
+| `installscript.upgrade_macos` | `https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/upgrade.command` |
 
 如果你 fork 了仓库或在内网部署，建议替换为自有地址。
 

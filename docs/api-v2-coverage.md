@@ -8,7 +8,7 @@
 | 服务器 CRUD | `createServer`, `updateServer`, `deleteServer` | `/admin/servers` 专用编辑弹窗与删除 | 公开备注结构化编辑、脏数据关闭确认 |
 | 服务器批量管理 | `batchUpdateServerGroup`, `batchDeleteServers` | 表格多选、批量分组和删除 | 批量请求与危险确认 |
 | 服务器排序与分组管理 | `updateServerDisplayIndex`, `listServerGroups`, `renameServerGroup` | 列表行内改序、分组管理弹窗、编辑器分组下拉 | 单字段改序与派生 tag 重命名/合并 |
-| 凭据与安装 | `getServerCredential`, `resetServerSecret`, `getProbeCapabilities`, `getServerInstallPreview` | 密钥查看/复制、分平台能力化安装弹窗 | 标准·云/标准·物理/轻量/仅存活、IP 位置子选项与清洁安装确认 |
+| 凭据与安装 | `getServerCredential`, `resetServerSecret`, `getProbeCapabilities`, `getServerInstallPreview`, `getServerUpgradePreview` | 密钥查看/复制、分平台能力化安装弹窗、分平台升级命令复制 | 标准·云/标准·物理/轻量/仅存活、IP 位置子选项与清洁安装确认；升级命令不含密钥 |
 | 流量策略 | `listTrafficPolicies`, `createTrafficPolicy`, `updateTrafficPolicy`, `deleteTrafficPolicy`, `getTrafficPolicyUsage` | 服务器编辑器内多策略卡片 | 累计/周期策略与用量进度 |
 | 可用性与离线历史 | `listServerAvailability`, `resetServerAvailability`, `deleteOfflineHistory`, `cleanupOfflineHistory` | 服务器历史抽屉与设置页清理 | 历史读取、重置和删除 |
 | 服务监控 | `createMonitor`, `updateMonitor`, `deleteMonitor` | `/admin/services` HTTP/ICMP/TCP 编辑弹窗和服务器穿梭框 | 完整 CRUD、范围和历史 |

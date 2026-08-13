@@ -68,6 +68,7 @@ export async function saveTrafficPolicies(serverId: number, current: TrafficPoli
 export const getTrafficPolicyUsage = api.getTrafficPolicyUsage
 export const getProbeCapabilities = () => api.getProbeCapabilities() as Promise<ProbeCapabilitiesMetadata>
 export const getServerInstallPreview = api.getServerInstallPreview
+export const getServerUpgradePreview = api.getServerUpgradePreview
 
 export const listCollectors = api.listCollectors
 export const getConnectionSummary = api.getConnectionSummary

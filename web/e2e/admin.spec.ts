@@ -99,6 +99,22 @@ test('creates a server with structured public notes and reusable installation cr
   await expect(install.getByText('CPU 与负载', { exact: true })).toBeVisible()
 })
 
+test('shows a copyable agent upgrade command from host management', async ({ page }) => {
+  await page.route('**/api/v2/admin/servers**', route => {
+    const path = new URL(route.request().url()).pathname
+    if (path.endsWith('/upgrade-preview')) {
+      return fulfillJSON(route, item({ platform: 'linux', command: "curl -fsSL 'https://example.invalid/upgrade_agent.sh' | bash" }))
+    }
+    return fulfillJSON(route, list([{ id: 2, name: 'edge-b', tag: 'edge', online: true, public_note: {}, monitoring_options: {} }]))
+  })
+
+  await page.goto('/admin/servers')
+  await clickVisibleRowAction(page, '升级探针')
+  const dialog = page.getByRole('dialog', { name: /升级探针/ })
+  await expect(dialog.locator('textarea')).toHaveValue("curl -fsSL 'https://example.invalid/upgrade_agent.sh' | bash")
+  await expect(dialog.getByRole('button', { name: '复制升级命令' })).toBeVisible()
+})
+
 test('manages multiple traffic policies inside the server editor', async ({ page }) => {
   const policies: Record<string, unknown>[] = []
   await mockServerEditorLookups(page)

@@ -7,7 +7,7 @@ import type {
   NATTunnelWriteBody, NotificationChannel, NotificationChannelWriteBody, ObserverAssignmentRecord,
   ProbeCapabilities, ServerCredential, ServerDisplayIndexWriteBody, ServerGroup,
   ServerGroupRenameWriteBody, ServerWriteBody, TelemetryAlertRecord, TelemetryDataLossRecord, TrafficPolicy,
-  TrafficPolicyWriteBody, TrafficUsage,
+  TrafficPolicyWriteBody, TrafficUsage, UpgradePreview, UpgradePreviewWriteBody,
   CycleTransfer, GetPublicMetricsParams, GetPublicServerAvailabilityParams, MonitorHistory, PublicAvailability, PublicMetricPoint,
 } from './generated/model'
 import type {
@@ -59,6 +59,7 @@ export const listServerGroups = () => api.listServerGroups().then(value => list<
 export const renameServerGroup = (body: ServerGroupRenameWriteBody) => api.renameServerGroup(body).then(value => data<Record<string, unknown>>(value))
 export const getServerCredential = (id: number) => api.getServerCredential(id).then(value => data<ServerCredential>(value))
 export const getServerInstallPreview = (id: number, body: InstallPreviewWriteBody) => api.getServerInstallPreview(id, body).then(value => data<InstallPreview>(value))
+export const getServerUpgradePreview = (id: number, body: UpgradePreviewWriteBody) => api.getServerUpgradePreview(id, body).then(value => data<UpgradePreview>(value))
 export const getProbeCapabilities = () => api.getProbeCapabilities().then(value => data<ProbeCapabilities>(value))
 export const listServerAvailability = (serverId: number, params: { from?: string; to?: string; limit?: number; cursor?: string } = {}) => api.listServerAvailability(serverId, params).then(value => list<ResourceRecord>(value))
 

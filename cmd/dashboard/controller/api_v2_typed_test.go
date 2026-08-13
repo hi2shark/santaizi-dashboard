@@ -53,6 +53,33 @@ func TestBuildInstallCommandMatchesInstallerArguments(t *testing.T) {
 	}
 }
 
+func TestBuildUpgradeCommandOmitsSecret(t *testing.T) {
+	posix, err := buildUpgradeCommand("linux", "https://example.invalid/upgrade_agent.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if posix != "curl -fsSL 'https://example.invalid/upgrade_agent.sh' | bash" {
+		t.Fatalf("linux=%s", posix)
+	}
+	if strings.Contains(posix, "secret") || strings.Contains(posix, "-p") {
+		t.Fatalf("upgrade command must not include secrets: %s", posix)
+	}
+	macos, err := buildUpgradeCommand("macos", "https://example.invalid/upgrade.command")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if macos != "curl -fsSL 'https://example.invalid/upgrade.command' | sudo bash" {
+		t.Fatalf("macos=%s", macos)
+	}
+	windows, err := buildUpgradeCommand("windows", "https://example.invalid/upgrade.ps1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if windows != "& ([scriptblock]::Create((irm 'https://example.invalid/upgrade.ps1' )))" {
+		t.Fatalf("windows=%s", windows)
+	}
+}
+
 func TestBuildInstallCommandUsesTLSAndPublicPort(t *testing.T) {
 	options := monitoringOptionsDTO{CPU: true, Memory: true, Disk: true, Network: true, HostInfo: true, IPReport: true, HTTPProbe: true, ICMPProbe: true, TCPProbe: true}
 	posix, err := buildInstallCommand("linux", "https://example.invalid/install.sh", "main.example.invalid", 443, "secret", false, true, options, ipReportConfigDTO{})

@@ -8,6 +8,7 @@ import type { ConnectionPath } from '@santaizi/api'
 import ServerEditorDialog from '@/components/editors/ServerEditorDialog.vue'
 import ServerGroupManagerDialog from '@/components/editors/ServerGroupManagerDialog.vue'
 import InstallAgentDialog from '@/components/InstallAgentDialog.vue'
+import UpgradeAgentDialog from '@/components/UpgradeAgentDialog.vue'
 import { batchDeleteServers, batchUpdateServerGroup, deleteOfflineHistory, deleteServer, listConnectionPaths, listOfflineHistory, listServerAvailability, listServers, resetServerAvailability, resetServerSecret, updateServerDisplayIndex, type ResourceRecord, type ServerRecord } from '@/api/adminApi'
 import {formatAdminValue} from '@/composables/format'
 import { notifyAPIError } from '@/composables/notify'
@@ -17,8 +18,8 @@ import { parsePublicNote } from '@/domain/publicNote'
 
 const { t, te, locale } = useI18n()
 const route = useRoute()
-const loading = ref(false), editor = ref(false), installDialog = ref(false), groupManager = ref(false)
-const items = ref<ServerRecord[]>([]), selected = ref<ServerRecord[]>([]), editing = ref<ServerRecord>(), installServer = ref<ServerRecord>(), installSecret = ref('')
+const loading = ref(false), editor = ref(false), installDialog = ref(false), upgradeDialog = ref(false), groupManager = ref(false)
+const items = ref<ServerRecord[]>([]), selected = ref<ServerRecord[]>([]), editing = ref<ServerRecord>(), installServer = ref<ServerRecord>(), installSecret = ref(''), upgradeServer = ref<ServerRecord>()
 const total = ref(0)
 const query = reactive({ page: 1, page_size: 20, q: '', sort: 'display_index', order: 'desc' as const })
 const historyDrawer = ref(false), historyLoading = ref(false), historyServer = ref<ServerRecord>(), historyTab = ref('availability'), history = ref<ResourceRecord[]>([]), availability = ref<ResourceRecord[]>([]), connectionPaths = ref<ConnectionPath[]>([])
@@ -93,6 +94,7 @@ function pathObserverLabel(path: ConnectionPath) {
 }
 function onSelect(row: ServerRecord, checked: boolean | string | number) { selected.value = toggleRowSelection(selected.value, row, !!checked) }
 function showInstall(server: ServerRecord, secret = '') { installServer.value = server; installSecret.value = secret; installDialog.value = true }
+function showUpgrade(server: ServerRecord) { upgradeServer.value = server; upgradeDialog.value = true }
 async function resetSecret(server: ServerRecord) { await ElMessageBox.confirm(t('confirmResetSecret'), t('confirm'), { type: 'warning' }); try { const result = await resetServerSecret(server.id); showInstall(server, result.secret) } catch (error) { notifyAPIError(error, t as never, te) } }
 async function resetAvailabilityHistory(server: ServerRecord) { await ElMessageBox.confirm(t('confirmResetAvailability'), t('confirm'), { type: 'warning' }); try { await resetServerAvailability(server.id); await load(); ElMessage.success(t('saveSuccess')) } catch (error) { notifyAPIError(error, t as never, te) } }
 async function saved(server: ServerRecord, created: boolean) { await load(); if (created) showInstall(server, server.secret || '') }
@@ -238,6 +240,7 @@ onUnmounted(() => { hoverMedia?.removeEventListener('change', onHoverMediaChange
               <el-dropdown-menu>
                 <el-dropdown-item @click="open(row)"><i class="ri-edit-line"></i>{{ t('edit') }}</el-dropdown-item>
                 <el-dropdown-item @click="showInstall(row)"><i class="ri-download-cloud-2-line"></i>{{ t('installAgent') }}</el-dropdown-item>
+                <el-dropdown-item @click="showUpgrade(row)"><i class="ri-refresh-line"></i>{{ t('upgradeAgent') }}</el-dropdown-item>
                 <el-dropdown-item @click="showHistory(row)"><i class="ri-history-line"></i>{{ t('availabilityHistory') }}</el-dropdown-item>
                 <el-dropdown-item @click="resetSecret(row)"><i class="ri-key-2-line"></i>{{ t('resetSecret') }}</el-dropdown-item>
                 <el-dropdown-item @click="resetAvailabilityHistory(row)"><i class="ri-restart-line"></i>{{ t('resetAvailability') }}</el-dropdown-item>
@@ -276,6 +279,7 @@ onUnmounted(() => { hoverMedia?.removeEventListener('change', onHoverMediaChange
                   <el-dropdown-menu>
                     <el-dropdown-item @click="open(row)"><i class="ri-edit-line"></i>{{ t('edit') }}</el-dropdown-item>
                     <el-dropdown-item @click="showInstall(row)"><i class="ri-download-cloud-2-line"></i>{{ t('installAgent') }}</el-dropdown-item>
+                    <el-dropdown-item @click="showUpgrade(row)"><i class="ri-refresh-line"></i>{{ t('upgradeAgent') }}</el-dropdown-item>
                     <el-dropdown-item @click="showHistory(row)"><i class="ri-history-line"></i>{{ t('availabilityHistory') }}</el-dropdown-item>
                     <el-dropdown-item @click="resetSecret(row)"><i class="ri-key-2-line"></i>{{ t('resetSecret') }}</el-dropdown-item>
                     <el-dropdown-item @click="resetAvailabilityHistory(row)"><i class="ri-restart-line"></i>{{ t('resetAvailability') }}</el-dropdown-item>
@@ -320,6 +324,7 @@ onUnmounted(() => { hoverMedia?.removeEventListener('change', onHoverMediaChange
   <ServerEditorDialog v-model="editor" :value="editing" @saved="saved"/>
   <ServerGroupManagerDialog v-model="groupManager" @changed="load"/>
   <InstallAgentDialog v-model="installDialog" :server="installServer" :secret="installSecret"/>
+  <UpgradeAgentDialog v-model="upgradeDialog" :server="upgradeServer"/>
   <AppDialog v-model="noteDialog" :title="`${t('note')} · ${noteServer?.name || ''}`" mode="view" width="min(560px,92vw)">
     <p class="admin-note-body">{{ noteServer?.note }}</p>
   </AppDialog>

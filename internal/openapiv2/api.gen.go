@@ -919,6 +919,48 @@ func (e TrafficUsageStatus) Valid() bool {
 	}
 }
 
+// Defines values for UpgradePreviewPlatform.
+const (
+	UpgradePreviewPlatformLinux   UpgradePreviewPlatform = "linux"
+	UpgradePreviewPlatformMacos   UpgradePreviewPlatform = "macos"
+	UpgradePreviewPlatformWindows UpgradePreviewPlatform = "windows"
+)
+
+// Valid indicates whether the value is a known member of the UpgradePreviewPlatform enum.
+func (e UpgradePreviewPlatform) Valid() bool {
+	switch e {
+	case UpgradePreviewPlatformLinux:
+		return true
+	case UpgradePreviewPlatformMacos:
+		return true
+	case UpgradePreviewPlatformWindows:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpgradePreviewWritePlatform.
+const (
+	UpgradePreviewWritePlatformLinux   UpgradePreviewWritePlatform = "linux"
+	UpgradePreviewWritePlatformMacos   UpgradePreviewWritePlatform = "macos"
+	UpgradePreviewWritePlatformWindows UpgradePreviewWritePlatform = "windows"
+)
+
+// Valid indicates whether the value is a known member of the UpgradePreviewWritePlatform enum.
+func (e UpgradePreviewWritePlatform) Valid() bool {
+	switch e {
+	case UpgradePreviewWritePlatformLinux:
+		return true
+	case UpgradePreviewWritePlatformMacos:
+		return true
+	case UpgradePreviewWritePlatformWindows:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Order.
 const (
 	OrderAsc  Order = "asc"
@@ -2073,6 +2115,23 @@ type TrafficUsageMode string
 // TrafficUsageStatus defines model for TrafficUsage.Status.
 type TrafficUsageStatus string
 
+// UpgradePreview defines model for UpgradePreview.
+type UpgradePreview struct {
+	Command  string                 `json:"command"`
+	Platform UpgradePreviewPlatform `json:"platform"`
+}
+
+// UpgradePreviewPlatform defines model for UpgradePreview.Platform.
+type UpgradePreviewPlatform string
+
+// UpgradePreviewWrite defines model for UpgradePreviewWrite.
+type UpgradePreviewWrite struct {
+	Platform UpgradePreviewWritePlatform `json:"platform"`
+}
+
+// UpgradePreviewWritePlatform defines model for UpgradePreviewWrite.Platform.
+type UpgradePreviewWritePlatform string
+
 // User defines model for User.
 type User struct {
 	AvatarUrl  *string `json:"avatar_url,omitempty"`
@@ -2362,6 +2421,11 @@ type TrafficPolicyResponse struct {
 // TrafficUsageResponse defines model for TrafficUsageResponse.
 type TrafficUsageResponse struct {
 	Data TrafficUsage `json:"data"`
+}
+
+// UpgradePreviewResponse defines model for UpgradePreviewResponse.
+type UpgradePreviewResponse struct {
+	Data UpgradePreview `json:"data"`
 }
 
 // ListAlertRulesParams defines parameters for ListAlertRules.
@@ -2682,6 +2746,12 @@ type UpdateTrafficPolicyParams struct {
 	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
 }
 
+// GetServerUpgradePreviewParams defines parameters for GetServerUpgradePreview.
+type GetServerUpgradePreviewParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
 // UpdateSettingsParams defines parameters for UpdateSettings.
 type UpdateSettingsParams struct {
 	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
@@ -2861,6 +2931,9 @@ type CreateTrafficPolicyJSONRequestBody = TrafficPolicyWrite
 
 // UpdateTrafficPolicyJSONRequestBody defines body for UpdateTrafficPolicy for application/json ContentType.
 type UpdateTrafficPolicyJSONRequestBody = TrafficPolicyWrite
+
+// GetServerUpgradePreviewJSONRequestBody defines body for GetServerUpgradePreview for application/json ContentType.
+type GetServerUpgradePreviewJSONRequestBody = UpgradePreviewWrite
 
 // UpdateSettingsJSONRequestBody defines body for UpdateSettings for application/json ContentType.
 type UpdateSettingsJSONRequestBody = GenericObject
@@ -3652,6 +3725,9 @@ type ServerInterface interface {
 	// GetTrafficPolicyUsage 流量策略用量
 	// (GET /api/v2/admin/servers/{serverId}/traffic-policies/{policyId}/usage)
 	GetTrafficPolicyUsage(c *gin.Context, serverId ServerId, policyId int64)
+	// GetServerUpgradePreview 生成探针升级命令
+	// (POST /api/v2/admin/servers/{serverId}/upgrade-preview)
+	GetServerUpgradePreview(c *gin.Context, serverId ServerId, params GetServerUpgradePreviewParams)
 	// GetSettings 获取站点设置
 	// (GET /api/v2/admin/settings)
 	GetSettings(c *gin.Context)
@@ -6318,6 +6394,55 @@ func (siw *ServerInterfaceWrapper) GetTrafficPolicyUsage(c *gin.Context) {
 	siw.Handler.GetTrafficPolicyUsage(c, serverId, policyId)
 }
 
+// GetServerUpgradePreview operation middleware
+func (siw *ServerInterfaceWrapper) GetServerUpgradePreview(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "serverId" -------------
+	var serverId ServerId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "serverId", c.Param("serverId"), &serverId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter serverId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetServerUpgradePreviewParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetServerUpgradePreview(c, serverId, params)
+}
+
 // GetSettings operation middleware
 func (siw *ServerInterfaceWrapper) GetSettings(c *gin.Context) {
 
@@ -7318,6 +7443,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/api/v2/admin/servers/:serverId/reset-availability", wrapper.ResetServerAvailability)
 	router.GET(options.BaseURL+"/api/v2/admin/servers/:serverId/credential", wrapper.GetServerCredential)
 	router.POST(options.BaseURL+"/api/v2/admin/servers/:serverId/install-preview", wrapper.GetServerInstallPreview)
+	router.POST(options.BaseURL+"/api/v2/admin/servers/:serverId/upgrade-preview", wrapper.GetServerUpgradePreview)
 	router.GET(options.BaseURL+"/api/v2/admin/probe-capabilities", wrapper.GetProbeCapabilities)
 	router.GET(options.BaseURL+"/api/v2/admin/servers/:serverId/traffic-policies", wrapper.ListTrafficPolicies)
 	router.POST(options.BaseURL+"/api/v2/admin/servers/:serverId/traffic-policies", wrapper.CreateTrafficPolicy)

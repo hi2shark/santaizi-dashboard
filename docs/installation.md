@@ -213,7 +213,35 @@ docker compose up -d
 
 ### Agent
 
-Dashboard 不提供远程或自动更新。升级时在目标机器重新执行管理后台生成的安装命令，或通过系统包管理流程替换 Agent；协议破坏性升级使用已确认的清洁安装。
+Dashboard 不提供远程或自动更新。已安装的探针在本机执行升级脚本即可替换二进制并重启服务，**不改**配置、节点身份和 WAL。协议破坏性升级（须成对更换面板）仍使用已确认的清洁安装。
+
+Linux：
+
+```bash
+curl -fSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/upgrade_agent.sh | bash
+```
+
+指定版本：
+
+```bash
+curl -fSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/upgrade_agent.sh | bash -s -- v1.0.1
+```
+
+英文脚本：`upgrade_agent_en.sh`。可用 `SANTAIZI_AGENT_REPO`、`SANTAIZI_AGENT_VERSION` 覆盖仓库与版本。
+
+Windows：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([ScriptBlock]::Create((Invoke-WebRequest 'https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/upgrade.ps1' -UseBasicParsing).Content))"
+```
+
+macOS：
+
+```bash
+curl -fSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/upgrade.command | sudo bash
+```
+
+管理后台「主机管理」行内操作也可复制同一条命令。
 
 ---
 

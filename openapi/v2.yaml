@@ -479,6 +479,29 @@ paths:
           $ref: '#/components/responses/InstallPreviewResponse'
         default:
           $ref: '#/components/responses/Problem'
+  /api/v2/admin/servers/{serverId}/upgrade-preview:
+    parameters:
+    - $ref: '#/components/parameters/ServerId'
+    post:
+      tags:
+      - Servers
+      summary: 生成探针升级命令
+      description: 按平台返回本机升级脚本命令。不包含密钥，不修改配置、节点身份或 WAL。
+      operationId: getServerUpgradePreview
+      x-ui-route: /admin/servers
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/UpgradePreviewWrite'
+      responses:
+        '200':
+          $ref: '#/components/responses/UpgradePreviewResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/probe-capabilities:
     get:
       tags:
@@ -2864,6 +2887,33 @@ components:
           $ref: '#/components/schemas/MonitoringOptions'
         ip_report_config:
           $ref: '#/components/schemas/IPReportConfig'
+    UpgradePreviewWrite:
+      type: object
+      additionalProperties: false
+      required:
+      - platform
+      properties:
+        platform:
+          type: string
+          enum:
+          - linux
+          - macos
+          - windows
+    UpgradePreview:
+      type: object
+      additionalProperties: false
+      required:
+      - platform
+      - command
+      properties:
+        platform:
+          type: string
+          enum:
+          - linux
+          - macos
+          - windows
+        command:
+          type: string
     IPReportConfig:
       type: object
       additionalProperties: false
@@ -3709,6 +3759,12 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/InstallPreviewWrite'
+    UpgradePreviewWrite:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/UpgradePreviewWrite'
     APITokenWrite:
       required: true
       content:
@@ -3939,6 +3995,17 @@ components:
             properties:
               data:
                 $ref: '#/components/schemas/InstallPreview'
+    UpgradePreviewResponse:
+      description: Probe upgrade command
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - data
+            properties:
+              data:
+                $ref: '#/components/schemas/UpgradePreview'
     ProbeCapabilitiesResponse:
       description: Probe capability metadata
       content:
