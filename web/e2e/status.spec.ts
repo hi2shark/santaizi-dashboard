@@ -9,20 +9,21 @@ const worldGeoJSON = readFileSync(resolve(process.cwd(), 'resource/static/theme-
 const servers = [
   {
     id: 1, name: 'HKG-EDGE', tag: 'HKG', display_index: 30, hide_for_guest: false, enable_ddns: false, online: true,
-    host: { Platform: 'linux', CountryCode: 'HK', CPU: 2, Arch: 'amd64', Version: '6.8' },
-    state: { CPU: 8.2, MemUsed: 767_557_632, MemTotal: 2_147_483_648, DiskUsed: 6_442_450_944, DiskTotal: 21_474_836_480, Uptime: 2_074_200, NetInSpeed: 5_800, NetOutSpeed: 5_100, NetInTransfer: 98_320_000_000, NetOutTransfer: 63_740_000_000 },
+    host: { Platform: 'debian', CountryCode: 'HK', CPU: ['AMD EPYC 2 Physical Core'], Arch: 'amd64', Version: '6.8', MemTotal: 2_147_483_648, DiskTotal: 21_474_836_480 },
+    state: { CPU: 8.2, MemUsed: 767_557_632, DiskUsed: 6_442_450_944, Uptime: 2_074_200, NetInSpeed: 5_800, NetOutSpeed: 5_100, NetInTransfer: 98_320_000_000, NetOutTransfer: 63_740_000_000, Load1: 0.21, Load5: 0.4, Load15: 0.5 },
     public_note: { customData: { location: 'HKG', slogan: 'Hong Kong Premium', flag: 'hk' }, billingDataMod: { amount: '109.00CNY', cycle: '月' }, planDataMod: { networkRoute: 'IEPL,电信专线', IPv4: '1', IPv6: '1', trafficType: '2' } },
+    telemetry: { host: 'online', connectivity: 'healthy', available: true, coverage: '1/1' },
   },
   {
     id: 2, name: 'SGP-BAGE', tag: 'SGP', display_index: 20, hide_for_guest: false, enable_ddns: false, online: true,
-    host: { Platform: 'freebsd', CountryCode: 'SG', CPU: 1, Arch: 'amd64', Version: '14' },
-    state: { CPU: 1, MemUsed: 549_453_824, MemTotal: 1_073_741_824, DiskUsed: 5_368_709_120, DiskTotal: 10_737_418_240, Uptime: 11_491_200, NetInSpeed: 22_200, NetOutSpeed: 14_800, NetInTransfer: 512_000_000_000, NetOutTransfer: 251_180_000_000 },
+    host: { Platform: 'freebsd', CountryCode: 'SG', CPU: ['Intel 1 Physical Core'], Arch: 'amd64', Version: '14', MemTotal: 1_073_741_824, DiskTotal: 10_737_418_240 },
+    state: { CPU: 1, MemUsed: 549_453_824, DiskUsed: 5_368_709_120, Uptime: 11_491_200, NetInSpeed: 22_200, NetOutSpeed: 14_800, NetInTransfer: 512_000_000_000, NetOutTransfer: 251_180_000_000 },
     public_note: { customData: { location: 'SGP', slogan: 'Singapore Edge', flag: 'sg' }, billingDataMod: { amount: '2.59USD', cycle: '月' }, planDataMod: { networkRoute: 'CTCSCI,原生IP', IPv4: '1', IPv6: '1', trafficType: '2' } },
   },
   {
     id: 3, name: 'TYO-OFFLINE', tag: 'JPN', display_index: 10, hide_for_guest: false, enable_ddns: false, online: false,
-    host: { Platform: 'linux', CountryCode: 'JP', CPU: 4, Arch: 'arm64', Version: '6.6' },
-    state: { CPU: 0, MemUsed: 0, MemTotal: 4_294_967_296, DiskUsed: 0, DiskTotal: 42_949_672_960, Uptime: 0, NetInSpeed: 0, NetOutSpeed: 0, NetInTransfer: 0, NetOutTransfer: 0 },
+    host: { Platform: 'linux', CountryCode: 'JP', CPU: ['4 Physical Core'], Arch: 'arm64', Version: '6.6', MemTotal: 4_294_967_296, DiskTotal: 42_949_672_960 },
+    state: { CPU: 0, MemUsed: 0, DiskUsed: 0, Uptime: 0, NetInSpeed: 0, NetOutSpeed: 0, NetInTransfer: 0, NetOutTransfer: 0 },
     public_note: { customData: { location: 'JPN', slogan: 'Maintenance', flag: 'jp' }, billingDataMod: { amount: '4.00USD', cycle: '月' }, planDataMod: { networkRoute: 'BGP', IPv4: '1' } },
   },
 ]
@@ -34,6 +35,14 @@ async function fulfillJSON(route: Route, body: string, status = 200) {
 async function useNazhua(page: Page, mode: 'dark' | 'light' = 'dark') {
   await page.addInitScript(({ color }) => {
     localStorage.setItem('santaizi-public-theme', 'nazhua')
+    localStorage.setItem('santaizi-status-theme', color)
+    localStorage.setItem('santaizi-locale', 'zh-CN')
+  }, { color: mode })
+}
+
+async function useServerStatus(page: Page, mode: 'dark' | 'light' = 'light') {
+  await page.addInitScript(({ color }) => {
+    localStorage.setItem('santaizi-public-theme', 'server-status')
     localStorage.setItem('santaizi-status-theme', color)
     localStorage.setItem('santaizi-locale', 'zh-CN')
   }, { color: mode })
@@ -52,8 +61,8 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/api/v2/public/servers', route => fulfillJSON(route, list(servers)))
   await page.route('**/api/v2/public/cycle-transfer**', route => {
     const cycleRows = [
-      { policy_id: 1, server_id: 1, name: 'Monthly', direction: 'both', used_bytes: 173_999_036_989, quota_bytes: 1_099_511_627_776, usage_percent: 15.8, status: 'normal' },
-      { policy_id: 2, server_id: 2, name: 'Monthly', direction: 'both', used_bytes: 92_997_746_115, quota_bytes: 549_755_813_888, usage_percent: 16.9, status: 'normal' },
+      { policy_id: 1, server_id: 1, name: 'Monthly', direction: 'both', used_bytes: 173_999_036_989, quota_bytes: 1_099_511_627_776, remaining_bytes: 925_512_590_787, usage_percent: 15.8, warning_percent: 80, status: 'normal', window_start: '2026-08-01T00:00:00Z', window_end: '2026-09-01T00:00:00Z', next_reset_at: '2026-09-01T00:00:00Z' },
+      { policy_id: 2, server_id: 2, name: 'Monthly', direction: 'both', used_bytes: 92_997_746_115, quota_bytes: 549_755_813_888, remaining_bytes: 456_758_067_773, usage_percent: 16.9, warning_percent: 80, status: 'normal', window_start: '2026-08-01T00:00:00Z', window_end: '2026-09-01T00:00:00Z', next_reset_at: '2026-09-01T00:00:00Z' },
     ]
     const serverId = Number(new URL(route.request().url()).searchParams.get('server_id') || 0)
     return fulfillJSON(route, list(serverId ? cycleRows.filter(row => row.server_id === serverId) : cycleRows))
@@ -64,6 +73,13 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/api/v2/public/network/*', route => fulfillJSON(route, list([
     { monitor_name: 'ICMP', created_at: ['2026-08-12T12:00:00Z', '2026-08-12T12:05:00Z'], avg_delay: [42, 38] },
   ])))
+  await page.route('**/api/v2/public/metrics/*', route => fulfillJSON(route, list([
+    { window_start: '2026-08-13T08:00:00Z', cpu: 12, mem_used: 700_000_000, disk_used: 6_000_000_000, net_in_speed: 1000, net_out_speed: 800 },
+    { window_start: '2026-08-13T08:01:00Z', cpu: 18, mem_used: 720_000_000, disk_used: 6_100_000_000, net_in_speed: 1200, net_out_speed: 900 },
+  ])))
+  await page.route('**/api/v2/public/servers/*/availability', route => fulfillJSON(route, item({
+    server_id: 1, days: 30, offline_count: 0, total_offline_seconds: 0, longest_offline_seconds: 0, availability_percent: 99.9,
+  })))
 })
 
 test('renders a complete Nazhua homepage with one shell, map points and cycle-aware cards', async ({ page }) => {
@@ -81,6 +97,7 @@ test('renders a complete Nazhua homepage with one shell, map points and cycle-aw
   expect(await page.locator('.nazhua-world-map__point').count()).toBeGreaterThanOrEqual(2)
   await expect(page.locator('.nazhua-card')).toHaveCount(3)
   await expect(page.locator('.nazhua-card').first().locator('.traffic strong')).toContainText('861.95')
+  await expect(page.locator('.nazhua-card').first().locator('.nazhua-donut__caption').nth(1)).toContainText('/')
   await expect.poll(() => cycleRequests).toBe(1)
 
   const layout = await page.evaluate(() => {
@@ -121,6 +138,8 @@ test('search opens an AppDialog and details retain the Nazhua shell', async ({ p
   await expect(page.getByRole('heading', { name: 'SGP-BAGE' })).toBeVisible()
   await expect(page.getByRole('heading', { name: '周期流量' })).toBeVisible()
   await expect(page.locator('.nazhua-cycle-transfer__item')).toHaveCount(1)
+  await expect(page.locator('.nazhua-cycle-transfer__item')).toContainText('剩余')
+  await expect(page.getByRole('heading', { name: '资源历史' })).toBeVisible()
   await expect(page.getByRole('heading', { name: '网络监控' })).toBeVisible()
 })
 
@@ -236,6 +255,20 @@ test('desktop exposes the card, row and ServerStatus list modes', async ({ page 
   await expect(page.locator('.nazhua-card')).toHaveCount(3)
 })
 
+test('Nazhua sort menu lists host network connection load and capacity keys', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'status-desktop')
+  await useNazhua(page)
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/')
+  await page.locator('.nazhua-filter__sort').click()
+  await expect(page.getByRole('menuitem', { name: '权重' })).toBeVisible()
+  await expect(page.getByRole('menuitem', { name: '入网速度' })).toBeVisible()
+  await expect(page.getByRole('menuitem', { name: 'TCP 连接' })).toBeVisible()
+  await expect(page.getByRole('menuitem', { name: '内存总量' })).toBeVisible()
+  await page.getByRole('menuitem', { name: '名称' }).click()
+  expect(await page.evaluate(() => localStorage.getItem('santaizi-nazhua-sort-prop'))).toBe('name')
+})
+
 test('matches the upstream desktop track and map geometry at 1440px', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'status-desktop')
   await useNazhua(page)
@@ -306,3 +339,50 @@ test('captures accepted Nazhua visual baselines', async ({ page }, testInfo) => 
     }
   }
 })
+
+test('ServerStatus shell uses tokenized cards without particle canvas', async ({ page }) => {
+  await useServerStatus(page)
+  await page.goto('/')
+  await expect(page.locator('.server-status-shell')).toBeVisible()
+  await expect(page.locator('.status-nav')).toHaveCount(1)
+  await expect(page.locator('.status-particles, canvas.status-particles')).toHaveCount(0)
+  await expect(page.locator('.ss-card')).toHaveCount(3)
+  await expect(page.getByText('主机管理')).toHaveCount(0)
+  await expect(page.locator('.status-nav nav a.router-link-exact-active')).toHaveCount(1)
+  await expect(page.locator('.server-status-shell > footer')).toContainText('由三太子监控驱动 test')
+  await expect(page.locator('.server-status-shell > footer')).toContainText('Copyright 2020 naiba')
+  await expect(page.locator('.server-status-shell > footer')).toContainText('Copyright 2020 naiba')
+  await expect(page.locator('.ss-card').first().locator('.ss-chip--muted')).toHaveText('香港')
+  await expect(page.locator('.ss-card').first().locator('.server-flag.fi-hk')).toBeVisible()
+  await expect(page.locator('.ss-chip--muted').filter({ hasText: 'HKG' })).toHaveCount(0)
+  await expect(page.getByText('IEPL')).toBeVisible()
+  await expect(page.locator('.meta-tag--billing').filter({ hasText: '109.00CNY' })).toBeVisible()
+  await expect(page.locator('.ss-cycle').filter({ hasText: 'Monthly' })).toHaveCount(2)
+  await expect(page.getByText('0.21 / 0.40 / 0.50')).toBeVisible()
+  await page.locator('.ss-card').first().locator('summary').click()
+  await expect(page.getByText('可用性')).toBeVisible()
+})
+
+test('ServerStatus mobile cards do not require horizontal table scroll', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'status-mobile')
+  await useServerStatus(page)
+  await page.goto('/')
+  await expect(page.locator('.ss-card')).toHaveCount(3)
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 2)
+  expect(overflow).toBe(true)
+})
+
+test('ServerStatus hides availability when guests are not allowed to see it', async ({ page }) => {
+  await useServerStatus(page)
+  await page.route('**/api/v2/public/bootstrap', route => fulfillJSON(route, item({
+    brand: '三太子监控', locale: 'zh-CN', version: 'test', logo_url: '/static/logo.svg', primary_color: '#2563eb',
+    requires_view_password: false, view_password_verified: true, show_availability: false, authenticated: true,
+    theme: 'server-status', allow_frontend_theme_switch: true,
+  })))
+  await page.goto('/')
+  await expect(page.locator('.ss-card')).toHaveCount(3)
+  const specs = page.locator('.ss-card').first().locator('summary')
+  if (await specs.count()) await specs.click()
+  await expect(page.getByText('可用性')).toHaveCount(0)
+})
+
