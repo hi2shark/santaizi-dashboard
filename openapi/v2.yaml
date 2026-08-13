@@ -1226,7 +1226,7 @@ paths:
     get:
       tags:
       - Telemetry
-      summary: 遥测概览
+      summary: 探测概览
       operationId: getTelemetryOverview
       responses:
         '200':
@@ -1458,7 +1458,7 @@ paths:
     get:
       tags:
       - Telemetry
-      summary: 遥测丢数记录
+      summary: 探测丢数记录
       operationId: listTelemetryDataLoss
       responses:
         '200':
@@ -1469,7 +1469,7 @@ paths:
     get:
       tags:
       - Telemetry
-      summary: 遥测告警列表
+      summary: 探测告警列表
       operationId: listTelemetryAlerts
       responses:
         '200':

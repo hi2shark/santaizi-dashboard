@@ -77,7 +77,7 @@ CLI 参数：
 
 ## 从端（Collector）安装
 
-从端与 Primary 使用同一 Dashboard 镜像，以 `mode: collector` 运行。推荐在管理后台「可靠遥测」创建从端后，使用「安装从端」复制一键命令。
+从端与 Primary 使用同一 Dashboard 镜像，以 `mode: collector` 运行。推荐在管理后台「可靠探测」创建从端后，使用「安装从端」复制一键命令。
 
 也可手动执行（参数需替换）：
 
@@ -89,7 +89,7 @@ curl -fsSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/
   --primary-tls
 ```
 
-详细步骤见 [可靠遥测运维指南](reliable-telemetry.md)。
+详细步骤见 [可靠探测运维指南](reliable-telemetry.md)。
 
 ---
 
@@ -109,7 +109,7 @@ curl -fSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/s
 curl -fSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install_agent_en.sh | bash -s -- install_agent <面板地址> <端口> <密钥> --clean-install --confirm-clean-install
 ```
 
-安装路径：`/opt/santaizi/agent`；默认配置 `/etc/santaizi/agent.yaml`；可靠遥测数据 `/var/lib/santaizi-agent/`
+安装路径：`/opt/santaizi/agent`；默认配置 `/etc/santaizi/agent.yaml`；可靠探测数据 `/var/lib/santaizi-agent/`
 
 ### Windows
 

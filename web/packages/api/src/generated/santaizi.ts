@@ -997,7 +997,7 @@ const cleanupOfflineHistory = (
     }
 
 /**
- * @summary 遥测概览
+ * @summary 探测概览
  */
 const getTelemetryOverview = (
 
@@ -1188,7 +1188,7 @@ const listIncidentRevisions = (
     }
 
 /**
- * @summary 遥测丢数记录
+ * @summary 探测丢数记录
  */
 const listTelemetryDataLoss = (
 
@@ -1200,7 +1200,7 @@ const listTelemetryDataLoss = (
     }
 
 /**
- * @summary 遥测告警列表
+ * @summary 探测告警列表
  */
 const listTelemetryAlerts = (
 

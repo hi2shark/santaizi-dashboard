@@ -2982,7 +2982,7 @@ type ServerInterface interface {
 	// ListAgentReliability 探针可靠性列表
 	// (GET /api/v2/admin/telemetry/agents)
 	ListAgentReliability(c *gin.Context)
-	// ListTelemetryAlerts 遥测告警列表
+	// ListTelemetryAlerts 探测告警列表
 	// (GET /api/v2/admin/telemetry/alerts)
 	ListTelemetryAlerts(c *gin.Context)
 	// ListObserverAssignments Observer 分配列表
@@ -3018,7 +3018,7 @@ type ServerInterface interface {
 	// GetCollectorToken 查看从端 Token
 	// (GET /api/v2/admin/telemetry/collectors/{collectorId}/token)
 	GetCollectorToken(c *gin.Context, collectorId CollectorId)
-	// ListTelemetryDataLoss 遥测丢数记录
+	// ListTelemetryDataLoss 探测丢数记录
 	// (GET /api/v2/admin/telemetry/data-loss)
 	ListTelemetryDataLoss(c *gin.Context)
 	// ListIncidentRevisions 事件修订列表
@@ -3027,7 +3027,7 @@ type ServerInterface interface {
 	// ListIncidents 事件列表
 	// (GET /api/v2/admin/telemetry/incidents)
 	ListIncidents(c *gin.Context)
-	// GetTelemetryOverview 遥测概览
+	// GetTelemetryOverview 探测概览
 	// (GET /api/v2/admin/telemetry/overview)
 	GetTelemetryOverview(c *gin.Context)
 	// Logout 退出登录

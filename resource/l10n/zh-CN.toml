@@ -1040,10 +1040,10 @@ other = "无数据"
 other = "无匹配数据"
 
 [Telemetry]
-other = "遥测"
+other = "探测"
 
 [TelemetryReliability]
-other = "遥测可靠性"
+other = "探测可靠性"
 
 [TelemetryReliabilityDescription]
 other = "查看从端、观测点、探针传输、故障修正与数据丢失情况"
@@ -1061,10 +1061,10 @@ other = "探针缓存与发送状态"
 other = "故障判定修正"
 
 [TelemetryDataLoss]
-other = "遥测数据丢失"
+other = "探测数据丢失"
 
 [TelemetryAlerts]
-other = "遥测告警"
+other = "探测告警"
 
 [TelemetryCollectorID]
 other = "从端标识"
@@ -1181,7 +1181,7 @@ other = "连接质量下降"
 other = "从端离线"
 
 [TelemetryAlertDataLoss]
-other = "遥测数据丢失"
+other = "探测数据丢失"
 
 [TelemetrySeverityCritical]
 other = "严重"

@@ -1,11 +1,11 @@
-# 可靠遥测运维指南
+# 可靠探测运维指南
 
-Santaizi 采用单 Primary 控制面与多从端（Collector）遥测面。探针先写本地 Segment WAL，再分别向 Primary 和已分配的从端发送；从端在本地事务提交后 ACK 探针，并通过持久 Outbox 将事实复制到 Primary。所有可靠链路都是至少一次投递，接收端按 Event、Observation、Replication Batch 去重，并且只在事务提交后返回累计连续 ACK。
+Santaizi 采用单 Primary 控制面与多从端（Collector）探测面。探针先写本地 Segment WAL，再分别向 Primary 和已分配的从端发送；从端在本地事务提交后 ACK 探针，并通过持久 Outbox 将事实复制到 Primary。所有可靠链路都是至少一次投递，接收端按 Event、Observation、Replication Batch 去重，并且只在事务提交后返回累计连续 ACK。
 
 ## 数据与进程角色
 
 - Primary：加载 OAuth、Web、API、服务监控、告警、内部调度、Availability、Rollup 与 Retention。
-- 从端（Collector）：同一 Dashboard 二进制以 `mode: collector` 启动，只提供鉴权的遥测接收、复制、`GetStatus` 与标准 gRPC Health；不提供 HTTP Health 或 Web UI。
+- 从端（Collector）：同一 Dashboard 二进制以 `mode: collector` 启动，只提供鉴权的探测接收、复制、`GetStatus` 与标准 gRPC Health；不提供 HTTP Health 或 Web UI。
 - 探针（Agent）：默认配置 `/etc/santaizi/agent.yaml`，可靠数据目录 `/var/lib/santaizi-agent/`；WAL 默认 8 MiB Segment、256 MiB 总量、1 MiB 紧急预留。
 - Dashboard：默认配置 `/etc/santaizi/dashboard.yaml`，Primary 数据库 `/var/lib/santaizi-dashboard/sqlite.db`，从端数据库默认 `/var/lib/santaizi-dashboard/collector.db`。
 
@@ -13,7 +13,7 @@ Santaizi 采用单 Primary 控制面与多从端（Collector）遥测面。探�
 
 ## 部署从端
 
-1. 在 Primary 管理后台「可靠遥测」创建从端，或调用管理 API：
+1. 在 Primary 管理后台「可靠探测」创建从端，或调用管理 API：
 
    ```http
    POST /api/v2/admin/telemetry/collectors

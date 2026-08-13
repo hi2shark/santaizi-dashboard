@@ -687,7 +687,7 @@ html.dark .metric-icon.blue,html.dark .metric-icon.green,html.dark .metric-icon.
     padding: 0;
   }
 
-  /* —— 总览 / 设置 / 令牌 / 遥测 —— */
+  /* —— 总览 / 设置 / 令牌 / 探测 —— */
   .metric-grid {
     gap: var(--space-3);
     margin-bottom: var(--space-3);

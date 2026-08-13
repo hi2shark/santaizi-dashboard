@@ -1953,7 +1953,7 @@ func v2TelemetryDataset(c *gin.Context) {
 		singleton.DB.Order("occurred_at DESC").Limit(1000).Find(&value)
 		rows = value
 	default:
-		writeV2Problem(c, 404, "dataset_not_found", "遥测数据集不存在")
+		writeV2Problem(c, 404, "dataset_not_found", "探测数据集不存在")
 		return
 	}
 	output := snakeValue(rows)

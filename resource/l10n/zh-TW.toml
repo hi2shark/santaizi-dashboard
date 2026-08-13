@@ -1040,10 +1040,10 @@ other = "無資料"
 other = "無匹配資料"
 
 [Telemetry]
-other = "遙測"
+other = "探測"
 
 [TelemetryReliability]
-other = "遙測可靠性"
+other = "探測可靠性"
 
 [TelemetryReliabilityDescription]
 other = "查看從端、觀測點、探針傳輸、故障修正與資料遺失情況"
@@ -1061,10 +1061,10 @@ other = "探針快取與傳送狀態"
 other = "故障判定修正"
 
 [TelemetryDataLoss]
-other = "遙測資料遺失"
+other = "探測資料遺失"
 
 [TelemetryAlerts]
-other = "遙測告警"
+other = "探測告警"
 
 [TelemetryCollectorID]
 other = "從端識別碼"
@@ -1181,7 +1181,7 @@ other = "連線品質下降"
 other = "從端離線"
 
 [TelemetryAlertDataLoss]
-other = "遙測資料遺失"
+other = "探測資料遺失"
 
 [TelemetrySeverityCritical]
 other = "嚴重"

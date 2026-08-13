@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
   <title id="title">三太子监控应用图标</title>
-  <desc id="description">三道观测轨迹环绕遥测节点的抽象应用图标</desc>
+  <desc id="description">三道观测轨迹环绕探测节点的抽象应用图标</desc>
   <rect width="512" height="512" fill="#0F172A"/>
   <g transform="translate(96 96) scale(1.6)">
     <g fill="none" stroke-linecap="round" stroke-width="18">

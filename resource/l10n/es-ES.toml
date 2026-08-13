@@ -1040,10 +1040,10 @@ other = "Sin datos"
 other = "Sin coincidencias"
 
 [Telemetry]
-other = "Telemetría"
+other = "Sondeo"
 
 [TelemetryReliability]
-other = "Fiabilidad de la telemetría"
+other = "Fiabilidad del sondeo"
 
 [TelemetryReliabilityDescription]
 other = "Consulta recolectores, puntos de observación, entrega de agentes, correcciones de incidentes y pérdida de datos"
@@ -1061,10 +1061,10 @@ other = "Búfer y entrega del agente"
 other = "Correcciones de incidentes"
 
 [TelemetryDataLoss]
-other = "Pérdida de datos de telemetría"
+other = "Pérdida de datos de sondeo"
 
 [TelemetryAlerts]
-other = "Alertas de telemetría"
+other = "Alertas de sondeo"
 
 [TelemetryCollectorID]
 other = "ID del recolector"
@@ -1181,7 +1181,7 @@ other = "Conectividad degradada"
 other = "Recolector sin conexión"
 
 [TelemetryAlertDataLoss]
-other = "Pérdida de datos de telemetría"
+other = "Pérdida de datos de sondeo"
 
 [TelemetrySeverityCritical]
 other = "Crítica"

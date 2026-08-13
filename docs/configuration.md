@@ -1,6 +1,6 @@
 # 配置参考
 
-Dashboard 的配置文件默认位于 `/etc/santaizi/dashboard.yaml`，SQLite 与遥测数据默认位于 `/var/lib/santaizi-dashboard/`。两者均可通过 CLI 或配置覆盖。配置加载顺序：
+Dashboard 的配置文件默认位于 `/etc/santaizi/dashboard.yaml`，SQLite 与探测数据默认位于 `/var/lib/santaizi-dashboard/`。两者均可通过 CLI 或配置覆盖。配置加载顺序：
 
 1. 环境变量（前缀 `SANTAIZI_`，下划线替换为点）
 2. `/etc/santaizi/dashboard.yaml`
@@ -30,7 +30,7 @@ site:
 | 配置项 | 类型 | 默认值 | 说明 |
 |--------|------|--------|------|
 | `debug` | bool | `false` | Debug 模式；开启后启用 `/debug/pprof` 和 `mock` OAuth2 |
-| `mode` | string | `primary` | `primary` 启动控制面与 Web；`collector` 只启动遥测接收、复制与 gRPC Health |
+| `mode` | string | `primary` | `primary` 启动控制面与 Web；`collector` 只启动探测接收、复制与 gRPC Health |
 | `language` | string | `zh-CN` | 系统语言 |
 | `httpport` | uint | `80` | Dashboard Web 端口 |
 | `grpcport` | uint | `5555` | Agent gRPC 上报端口 |
@@ -100,11 +100,11 @@ site:
 
 ---
 
-## `telemetry` 可靠遥测
+## `telemetry` 可靠探测
 
 | 配置项 | 默认值 | 说明 |
 |--------|--------|------|
-| `telemetry.data_dir` | `/var/lib/santaizi-dashboard` | 签名密钥和遥测运行数据目录 |
+| `telemetry.data_dir` | `/var/lib/santaizi-dashboard` | 签名密钥和探测运行数据目录 |
 | `telemetry.signing_key_path` | `<data_dir>/telemetry-signing.key` | Primary Ed25519 私钥；必须持久保存并限制权限 |
 | `telemetry.primary_endpoint` | `grpchost` 或本机 gRPC | Agent 控制流下发的 Primary 地址 |
 | `telemetry.state_interval_seconds` | `5` | State 采样间隔 |
@@ -112,7 +112,7 @@ site:
 | `telemetry.offline_threshold_seconds` | `30` | 新鲜度与离线判定阈值 |
 | `telemetry.ingest_batch_size` | `256` | V2 接收批大小 |
 | `telemetry.ingest_queue_size` | `4096` | 接收侧有界容量 |
-| `telemetry.credential_validity_days` | `30` | Agent 遥测凭据有效期 |
+| `telemetry.credential_validity_days` | `30` | Agent 探测凭据有效期 |
 | `telemetry.credential_refresh_days` | `7` | 到期前刷新窗口 |
 | `telemetry.credential_grace_days` | `7` | Collector 离线且已有授权时的过期宽限 |
 | `telemetry.availability_bucket_seconds` | `30` | Availability Bucket 大小 |

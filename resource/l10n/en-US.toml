@@ -1040,10 +1040,10 @@ other = "No data"
 other = "No matching data"
 
 [Telemetry]
-other = "Telemetry"
+other = "Probe"
 
 [TelemetryReliability]
-other = "Telemetry Reliability"
+other = "Probe Reliability"
 
 [TelemetryReliabilityDescription]
 other = "Review collectors, observation points, agent delivery, incident corrections, and data loss"
@@ -1061,10 +1061,10 @@ other = "Agent Buffer and Delivery"
 other = "Incident Corrections"
 
 [TelemetryDataLoss]
-other = "Telemetry Data Loss"
+other = "Probe Data Loss"
 
 [TelemetryAlerts]
-other = "Telemetry Alerts"
+other = "Probe Alerts"
 
 [TelemetryCollectorID]
 other = "Collector ID"
@@ -1181,7 +1181,7 @@ other = "Connectivity Degraded"
 other = "Collector Offline"
 
 [TelemetryAlertDataLoss]
-other = "Telemetry Data Loss"
+other = "Probe Data Loss"
 
 [TelemetrySeverityCritical]
 other = "Critical"
