@@ -23,7 +23,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'push' && github.ref || 'feat/dev' }}
+          ref: ${{ github.event_name == 'push' && github.ref || 'main' }}
           fetch-depth: 0
 
       - name: Fix git safe directory
@@ -89,7 +89,7 @@ jobs:
             latest="$(latest_product_tag)"
             if [ -z "$latest" ]; then
               echo "No v1.x.x (or later) tag found."
-              echo "Push v1.0.0 on feat/dev first; weekly GeoIP releases only bump patch."
+              echo "Push v1.0.0 on main first; weekly GeoIP releases only bump patch."
               exit 1
             fi
 
