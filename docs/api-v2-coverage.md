@@ -21,6 +21,6 @@
 | Collector 生命周期 | `createCollector`, `updateCollector`, `getCollectorToken`, `rotateCollectorToken`, `revokeCollector`, `deleteCollector`, `getCollectorInstallPreview` | `/admin/telemetry` 专用编辑弹窗、安装命令与操作菜单 | Token 查看/轮换、安装预览、撤销和删除 |
 | Collector Scope | `updateCollectorScope` | All/Server/Group/Tag 类型化范围 | Scope 选择与配置版本更新 |
 
-公开端由 `getPublicBootstrap`、`createViewPasswordSession`、`listPublicServers`、`getPublicServer`、`listPublicServices` 与 `getPublicNetworkHistory` 驱动。
+公开端由 `getPublicBootstrap`、`createViewPasswordSession`、`listPublicServers`、`getPublicServer`、`listPublicServices`、`getPublicNetworkHistory` 与 `listPublicCycleTransfer` 驱动；bootstrap 含 `theme` / `allow_frontend_theme_switch`。
 
 契约防回退包括 OpenAPI lint、可重复代码生成、Gin operation 注册、四语言键检查、Vitest、Playwright、Go 测试和双仓构建。

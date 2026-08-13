@@ -149,6 +149,27 @@ paths:
           $ref: '#/components/responses/ObjectListResponse'
         default:
           $ref: '#/components/responses/Problem'
+  /api/v2/public/cycle-transfer:
+    get:
+      tags:
+      - Public
+      summary: 公开周期流量摘要
+      description: 返回已启用流量策略的当前窗口用量；可按 server_id 过滤。不含通知标签等管理字段。
+      operationId: listPublicCycleTransfer
+      security: []
+      parameters:
+      - name: server_id
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectListResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/summary:
     get:
       tags:
@@ -1681,6 +1702,13 @@ components:
         show_availability:
           type: boolean
         authenticated:
+          type: boolean
+        theme:
+          type: string
+          enum:
+          - server-status
+          - nazhua
+        allow_frontend_theme_switch:
           type: boolean
     TelemetryPresentation:
       type: object

@@ -47,6 +47,8 @@ export interface SiteBootstrap {
   view_password_verified: boolean
   show_availability: boolean
   authenticated: boolean
+  theme?: 'server-status' | 'nazhua'
+  allow_frontend_theme_switch?: boolean
 }
 
 export interface ServerTelemetryPresentation {

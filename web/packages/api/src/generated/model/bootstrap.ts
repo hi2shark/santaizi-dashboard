@@ -8,6 +8,7 @@
  * OpenAPI spec version: 2.0.0
  */
 import type { BootstrapLocale } from './bootstrapLocale';
+import type { BootstrapTheme } from './bootstrapTheme';
 
 export interface Bootstrap {
   brand: string;
@@ -23,4 +24,6 @@ export interface Bootstrap {
   view_password_verified: boolean;
   show_availability: boolean;
   authenticated: boolean;
+  theme?: BootstrapTheme;
+  allow_frontend_theme_switch?: boolean;
 }

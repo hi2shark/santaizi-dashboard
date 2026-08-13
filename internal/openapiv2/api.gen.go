@@ -169,6 +169,24 @@ func (e BootstrapLocale) Valid() bool {
 	}
 }
 
+// Defines values for BootstrapTheme.
+const (
+	Nazhua       BootstrapTheme = "nazhua"
+	ServerStatus BootstrapTheme = "server-status"
+)
+
+// Valid indicates whether the value is a known member of the BootstrapTheme enum.
+func (e BootstrapTheme) Valid() bool {
+	switch e {
+	case Nazhua:
+		return true
+	case ServerStatus:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CollectorScopeType.
 const (
 	CollectorScopeTypeAll    CollectorScopeType = "all"
@@ -943,23 +961,28 @@ type BatchServerGroupWrite struct {
 
 // Bootstrap defines model for Bootstrap.
 type Bootstrap struct {
-	Authenticated        bool            `json:"authenticated"`
-	BackgroundUrl        *string         `json:"background_url,omitempty"`
-	Brand                string          `json:"brand"`
-	CsrfToken            *string         `json:"csrf_token,omitempty"`
-	CustomCss            *string         `json:"custom_css,omitempty"`
-	FooterText           *string         `json:"footer_text,omitempty"`
-	Locale               BootstrapLocale `json:"locale"`
-	LogoUrl              string          `json:"logo_url"`
-	PrimaryColor         *string         `json:"primary_color,omitempty"`
-	RequiresViewPassword bool            `json:"requires_view_password"`
-	ShowAvailability     bool            `json:"show_availability"`
-	Version              string          `json:"version"`
-	ViewPasswordVerified bool            `json:"view_password_verified"`
+	AllowFrontendThemeSwitch *bool           `json:"allow_frontend_theme_switch,omitempty"`
+	Authenticated            bool            `json:"authenticated"`
+	BackgroundUrl            *string         `json:"background_url,omitempty"`
+	Brand                    string          `json:"brand"`
+	CsrfToken                *string         `json:"csrf_token,omitempty"`
+	CustomCss                *string         `json:"custom_css,omitempty"`
+	FooterText               *string         `json:"footer_text,omitempty"`
+	Locale                   BootstrapLocale `json:"locale"`
+	LogoUrl                  string          `json:"logo_url"`
+	PrimaryColor             *string         `json:"primary_color,omitempty"`
+	RequiresViewPassword     bool            `json:"requires_view_password"`
+	ShowAvailability         bool            `json:"show_availability"`
+	Theme                    *BootstrapTheme `json:"theme,omitempty"`
+	Version                  string          `json:"version"`
+	ViewPasswordVerified     bool            `json:"view_password_verified"`
 }
 
 // BootstrapLocale defines model for Bootstrap.Locale.
 type BootstrapLocale string
+
+// BootstrapTheme defines model for Bootstrap.Theme.
+type BootstrapTheme string
 
 // Collector defines model for Collector.
 type Collector struct {
@@ -2090,6 +2113,11 @@ type LogoutParams struct {
 	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
 }
 
+// ListPublicCycleTransferParams defines parameters for ListPublicCycleTransfer.
+type ListPublicCycleTransferParams struct {
+	ServerId *int64 `form:"server_id,omitempty" json:"server_id,omitempty"`
+}
+
 // CreateViewPasswordSessionJSONBody defines parameters for CreateViewPasswordSession.
 type CreateViewPasswordSessionJSONBody struct {
 	Password string `json:"password"`
@@ -3011,6 +3039,9 @@ type ServerInterface interface {
 	// GetPublicBootstrap 公开站点引导信息
 	// (GET /api/v2/public/bootstrap)
 	GetPublicBootstrap(c *gin.Context)
+	// ListPublicCycleTransfer 公开周期流量摘要
+	// (GET /api/v2/public/cycle-transfer)
+	ListPublicCycleTransfer(c *gin.Context, params ListPublicCycleTransferParams)
 	// GetPublicNetworkHistory 公开网络延迟历史
 	// (GET /api/v2/public/network/{serverId})
 	GetPublicNetworkHistory(c *gin.Context, serverId ServerId)
@@ -6104,6 +6135,33 @@ func (siw *ServerInterfaceWrapper) GetPublicBootstrap(c *gin.Context) {
 	siw.Handler.GetPublicBootstrap(c)
 }
 
+// ListPublicCycleTransfer operation middleware
+func (siw *ServerInterfaceWrapper) ListPublicCycleTransfer(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPublicCycleTransferParams
+
+	// ------------- Optional query parameter "server_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "server_id", c.Request.URL.Query(), &params.ServerId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter server_id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListPublicCycleTransfer(c, params)
+}
+
 // GetPublicNetworkHistory operation middleware
 func (siw *ServerInterfaceWrapper) GetPublicNetworkHistory(c *gin.Context) {
 
@@ -6228,6 +6286,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/api/v2/public/servers/:serverId", wrapper.GetPublicServer)
 	router.GET(options.BaseURL+"/api/v2/public/services", wrapper.ListPublicServices)
 	router.GET(options.BaseURL+"/api/v2/public/network/:serverId", wrapper.GetPublicNetworkHistory)
+	router.GET(options.BaseURL+"/api/v2/public/cycle-transfer", wrapper.ListPublicCycleTransfer)
 	router.GET(options.BaseURL+"/api/v2/admin/summary", wrapper.GetAdminSummary)
 	router.GET(options.BaseURL+"/api/v2/admin/servers", wrapper.ListServers)
 	router.POST(options.BaseURL+"/api/v2/admin/servers", wrapper.CreateServer)

@@ -35,6 +35,9 @@ export const listPublicServers = () => api.listPublicServers().then(value => lis
 export const getPublicServer = (id: number) => api.getPublicServer(id).then(value => data<ServerRecord>(value))
 export const listPublicServices = () => api.listPublicServices().then(value => list<ResourceRecord>(value))
 export const getPublicNetwork = (id: number) => api.getPublicNetworkHistory(id).then(value => list<ResourceRecord>(value))
+export const listPublicCycleTransfer = (serverId?: number) => api.listPublicCycleTransfer(
+  serverId ? { server_id: serverId } : undefined,
+).then(value => list<ResourceRecord>(value))
 
 export const getAdminSummary = () => api.getAdminSummary().then(value => data<Record<string, unknown>>(value))
 export const listServers = (params: ResourceQuery = {}) => api.listServers(params).then(value => list<ServerRecord>(value))
