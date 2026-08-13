@@ -4,9 +4,11 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { verifyViewPassword } from '@santaizi/api'
+import { useStatusStore } from '../stores/status'
 
 const { t } = useI18n()
 const router = useRouter()
+const store = useStatusStore()
 const password = ref('')
 const loading = ref(false)
 
@@ -14,6 +16,8 @@ async function submit() {
   loading.value = true
   try {
     await verifyViewPassword(password.value)
+    await store.load()
+    store.connect()
     await router.replace('/')
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : t('loadFailed'))

@@ -118,6 +118,15 @@ importers:
       '@santaizi/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
+      '@santaizi/status-core':
+        specifier: workspace:*
+        version: link:../../packages/status-core
+      '@santaizi/theme-nazhua':
+        specifier: workspace:*
+        version: link:../../packages/theme-nazhua
+      '@santaizi/theme-server-status':
+        specifier: workspace:*
+        version: link:../../packages/theme-server-status
       '@santaizi/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -130,6 +139,9 @@ importers:
       element-plus:
         specifier: 2.14.4
         version: 2.14.4(vue@3.5.41(typescript@6.0.3))
+      flag-icons:
+        specifier: 7.5.0
+        version: 7.5.0
       remixicon:
         specifier: 4.9.1
         version: 4.9.1
@@ -146,6 +158,12 @@ importers:
         specifier: 5.2.0
         version: 5.2.0(@vue/compiler-sfc@3.5.41)(esbuild@0.28.2)(pinia@4.0.2(@vue/devtools-api@8.2.1)(typescript@6.0.3)(vue@3.5.41(typescript@6.0.3)))(rolldown@1.2.3)(rollup@4.62.4)(vite@8.2.1(@types/node@25.5.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(vue@3.5.41(typescript@6.0.3))
     devDependencies:
+      '@types/d3-geo':
+        specifier: ^3.1.1
+        version: 3.1.1
+      '@types/geojson':
+        specifier: ^7946.0.16
+        version: 7946.0.16
       '@types/node':
         specifier: 25.5.0
         version: 25.5.0
@@ -172,6 +190,96 @@ importers:
       vue-i18n:
         specifier: 11.4.8
         version: 11.4.8(vue@3.5.41(typescript@6.0.3))
+
+  web/packages/status-core:
+    dependencies:
+      '@santaizi/api':
+        specifier: workspace:*
+        version: link:../api
+    devDependencies:
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vue:
+        specifier: 3.5.41
+        version: 3.5.41(typescript@6.0.3)
+
+  web/packages/theme-nazhua:
+    dependencies:
+      '@santaizi/api':
+        specifier: workspace:*
+        version: link:../api
+      '@santaizi/design':
+        specifier: workspace:*
+        version: link:../design
+      '@santaizi/status-core':
+        specifier: workspace:*
+        version: link:../status-core
+      '@santaizi/theme-server-status':
+        specifier: workspace:*
+        version: link:../theme-server-status
+      '@santaizi/ui':
+        specifier: workspace:*
+        version: link:../ui
+      d3-geo:
+        specifier: 3.1.1
+        version: 3.1.1
+      echarts:
+        specifier: '>=6.0.0'
+        version: 6.1.0
+      flag-icons:
+        specifier: '>=7.0.0'
+        version: 7.5.0
+      vue-i18n:
+        specifier: '>=11.0.0'
+        version: 11.4.8(vue@3.5.41(typescript@6.0.3))
+      vue-router:
+        specifier: '>=5.0.0'
+        version: 5.2.0(@vue/compiler-sfc@3.5.41)(esbuild@0.28.2)(pinia@4.0.2(@vue/devtools-api@8.2.1)(typescript@6.0.3)(vue@3.5.41(typescript@6.0.3)))(rolldown@1.2.3)(rollup@4.62.4)(vite@8.2.1(@types/node@25.5.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(vue@3.5.41(typescript@6.0.3))
+    devDependencies:
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vue:
+        specifier: 3.5.41
+        version: 3.5.41(typescript@6.0.3)
+
+  web/packages/theme-server-status:
+    dependencies:
+      '@santaizi/api':
+        specifier: workspace:*
+        version: link:../api
+      '@santaizi/design':
+        specifier: workspace:*
+        version: link:../design
+      '@santaizi/i18n':
+        specifier: workspace:*
+        version: link:../i18n
+      '@santaizi/status-core':
+        specifier: workspace:*
+        version: link:../status-core
+      '@santaizi/ui':
+        specifier: workspace:*
+        version: link:../ui
+      echarts:
+        specifier: '>=6.0.0'
+        version: 6.1.0
+      element-plus:
+        specifier: '>=2.0.0'
+        version: 2.14.4(vue@3.5.41(typescript@6.0.3))
+      vue-i18n:
+        specifier: '>=11.0.0'
+        version: 11.4.8(vue@3.5.41(typescript@6.0.3))
+      vue-router:
+        specifier: '>=5.0.0'
+        version: 5.2.0(@vue/compiler-sfc@3.5.41)(esbuild@0.28.2)(pinia@4.0.2(@vue/devtools-api@8.2.1)(typescript@6.0.3)(vue@3.5.41(typescript@6.0.3)))(rolldown@1.2.3)(rollup@4.62.4)(vite@8.2.1(@types/node@25.5.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(vue@3.5.41(typescript@6.0.3))
+    devDependencies:
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vue:
+        specifier: 3.5.41
+        version: 3.5.41(typescript@6.0.3)
 
   web/packages/ui:
     dependencies:
@@ -1076,11 +1184,17 @@ packages:
   '@types/chai@5.2.3':
     resolution: {integrity: sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA==}
 
+  '@types/d3-geo@3.1.1':
+    resolution: {integrity: sha512-65Emv9fQiQQqphLlRkuQ5ypPsOmWPhtBGCMv61JDPEPMvsx+gzhGf74yw1a78xFKPj6zw4AgQICJoQv0vK9M2w==}
+
   '@types/deep-eql@4.0.2':
     resolution: {integrity: sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw==}
 
   '@types/estree@1.0.9':
     resolution: {integrity: sha512-GhdPgy1el4/ImP05X05Uw4cw2/M93BCUmnEvWZNStlCzEKME4Fkk+YpoA5OiHNQmoS7Cafb8Xa3Pya8m1Qrzeg==}
+
+  '@types/geojson@7946.0.16':
+    resolution: {integrity: sha512-6C8nqWur3j98U6+lXDfTUWIfgvZU+EumvpHKcYjujKH7woYyLj2sUmff0tRhrqM7BohUw7Pz3ZB1jj2gW9Fvmg==}
 
   '@types/hast@3.0.5':
     resolution: {integrity: sha512-rp/ezSWaD1m44dPKICGhiskI13nVr7qTloFwDa/IYkhhf5nzwP+zIQcIJh3WIFSBOy/H1PzB40jPjMDksN4F+g==}
@@ -1501,6 +1615,14 @@ packages:
   csstype@3.2.3:
     resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
 
+  d3-array@3.2.4:
+    resolution: {integrity: sha512-tdQAmyA18i4J7wprpYq8ClcxZy3SC31QMeByyCFyRt7BVHdREQZ5lpzoe5mFEYZUWe+oq8HBvk9JjpibyEV4Jg==}
+    engines: {node: '>=12'}
+
+  d3-geo@3.1.1:
+    resolution: {integrity: sha512-637ln3gXKXOwhalDzinUgY83KzNWZRKbYubaG+fGVuc/dxO64RRljtCTnf5ecMyE1RIdtqpkVcq0IbtU2S8j2Q==}
+    engines: {node: '>=12'}
+
   dayjs@1.11.21:
     resolution: {integrity: sha512-98IT+HOahAisibz/yjKbzuOBwYcjJ7BCLPzARyHiyEBmRz4fatF+KPJszEHXsGYjUG234aH/cOjW1wwTbKUZlA==}
 
@@ -1664,6 +1786,9 @@ packages:
     resolution: {integrity: sha512-JGG8pvDi2C+JxidYdIwQDyS/CgcrIdh18cvgxcBge3wSHRQOrooMD3GlFBcmMJAN9M42SAZjDp5zv1dglJjwww==}
     engines: {node: '>=20'}
 
+  flag-icons@7.5.0:
+    resolution: {integrity: sha512-kd+MNXviFIg5hijH766tt+3x76ele1AXlo4zDdCxIvqWZhKt4T83bOtxUOOMlTx/EcFdUMH5yvQgYlFh1EqqFg==}
+
   focus-trap@7.8.0:
     resolution: {integrity: sha512-/yNdlIkpWbM0ptxno3ONTuf+2g318kh2ez3KSeZN5dZ8YC6AAmgeWz+GasYYiBJPFaYcSAPeu4GfhUaChzIJXA==}
 
@@ -1780,6 +1905,10 @@ packages:
 
   ini@1.3.8:
     resolution: {integrity: sha512-JV/yugV2uzW5iMRSiZAyDtQd+nxtUnjeLt0acNdw98kKLrvuRVyB80tsREOE7yvGVgalhZ6RNXCmEHkUKBKxew==}
+
+  internmap@2.0.3:
+    resolution: {integrity: sha512-5Hh7Y1wQbvY5ooGgPbDaL5iYLAPzMTUrjMulskHLH6wnv/A+1q5rgEaiuqEjB+oxGXIVZs1FF+R/KPN3ZSQYYg==}
+    engines: {node: '>=12'}
 
   is-fullwidth-code-point@3.0.0:
     resolution: {integrity: sha512-zymm5+u+sCsSWyD9qNaejV3DFvhCKclKdizYaJUuHA83RLjb7nSuGnddCHGv0hk+KY7BMAlsWeK4Ueg6EV6XQg==}
@@ -3657,9 +3786,15 @@ snapshots:
       '@types/deep-eql': 4.0.2
       assertion-error: 2.0.1
 
+  '@types/d3-geo@3.1.1':
+    dependencies:
+      '@types/geojson': 7946.0.16
+
   '@types/deep-eql@4.0.2': {}
 
   '@types/estree@1.0.9': {}
+
+  '@types/geojson@7946.0.16': {}
 
   '@types/hast@3.0.5':
     dependencies:
@@ -4099,6 +4234,14 @@ snapshots:
 
   csstype@3.2.3: {}
 
+  d3-array@3.2.4:
+    dependencies:
+      internmap: 2.0.3
+
+  d3-geo@3.1.1:
+    dependencies:
+      d3-array: 3.2.4
+
   dayjs@1.11.21: {}
 
   debug@4.4.3:
@@ -4308,6 +4451,8 @@ snapshots:
       locate-path: 8.0.0
       unicorn-magic: 0.3.0
 
+  flag-icons@7.5.0: {}
+
   focus-trap@7.8.0:
     dependencies:
       tabbable: 6.5.0
@@ -4439,6 +4584,8 @@ snapshots:
   human-signals@8.0.1: {}
 
   ini@1.3.8: {}
+
+  internmap@2.0.3: {}
 
   is-fullwidth-code-point@3.0.0: {}
 

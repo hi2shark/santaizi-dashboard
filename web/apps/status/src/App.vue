@@ -1,31 +1,57 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
+import { STATUS_STORE_KEY } from '@santaizi/status-core'
 import { useStatusStore } from './stores/status'
+import {
+  getPublicThemeDefinition,
+  activePublicTheme,
+  normalizePublicTheme,
+  readStoredPublicTheme,
+  resolvePublicTheme,
+  setActivePublicTheme,
+  writeStoredPublicTheme,
+  type PublicThemeId,
+} from './publicThemes'
 
-const { t, locale } = useI18n()
+const { locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const store = useStatusStore()
-const theme = ref(localStorage.getItem('santaizi-status-theme') || 'system')
-const transparent = ref(localStorage.getItem('santaizi-status-transparent') === '1')
-const actualTheme = computed(() => theme.value === 'system' ? (matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light') : theme.value)
+provide(STATUS_STORE_KEY, store)
 
-function toggleTheme() {
-  theme.value = actualTheme.value === 'dark' ? 'light' : 'dark'
-  localStorage.setItem('santaizi-status-theme', theme.value)
+const publicTheme = activePublicTheme
+const activeDefinition = computed(() => getPublicThemeDefinition(publicTheme.value))
+const colorMode = ref(localStorage.getItem('santaizi-status-theme') || 'system')
+const actualColorMode = computed(() => (
+  colorMode.value === 'system'
+    ? (matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light')
+    : colorMode.value
+))
+const allowThemeSwitch = computed(() => store.bootstrap?.allow_frontend_theme_switch !== false)
+
+function toggleColorMode() {
+  colorMode.value = actualColorMode.value === 'dark' ? 'light' : 'dark'
+  localStorage.setItem('santaizi-status-theme', colorMode.value)
 }
-function toggleTransparent() {
-  transparent.value = !transparent.value
-  localStorage.setItem('santaizi-status-transparent', transparent.value ? '1' : '0')
-}
+
 function setLocale(value: string) {
   locale.value = value
   localStorage.setItem('santaizi-locale', value)
 }
 
-watch(actualTheme, (value) => {
+async function setPublicTheme(theme: PublicThemeId) {
+  const next = normalizePublicTheme(theme)
+  if (!allowThemeSwitch.value && next !== normalizePublicTheme(store.bootstrap?.theme)) return
+  writeStoredPublicTheme(next)
+  setActivePublicTheme(next)
+  if (!getPublicThemeDefinition(next).Detail && route.name === 'public-detail') {
+    await router.replace({ name: 'home' })
+  }
+}
+
+watch(actualColorMode, (value) => {
   document.documentElement.dataset.theme = value
   document.documentElement.classList.toggle('dark', value === 'dark')
   document.documentElement.style.colorScheme = value === 'dark' ? 'dark' : 'light'
@@ -41,44 +67,37 @@ watch(() => store.bootstrap, (value) => {
     document.head.append(style)
   }
   style.textContent = value.custom_css || ''
+  const resolved = resolvePublicTheme({
+    siteTheme: value.theme,
+    allowSwitch: value.allow_frontend_theme_switch !== false,
+    stored: readStoredPublicTheme(),
+  })
+  setActivePublicTheme(resolved)
 }, { deep: true })
 
 onMounted(async () => {
   await store.load()
-  if (store.bootstrap?.requires_view_password && !store.bootstrap.view_password_verified && route.path !== '/view-password') {
-    await router.replace('/view-password')
+  if (store.bootstrap?.requires_view_password && !store.bootstrap.view_password_verified) {
+    if (route.path !== '/view-password') await router.replace('/view-password')
+    return
   }
+  store.connect()
 })
+
+onBeforeUnmount(store.stop)
 </script>
 
 <template>
-  <div class="status-app" :class="{ transparent }" :style="store.bootstrap?.background_url ? { backgroundImage: `linear-gradient(var(--status-overlay),var(--status-overlay)),url(${store.bootstrap.background_url})` } : undefined">
-    <a href="#status-main" class="skip-link">{{ t('skipContent') }}</a>
-    <header class="status-nav">
-      <a href="/" class="status-brand"><img :src="store.bootstrap?.logo_url || '/static/logo.svg'" alt=""><span>{{ store.bootstrap?.brand || t('appName') }}</span></a>
-      <nav :aria-label="t('statusNavigation')">
-        <RouterLink to="/"><i class="ri-server-line"></i><span>{{ t('statusHome') }}</span></RouterLink>
-        <RouterLink to="/service"><i class="ri-heart-pulse-line"></i><span>{{ t('statusServices') }}</span></RouterLink>
-        <RouterLink to="/network"><i class="ri-line-chart-line"></i><span>{{ t('statusNetwork') }}</span></RouterLink>
-      </nav>
-      <div class="status-actions">
-        <el-dropdown trigger="click" @command="setLocale">
-          <button type="button" :aria-label="t('language')"><i class="ri-translate-2"></i></button>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item command="zh-CN">简体中文</el-dropdown-item>
-              <el-dropdown-item command="zh-TW">繁體中文</el-dropdown-item>
-              <el-dropdown-item command="en-US">English</el-dropdown-item>
-              <el-dropdown-item command="es-ES">Español</el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
-        <button type="button" :aria-label="t('transparent')" @click="toggleTransparent"><i class="ri-contrast-drop-2-line"></i></button>
-        <button type="button" :aria-label="t('light')" @click="toggleTheme"><i :class="actualTheme === 'dark' ? 'ri-sun-line' : 'ri-moon-line'"></i></button>
-        <a v-if="store.bootstrap?.authenticated" href="/admin/"><i class="ri-settings-3-line"></i></a>
-      </div>
-    </header>
-    <main id="status-main"><RouterView /></main>
-    <footer>{{ store.bootstrap?.footer_text || t('appName') }}</footer>
-  </div>
+  <component
+    :is="activeDefinition.Shell"
+    :key="publicTheme"
+    :public-theme="publicTheme"
+    :allow-theme-switch="allowThemeSwitch"
+    :actual-color-mode="actualColorMode"
+    @select-theme="setPublicTheme"
+    @select-locale="setLocale"
+    @toggle-color="toggleColorMode"
+  >
+    <RouterView :key="`${publicTheme}:${route.fullPath}`" />
+  </component>
 </template>
