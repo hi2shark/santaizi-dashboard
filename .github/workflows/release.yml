@@ -3,9 +3,10 @@ name: Release
 on:
   push:
     tags:
-      - 'v0-next.*'
+      - "v[0-9]*.[0-9]*.[0-9]*"
   schedule:
-    - cron: '0 0 * * 0'
+    - cron: "0 0 * * 0"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -13,24 +14,16 @@ permissions:
 
 jobs:
   build:
-    strategy:
-      fail-fast: true
-      matrix:
-        goos: [linux]
-        goarch: [amd64]
-
     name: Build artifacts
     runs-on: ubuntu-latest
-    container:
-      image: goreleaser/goreleaser-cross:v1.23
     env:
-      GOOS: ${{ matrix.goos }}
-      GOARCH: ${{ matrix.goarch }}
+      GOOS: linux
+      GOARCH: amd64
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'push' && github.ref || 'v0-next' }}
+          ref: ${{ github.event_name == 'push' && github.ref || 'feat/dev' }}
           fetch-depth: 0
 
       - name: Fix git safe directory
@@ -45,27 +38,23 @@ jobs:
         run: |
           set -euo pipefail
 
+          is_product_tag() {
+            local tag="$1"
+            local major
+            [[ "$tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]] || return 1
+            major="${BASH_REMATCH[1]}"
+            (( major >= 1 ))
+          }
+
+          latest_product_tag() {
+            git tag --list |
+              grep -E '^v[1-9][0-9]*\.[0-9]+\.[0-9]+$' |
+              sort -V |
+              tail -n 1 || true
+          }
+
           tag_exists() {
             git rev-parse -q --verify "refs/tags/$1" >/dev/null
-          }
-
-          tag_commit() {
-            git rev-list -n 1 "$1"
-          }
-
-          next_release_version() {
-            base_version="$1"
-            version="$base_version"
-            patch=0
-            while tag_exists "$version"; do
-              if [ "$(git rev-parse HEAD)" = "$(tag_commit "$version")" ]; then
-                echo "$version"
-                return
-              fi
-              patch=$((patch + 1))
-              version="${base_version}.${patch}"
-            done
-            echo "$version"
           }
 
           create_release_tag() {
@@ -81,79 +70,77 @@ jobs:
 
           git fetch --force --tags origin
 
-          db_week="$(date -u +%g%V)"
+          geoip_week="$(date -u +%g%V)"
+          week="${geoip_week:2:2}"
+          if (( 10#$week < 1 || 10#$week > 53 )); then
+            echo "Invalid GeoIP week: $geoip_week"
+            exit 1
+          fi
 
           if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
-            pushed_tag="${GITHUB_REF_NAME}"
+            version="${GITHUB_REF_NAME}"
             tag_source="pushed"
-
-            if [[ "$pushed_tag" =~ ^v0-next\.([0-9]+)$ ]]; then
-              iteration="${BASH_REMATCH[1]}"
-              version="$(next_release_version "v0-next.${iteration}.${db_week}")"
-              create_release_tag "$version"
-            elif [[ "$pushed_tag" =~ ^v0-next\.([0-9]+)\.([0-9]{4})(\.([0-9]+))?$ ]]; then
-              version="$pushed_tag"
-            else
-              echo "Invalid tag: $pushed_tag"
-              echo "Expected: v0-next.<iteration>, v0-next.<iteration>.<YYWW>, or v0-next.<iteration>.<YYWW>.<patch>"
+            if ! is_product_tag "$version"; then
+              echo "Invalid tag: $version"
+              echo "Expected SemVer vMAJOR.MINOR.PATCH with MAJOR >= 1 (starting v1.0.0)"
               exit 1
             fi
           else
-            latest_tag="$(
-              git tag --list 'v0-next.*' |
-                awk -F. '
-                  /^v0-next\.[0-9]+$/ { printf "%010d 1 %s\n", $2, $0; next }
-                  /^v0-next\.[0-9]+\.[0-9][0-9][0-9][0-9](\.[0-9]+)?$/ { printf "%010d 0 %s\n", $2, $0; next }
-                ' |
-                sort -k1,1n -k2,2n |
-                tail -n 1 |
-                awk '{ print $3 }'
-            )"
-
-            if [ -n "$latest_tag" ]; then
-              iteration="$(echo "$latest_tag" | awk -F. '{ print $2 }')"
-              git checkout --detach "$latest_tag"
-            else
-              iteration=1
+            latest="$(latest_product_tag)"
+            if [ -z "$latest" ]; then
+              echo "No v1.x.x (or later) tag found."
+              echo "Push v1.0.0 on feat/dev first; weekly GeoIP releases only bump patch."
+              exit 1
             fi
 
-            base_version="v0-next.${iteration}.${db_week}"
-            version="$(next_release_version "$base_version")"
+            if [[ ! "$latest" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+              echo "Unparseable latest tag: $latest"
+              exit 1
+            fi
+            major="${BASH_REMATCH[1]}"
+            minor="${BASH_REMATCH[2]}"
+            patch="${BASH_REMATCH[3]}"
+            patch=$((patch + 1))
+            version="v${major}.${minor}.${patch}"
+            while tag_exists "$version"; do
+              patch=$((patch + 1))
+              version="v${major}.${minor}.${patch}"
+            done
+
             create_release_tag "$version"
-            tag_source="scheduled"
+            if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+              tag_source="manual"
+            else
+              tag_source="scheduled"
+            fi
           fi
 
-          if [[ ! "$version" =~ ^v0-next\.([0-9]+)\.([0-9]{4})(\.([0-9]+))?$ ]]; then
-            echo "Invalid tag: $version"
-            echo "Expected resolved version: v0-next.<iteration>.<YYWW> or v0-next.<iteration>.<YYWW>.<patch>"
+          if ! is_product_tag "$version"; then
+            echo "Invalid resolved version: $version"
             exit 1
           fi
-
-          iteration="${BASH_REMATCH[1]}"
-          db_week="${BASH_REMATCH[2]}"
-          db_patch="${BASH_REMATCH[4]:-}"
-          week="${db_week:2:2}"
-
-          if (( 10#$week < 1 || 10#$week > 53 )); then
-            echo "Invalid GeoIP week in tag: $db_week"
-            exit 1
-          fi
-
+          [[ "$version" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]
+          major="${BASH_REMATCH[1]}"
+          minor="${BASH_REMATCH[2]}"
           source_commit="$(git rev-parse HEAD)"
 
-          echo "VERSION_TAG=$version" >> "$GITHUB_ENV"
-          echo "ITERATION=$iteration" >> "$GITHUB_ENV"
-          echo "GEOIP_WEEK=$db_week" >> "$GITHUB_ENV"
-          echo "GEOIP_PATCH=$db_patch" >> "$GITHUB_ENV"
-          echo "TAG_SOURCE=$tag_source" >> "$GITHUB_ENV"
-          echo "SOURCE_COMMIT=$source_commit" >> "$GITHUB_ENV"
+          {
+            echo "VERSION_TAG=$version"
+            echo "VERSION_MAJOR=v${major}"
+            echo "VERSION_MINOR=v${major}.${minor}"
+            echo "GEOIP_WEEK=$geoip_week"
+            echo "TAG_SOURCE=$tag_source"
+            echo "SOURCE_COMMIT=$source_commit"
+          } >> "$GITHUB_ENV"
 
-          echo "version_tag=$version" >> "$GITHUB_OUTPUT"
-          echo "iteration=$iteration" >> "$GITHUB_OUTPUT"
-          echo "geoip_week=$db_week" >> "$GITHUB_OUTPUT"
-          echo "geoip_patch=$db_patch" >> "$GITHUB_OUTPUT"
-          echo "tag_source=$tag_source" >> "$GITHUB_OUTPUT"
-          echo "source_commit=$source_commit" >> "$GITHUB_OUTPUT"
+          {
+            echo "version_tag=$version"
+            echo "version_major=v${major}"
+            echo "version_minor=v${major}.${minor}"
+            echo "geoip_week=$geoip_week"
+            echo "tag_source=$tag_source"
+            echo "source_commit=$source_commit"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Fetch IPInfo GeoIP Database
         env:
@@ -191,6 +178,9 @@ jobs:
           pnpm test
           pnpm -r --filter './web/apps/**' build
 
+      - name: Unit test
+        run: go test ./...
+
       - name: Build
         uses: goreleaser/goreleaser-action@v6
         with:
@@ -200,14 +190,13 @@ jobs:
         env:
           GORELEASER_CURRENT_TAG: ${{ steps.version.outputs.version_tag }}
           VERSION_TAG: ${{ steps.version.outputs.version_tag }}
-      
-      - name: Fix permissions
+
+      - name: Package artifacts
         run: |
           chmod -R +x ./dist/*/*
           mv ./dist/*/* ./dist
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+          test -x ./dist/dashboard-linux-amd64
+          sha256sum ./dist/dashboard-linux-amd64 | awk '{print $1, "dashboard-linux-amd64"}' > ./dist/checksums.txt
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -216,10 +205,10 @@ jobs:
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Set up image name
+        id: image-name
         run: |
           GHCR_IMAGE_NAME=$(echo "ghcr.io/${{ github.repository_owner }}/santaizi-dashboard" | tr '[:upper:]' '[:lower:]')
-          echo "GHCR_IMAGE_NAME=$GHCR_IMAGE_NAME" >> $GITHUB_OUTPUT
-        id: image-name
+          echo "GHCR_IMAGE_NAME=$GHCR_IMAGE_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Build dashboard image and push
         uses: docker/build-push-action@v5
@@ -231,10 +220,25 @@ jobs:
           labels: |
             org.opencontainers.image.version=${{ steps.version.outputs.version_tag }}
             org.opencontainers.image.revision=${{ steps.version.outputs.source_commit }}
+            geoip.week=${{ steps.version.outputs.geoip_week }}
           tags: |
             ${{ steps.image-name.outputs.GHCR_IMAGE_NAME }}:latest
-            ${{ steps.image-name.outputs.GHCR_IMAGE_NAME }}:v0-next
+            ${{ steps.image-name.outputs.GHCR_IMAGE_NAME }}:${{ steps.version.outputs.version_major }}
+            ${{ steps.image-name.outputs.GHCR_IMAGE_NAME }}:${{ steps.version.outputs.version_minor }}
             ${{ steps.image-name.outputs.GHCR_IMAGE_NAME }}:${{ steps.version.outputs.version_tag }}
+
+      - name: GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ steps.version.outputs.version_tag }}
+          commit: ${{ steps.version.outputs.source_commit }}
+          name: ${{ steps.version.outputs.version_tag }}
+          artifacts: "dist/dashboard-linux-amd64,dist/checksums.txt"
+          generateReleaseNotes: true
+          body: |
+            - GeoIP week: ${{ steps.version.outputs.geoip_week }}
+            - Image: `${{ steps.image-name.outputs.GHCR_IMAGE_NAME }}:${{ steps.version.outputs.version_tag }}`
+            - Tag source: ${{ steps.version.outputs.tag_source }}
 
       - name: Release summary
         shell: bash
@@ -244,10 +248,7 @@ jobs:
             echo ""
             echo "- Version: ${VERSION_TAG}"
             echo "- Tag source: ${TAG_SOURCE}"
-            echo "- Iteration: ${ITERATION}"
             echo "- GeoIP week: ${GEOIP_WEEK}"
-            if [ -n "${GEOIP_PATCH}" ]; then
-              echo "- GeoIP patch: ${GEOIP_PATCH}"
-            fi
             echo "- Image: ${{ steps.image-name.outputs.GHCR_IMAGE_NAME }}:${VERSION_TAG}"
+            echo "- Channels: latest, ${VERSION_MAJOR}, ${VERSION_MINOR}"
           } >> "$GITHUB_STEP_SUMMARY"

@@ -5,10 +5,13 @@ on:
     branches:
       - feat/dev
       - main
+      - v0-next
     paths:
       - "**.go"
       - "openapi/**"
       - "web/**"
+      - "proto/**"
+      - "script/**"
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
@@ -17,9 +20,14 @@ on:
       - "go.mod"
       - "go.sum"
       - "resource/**"
+      - "Dockerfile"
+      - ".goreleaser.yml"
       - ".github/workflows/test.yml"
   pull_request:
-    branches: [feat/dev, main]
+    branches: [feat/dev, main, v0-next]
+
+permissions:
+  contents: read
 
 jobs:
   tests:
@@ -27,13 +35,13 @@ jobs:
       fail-fast: true
       matrix:
         os: [ubuntu, windows, macos]
-        
+
     runs-on: ${{ matrix.os }}-latest
     env:
       GO111MODULE: on
     steps:
       - uses: actions/checkout@v4
-        
+
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
@@ -78,14 +86,14 @@ jobs:
 
       - name: Unit test
         run: go test -v ./...
-          
+
       - name: Build test
         run: go build -v ./...
 
       - name: Race test critical telemetry paths
         if: runner.os == 'Linux'
         run: go test -race ./cmd/dashboard/controller ./service/telemetry ./service/collector ./service/availability ./service/singleton
-          
+
       - name: Run Gosec Security Scanner
         if: runner.os == 'Linux'
         uses: securego/gosec@master
