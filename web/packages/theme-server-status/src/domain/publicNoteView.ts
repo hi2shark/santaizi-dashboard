@@ -1,3 +1,5 @@
+import { resolveFlagCode, resolveRegionLabel } from './regionDisplay'
+
 type UnknownObject = Record<string, unknown>
 
 export type RemainingTone = 'danger' | 'warning' | 'success' | ''
@@ -324,10 +326,7 @@ export function decodeOrderLink(raw: string) {
 
 export function flagCode(note: unknown, countryCode?: unknown) {
   const presentation = getPresentation(note)
-  const fromNote = presentation.flag
-  if (fromNote) return fromNote
-  const host = text(countryCode).toLowerCase()
-  return host || ''
+  return resolveFlagCode(presentation.flag, presentation.location, countryCode)
 }
 
 export function buildPublicNoteView(note: unknown, nowMs = Date.now()): PublicNoteView {
@@ -353,9 +352,9 @@ export function publicSubtitle(note: unknown) {
   return slogan || locationLabel
 }
 
-export function publicLocation(note: unknown, countryCode?: unknown) {
+export function publicLocation(note: unknown, countryCode?: unknown, locale = 'zh-CN') {
   const { locationLabel, location } = getPresentation(note)
-  return locationLabel || location || text(countryCode) || ''
+  return resolveRegionLabel(locationLabel, location, countryCode, locale)
 }
 
 export { EMPTY_BILL, EMPTY_PRESENTATION }

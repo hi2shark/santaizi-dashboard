@@ -59,7 +59,7 @@ watch(actualColorMode, (value) => {
 
 watch(() => store.bootstrap, (value) => {
   if (!value) return
-  if (value.primary_color) document.documentElement.style.setProperty('--status-accent', value.primary_color)
+  if (value.primary_color) document.documentElement.style.setProperty('--ss-accent', value.primary_color)
   let style = document.querySelector<HTMLStyleElement>('#santaizi-site-style')
   if (!style) {
     style = document.createElement('style')

@@ -30,7 +30,7 @@ onMounted(load)
 <template>
   <div class="status-container">
     <section class="status-panel service-panel">
-      <header class="group-title"><span>{{ t('statusServices') }}</span><small>{{ t('serviceAvailability') }}</small></header>
+      <header class="group-title"><span>{{ t('statusServices') }}</span></header>
       <div v-if="services.length" class="service-list">
         <article v-for="service in services" :key="String(service.id || service.name)">
           <div class="service-title">
@@ -48,7 +48,7 @@ onMounted(load)
               :title="`${percent(up, (service.down as unknown[] || [])[index]).toFixed(2)}%`"
             />
           </div>
-          <small>{{ t('averageLatency') }}: {{ service.avg_delay || service.delay || '—' }} ms</small>
+          <small v-if="service.avg_delay || service.delay">{{ t('averageLatency') }}: {{ service.avg_delay || service.delay }} ms</small>
         </article>
       </div>
       <div v-else class="empty-status status-page-empty">

@@ -73,27 +73,29 @@ async function render() {
     if (!node.value || seq !== requestSeq) return
     chart?.dispose()
     chart = echarts.init(node.value)
-    const isDark = document.documentElement.classList.contains('dark')
-      || document.documentElement.dataset.theme === 'dark'
+    const root = document.documentElement
+    const isDark = root.classList.contains('dark') || root.dataset.theme === 'dark'
+    const muted = getComputedStyle(root).getPropertyValue('--sz-text-muted').trim() || (isDark ? '#a8b2c3' : '#667085')
+    const border = getComputedStyle(root).getPropertyValue('--sz-border').trim() || (isDark ? '#263449' : '#e4e9f2')
     chart.setOption({
       backgroundColor: 'transparent',
       tooltip: { trigger: 'axis' },
       legend: {
         top: 8,
-        textStyle: { color: isDark ? '#cbd5e1' : '#475569' },
+        textStyle: { color: muted },
       },
       grid: { left: 48, right: 24, top: 56, bottom: 36 },
       xAxis: {
         type: 'time',
-        axisLabel: { color: isDark ? '#94a3b8' : '#64748b' },
-        axisLine: { lineStyle: { color: isDark ? '#334155' : '#cbd5e1' } },
+        axisLabel: { color: muted },
+        axisLine: { lineStyle: { color: border } },
       },
       yAxis: {
         type: 'value',
         name: 'ms',
-        nameTextStyle: { color: isDark ? '#94a3b8' : '#64748b' },
-        axisLabel: { color: isDark ? '#94a3b8' : '#64748b' },
-        splitLine: { lineStyle: { color: isDark ? '#1f2937' : '#e2e8f0' } },
+        nameTextStyle: { color: muted },
+        axisLabel: { color: muted },
+        splitLine: { lineStyle: { color: border } },
       },
       series: rows.map((row, index) => ({
         name: String(row.monitor_name || `${t('statusNetwork')} ${index + 1}`),

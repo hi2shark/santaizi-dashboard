@@ -30,7 +30,7 @@ async function submit() {
 <template>
   <div class="password-page">
     <section class="status-panel password-card">
-      <img :src="'/static/logo.svg'" alt="">
+      <img :src="store.bootstrap?.logo_url || '/static/logo.svg'" alt="">
       <h1>{{ t('viewPasswordTitle') }}</h1>
       <el-form label-position="top" @submit.prevent="submit">
         <el-form-item :label="t('password')">

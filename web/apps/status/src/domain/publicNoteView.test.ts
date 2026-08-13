@@ -46,6 +46,22 @@ describe('publicNoteView', () => {
     expect(flagCode(sample, 'us')).toBe('cn')
   })
 
+  it('maps location codes to readable region names instead of raw IATA/ISO', () => {
+    expect(publicLocation({ customData: { location: 'HKG' } }, 'HK')).toBe('香港')
+    expect(publicLocation({ customData: { location: 'SGP' } }, '')).toBe('新加坡')
+    expect(publicLocation({}, 'UK')).toBe('英国')
+    expect(publicLocation({}, 'us', 'en-US')).toBe('United States')
+    expect(publicLocation({ customData: { location: 'HKG' } }, 'HK', 'en-US')).toBe('Hong Kong')
+    expect(publicLocation({}, 'ZZZ')).toBe('')
+  })
+
+  it('normalizes flags to ISO2 and ignores invalid three-letter codes', () => {
+    expect(flagCode({ customData: { location: 'HKG' } }, 'US')).toBe('hk')
+    expect(flagCode({}, 'UK')).toBe('gb')
+    expect(flagCode({ customData: { flag: 'hkg', location: 'HKG' } }, '')).toBe('hk')
+    expect(flagCode({ customData: { flag: 'gb-eng' } }, 'us')).toBe('gb-eng')
+  })
+
   it('falls back when presentation keys wrongly used', () => {
     expect(publicSubtitle({ presentation: { slogan: 'x' } })).toBe('x')
   })
