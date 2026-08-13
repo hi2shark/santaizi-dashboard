@@ -35,6 +35,7 @@ func newConnectionDB(t *testing.T) *gorm.DB {
 	if err := db.AutoMigrate(
 		&model.Server{}, &model.ServerNodeBinding{}, &model.Collector{}, &model.CollectorRuntime{},
 		&model.ObserverAssignment{}, &model.ObserverPathBucket{}, &model.AgentTelemetryRuntime{},
+		&model.ConnectionLatencyBucket{}, &model.ConnectionLatencyCursor{},
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +84,7 @@ func TestLoadConnectionPathsJoinsAssignmentPathAndSink(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime, err := proto.Marshal(&pb.AgentRuntime{Sinks: []*pb.SinkRuntime{
-		{EndpointId: PrimaryObserverID, Connected: true, PendingEvents: 2, AckThrough: 11},
+		{EndpointId: PrimaryObserverID, Connected: true, PendingEvents: 2, AckThrough: 11, LastRttMs: 12.5, RttSampledAtUnixNano: now.UnixNano()},
 		{EndpointId: "collector-east", Connected: false, LastError: "dial timeout", PendingEvents: 4},
 	}})
 	if err != nil {
@@ -105,7 +106,7 @@ func TestLoadConnectionPathsJoinsAssignmentPathAndSink(t *testing.T) {
 		byObserver[path.ObserverID] = path
 	}
 	primary := byObserver[PrimaryObserverID]
-	if primary.ServerID != server.ID || primary.ServerName != "edge-a" || primary.ObserverKind != ObserverKindPrimary || !primary.Sink.Connected || primary.LastSeen != now.UnixNano() || primary.NodeUUID != hex.EncodeToString(node) {
+	if primary.ServerID != server.ID || primary.ServerName != "edge-a" || primary.ObserverKind != ObserverKindPrimary || !primary.Sink.Connected || primary.LastSeen != now.UnixNano() || primary.NodeUUID != hex.EncodeToString(node) || primary.Sink.LastRttMs != 12.5 {
 		t.Fatalf("primary=%#v", primary)
 	}
 	east := byObserver["collector-east"]
@@ -125,7 +126,10 @@ func TestLoadConnectionPathsJoinsAssignmentPathAndSink(t *testing.T) {
 func TestUpsertCollectorRuntimePreservesLastSyncOnHeartbeat(t *testing.T) {
 	db := newConnectionDB(t)
 	now := time.Unix(1_700_000_000, 0)
-	runtime := &pb.CollectorRuntime{SpoolSize: 8, PendingRecords: 1, LastPrimarySeenUnixNano: now.UnixNano(), ConnectedAgents: 3}
+	runtime := &pb.CollectorRuntime{
+		SpoolSize: 8, PendingRecords: 1, LastPrimarySeenUnixNano: now.UnixNano(), ConnectedAgents: 3,
+		HeartbeatRttMs: 18.5, HeartbeatRttSampledAtUnixNano: now.UnixNano(),
+	}
 	if err := UpsertCollectorRuntime(db, CollectorRuntimeFromProto("c1", runtime, now, true), true); err != nil {
 		t.Fatal(err)
 	}
@@ -137,8 +141,15 @@ func TestUpsertCollectorRuntimePreservesLastSyncOnHeartbeat(t *testing.T) {
 	if err := db.First(&row, "collector_uuid = ?", "c1").Error; err != nil {
 		t.Fatal(err)
 	}
-	if row.LastSeen != later.UnixNano() || row.LastSync != now.UnixNano() || row.LastPrimarySeen != now.UnixNano() || row.ConnectedAgents != 3 {
+	if row.LastSeen != later.UnixNano() || row.LastSync != now.UnixNano() || row.LastPrimarySeen != now.UnixNano() || row.ConnectedAgents != 3 || row.HeartbeatRttMs != 18.5 {
 		t.Fatalf("row=%#v", row)
+	}
+	buckets, total, err := ListConnectionLatency(db, LatencyFilter{Kind: LatencyKindCollectorHeartbeat, CollectorUUID: "c1"}, 0, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 1 || len(buckets) != 1 || buckets[0].AvgMs != 18.5 || buckets[0].Count != 1 {
+		t.Fatalf("latency=%#v total=%d", buckets, total)
 	}
 }
 

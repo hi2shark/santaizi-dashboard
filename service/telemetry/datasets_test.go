@@ -50,7 +50,7 @@ func TestListAgentReliabilityDecodesSinksAndTimes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	rows, err := ListAgentReliability(db)
+	rows, _, err := ListAgentReliability(db, 0, 20)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +99,7 @@ func TestListIncidentsDecodesEvidenceAndClassification(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	rows, err := ListIncidents(db)
+	rows, _, err := ListIncidents(db, 0, 20)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,14 +147,14 @@ func TestListDataLossAndAlertsNormalizeEnums(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	loss, err := ListDataLoss(db)
+	loss, _, err := ListDataLoss(db, 0, 20)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(loss) != 1 || loss[0].Reason != "hard_limit_data_loss" || loss[0].OccurredAt == nil || loss[0].FactID == "" {
 		t.Fatalf("loss=%#v", loss)
 	}
-	alerts, err := ListAlerts(db)
+	alerts, _, err := ListAlerts(db, 0, 20)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,12 +179,45 @@ func TestListObserverAssignmentsMapsHostAndOngoing(t *testing.T) {
 	}).Error; err != nil {
 		t.Fatal(err)
 	}
-	rows, err := ListObserverAssignments(db)
+	rows, _, err := ListObserverAssignments(db, 0, 20)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(rows) != 1 || rows[0].ServerName != "edge-a" || rows[0].ObserverKind != ObserverKindPrimary || rows[0].ValidTo != nil || rows[0].ValidFrom == nil {
 		t.Fatalf("rows=%#v", rows)
+	}
+}
+
+func TestListIncidentRevisionsPaginates(t *testing.T) {
+	db := newConnectionDB(t)
+	if err := db.AutoMigrate(&model.IncidentRevision{}); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Unix(1_700_000_000, 0).UTC()
+	for i := 0; i < 25; i++ {
+		if err := db.Create(&model.IncidentRevision{
+			IncidentID: uint64(i + 1), Revision: 1, Classification: "HOST_OFFLINE",
+			RecalculatedAt: now.UnixNano(), CreatedAt: now.Add(time.Duration(i) * time.Second),
+		}).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	first, total, err := ListIncidentRevisions(db, 0, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 25 || len(first) != 10 {
+		t.Fatalf("first page: len=%d total=%d", len(first), total)
+	}
+	if first[0].IncidentID != 25 || first[9].IncidentID != 16 {
+		t.Fatalf("first page order: %#v", first)
+	}
+	second, total, err := ListIncidentRevisions(db, 10, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 25 || len(second) != 10 || second[0].IncidentID != 15 || second[9].IncidentID != 6 {
+		t.Fatalf("second page: len=%d total=%d first=%d last=%d", len(second), total, second[0].IncidentID, second[9].IncidentID)
 	}
 }
 

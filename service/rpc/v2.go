@@ -138,6 +138,10 @@ func (h *V2Handler) Ingest(stream grpc.BidiStreamingServer[pb.TelemetryRequest, 
 			if err := singleton.ApplyRealtimeSnapshot(body.RealtimeSnapshot, now); err != nil {
 				return status.Error(codes.InvalidArgument, err.Error())
 			}
+		case *pb.TelemetryRequest_Ping:
+			if err := stream.Send(&pb.TelemetryResponse{Pong: &pb.TelemetryPong{}}); err != nil {
+				return err
+			}
 		default:
 			return status.Error(codes.InvalidArgument, "unexpected telemetry request")
 		}
@@ -223,6 +227,9 @@ func (h *V2Handler) Control(stream grpc.BidiStreamingServer[pb.AgentControlReque
 				if err := singleton.DB.Clauses(clause.OnConflict{
 					Columns: []clause.Column{{Name: "node_uuid"}}, UpdateAll: true,
 				}).Create(&row).Error; err != nil {
+					return status.Error(codes.Internal, err.Error())
+				}
+				if err := telemetryservice.RecordAgentSinkLatency(singleton.DB.WithContext(stream.Context()), hello.GetNodeUuid(), body.Runtime); err != nil {
 					return status.Error(codes.Internal, err.Error())
 				}
 			}

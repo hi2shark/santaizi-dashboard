@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strings"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -110,9 +111,12 @@ func (s *SantaiziHandler) ReportSystemInfo(c context.Context, r *pb.Host) (*pb.R
 			server.PrevTransferOutSnapshot = server.PrevTransferOutSnapshot - int64(server.State.NetOutTransfer) // #nosec G115 -- network transfer fits in int64
 		}
 
-		// 不要冲掉国家码
+		// 不要冲掉国家码与已探测到的公网 IP
 		if server.Host != nil {
 			host.CountryCode = server.Host.CountryCode
+			if strings.TrimSpace(host.IP) == "" {
+				host.IP = server.Host.IP
+			}
 		}
 		server.Host = &host
 		return nil

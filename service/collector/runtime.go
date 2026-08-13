@@ -44,6 +44,11 @@ type Runtime struct {
 	replicationSession []byte
 	nextBatchSequence  uint64
 	lastReplicationAck uint64
+	syncSentAt         time.Time
+	heartbeatRttMs     float64
+	heartbeatRttAt     int64
+	replicationRttMs   float64
+	replicationRttAt   int64
 	connectedAgents    atomic.Uint64
 }
 
@@ -135,12 +140,14 @@ func (r *Runtime) syncOnce() error {
 	if err != nil {
 		return err
 	}
+	sent := time.Now()
 	if err := stream.Send(&pb.CollectorSyncRequest{Body: &pb.CollectorSyncRequest_Hello{Hello: &pb.CollectorSyncHello{
 		CollectorUuid: collectorUUID, RegistrationToken: r.config.RegistrationToken,
 		CurrentConfigVersion: cache.ConfigVersion, Runtime: r.runtimeSnapshot(),
 	}}}); err != nil {
 		return err
 	}
+	r.markSyncSent(sent)
 	recv := make(chan *pb.CollectorSyncResponse)
 	recvErr := make(chan error, 1)
 	go func() {
@@ -166,6 +173,7 @@ func (r *Runtime) syncOnce() error {
 		case err := <-recvErr:
 			return err
 		case response := <-recv:
+			r.noteSyncRTT(time.Now())
 			if config := response.GetConfig(); config != nil {
 				if err := r.store.SaveAuthorization(r.ctx, collectorUUID, config, time.Now()); err != nil {
 					return err
@@ -176,9 +184,11 @@ func (r *Runtime) syncOnce() error {
 				}
 			}
 		case <-ticker.C:
+			sent := time.Now()
 			if err := stream.Send(&pb.CollectorSyncRequest{Body: &pb.CollectorSyncRequest_Runtime{Runtime: r.runtimeSnapshot()}}); err != nil {
 				return err
 			}
+			r.markSyncSent(sent)
 		}
 	}
 }
@@ -241,6 +251,7 @@ func (r *Runtime) replicationOnce() error {
 				SpoolThroughId: outbox.Through, Events: outbox.Events, Observations: outbox.Observations,
 				Gaps: outbox.Gaps, Health: outbox.Health, Runtime: r.runtimeSnapshot(), DataLoss: outbox.DataLoss,
 			}
+			sent := time.Now()
 			if err := stream.Send(batch); err != nil {
 				return err
 			}
@@ -257,6 +268,7 @@ func (r *Runtime) replicationOnce() error {
 			if err := r.store.CommitReplicationAck(r.ctx, ack.GetCommittedSpoolThroughId()); err != nil {
 				return err
 			}
+			r.noteReplicationRTT(sent, time.Now())
 			r.mu.Lock()
 			r.lastReplicationAck = ack.GetCommittedSpoolThroughId()
 			r.nextBatchSequence++
@@ -344,6 +356,12 @@ func (r *Runtime) Ingest(stream grpc.BidiStreamingServer[pb.TelemetryRequest, pb
 			if err := stream.Send(&pb.TelemetryResponse{Acks: result.Acks}); err != nil {
 				return err
 			}
+			continue
+		}
+		if request.GetPing() != nil {
+			if err := stream.Send(&pb.TelemetryResponse{Pong: &pb.TelemetryPong{}}); err != nil {
+				return err
+			}
 		}
 		// Realtime snapshots are deliberately not ACKed and do not advance the
 		// reliable cursor. The Agent keeps a direct Primary realtime path.
@@ -368,16 +386,53 @@ func (r *Runtime) runtimeSnapshot() *pb.CollectorRuntime {
 	r.mu.RLock()
 	collectorUUID := r.collectorUUID
 	replicationCursor := r.lastReplicationAck
+	heartbeatRttMs := r.heartbeatRttMs
+	heartbeatRttAt := r.heartbeatRttAt
+	replicationRttMs := r.replicationRttMs
+	replicationRttAt := r.replicationRttAt
 	r.mu.RUnlock()
 	runtime := &pb.CollectorRuntime{
 		CollectorUuid: collectorUUID, SampledAtUnixNano: time.Now().UnixNano(), SpoolSize: stats.SpoolBytes,
 		PendingRecords: stats.Pending, OldestPendingUnixNano: stats.OldestPending, ReplicationCursor: replicationCursor,
 		ConnectedAgents: r.connectedAgents.Load(), ProtocolVersion: collectorProtocolVersion,
+		HeartbeatRttMs: heartbeatRttMs, HeartbeatRttSampledAtUnixNano: heartbeatRttAt,
+		ReplicationRttMs: replicationRttMs, ReplicationRttSampledAtUnixNano: replicationRttAt,
 	}
 	if cache != nil {
 		runtime.LastPrimarySeenUnixNano = cache.LastPrimarySeenNano
 	}
 	return runtime
+}
+
+func (r *Runtime) markSyncSent(at time.Time) {
+	r.mu.Lock()
+	r.syncSentAt = at
+	r.mu.Unlock()
+}
+
+func (r *Runtime) noteSyncRTT(now time.Time) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.syncSentAt.IsZero() {
+		return
+	}
+	r.heartbeatRttMs = durationMilliseconds(now.Sub(r.syncSentAt))
+	r.heartbeatRttAt = now.UnixNano()
+	r.syncSentAt = time.Time{}
+}
+
+func (r *Runtime) noteReplicationRTT(started, now time.Time) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.replicationRttMs = durationMilliseconds(now.Sub(started))
+	r.replicationRttAt = now.UnixNano()
+}
+
+func durationMilliseconds(d time.Duration) float64 {
+	if d < 0 {
+		return 0
+	}
+	return float64(d) / float64(time.Millisecond)
 }
 
 func (r *Runtime) dialOptions() []grpc.DialOption {

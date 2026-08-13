@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/hi2shark/santaizi-dashboard/model"
@@ -341,6 +342,18 @@ func ApplyRealtimeSnapshot(snapshot *pb.RealtimeSnapshot, receivedAt time.Time) 
 	return touchV2Runtime(snapshot.GetNodeUuid(), snapshot.GetSessionId(), snapshot.GetLatestSequence(), snapshot.GetCollectedAtUnixNano(), receivedAt, snapshot.GetState(), snapshot.GetHost())
 }
 
+func preservePBHostIP(host *pb.Host, previousIP string) *pb.Host {
+	if host == nil {
+		return nil
+	}
+	if strings.TrimSpace(host.GetIp()) != "" || strings.TrimSpace(previousIP) == "" {
+		return host
+	}
+	cloned := proto.Clone(host).(*pb.Host)
+	cloned.Ip = previousIP
+	return cloned
+}
+
 func touchV2Runtime(nodeUUID, sessionID []byte, sequence uint64, collectedAt int64, receivedAt time.Time, state *pb.State, host *pb.Host) error {
 	var binding model.ServerNodeBinding
 	if err := DB.Where("node_uuid = ? AND current = ?", nodeUUID, true).First(&binding).Error; err != nil {
@@ -361,6 +374,7 @@ func touchV2Runtime(nodeUUID, sessionID []byte, sequence uint64, collectedAt int
 		}
 	}
 
+	var mergedHost *pb.Host
 	serverRuntimeMu.Lock()
 	applied := false
 	err = DB.Transaction(func(tx *gorm.DB) error {
@@ -394,11 +408,21 @@ func touchV2Runtime(nodeUUID, sessionID []byte, sequence uint64, collectedAt int
 			}
 		}
 		if len(hostPayload) > 0 {
+			mergedHost = preservePBHostIP(host, runtime.LastIP)
+			if mergedHost != host {
+				var marshalErr error
+				hostPayload, marshalErr = proto.Marshal(mergedHost)
+				if marshalErr != nil {
+					return marshalErr
+				}
+			}
 			runtime.HostPayload = hostPayload
-			if host != nil {
-				runtime.LastBootTime = host.GetBootTime()
-				runtime.LastIP = host.GetIp()
-				runtime.LastAgentVersion = host.GetVersion()
+			if mergedHost != nil {
+				runtime.LastBootTime = mergedHost.GetBootTime()
+				if ip := strings.TrimSpace(mergedHost.GetIp()); ip != "" {
+					runtime.LastIP = ip
+				}
+				runtime.LastAgentVersion = mergedHost.GetVersion()
 			}
 		}
 		if err := tx.Save(&runtime).Error; err != nil {
@@ -426,8 +450,11 @@ func touchV2Runtime(nodeUUID, sessionID []byte, sequence uint64, collectedAt int
 		converted := model.PB2State(state)
 		server.State = &converted
 	}
-	if host != nil {
-		converted := model.PB2Host(host)
+	if mergedHost != nil {
+		converted := model.PB2Host(mergedHost)
+		if converted.IP == "" && server.Host != nil && strings.TrimSpace(server.Host.IP) != "" {
+			converted.IP = server.Host.IP
+		}
 		server.Host = &converted
 	}
 	return nil

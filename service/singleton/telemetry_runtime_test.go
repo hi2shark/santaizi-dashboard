@@ -186,3 +186,117 @@ func TestBindingAndTagChangeRefreshCollectorAssignments(t *testing.T) {
 		t.Fatalf("collector config version=%d", collector.ConfigVersion)
 	}
 }
+
+func TestPreservePBHostIP(t *testing.T) {
+	if got := preservePBHostIP(&pb.Host{Ip: "", Version: "1"}, "203.0.113.10").GetIp(); got != "203.0.113.10" {
+		t.Fatalf("empty incoming should keep previous, got %q", got)
+	}
+	incoming := &pb.Host{Ip: "198.51.100.8"}
+	if got := preservePBHostIP(incoming, "203.0.113.10"); got != incoming || got.GetIp() != "198.51.100.8" {
+		t.Fatalf("non-empty incoming should win, got %#v", got)
+	}
+	if preservePBHostIP(nil, "203.0.113.10") != nil {
+		t.Fatal("nil host should stay nil")
+	}
+}
+
+func TestEmptyHostIPDoesNotOverwriteLastKnown(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(
+		&model.Server{}, &model.ServerNodeBinding{}, &model.ObserverAssignment{}, &model.Collector{}, &model.CollectorScope{},
+		&model.ServerRuntime{},
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.Server{Common: model.Common{ID: 9}, Name: "node-9", Secret: "secret-9"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	previousDB, previousConf, previousServers := DB, Conf, ServerList
+	DB = db
+	Conf = &model.Config{Telemetry: model.TelemetryConfig{OfflineThresholdSeconds: 30}}
+	ServerList = map[uint64]*model.Server{9: {Common: model.Common{ID: 9}, State: &model.HostState{}, Host: &model.Host{}}}
+	t.Cleanup(func() {
+		DB, Conf, ServerList = previousDB, previousConf, previousServers
+		_ = CloseDB(db)
+	})
+
+	node := bytes.Repeat([]byte{0x51}, 16)
+	session := bytes.Repeat([]byte{0x52}, 16)
+	now := time.Now()
+	if _, err := BindServerNode(9, node, now.Add(-time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+
+	knownIP := "203.0.113.10/2001:db8::1"
+	if err := ApplyV2Event(&pb.TelemetryEvent{
+		EventId: bytes.Repeat([]byte{0x01}, 16), NodeUuid: node, SessionId: session, Sequence: 1,
+		CollectedAtUnixNano: now.UnixNano(),
+		Payload:             &pb.TelemetryEvent_Host{Host: &pb.Host{Ip: knownIP, Version: "1.0.0"}},
+	}, now); err != nil {
+		t.Fatal(err)
+	}
+	if ServerList[9].Host == nil || ServerList[9].Host.IP != knownIP {
+		t.Fatalf("initial host IP=%q", ServerList[9].Host.IP)
+	}
+
+	later := now.Add(time.Second)
+	if err := ApplyV2Event(&pb.TelemetryEvent{
+		EventId: bytes.Repeat([]byte{0x02}, 16), NodeUuid: node, SessionId: session, Sequence: 2,
+		CollectedAtUnixNano: later.UnixNano(),
+		Payload:             &pb.TelemetryEvent_Host{Host: &pb.Host{Ip: "", Version: "1.0.1"}},
+	}, later); err != nil {
+		t.Fatal(err)
+	}
+	if ServerList[9].Host.IP != knownIP {
+		t.Fatalf("empty host overwrote IP: %q", ServerList[9].Host.IP)
+	}
+	if ServerList[9].Host.Version != "1.0.1" {
+		t.Fatalf("expected other host fields to update, version=%q", ServerList[9].Host.Version)
+	}
+
+	var runtime model.ServerRuntime
+	if err := db.First(&runtime, "server_id = ?", 9).Error; err != nil {
+		t.Fatal(err)
+	}
+	if runtime.LastIP != knownIP {
+		t.Fatalf("LastIP=%q", runtime.LastIP)
+	}
+	var stored pb.Host
+	if err := proto.Unmarshal(runtime.HostPayload, &stored); err != nil {
+		t.Fatal(err)
+	}
+	if stored.GetIp() != knownIP {
+		t.Fatalf("HostPayload IP=%q", stored.GetIp())
+	}
+
+	rtNow := later.Add(time.Second)
+	if err := ApplyRealtimeSnapshot(&pb.RealtimeSnapshot{
+		NodeUuid: node, SessionId: session, LatestSequence: 3,
+		CollectedAtUnixNano: rtNow.UnixNano(),
+		Host:                &pb.Host{Ip: "", Platform: "linux"},
+	}, rtNow); err != nil {
+		t.Fatal(err)
+	}
+	if ServerList[9].Host.IP != knownIP {
+		t.Fatalf("realtime empty host overwrote IP: %q", ServerList[9].Host.IP)
+	}
+	if ServerList[9].Host.Platform != "linux" {
+		t.Fatalf("platform=%q", ServerList[9].Host.Platform)
+	}
+
+	updatedIP := "198.51.100.8"
+	fresh := rtNow.Add(time.Second)
+	if err := ApplyV2Event(&pb.TelemetryEvent{
+		EventId: bytes.Repeat([]byte{0x03}, 16), NodeUuid: node, SessionId: session, Sequence: 4,
+		CollectedAtUnixNano: fresh.UnixNano(),
+		Payload:             &pb.TelemetryEvent_Host{Host: &pb.Host{Ip: updatedIP}},
+	}, fresh); err != nil {
+		t.Fatal(err)
+	}
+	if ServerList[9].Host.IP != updatedIP {
+		t.Fatalf("non-empty IP should update, got %q", ServerList[9].Host.IP)
+	}
+}

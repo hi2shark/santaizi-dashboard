@@ -36,7 +36,7 @@ func TestRawRollupAndPayloadRetentionRequireCompletedMinute(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := db.AutoMigrate(&model.TelemetryEvent{}, &model.StateRollup{}, &model.TelemetryObservation{}, &model.TelemetryGap{}, &model.AvailabilityBucket{}, &model.AvailabilityIncident{}); err != nil {
+	if err := db.AutoMigrate(&model.TelemetryEvent{}, &model.StateRollup{}, &model.TelemetryObservation{}, &model.TelemetryGap{}, &model.AvailabilityBucket{}, &model.AvailabilityIncident{}, &model.ConnectionLatencyBucket{}); err != nil {
 		t.Fatal(err)
 	}
 	node, session := bytes.Repeat([]byte{1}, 16), bytes.Repeat([]byte{2}, 16)

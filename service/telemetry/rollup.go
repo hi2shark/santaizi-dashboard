@@ -338,13 +338,17 @@ func (w *RollupWorker) ApplyRetention(ctx context.Context, now time.Time) error 
 	if err := deleteBatch(w.db.WithContext(ctx), "state_rollups", "resolution = '1m' AND window_start < ?", now.Add(-w.retention.StateOneMinute).UnixNano(), batch); err != nil {
 		return err
 	}
-	return deleteBatch(w.db.WithContext(ctx), "state_rollups", "resolution = '1h' AND window_start < ?", now.Add(-w.retention.StateOneHour).UnixNano(), batch)
+	if err := deleteBatch(w.db.WithContext(ctx), "state_rollups", "resolution = '1h' AND window_start < ?", now.Add(-w.retention.StateOneHour).UnixNano(), batch); err != nil {
+		return err
+	}
+	return deleteBatch(w.db.WithContext(ctx), "connection_latency_buckets", "bucket_start < ?", now.Add(-ConnectionLatencyRetention).UnixNano(), batch)
 }
 
 func deleteBatch(db *gorm.DB, table, condition string, before int64, limit int) error {
 	allowed := map[string]bool{
 		"telemetry_observations": true, "telemetry_events": true, "telemetry_gaps": true,
 		"availability_buckets": true, "availability_incidents": true, "state_rollups": true,
+		"connection_latency_buckets": true,
 	}
 	if !allowed[table] {
 		return errors.New("retention table is not allowlisted")

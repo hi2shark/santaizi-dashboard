@@ -134,9 +134,13 @@ type CollectorRuntime struct {
 	PendingRecords    uint64
 	OldestPending     int64
 	ReplicationCursor uint64
-	ConnectedAgents   uint64
-	ProtocolVersion   string
-	UpdatedAt         time.Time
+	ConnectedAgents         uint64
+	ProtocolVersion         string
+	HeartbeatRttMs          float64
+	HeartbeatRttSampledAt   int64
+	ReplicationRttMs        float64
+	ReplicationRttSampledAt int64
+	UpdatedAt               time.Time
 }
 
 type ObserverAssignment struct {
@@ -274,4 +278,26 @@ type TelemetryAlert struct {
 	Message     string `gorm:"not null"`
 	Notified    bool   `gorm:"not null"`
 	CreatedAt   time.Time
+}
+
+type ConnectionLatencyBucket struct {
+	Kind          string `gorm:"primaryKey;size:32"`
+	CollectorUUID string `gorm:"primaryKey;size:64"`
+	NodeUUID      []byte `gorm:"type:BLOB;size:16;primaryKey"`
+	ObserverID    string `gorm:"primaryKey;size:64"`
+	BucketStart   int64  `gorm:"primaryKey"`
+	MinMs         float64
+	MaxMs         float64
+	SumMs         float64
+	Count         uint32 `gorm:"not null"`
+	UpdatedAt     time.Time
+}
+
+type ConnectionLatencyCursor struct {
+	Kind          string `gorm:"primaryKey;size:32"`
+	CollectorUUID string `gorm:"primaryKey;size:64"`
+	NodeUUID      []byte `gorm:"type:BLOB;size:16;primaryKey"`
+	ObserverID    string `gorm:"primaryKey;size:64"`
+	LastSampledAt int64  `gorm:"not null"`
+	UpdatedAt     time.Time
 }

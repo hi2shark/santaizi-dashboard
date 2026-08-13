@@ -8,7 +8,31 @@ import (
 	"gorm.io/gorm"
 )
 
-const datasetLimit = 1000
+func normalizePage(offset, limit int) (int, int) {
+	if offset < 0 {
+		offset = 0
+	}
+	if limit < 1 {
+		limit = 20
+	}
+	return offset, limit
+}
+
+func listPage[T any](db *gorm.DB, order string, offset, limit int) ([]T, int64, error) {
+	offset, limit = normalizePage(offset, limit)
+	var total int64
+	if err := db.Session(&gorm.Session{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var rows []T
+	if err := db.Order(order).Offset(offset).Limit(limit).Find(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+	if rows == nil {
+		rows = []T{}
+	}
+	return rows, total, nil
+}
 
 type ObserverEvidenceItem struct {
 	ObserverID   string `json:"observer_id"`
@@ -19,13 +43,15 @@ type ObserverEvidenceItem struct {
 }
 
 type AgentSink struct {
-	EndpointID    string `json:"endpoint_id"`
-	ObserverKind  string `json:"observer_kind,omitempty"`
-	ObserverName  string `json:"observer_name,omitempty"`
-	Connected     bool   `json:"connected"`
-	PendingEvents uint64 `json:"pending_events"`
-	LastError     string `json:"last_error,omitempty"`
-	AckThrough    uint64 `json:"ack_through"`
+	EndpointID    string  `json:"endpoint_id"`
+	ObserverKind  string  `json:"observer_kind,omitempty"`
+	ObserverName  string  `json:"observer_name,omitempty"`
+	Connected     bool    `json:"connected"`
+	PendingEvents uint64  `json:"pending_events"`
+	LastError     string  `json:"last_error,omitempty"`
+	AckThrough    uint64  `json:"ack_through"`
+	LastRttMs     float64 `json:"last_rtt_ms,omitempty"`
+	RttSampledAt  *string `json:"rtt_sampled_at,omitempty"`
 }
 
 type ObserverAssignmentRecord struct {
@@ -108,17 +134,17 @@ type AlertRecord struct {
 	DedupKey    string  `json:"dedup_key,omitempty"`
 }
 
-func ListObserverAssignments(db *gorm.DB) ([]ObserverAssignmentRecord, error) {
+func ListObserverAssignments(db *gorm.DB, offset, limit int) ([]ObserverAssignmentRecord, int64, error) {
 	out := []ObserverAssignmentRecord{}
-	var rows []model.ObserverAssignment
-	if err := db.Where("valid_to = ?", 0).Order("valid_from DESC").Limit(datasetLimit).Find(&rows).Error; err != nil {
-		return nil, err
+	rows, total, err := listPage[model.ObserverAssignment](db.Model(&model.ObserverAssignment{}).Where("valid_to = ?", 0), "valid_from DESC", offset, limit)
+	if err != nil {
+		return nil, 0, err
 	}
 	nodeIDs := uniqueBytes(rows, func(row model.ObserverAssignment) []byte { return row.NodeUUID })
 	observerIDs := uniqueStrings(rows, func(row model.ObserverAssignment) string { return row.ObserverID })
 	idx, err := loadHostIndex(db, nodeIDs, observerIDs)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	for _, row := range rows {
 		serverID, serverName := idx.host(row.NodeUUID)
@@ -130,14 +156,14 @@ func ListObserverAssignments(db *gorm.DB) ([]ObserverAssignmentRecord, error) {
 			Generation: row.Generation, ConfigVersion: row.ConfigVersion,
 		})
 	}
-	return out, nil
+	return out, total, nil
 }
 
-func ListAgentReliability(db *gorm.DB) ([]AgentReliabilityRecord, error) {
+func ListAgentReliability(db *gorm.DB, offset, limit int) ([]AgentReliabilityRecord, int64, error) {
 	out := []AgentReliabilityRecord{}
-	var rows []model.AgentTelemetryRuntime
-	if err := db.Order("updated_at DESC").Limit(datasetLimit).Find(&rows).Error; err != nil {
-		return nil, err
+	rows, total, err := listPage[model.AgentTelemetryRuntime](db.Model(&model.AgentTelemetryRuntime{}), "updated_at DESC", offset, limit)
+	if err != nil {
+		return nil, 0, err
 	}
 	nodeIDs := make([][]byte, 0, len(rows))
 	observerIDs := make([]string, 0)
@@ -154,7 +180,7 @@ func ListAgentReliability(db *gorm.DB) ([]AgentReliabilityRecord, error) {
 	}
 	idx, err := loadHostIndex(db, uniqueByteSlices(nodeIDs), observerIDs)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	for i, row := range rows {
 		serverID, serverName := idx.host(row.NodeUUID)
@@ -172,19 +198,20 @@ func ListAgentReliability(db *gorm.DB) ([]AgentReliabilityRecord, error) {
 					EndpointID: sink.GetEndpointId(), ObserverKind: kind, ObserverName: name,
 					Connected: sink.GetConnected(), PendingEvents: sink.GetPendingEvents(),
 					LastError: sink.GetLastError(), AckThrough: sink.GetAckThrough(),
+					LastRttMs: sink.GetLastRttMs(), RttSampledAt: RFC3339NanoPtr(sink.GetRttSampledAtUnixNano()),
 				})
 			}
 		}
 		out = append(out, record)
 	}
-	return out, nil
+	return out, total, nil
 }
 
-func ListIncidents(db *gorm.DB) ([]IncidentRecord, error) {
+func ListIncidents(db *gorm.DB, offset, limit int) ([]IncidentRecord, int64, error) {
 	out := []IncidentRecord{}
-	var rows []model.AvailabilityIncident
-	if err := db.Order("started_at DESC").Limit(datasetLimit).Find(&rows).Error; err != nil {
-		return nil, err
+	rows, total, err := listPage[model.AvailabilityIncident](db.Model(&model.AvailabilityIncident{}), "started_at DESC", offset, limit)
+	if err != nil {
+		return nil, 0, err
 	}
 	nodeIDs := make([][]byte, 0, len(rows))
 	observerIDs := make([]string, 0)
@@ -199,7 +226,7 @@ func ListIncidents(db *gorm.DB) ([]IncidentRecord, error) {
 	}
 	idx, err := loadHostIndex(db, uniqueByteSlices(nodeIDs), observerIDs)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	for i, row := range rows {
 		serverID, serverName := idx.host(row.NodeUUID)
@@ -212,14 +239,14 @@ func ListIncidents(db *gorm.DB) ([]IncidentRecord, error) {
 			ObserverEvidence: annotateEvidence(evidence[i], idx),
 		})
 	}
-	return out, nil
+	return out, total, nil
 }
 
-func ListIncidentRevisions(db *gorm.DB) ([]IncidentRevisionRecord, error) {
+func ListIncidentRevisions(db *gorm.DB, offset, limit int) ([]IncidentRevisionRecord, int64, error) {
 	out := []IncidentRevisionRecord{}
-	var rows []model.IncidentRevision
-	if err := db.Order("created_at DESC").Limit(datasetLimit).Find(&rows).Error; err != nil {
-		return nil, err
+	rows, total, err := listPage[model.IncidentRevision](db.Model(&model.IncidentRevision{}), "created_at DESC", offset, limit)
+	if err != nil {
+		return nil, 0, err
 	}
 	observerIDs := make([]string, 0)
 	evidence := make([][]ObserverEvidenceItem, len(rows))
@@ -232,7 +259,7 @@ func ListIncidentRevisions(db *gorm.DB) ([]IncidentRevisionRecord, error) {
 	}
 	idx, err := loadHostIndex(db, nil, observerIDs)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	for i, row := range rows {
 		out = append(out, IncidentRevisionRecord{
@@ -242,14 +269,14 @@ func ListIncidentRevisions(db *gorm.DB) ([]IncidentRevisionRecord, error) {
 			ObserverEvidence: annotateEvidence(evidence[i], idx),
 		})
 	}
-	return out, nil
+	return out, total, nil
 }
 
-func ListDataLoss(db *gorm.DB) ([]DataLossRecord, error) {
+func ListDataLoss(db *gorm.DB, offset, limit int) ([]DataLossRecord, int64, error) {
 	out := []DataLossRecord{}
-	var rows []model.TelemetryDataLoss
-	if err := db.Order("occurred_at DESC").Limit(datasetLimit).Find(&rows).Error; err != nil {
-		return nil, err
+	rows, total, err := listPage[model.TelemetryDataLoss](db.Model(&model.TelemetryDataLoss{}), "occurred_at DESC", offset, limit)
+	if err != nil {
+		return nil, 0, err
 	}
 	for _, row := range rows {
 		out = append(out, DataLossRecord{
@@ -258,14 +285,14 @@ func ListDataLoss(db *gorm.DB) ([]DataLossRecord, error) {
 			LostRecords: row.LostRecords, Detail: row.Detail, CreatedAt: RFC3339TimePtr(row.CreatedAt),
 		})
 	}
-	return out, nil
+	return out, total, nil
 }
 
-func ListAlerts(db *gorm.DB) ([]AlertRecord, error) {
+func ListAlerts(db *gorm.DB, offset, limit int) ([]AlertRecord, int64, error) {
 	out := []AlertRecord{}
-	var rows []model.TelemetryAlert
-	if err := db.Order("occurred_at DESC").Limit(datasetLimit).Find(&rows).Error; err != nil {
-		return nil, err
+	rows, total, err := listPage[model.TelemetryAlert](db.Model(&model.TelemetryAlert{}), "occurred_at DESC", offset, limit)
+	if err != nil {
+		return nil, 0, err
 	}
 	nodeIDs := make([][]byte, 0, len(rows))
 	observerIDs := make([]string, 0, len(rows))
@@ -279,7 +306,7 @@ func ListAlerts(db *gorm.DB) ([]AlertRecord, error) {
 	}
 	idx, err := loadHostIndex(db, uniqueByteSlices(nodeIDs), observerIDs)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	for _, row := range rows {
 		serverID, serverName := idx.host(row.NodeUUID)
@@ -291,7 +318,7 @@ func ListAlerts(db *gorm.DB) ([]AlertRecord, error) {
 			Message: row.Message, DedupKey: row.DedupKey,
 		})
 	}
-	return out, nil
+	return out, total, nil
 }
 
 func walPressureLabel(value int32) string {

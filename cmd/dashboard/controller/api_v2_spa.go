@@ -57,9 +57,11 @@ func registerSPAAPIV2(root gin.IRouter) {
 	public.POST("/view-password/session", v2ViewPasswordSession)
 	public.GET("/servers", v2PublicServers)
 	public.GET("/servers/:id", v2PublicServer)
+	public.GET("/servers/:id/availability", v2PublicServerAvailability)
 	public.GET("/services", v2PublicServices)
 	public.GET("/network/:id", v2PublicNetwork)
 	public.GET("/cycle-transfer", v2PublicCycleTransfer)
+	public.GET("/metrics/:id", v2PublicMetrics)
 
 	admin := root.Group("v2/admin")
 	admin.Use(mygin.Authorize(mygin.AuthorizeOption{AllowAPI: true}))
@@ -68,6 +70,7 @@ func registerSPAAPIV2(root gin.IRouter) {
 	admin.GET("/summary", v2AdminSummary)
 	admin.GET("/connections/summary", v2ConnectionSummary)
 	admin.GET("/connections/paths", v2ConnectionPaths)
+	admin.GET("/connections/latency", v2ConnectionLatency)
 	admin.GET("/servers", v2AdminServers)
 	admin.POST("/servers", v2CreateServer)
 	admin.GET("/servers/:id", v2AdminServer)
@@ -372,8 +375,13 @@ func v2PublicNetwork(c *gin.Context) {
 		writeV2Problem(c, http.StatusBadRequest, "invalid_server_id", err.Error())
 		return
 	}
+	if !publicServerIDVisible(c, id) {
+		writeV2Problem(c, http.StatusNotFound, "server_not_found", "服务器不存在")
+		return
+	}
 	rows := singleton.MonitorAPI.GetMonitorHistories(map[string]any{"server_id": id})
-	writeV2List(c, snakeValue(rows), v2Meta{Page: 1})
+	items := publicNetworkHistoryItems(rows)
+	writeV2List(c, items, v2Meta{Page: 1, PageSize: len(items), Total: int64(len(items))})
 }
 
 func v2PublicCycleTransfer(c *gin.Context) {
@@ -409,11 +417,17 @@ func v2PublicCycleTransfer(c *gin.Context) {
 			item["window_start"] = usage.WindowStart.Format(time.RFC3339)
 			if usage.WindowEnd != nil {
 				item["window_end"] = usage.WindowEnd.Format(time.RFC3339)
+				item["next_reset_at"] = usage.WindowEnd.Format(time.RFC3339)
+			} else {
+				item["next_reset_at"] = nil
 			}
 			item["used_bytes"] = usage.UsedBytes
 			item["quota_bytes"] = usage.QuotaBytes
 			item["usage_percent"] = usage.UsagePercent
 			item["status"] = usage.Status
+			item["warning_percent"] = usage.WarningPercent
+			item["warning_bytes"] = publicWarningBytes(usage.QuotaBytes, usage.WarningPercent)
+			item["remaining_bytes"] = publicRemainingBytes(usage.UsedBytes, usage.QuotaBytes)
 		}
 		items = append(items, item)
 	}
@@ -802,6 +816,13 @@ func optionalRFC3339Nano(value int64) any {
 		return nil
 	}
 	return time.Unix(0, value).UTC().Format(time.RFC3339Nano)
+}
+
+func optionalFloat(sampledAt int64, value float64) any {
+	if sampledAt <= 0 {
+		return nil
+	}
+	return value
 }
 
 type batchServerRequest struct {
@@ -1786,7 +1807,10 @@ func collectorDTO(collector model.Collector) gin.H {
 		"last_primary_seen": optionalRFC3339Nano(runtime.LastPrimarySeen), "spool_size": runtime.SpoolSize,
 		"pending_records": runtime.PendingRecords, "oldest_pending": optionalRFC3339Nano(runtime.OldestPending),
 		"replication_cursor": runtime.ReplicationCursor, "connected_agents": runtime.ConnectedAgents,
-		"protocol_version": runtime.ProtocolVersion, "scopes": scopeItems,
+		"protocol_version": runtime.ProtocolVersion, "heartbeat_rtt_ms": optionalFloat(runtime.HeartbeatRttSampledAt, runtime.HeartbeatRttMs),
+		"heartbeat_rtt_sampled_at":   optionalRFC3339Nano(runtime.HeartbeatRttSampledAt),
+		"replication_rtt_ms":         optionalFloat(runtime.ReplicationRttSampledAt, runtime.ReplicationRttMs),
+		"replication_rtt_sampled_at": optionalRFC3339Nano(runtime.ReplicationRttSampledAt), "scopes": scopeItems,
 	}
 }
 func v2Collectors(c *gin.Context) {
@@ -2037,30 +2061,69 @@ func v2ConnectionPaths(c *gin.Context) {
 			"sink": gin.H{
 				"connected": path.Sink.Connected, "pending_events": path.Sink.PendingEvents,
 				"last_error": path.Sink.LastError, "ack_through": path.Sink.AckThrough,
+				"last_rtt_ms":    optionalFloat(path.Sink.RttSampledAt, path.Sink.LastRttMs),
+				"rtt_sampled_at": optionalRFC3339Nano(path.Sink.RttSampledAt),
 			},
 		})
 	}
 	writeV2List(c, items, v2Meta{Page: 1, PageSize: len(items), Total: int64(len(items))})
 }
 
+func v2ConnectionLatency(c *gin.Context) {
+	var filter telemetry.LatencyFilter
+	filter.Kind = strings.TrimSpace(c.Query("kind"))
+	filter.CollectorUUID = strings.TrimSpace(c.Query("collector_id"))
+	filter.ObserverID = strings.TrimSpace(c.Query("observer_id"))
+	if raw := strings.TrimSpace(c.Query("server_id")); raw != "" {
+		id, err := strconv.ParseUint(raw, 10, 64)
+		if err != nil || id == 0 {
+			writeV2Problem(c, http.StatusBadRequest, "invalid_server_id", "server_id 无效")
+			return
+		}
+		filter.ServerID = id
+	}
+	page, size := parsePage(c)
+	rows, total, err := telemetry.ListConnectionLatency(singleton.DB, filter, (page-1)*size, size)
+	if err != nil {
+		if strings.Contains(err.Error(), "unknown connection latency kind") {
+			writeV2Problem(c, http.StatusBadRequest, "invalid_latency_kind", err.Error())
+			return
+		}
+		writeV2Problem(c, http.StatusInternalServerError, "database_error", err.Error())
+		return
+	}
+	items := make([]gin.H, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, gin.H{
+			"kind": row.Kind, "collector_id": row.CollectorUUID, "server_id": row.ServerID, "server_name": row.ServerName,
+			"node_uuid": row.NodeUUID, "observer_id": row.ObserverID, "bucket_start": optionalRFC3339Nano(row.BucketStart),
+			"min_ms": row.MinMs, "avg_ms": row.AvgMs, "max_ms": row.MaxMs, "count": row.Count,
+		})
+	}
+	writeV2List(c, items, v2Meta{Page: page, PageSize: size, Total: total})
+}
+
 func v2TelemetryDataset(c *gin.Context) {
+	page, size := parsePage(c)
+	offset := (page - 1) * size
 	var (
-		rows any
-		err  error
+		rows  any
+		total int64
+		err   error
 	)
 	switch c.Param("dataset") {
 	case "observer-assignments", "assignments":
-		rows, err = telemetry.ListObserverAssignments(singleton.DB)
+		rows, total, err = telemetry.ListObserverAssignments(singleton.DB, offset, size)
 	case "agents":
-		rows, err = telemetry.ListAgentReliability(singleton.DB)
+		rows, total, err = telemetry.ListAgentReliability(singleton.DB, offset, size)
 	case "incidents":
-		rows, err = telemetry.ListIncidents(singleton.DB)
+		rows, total, err = telemetry.ListIncidents(singleton.DB, offset, size)
 	case "incident-revisions":
-		rows, err = telemetry.ListIncidentRevisions(singleton.DB)
+		rows, total, err = telemetry.ListIncidentRevisions(singleton.DB, offset, size)
 	case "data-loss":
-		rows, err = telemetry.ListDataLoss(singleton.DB)
+		rows, total, err = telemetry.ListDataLoss(singleton.DB, offset, size)
 	case "alerts":
-		rows, err = telemetry.ListAlerts(singleton.DB)
+		rows, total, err = telemetry.ListAlerts(singleton.DB, offset, size)
 	default:
 		writeV2Problem(c, 404, "dataset_not_found", "探测数据集不存在")
 		return
@@ -2069,25 +2132,5 @@ func v2TelemetryDataset(c *gin.Context) {
 		writeV2Problem(c, http.StatusInternalServerError, "database_error", err.Error())
 		return
 	}
-	n := telemetryDatasetLen(rows)
-	writeV2List(c, rows, v2Meta{Page: 1, PageSize: n, Total: int64(n)})
-}
-
-func telemetryDatasetLen(rows any) int {
-	switch value := rows.(type) {
-	case []telemetry.ObserverAssignmentRecord:
-		return len(value)
-	case []telemetry.AgentReliabilityRecord:
-		return len(value)
-	case []telemetry.IncidentRecord:
-		return len(value)
-	case []telemetry.IncidentRevisionRecord:
-		return len(value)
-	case []telemetry.DataLossRecord:
-		return len(value)
-	case []telemetry.AlertRecord:
-		return len(value)
-	default:
-		return 0
-	}
+	writeV2List(c, rows, v2Meta{Page: page, PageSize: size, Total: total})
 }

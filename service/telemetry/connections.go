@@ -41,6 +41,8 @@ func CollectorRuntimeFromProto(collectorUUID string, runtime *pb.CollectorRuntim
 		SpoolSize: runtime.GetSpoolSize(), PendingRecords: runtime.GetPendingRecords(), OldestPending: runtime.GetOldestPendingUnixNano(),
 		ReplicationCursor: runtime.GetReplicationCursor(), ConnectedAgents: runtime.GetConnectedAgents(),
 		ProtocolVersion: runtime.GetProtocolVersion(), LastPrimarySeen: runtime.GetLastPrimarySeenUnixNano(),
+		HeartbeatRttMs: runtime.GetHeartbeatRttMs(), HeartbeatRttSampledAt: runtime.GetHeartbeatRttSampledAtUnixNano(),
+		ReplicationRttMs: runtime.GetReplicationRttMs(), ReplicationRttSampledAt: runtime.GetReplicationRttSampledAtUnixNano(),
 	}
 	if includeLastSync {
 		row.LastSync = receivedAt.UnixNano()
@@ -49,14 +51,21 @@ func CollectorRuntimeFromProto(collectorUUID string, runtime *pb.CollectorRuntim
 }
 
 func UpsertCollectorRuntime(db *gorm.DB, row model.CollectorRuntime, includeLastSync bool) error {
-	columns := []string{"status", "last_seen", "spool_size", "pending_records", "oldest_pending", "replication_cursor", "connected_agents", "protocol_version", "last_primary_seen", "updated_at"}
+	columns := []string{
+		"status", "last_seen", "spool_size", "pending_records", "oldest_pending", "replication_cursor",
+		"connected_agents", "protocol_version", "last_primary_seen", "heartbeat_rtt_ms", "heartbeat_rtt_sampled_at",
+		"replication_rtt_ms", "replication_rtt_sampled_at", "updated_at",
+	}
 	if includeLastSync {
 		columns = append(columns, "last_sync")
 	}
-	return db.Clauses(clause.OnConflict{
+	if err := db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "collector_uuid"}},
 		DoUpdates: clause.AssignmentColumns(columns),
-	}).Create(&row).Error
+	}).Create(&row).Error; err != nil {
+		return err
+	}
+	return RecordCollectorLatency(db, row)
 }
 
 type ConnectionSummary struct {
@@ -74,6 +83,8 @@ type PathSink struct {
 	PendingEvents uint64
 	LastError     string
 	AckThrough    uint64
+	LastRttMs     float64
+	RttSampledAt  int64
 }
 
 type ConnectionPath struct {
@@ -201,6 +212,7 @@ func LoadConnectionPaths(db *gorm.DB, filter PathFilter) ([]ConnectionPath, erro
 			sinks[pathKey(runtime.NodeUUID, sink.GetEndpointId())] = PathSink{
 				Connected: sink.GetConnected(), PendingEvents: sink.GetPendingEvents(),
 				LastError: sink.GetLastError(), AckThrough: sink.GetAckThrough(),
+				LastRttMs: sink.GetLastRttMs(), RttSampledAt: sink.GetRttSampledAtUnixNano(),
 			}
 		}
 	}
