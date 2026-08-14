@@ -111,12 +111,17 @@ func (s *SantaiziHandler) ReportSystemInfo(c context.Context, r *pb.Host) (*pb.R
 			server.PrevTransferOutSnapshot = server.PrevTransferOutSnapshot - int64(server.State.NetOutTransfer) // #nosec G115 -- network transfer fits in int64
 		}
 
-		// 不要冲掉国家码与已探测到的公网 IP
+		// 不要冲掉已探测到的公网 IP；国家码仅在新帧为空时保留
 		if server.Host != nil {
-			host.CountryCode = server.Host.CountryCode
+			if strings.TrimSpace(host.CountryCode) == "" {
+				host.CountryCode = server.Host.CountryCode
+			}
 			if strings.TrimSpace(host.IP) == "" {
 				host.IP = server.Host.IP
 			}
+		}
+		if strings.TrimSpace(host.CountryCode) == "" {
+			host.CountryCode = geoip.LookupCodeFromAddr(host.IP)
 		}
 		server.Host = &host
 		return nil
