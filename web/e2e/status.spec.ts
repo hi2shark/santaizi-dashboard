@@ -83,7 +83,7 @@ test.beforeEach(async ({ page }) => {
     { window_start: '2026-08-13T08:00:00Z', cpu: 12, mem_used: 700_000_000, disk_used: 6_000_000_000, net_in_speed: 1000, net_out_speed: 800 },
     { window_start: '2026-08-13T08:01:00Z', cpu: 18, mem_used: 720_000_000, disk_used: 6_100_000_000, net_in_speed: 1200, net_out_speed: 900 },
   ])))
-  await page.route('**/api/v2/public/servers/*/availability', route => fulfillJSON(route, item({
+  await page.route('**/api/v2/public/servers/*/availability**', route => fulfillJSON(route, item({
     server_id: 1, days: 30, offline_count: 0, total_offline_seconds: 0, longest_offline_seconds: 0, availability_percent: 99.9,
   })))
 })
@@ -553,6 +553,7 @@ test('ServerStatus shell uses a tokenized table without particle canvas', async 
   await expect(page.locator('.meta-tag--billing').filter({ hasText: '109.00CNY' })).toBeVisible()
   await expect(page.locator('.ss-cycle').filter({ hasText: 'Monthly' })).toHaveCount(1)
   await expect(page.getByText('0.21 / 0.40 / 0.50')).toBeVisible()
+  await expect(page.locator('.ss-detail__availability')).toBeVisible()
   await expect(page.getByText('30 天可用率')).toBeVisible()
   await expect(page.locator('.ss-latency')).toBeVisible()
   await page.keyboard.press('Escape')

@@ -406,6 +406,10 @@ test('keeps light and dark surfaces coherent at all responsive baselines', async
       await page.setViewportSize({ width, height: 900 })
       await page.reload()
       await expect(page.locator('html')).toHaveClass(theme === 'dark' ? /dark/ : /^(?!.*dark)/)
+      await expect(page.locator('.admin-sidebar')).toBeAttached()
+      await expect(page.locator('.surface').first()).toBeVisible()
+      await expect(page.locator('.page-head .el-button').first()).toBeVisible()
+      await expect(page.locator('.mobile-menu')).toBeAttached()
 
       const measurements = await page.evaluate(() => {
         const rgb = (value: string) => value.match(/\d+(?:\.\d+)?/g)?.slice(0, 3).map(Number) ?? []
