@@ -18,13 +18,15 @@ const servers = [
     id: 2, name: 'SGP-BAGE', tag: 'SGP', display_index: 20, hide_for_guest: false, enable_ddns: false, online: true,
     host: { Platform: 'freebsd', CountryCode: 'SG', CPU: ['Intel 1 Physical Core'], Arch: 'amd64', Version: '14', MemTotal: 1_073_741_824, DiskTotal: 10_737_418_240 },
     state: { CPU: 1, MemUsed: 549_453_824, DiskUsed: 5_368_709_120, Uptime: 11_491_200, NetInSpeed: 22_200, NetOutSpeed: 14_800, NetInTransfer: 512_000_000_000, NetOutTransfer: 251_180_000_000 },
-    public_note: { customData: { location: 'SGP', slogan: 'Singapore Edge', flag: 'sg' }, billingDataMod: { amount: '2.59USD', cycle: '月' }, planDataMod: { networkRoute: 'CTCSCI,原生IP', IPv4: '1', IPv6: '1', trafficType: '2' } },
+    // 无 flag：靠位置别名链 SGP → SIN → SG 出旗
+    public_note: { customData: { location: 'SGP', slogan: 'Singapore Edge' }, billingDataMod: { amount: '2.59USD', cycle: '月' }, planDataMod: { networkRoute: 'CTCSCI,原生IP', IPv4: '1', IPv6: '1', trafficType: '2' } },
   },
   {
     id: 3, name: 'TYO-OFFLINE', tag: 'JPN', display_index: 10, hide_for_guest: false, enable_ddns: false, online: false,
-    host: { Platform: 'linux', CountryCode: 'JP', CPU: ['4 Physical Core'], Arch: 'arm64', Version: '6.6', MemTotal: 4_294_967_296, DiskTotal: 42_949_672_960 },
+    host: { Platform: 'linux', CPU: ['4 Physical Core'], Arch: 'arm64', Version: '6.6', MemTotal: 4_294_967_296, DiskTotal: 42_949_672_960 },
     state: { CPU: 0, MemUsed: 0, DiskUsed: 0, Uptime: 0, NetInSpeed: 0, NetOutSpeed: 0, NetInTransfer: 0, NetOutTransfer: 0 },
-    public_note: { customData: { location: 'JPN', slogan: 'Maintenance', flag: 'jp' }, billingDataMod: { amount: '4.00USD', cycle: '月' }, planDataMod: { networkRoute: 'BGP', IPv4: '1' } },
+    // 探针没上报国家码（GeoIP 缺库），只有 IATA 位置码：旗帜必须仍能解析
+    public_note: { customData: { location: 'TYO', slogan: 'Maintenance' }, billingDataMod: { amount: '4.00USD', cycle: '月' }, planDataMod: { networkRoute: 'BGP', IPv4: '1' } },
   },
 ]
 
@@ -69,10 +71,14 @@ test.beforeEach(async ({ page }) => {
   })
   await page.route('**/api/v2/public/services', route => fulfillJSON(route, list([
     { id: 1, name: 'Public API', current_up: 99, current_down: 1, up: [99, 100, 98, 100], down: [1, 0, 2, 0], avg_delay: 42 },
+    { id: 2, name: 'Cloudflare.V4', current_up: 100, current_down: 0, up: [100, 90], down: [0, 10], delay: [0, 0, 1.5860779] },
   ])))
-  await page.route('**/api/v2/public/network/*', route => fulfillJSON(route, list([
-    { monitor_name: 'ICMP', created_at: ['2026-08-12T12:00:00Z', '2026-08-12T12:05:00Z'], avg_delay: [42, 38] },
-  ])))
+  await page.route('**/api/v2/public/network/*', route => {
+    const now = Date.now()
+    return fulfillJSON(route, list([
+      { monitor_name: 'ICMP', created_at: [now - 3_600_000, now - 1_800_000, now - 60_000], avg_delay: [42, 38, 40] },
+    ]))
+  })
   await page.route('**/api/v2/public/metrics/*', route => fulfillJSON(route, list([
     { window_start: '2026-08-13T08:00:00Z', cpu: 12, mem_used: 700_000_000, disk_used: 6_000_000_000, net_in_speed: 1000, net_out_speed: 800 },
     { window_start: '2026-08-13T08:01:00Z', cpu: 18, mem_used: 720_000_000, disk_used: 6_100_000_000, net_in_speed: 1200, net_out_speed: 900 },
@@ -96,8 +102,17 @@ test('renders a complete Nazhua homepage with one shell, map points and cycle-aw
   await expect(page.locator('.nazhua-world-map')).toBeVisible()
   expect(await page.locator('.nazhua-world-map__point').count()).toBeGreaterThanOrEqual(2)
   await expect(page.locator('.nazhua-card')).toHaveCount(3)
+  // 三台分别覆盖显式 flag、位置别名链、无国家码的 IATA 位置
+  await expect(page.locator('.nazhua-card .nazhua-flag.fi-hk')).toHaveCount(1)
+  await expect(page.locator('.nazhua-card .nazhua-flag.fi-sg')).toHaveCount(1)
+  await expect(page.locator('.nazhua-card .nazhua-flag.fi-jp')).toHaveCount(1)
+  await expect(page.locator('.nazhua-card .nazhua-flag-fallback')).toHaveCount(0)
   await expect(page.locator('.nazhua-card').first().locator('.traffic strong')).toContainText('861.95')
-  await expect(page.locator('.nazhua-card').first().locator('.nazhua-donut__caption').nth(1)).toContainText('/')
+  await expect(page.locator('.nazhua-card').first().locator('.nazhua-card__spec')).toContainText('2C2G20G')
+  await expect(page.locator('.nazhua-card').first().locator('.nazhua-donut__text strong').nth(1)).toHaveText('732M')
+  await expect(page.locator('.nazhua-card').first().locator('.nazhua-donut__caption').nth(1)).toHaveText('2048M')
+  await expect(page.locator('.nazhua-card').first().locator('.in strong')).toHaveText(/5\.7K/)
+  await expect(page.locator('.nazhua-card').first().locator('.in strong')).not.toContainText('/s')
   await expect.poll(() => cycleRequests).toBe(1)
 
   const layout = await page.evaluate(() => {
@@ -124,6 +139,20 @@ test('renders a complete Nazhua homepage with one shell, map points and cycle-aw
   expect(layout.bodyHeight).toBeGreaterThan(700)
 })
 
+test('Nazhua detail opens from a scrolled homepage at the top', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'status-desktop')
+  await useNazhua(page)
+  await page.setViewportSize({ width: 1440, height: 500 })
+  await page.goto('/')
+  await expect(page.locator('.nazhua-card').last()).toBeVisible()
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
+  await page.locator('.nazhua-card').last().locator('.nazhua-card__main').click()
+  await expect(page).toHaveURL(/\/server\/\d+$/)
+  await expect(page.locator('.nazhua-detail')).toBeVisible()
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
+})
+
 test('search opens an AppDialog and details retain the Nazhua shell', async ({ page }) => {
   await useNazhua(page)
   await page.goto('/')
@@ -135,12 +164,27 @@ test('search opens an AppDialog and details retain the Nazhua shell', async ({ p
   await expect(page).toHaveURL(/\/server\/2$/)
   await expect(page.locator('.nazhua-header')).toHaveCount(1)
   await expect(page.locator('.nazhua-detail')).toBeVisible()
+  await expect(page.locator('.nazhua-world-map')).toHaveCount(0)
   await expect(page.getByRole('heading', { name: 'SGP-BAGE' })).toBeVisible()
   await expect(page.getByRole('heading', { name: '周期流量' })).toBeVisible()
   await expect(page.locator('.nazhua-cycle-transfer__item')).toHaveCount(1)
   await expect(page.locator('.nazhua-cycle-transfer__item')).toContainText('剩余')
   await expect(page.getByRole('heading', { name: '资源历史' })).toBeVisible()
   await expect(page.getByRole('heading', { name: '网络监控' })).toBeVisible()
+  await expect(page.locator('.nazhua-monitor__toolbar')).toContainText('聚合')
+  await expect(page.locator('.nazhua-monitor__toolbar')).toContainText('自动刷新')
+  await expect(page.locator('.nazhua-monitor__toolbar')).toContainText('削峰')
+
+  const ranges = page.locator('.nazhua-monitor__ranges')
+  await expect(ranges.getByRole('button', { name: '24小时' })).toHaveClass(/el-button--primary/)
+  await ranges.getByRole('button', { name: '1小时' }).click()
+  await expect(ranges.getByRole('button', { name: '1小时' })).toHaveClass(/el-button--primary/)
+  await expect(ranges.getByRole('button', { name: '24小时' })).not.toHaveClass(/el-button--primary/)
+
+  await expect(page.locator('.nazhua-monitor__grid')).toBeVisible()
+  await page.locator('.nazhua-monitor__switch').filter({ hasText: '聚合' }).locator('.el-switch').click()
+  await expect(page.locator('.nazhua-monitor__grid')).toHaveCount(0)
+  await expect(page.locator('.nazhua-monitor__chart')).toHaveCount(1)
 })
 
 test('function menu keeps service and network pages inside Nazhua and switches shell cleanly', async ({ page }) => {
@@ -151,17 +195,87 @@ test('function menu keeps service and network pages inside Nazhua and switches s
   await expect(page).toHaveURL(/\/service$/)
   await expect(page.locator('.nazhua-header')).toHaveCount(1)
   await expect(page.getByText('Public API')).toBeVisible()
+  await expect(page.getByText('42.00 ms')).toBeVisible()
+  await expect(page.getByText('1.59 ms')).toBeVisible()
+  await expect(page.locator('.service-panel')).not.toContainText('[')
+  await expect(page.locator('.svc-spark')).toHaveCount(2)
 
   await page.getByRole('button', { name: '操作' }).click()
   await page.getByRole('menuitem', { name: /网络/ }).click()
   await expect(page).toHaveURL(/\/network$/)
   await expect(page.locator('.nazhua-shell .network-panel')).toBeVisible()
+  await expect(page.locator('.network-server-select')).toHaveCount(0)
+  await expect(page.locator('.network-tile')).toHaveCount(3)
+  await expect(page.locator('.network-grid')).toHaveAttribute('data-density', 'few')
+  await expect(page.getByRole('button', { name: 'HKG-EDGE' })).toBeVisible()
 
   await page.getByRole('button', { name: '操作' }).click()
   await page.getByRole('menuitem', { name: 'ServerStatus' }).click()
   await expect(page.locator('.server-status-shell')).toBeVisible()
   await expect(page.locator('.status-nav')).toHaveCount(1)
   await expect(page.locator('.nazhua-header')).toHaveCount(0)
+})
+
+test('ServerStatus service cards show a single latency value and sparkline', async ({ page }) => {
+  await useServerStatus(page)
+  await page.goto('/service')
+  await expect(page.locator('.server-status-shell .service-panel')).toBeVisible()
+  await expect(page.getByText('Public API')).toBeVisible()
+  await expect(page.getByText('Cloudflare.V4')).toBeVisible()
+  await expect(page.getByText('42.00 ms')).toBeVisible()
+  await expect(page.getByText('1.59 ms')).toBeVisible()
+  await expect(page.locator('.service-panel')).not.toContainText('[')
+  await expect(page.locator('.svc-spark')).toHaveCount(2)
+})
+
+test('ServerStatus network page tiles hosts and opens a latency drawer', async ({ page }, testInfo) => {
+  await useServerStatus(page)
+  await page.goto('/network')
+  await expect(page.locator('.network-server-select')).toHaveCount(0)
+  await expect(page.locator('.network-tile')).toHaveCount(3)
+  await expect(page.locator('.network-grid')).toHaveAttribute('data-density', 'few')
+  await expect(page.getByRole('button', { name: 'HKG-EDGE' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'SGP-BAGE' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'TYO-OFFLINE' })).toBeVisible()
+  const tileWidth = await page.locator('.network-tile').first().evaluate((node) => node.getBoundingClientRect().width)
+  expect(tileWidth).toBeGreaterThan(280)
+  if (testInfo.project.name === 'status-desktop') {
+    const fill = await page.locator('.network-panel').evaluate((panel) => {
+      const grid = panel.querySelector('.network-grid')
+      if (!(grid instanceof HTMLElement)) return 0
+      return grid.getBoundingClientRect().height / panel.getBoundingClientRect().height
+    })
+    expect(fill).toBeGreaterThan(0.7)
+    const spark = page.locator('.network-tile .svc-spark').first()
+    await expect(spark).toBeVisible()
+    const sparkHeight = await spark.evaluate((node) => node.getBoundingClientRect().height)
+    expect(sparkHeight).toBeGreaterThanOrEqual(36)
+    expect(sparkHeight).toBeLessThanOrEqual(44)
+  }
+  await page.getByRole('button', { name: 'HKG-EDGE' }).click()
+  await expect(page.locator('.el-drawer .ss-latency')).toBeVisible()
+})
+
+test('network tiles fetch history only for hosts near the viewport', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'status-desktop')
+  await useServerStatus(page)
+  const extra = Array.from({ length: 20 }, (_, index) => ({
+    ...servers[0],
+    id: 20 + index,
+    name: `HOST-${String(index).padStart(2, '0')}`,
+    display_index: index,
+  }))
+  await page.route('**/api/v2/public/servers', route => fulfillJSON(route, list([...servers, ...extra])))
+  const requested = new Set<string>()
+  page.on('request', (request) => {
+    const match = request.url().match(/\/api\/v2\/public\/network\/(\d+)/)
+    if (match) requested.add(match[1])
+  })
+  await page.setViewportSize({ width: 390, height: 640 })
+  await page.goto('/network')
+  await expect(page.locator('.network-tile').first()).toBeVisible()
+  await expect.poll(() => requested.size).toBeGreaterThan(0)
+  expect(requested.size).toBeLessThan(23)
 })
 
 test('hides the map without locations and keeps the first card near the header', async ({ page }) => {
@@ -237,6 +351,21 @@ test('mobile temporarily falls back to cards without discarding the saved deskto
   expect(header.brandWidth).toBeGreaterThan(160)
 })
 
+test('Nazhua color toggle sits in the header instead of the function menu', async ({ page }) => {
+  await useNazhua(page)
+  await page.goto('/')
+  const toggle = page.locator('.nazhua-theme-button')
+  await expect(toggle).toBeVisible()
+  await expect(toggle).toHaveAttribute('aria-label', '浅色')
+  await page.locator('.nazhua-menu-button').click()
+  await expect(page.getByRole('menuitem', { name: '浅色' })).toHaveCount(0)
+  await expect(page.getByRole('menuitem', { name: '深色' })).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await toggle.click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+  await expect(toggle).toHaveAttribute('aria-label', '深色')
+})
+
 test('desktop exposes the card, row and ServerStatus list modes', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'status-desktop')
   await useNazhua(page)
@@ -248,9 +377,23 @@ test('desktop exposes the card, row and ServerStatus list modes', async ({ page 
   await modes.getByRole('button', { name: '列表' }).click()
   await expect(page.locator('.nazhua-home__list.mode-row')).toBeVisible()
   await expect(page.locator('.nazhua-row')).toHaveCount(3)
+  const rowAlign = await page.locator('.nazhua-row').first().evaluate(row => {
+    const name = row.querySelector('strong')!.getBoundingClientRect()
+    const status = row.querySelector('.nazhua-row__status')!.getBoundingClientRect()
+    const spec = row.querySelector('small')!.getBoundingClientRect()
+    return {
+      nameStatusDelta: Math.abs((name.top + name.height / 2) - (status.top + status.height / 2)),
+      specBelowName: spec.top >= name.bottom - 1,
+    }
+  })
+  expect(rowAlign.nameStatusDelta).toBeLessThan(4)
+  expect(rowAlign.specBelowName).toBe(true)
   await modes.getByRole('button', { name: 'ServerStatus' }).click()
   await expect(page.locator('.nazhua-home__list.mode-server-status')).toBeVisible()
-  await expect(page.locator('.nazhua-status-table__head span')).toHaveCount(13)
+  await expect(page.locator('.nazhua-status-table__head [role="columnheader"]')).toHaveCount(12)
+  await expect(page.locator('.nazhua-status-table__row').first().getByRole('link')).toBeVisible()
+  const tableOverflow = await page.locator('.nazhua-status-table').evaluate(node => node.scrollWidth - node.clientWidth)
+  expect(tableOverflow).toBeLessThanOrEqual(1)
   await modes.getByRole('button', { name: '卡片' }).click()
   await expect(page.locator('.nazhua-card')).toHaveCount(3)
 })
@@ -261,6 +404,9 @@ test('Nazhua sort menu lists host network connection load and capacity keys', as
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/')
   await page.locator('.nazhua-filter__sort').click()
+  await expect(page.locator('.nazhua-sort-menu__column')).toHaveCount(6)
+  const sortMenu = await page.locator('.nazhua-sort-menu .el-dropdown-menu').boundingBox()
+  expect(sortMenu!.height).toBeLessThan(sortMenu!.width)
   await expect(page.getByRole('menuitem', { name: '权重' })).toBeVisible()
   await expect(page.getByRole('menuitem', { name: '入网速度' })).toBeVisible()
   await expect(page.getByRole('menuitem', { name: 'TCP 连接' })).toBeVisible()
@@ -300,13 +446,23 @@ test('mobile controls keep 44px touch targets', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'status-mobile')
   await useNazhua(page)
   await page.goto('/')
-  const targets = page.locator('.nazhua-header__menu, .nazhua-search__trigger, .nazhua-filter .el-button:visible')
-  expect(await targets.count()).toBeGreaterThanOrEqual(5)
-  for (let index = 0; index < await targets.count(); index += 1) {
-    const box = await targets.nth(index).boundingBox()
+  const chrome = page.locator('.nazhua-theme-button, .nazhua-menu-button, .nazhua-search-btn')
+  expect(await chrome.count()).toBeGreaterThanOrEqual(3)
+  for (let index = 0; index < await chrome.count(); index += 1) {
+    const box = await chrome.nth(index).boundingBox()
     expect(box?.width).toBeGreaterThanOrEqual(44)
     expect(box?.height).toBeGreaterThanOrEqual(44)
   }
+  const filterHeight = await page.locator('.nazhua-filter .el-button').first().evaluate(node => node.getBoundingClientRect().height)
+  expect(filterHeight).toBeGreaterThanOrEqual(36)
+  expect(filterHeight).toBeLessThanOrEqual(38)
+  const filterRow = await page.evaluate(() => {
+    const groups = document.querySelector<HTMLElement>('.nazhua-filter__groups')
+    const sort = document.querySelector<HTMLElement>('.nazhua-filter__sort')
+    if (!groups || !sort) return 99
+    return Math.abs(groups.getBoundingClientRect().top - sort.getBoundingClientRect().top)
+  })
+  expect(filterRow).toBeLessThanOrEqual(2)
 })
 
 test('captures accepted Nazhua visual baselines', async ({ page }, testInfo) => {
@@ -340,36 +496,165 @@ test('captures accepted Nazhua visual baselines', async ({ page }, testInfo) => 
   }
 })
 
-test('ServerStatus shell uses tokenized cards without particle canvas', async ({ page }) => {
+test('captures accepted Nazhua table and resource history baselines', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'status-desktop')
+  await page.addInitScript(() => {
+    localStorage.setItem('santaizi-public-theme', 'nazhua')
+    localStorage.setItem('santaizi-locale', 'zh-CN')
+    localStorage.setItem('santaizi-status-theme', new URL(window.location.href).searchParams.get('visual-mode') || 'dark')
+  })
+  await page.setViewportSize({ width: 1440, height: 900 })
+  for (const mode of ['dark', 'light'] as const) {
+    await page.goto(`/?visual-mode=${mode}`)
+    await expect(page.locator('html')).toHaveAttribute('data-theme', mode)
+    await page.locator('.nazhua-filter__modes').getByRole('button', { name: 'ServerStatus' }).click()
+    const table = page.locator('.nazhua-status-table')
+    await expect(table).toBeVisible()
+    expect(await table.evaluate(node => node.scrollWidth - node.clientWidth)).toBeLessThanOrEqual(1)
+    await expect(table).toHaveScreenshot(`nazhua-table-${mode}-1440.png`, { animations: 'disabled', maxDiffPixelRatio: .01 })
+
+    await page.goto(`/server/1?visual-mode=${mode}`)
+    // 资源历史用固定时间戳，可作稳定基线；网络监控 mock 走当前时钟，不入基线。
+    await expect(page.locator('.nazhua-history__card')).toHaveCount(4)
+    await expect(page.locator('.nazhua-history .el-button-group')).toHaveCount(0)
+    await expect(page.locator('.nazhua-history__chart canvas')).toHaveCount(4)
+    await expect(page.locator('.nazhua-history')).toHaveScreenshot(`nazhua-history-${mode}-1440.png`, { animations: 'disabled', maxDiffPixelRatio: .01 })
+  }
+})
+
+test('ServerStatus shell uses a tokenized table without particle canvas', async ({ page }) => {
   await useServerStatus(page)
   await page.goto('/')
   await expect(page.locator('.server-status-shell')).toBeVisible()
   await expect(page.locator('.status-nav')).toHaveCount(1)
   await expect(page.locator('.status-particles, canvas.status-particles')).toHaveCount(0)
-  await expect(page.locator('.ss-card')).toHaveCount(3)
+  await expect(page.locator('.ss-row')).toHaveCount(3)
+  await expect(page.locator('.ss-card')).toHaveCount(0)
   await expect(page.getByText('主机管理')).toHaveCount(0)
   await expect(page.locator('.status-nav nav a.router-link-exact-active')).toHaveCount(1)
-  await expect(page.locator('.server-status-shell > footer')).toContainText('由三太子监控驱动 test')
-  await expect(page.locator('.server-status-shell > footer')).toContainText('Copyright 2020 naiba')
-  await expect(page.locator('.server-status-shell > footer')).toContainText('Copyright 2020 naiba')
-  await expect(page.locator('.ss-card').first().locator('.ss-chip--muted')).toHaveText('香港')
-  await expect(page.locator('.ss-card').first().locator('.server-flag.fi-hk')).toBeVisible()
+  const footer = page.locator('.server-status-shell > footer')
+  await expect(footer).toContainText('三太子监控')
+  await expect(footer).toContainText('test')
+  await expect(footer.locator('a[href="https://github.com/hi2shark/santaizi-dashboard"]')).toBeVisible()
+  await expect(footer).not.toContainText('naiba')
+  await expect(footer).not.toContainText('哪吒')
+  await expect(page.locator('.ss-row').first().locator('.ss-chip--muted')).toHaveText('香港')
+  await expect(page.locator('.ss-row').first().locator('.server-flag.fi-hk')).toBeVisible()
   await expect(page.locator('.ss-chip--muted').filter({ hasText: 'HKG' })).toHaveCount(0)
+  await expect(page.locator('.ss-row').first()).toContainText('109.00CNY')
+  await expect(page.locator('.ss-row').first()).toContainText('剩余 861.95G')
+  await expect(page.locator('.ss-row').nth(2)).toContainText('不限制')
+  await expect(page.locator('.ss-cell[data-label="位置"]')).toHaveCount(3)
+  await expect(page.locator('.ss-cell[data-label="价格"]')).toHaveCount(3)
+  await expect(page.locator('.ss-cell[data-label="剩余"]')).toHaveCount(0)
+  await page.locator('.ss-row').first().locator('.ss-row__main').click()
+  await expect(page.locator('.el-drawer .ss-detail')).toBeVisible()
   await expect(page.getByText('IEPL')).toBeVisible()
   await expect(page.locator('.meta-tag--billing').filter({ hasText: '109.00CNY' })).toBeVisible()
-  await expect(page.locator('.ss-cycle').filter({ hasText: 'Monthly' })).toHaveCount(2)
+  await expect(page.locator('.ss-cycle').filter({ hasText: 'Monthly' })).toHaveCount(1)
   await expect(page.getByText('0.21 / 0.40 / 0.50')).toBeVisible()
-  await page.locator('.ss-card').first().locator('summary').click()
-  await expect(page.getByText('可用性')).toBeVisible()
+  await expect(page.getByText('30 天可用率')).toBeVisible()
+  await expect(page.locator('.ss-latency')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.locator('.el-drawer .ss-detail')).not.toBeVisible()
 })
 
-test('ServerStatus mobile cards do not require horizontal table scroll', async ({ page }, testInfo) => {
+test('ServerStatus mobile table does not require horizontal page scroll', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'status-mobile')
   await useServerStatus(page)
   await page.goto('/')
-  await expect(page.locator('.ss-card')).toHaveCount(3)
+  await expect(page.locator('.ss-row')).toHaveCount(3)
+  const headsHidden = await page.locator('.ss-table__head').evaluateAll(nodes =>
+    nodes.length > 0 && nodes.every(node => getComputedStyle(node).display === 'none'))
+  expect(headsHidden).toBe(true)
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 2)
   expect(overflow).toBe(true)
+  const fonts = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.server-status-shell *')]
+    .filter(node => getComputedStyle(node).display !== 'none')
+    .map(node => Number.parseFloat(getComputedStyle(node).fontSize))
+    .filter(size => Number.isFinite(size) && size > 0))
+  expect(Math.min(...fonts)).toBeGreaterThanOrEqual(12)
+  await expect(page.locator('.status-brand span')).toBeVisible()
+  const logo = await page.locator('.status-brand img').evaluate(node => {
+    const box = node.getBoundingClientRect()
+    return { width: box.width, height: box.height }
+  })
+  expect(logo.width).toBeGreaterThanOrEqual(33)
+  expect(logo.height).toBeGreaterThanOrEqual(33)
+  expect(await page.locator('.status-nav__links').evaluate(node => getComputedStyle(node).display === 'none')).toBe(true)
+  const toolbarActionsHidden = await page.locator('.status-toolbar__page-action').evaluateAll(nodes =>
+    nodes.length > 0 && nodes.every(node => getComputedStyle(node).display === 'none'))
+  expect(toolbarActionsHidden).toBe(true)
+  await expect(page.locator('.group-title')).toHaveCount(3)
+  await page.getByRole('button', { name: '打开导航' }).click()
+  const menu = page.locator('.status-mobile-nav')
+  await expect(menu).toBeVisible()
+  await expect(menu.getByRole('link', { name: '服务器状态' })).toBeVisible()
+  await expect(menu.getByRole('link', { name: '服务状态' })).toBeVisible()
+  await expect(menu.getByRole('link', { name: '网络' })).toBeVisible()
+  const bodyShift = await page.evaluate(() => Math.abs(document.body.getBoundingClientRect().width - window.innerWidth))
+  expect(bodyShift).toBeLessThanOrEqual(2)
+  const iconAlign = await menu.locator('a, button').evaluateAll(nodes => nodes.map(node => {
+    const icon = node.querySelector('i')
+    const text = node.querySelector('span')
+    if (!icon || !text) return 99
+    const iconBox = icon.getBoundingClientRect()
+    const textBox = text.getBoundingClientRect()
+    return Math.abs((iconBox.top + iconBox.bottom) / 2 - (textBox.top + textBox.bottom) / 2)
+  }))
+  expect(Math.max(...iconAlign)).toBeLessThanOrEqual(2)
+  await menu.getByRole('button', { name: '列表显示' }).click()
+  await expect(page.locator('.status-mobile-nav')).toHaveCount(0)
+  await expect(page.locator('.group-title')).toHaveCount(0)
+  await page.getByRole('button', { name: '打开导航' }).click()
+  await page.locator('.status-mobile-nav').getByRole('button', { name: '世界地图' }).click()
+  await expect(page.locator('.map-dialog')).toBeVisible()
+  await page.locator('.map-dialog button[aria-label="关闭"]').click()
+  await expect(page.locator('.map-dialog')).toBeHidden()
+  await page.locator('.ss-row').first().locator('.ss-row__main').click()
+  const drawer = page.locator('.el-drawer .ss-detail')
+  await expect(drawer).toBeVisible()
+  const grid = await drawer.locator('.ss-detail__grid').evaluate(node => {
+    const shorts = [...node.children].filter(cell => !cell.classList.contains('is-span')) as HTMLElement[]
+    return {
+      columns: getComputedStyle(node).gridTemplateColumns.split(' ').length,
+      shortPair: shorts.some((cell, index) => {
+        const next = shorts[index + 1]
+        return Boolean(next && Math.abs(cell.getBoundingClientRect().top - next.getBoundingClientRect().top) < 4)
+      }),
+    }
+  })
+  expect(grid.columns).toBe(2)
+  expect(grid.shortPair).toBe(true)
+})
+
+test('Nazhua mobile detail wraps gauges and info into two columns', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'status-mobile')
+  await useNazhua(page)
+  await page.goto('/server/1')
+  await expect(page.locator('.nazhua-detail')).toBeVisible()
+  const layout = await page.evaluate(() => {
+    const metrics = [...document.querySelectorAll<HTMLElement>('.nazhua-detail-status__metric')]
+    const info = [...document.querySelectorAll<HTMLElement>('.nazhua-info-box dl > div:not(.is-span)')]
+    const fonts = [...document.querySelectorAll<HTMLElement>('.nazhua-detail *')]
+      .filter(node => getComputedStyle(node).display !== 'none')
+      .map(node => Number.parseFloat(getComputedStyle(node).fontSize))
+      .filter(size => Number.isFinite(size) && size > 0)
+    const tops = metrics.map(node => node.getBoundingClientRect().top)
+    return {
+      metricWrap: metrics.length <= 2
+        || (metrics.length === 3 && Math.abs(tops[0] - tops[2]) < 8)
+        || (metrics.length >= 4 && tops[2] - tops[0] > 40),
+      infoColumns: info.length >= 2
+        && Math.abs(info[0].getBoundingClientRect().top - info[1].getBoundingClientRect().top) < 4,
+      overflow: document.documentElement.scrollWidth <= window.innerWidth + 2,
+      minimumFont: Math.min(...fonts),
+    }
+  })
+  expect(layout.metricWrap).toBe(true)
+  expect(layout.infoColumns).toBe(true)
+  expect(layout.overflow).toBe(true)
+  expect(layout.minimumFont).toBeGreaterThanOrEqual(12)
 })
 
 test('ServerStatus hides availability when guests are not allowed to see it', async ({ page }) => {
@@ -380,9 +665,9 @@ test('ServerStatus hides availability when guests are not allowed to see it', as
     theme: 'server-status', allow_frontend_theme_switch: true,
   })))
   await page.goto('/')
-  await expect(page.locator('.ss-card')).toHaveCount(3)
-  const specs = page.locator('.ss-card').first().locator('summary')
-  if (await specs.count()) await specs.click()
+  await expect(page.locator('.ss-row')).toHaveCount(3)
+  await page.locator('.ss-row').first().locator('.ss-row__main').click()
+  await expect(page.locator('.el-drawer .ss-detail')).toBeVisible()
   await expect(page.getByText('可用性')).toHaveCount(0)
+  await expect(page.getByText('30 天可用率')).toHaveCount(0)
 })
-

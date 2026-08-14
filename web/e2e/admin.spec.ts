@@ -64,6 +64,27 @@ async function waitForEditorReady(dialog: Locator) {
   await expect(dialog.locator('.el-loading-mask')).toHaveCount(0)
 }
 
+async function assertAdminContentScrolls(page: Page, lastItem: Locator) {
+  const content = page.locator('#main-content')
+  await expect(lastItem).toBeVisible()
+  const metrics = await content.evaluate((el: HTMLElement) => ({
+    scrollHeight: el.scrollHeight,
+    clientHeight: el.clientHeight,
+    windowY: window.scrollY,
+    topbarTop: document.querySelector<HTMLElement>('.admin-topbar')!.getBoundingClientRect().top,
+  }))
+  expect(metrics.scrollHeight).toBeGreaterThan(metrics.clientHeight)
+  expect(metrics.windowY).toBe(0)
+  expect(metrics.topbarTop).toBeGreaterThanOrEqual(0)
+  expect(metrics.topbarTop).toBeLessThan(2)
+  await expect(lastItem).not.toBeInViewport()
+  await content.evaluate((el: HTMLElement) => { el.scrollTop = el.scrollHeight })
+  await expect.poll(() => content.evaluate((el: HTMLElement) => el.scrollTop)).toBeGreaterThan(0)
+  await expect(lastItem).toBeInViewport()
+  expect(await page.evaluate(() => window.scrollY)).toBe(0)
+  expect(await page.locator('.admin-topbar').evaluate((el: HTMLElement) => el.getBoundingClientRect().top)).toBeLessThan(2)
+}
+
 test('creates a server with structured public notes and reusable installation credentials', async ({ page }) => {
   let submitted: Record<string, unknown> | undefined
   await mockServerEditorLookups(page)
@@ -115,16 +136,38 @@ test('shows a copyable agent upgrade command from host management', async ({ pag
   await expect(dialog.getByRole('button', { name: '复制升级命令' })).toBeVisible()
 })
 
+test('opens script commands drawer from the top bar', async ({ page }) => {
+  await page.route('**/api/v2/admin/script-commands', route => fulfillJSON(route, item({
+    commands: [
+      { id: 'dashboard_upgrade', group: 'dashboard', platform: 'linux', command: 'cd /opt/santaizi && docker compose pull && docker compose up -d', destructive: false },
+      { id: 'collector_upgrade', group: 'collector', platform: 'linux', command: "curl -fsSL 'https://example.invalid/upgrade_collector.sh' | bash", destructive: false },
+      { id: 'agent_upgrade_linux', group: 'agent', platform: 'linux', command: "curl -fsSL 'https://example.invalid/upgrade_agent.sh' | bash", destructive: false },
+    ],
+  })))
+
+  await page.goto('/admin/servers')
+  await page.getByRole('button', { name: '脚本命令' }).click()
+  const drawer = page.getByRole('dialog', { name: '脚本命令' })
+  await expect(drawer).toBeVisible()
+  await expect(drawer.getByText('升级主面板', { exact: true })).toBeVisible()
+  await expect(drawer.locator('textarea').first()).toHaveValue('cd /opt/santaizi && docker compose pull && docker compose up -d')
+  await expect(drawer.locator('textarea').nth(1)).toHaveValue("curl -fsSL 'https://example.invalid/upgrade_collector.sh' | bash")
+})
+
 test('manages multiple traffic policies inside the server editor', async ({ page }) => {
-  const policies: Record<string, unknown>[] = []
+  let payload: Record<string, unknown> | undefined
+  let policyWrites = 0
   await mockServerEditorLookups(page)
-  await page.route('**/api/v2/admin/servers**', route => {
-    if (route.request().method() === 'POST') return fulfillJSON(route, item({ id: 4, ...route.request().postDataJSON(), secret: 'server-secret' }), 201)
-    return fulfillJSON(route, list())
+  await page.route('**/api/v2/admin/servers/**/traffic-policies**', async route => {
+    policyWrites += 1
+    await fulfillJSON(route, item({}), 201)
   })
-  await page.route('**/api/v2/admin/servers/4/traffic-policies', route => {
-    policies.push(route.request().postDataJSON() as Record<string, unknown>)
-    return fulfillJSON(route, item({ id: policies.length, server_id: 4, ...policies.at(-1) }), 201)
+  await page.route('**/api/v2/admin/servers**', route => {
+    if (route.request().method() === 'POST') {
+      payload = route.request().postDataJSON() as Record<string, unknown>
+      return fulfillJSON(route, item({ id: 4, ...payload, secret: 'server-secret' }), 201)
+    }
+    return fulfillJSON(route, list())
   })
   await page.route('**/api/v2/admin/probe-capabilities', route => fulfillJSON(route, item(probeMetadata)))
   await page.route('**/api/v2/admin/servers/4/install-preview', route => fulfillJSON(route, item({ platform: 'linux', command: 'install santaizi-agent', clean_install: true, options: route.request().postDataJSON()?.options || {} })))
@@ -142,9 +185,65 @@ test('manages multiple traffic policies inside the server editor', async ({ page
   await cards.nth(1).getByLabel('名称').fill('Inbound cap')
   await dialog.getByRole('button', { name: '保存' }).click()
 
-  await expect.poll(() => policies).toHaveLength(2)
+  await expect.poll(() => payload).toBeTruthy()
+  const policies = payload?.traffic_policies as Record<string, unknown>[]
+  expect(policies).toHaveLength(2)
   expect(policies.map(policy => policy.name)).toEqual(['Monthly total', 'Inbound cap'])
   expect(policies.every(policy => policy.mode === 'recurring' && Boolean(policy.cycle_start))).toBe(true)
+  expect(policyWrites).toBe(0)
+})
+
+test('an unnamed traffic policy blocks the save before any server is created', async ({ page }) => {
+  let creates = 0
+  await mockServerEditorLookups(page)
+  await page.route('**/api/v2/admin/servers**', route => {
+    if (route.request().method() !== 'POST') return fulfillJSON(route, list())
+    creates += 1
+    return fulfillJSON(route, item({ id: 4, ...route.request().postDataJSON(), secret: 'server-secret' }), 201)
+  })
+
+  await page.goto('/admin/servers')
+  await page.getByRole('button', { name: '添加服务器' }).click()
+  const dialog = page.getByRole('dialog', { name: '添加服务器' })
+  await waitForEditorReady(dialog)
+  await dialog.getByLabel('服务器名称').fill('traffic-node')
+  await dialog.getByRole('tab', { name: '流量策略' }).click()
+  await dialog.getByRole('button', { name: '添加流量策略' }).click()
+  await dialog.getByRole('button', { name: '保存' }).click()
+
+  await expect(page.locator('.el-message').filter({ hasText: '流量策略缺少名称' })).toBeVisible()
+  await expect(dialog).toBeVisible()
+  expect(creates).toBe(0)
+})
+
+test('a rejected traffic policy does not create the server', async ({ page }) => {
+  let policyWrites = 0
+  await mockServerEditorLookups(page)
+  await page.route('**/api/v2/admin/servers/**/traffic-policies**', async route => {
+    policyWrites += 1
+    await fulfillJSON(route, item({}), 201)
+  })
+  await page.route('**/api/v2/admin/servers**', route => {
+    if (route.request().method() === 'POST') {
+      return fulfillJSON(route, JSON.stringify({ status: 400, code: 'invalid_traffic_policy', detail: 'traffic quota must be greater than zero' }), 400)
+    }
+    return fulfillJSON(route, list())
+  })
+
+  await page.goto('/admin/servers')
+  await page.getByRole('button', { name: '添加服务器' }).click()
+  const dialog = page.getByRole('dialog', { name: '添加服务器' })
+  await waitForEditorReady(dialog)
+  await dialog.getByLabel('服务器名称').fill('traffic-node')
+  await dialog.getByRole('tab', { name: '流量策略' }).click()
+  await dialog.getByRole('button', { name: '添加流量策略' }).click()
+  await dialog.locator('.traffic-policy-card').getByLabel('名称').fill('Monthly total')
+  await dialog.getByRole('button', { name: '保存' }).click()
+
+  await expect(page.locator('.el-notification').filter({ hasText: '流量策略无效' })).toBeVisible()
+  await expect(dialog).toBeVisible()
+  expect(policyWrites).toBe(0)
+  await expect(page.locator('.el-table').getByText('traffic-node')).toHaveCount(0)
 })
 
 test('service monitor uses typed target, notification group and searchable server transfer', async ({ page }) => {
@@ -340,11 +439,54 @@ test('overview counts live collectors and links to connection observation', asyn
     total_servers: 4, online_servers: 3, active_collectors: 2, collectors_offline: 1,
     paths_assigned: 4, paths_connected: 3, active_incidents: 0, data_loss: 0, telemetry_alerts: 1, telemetry_pending: 0,
   })))
+  await page.route('**/api/v2/admin/settings', route => fulfillJSON(route, item({ site_title: '三太子监控', primary_location: 'CN' })))
+  await page.route('**/api/v2/admin/servers**', route => fulfillJSON(route, list([
+    { id: 1, name: 'tokyo', tag: 'edge', display_index: 1, hide_for_guest: false, enable_ddns: false, online: true, host: { CountryCode: 'JP' }, public_note: { customData: { location: 'TYO' } } },
+    { id: 2, name: 'ghost', tag: 'edge', display_index: 2, hide_for_guest: false, enable_ddns: false, online: false },
+  ])))
+  await page.route('**/api/v2/admin/telemetry/collectors', route => fulfillJSON(route, list([{
+    id: 'collector-1', name: 'Shanghai edge', address: 'collector.example.com:5555', tls: true, insecure_tls: false,
+    location: 'CN', generation: 1, config_version: 1, status: 'online', revoked: false, heartbeat_rtt_ms: 18,
+    scopes: [{ type: 'all', value: '' }],
+  }])))
+  await page.route('**/api/v2/admin/connections/paths', route => fulfillJSON(route, list([
+    {
+      server_id: 1, server_name: 'tokyo', node_uuid: 'aa', observer_id: 'primary', observer_kind: 'primary', observer_name: '',
+      assigned: true, sink: { connected: true, last_rtt_ms: 12 },
+    },
+    {
+      server_id: 1, server_name: 'tokyo', node_uuid: 'aa', observer_id: 'collector-1', observer_kind: 'collector', observer_name: 'Shanghai edge',
+      assigned: true, sink: { connected: true, last_rtt_ms: 20 },
+    },
+  ])))
   await page.goto('/admin/')
   await expect(page.locator('.metric-card').filter({ hasText: '在线从端' }).locator('strong')).toHaveText('2')
-  await expect(page.getByRole('heading', { name: '连接摘要' })).toBeVisible()
-  await expect(page.locator('.connection-grid').getByText('从端离线')).toBeVisible()
-  await page.locator('.dashboard-panel').filter({ hasText: '连接摘要' }).getByRole('link', { name: /详情/ }).click()
+  await expect(page.getByRole('heading', { name: '全球链路' })).toBeVisible()
+  // 陆地来自随包资产：只画出海洋与经纬网说明地图没加载成功。
+  await page.waitForFunction(() => {
+    const canvas = document.querySelector<HTMLCanvasElement>('.topology-globe__canvas')
+    const ctx = canvas?.getContext('2d')
+    if (!canvas || !ctx) return false
+    const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    const near = (index: number, rgb: number[], slack = 40) =>
+      Math.abs(data[index]! - rgb[0]!) + Math.abs(data[index + 1]! - rgb[1]!) + Math.abs(data[index + 2]! - rgb[2]!) < slack
+    let land = 0
+    for (let index = 0; index < data.length; index += 4 * 13) {
+      if (data[index + 3] && near(index, [0xff, 0xff, 0xff]) && !near(index, [0xd0, 0xe6, 0xfa])) land += 1
+    }
+    return land > 20
+  })
+  await expect(page.locator('.topology-legend')).toContainText('主面板')
+  await expect(page.locator('.topology-globe__legend')).toBeVisible()
+  await expect(page.locator('.topology-unlocated')).toContainText('1 个节点未定位')
+  await expect(page.locator('.topology-panel > .section-title')).not.toContainText('详情')
+  await expect(page.locator('.latency-panel')).toContainText('tokyo')
+  await expect(page.locator('.latency-panel')).toContainText('12 ms')
+  await expect(page.locator('.latency-panel')).toContainText('ghost')
+  await expect(page.locator('.latency-panel')).toContainText('离线')
+  await expect(page.locator('.overview-top .quick-grid')).toContainText('添加服务器')
+  await expect(page.locator('.topology-panel')).not.toContainText('Shanghai edge')
+  await page.locator('.latency-panel > .section-title').getByRole('link', { name: /详情/ }).click()
   await expect(page).toHaveURL(/\/admin\/connections$/)
 })
 
@@ -413,12 +555,32 @@ test('server history drawer shows observer evidence and connection paths', async
   await page.route('**/api/v2/admin/servers**', route => {
     const path = new URL(route.request().url()).pathname
     if (path.endsWith('/availability')) {
-      return fulfillJSON(route, list([{
-        bucket_start: '2026-08-13T06:00:00Z', host: 'online', connectivity: 'full',
-        expected_observers: 1, healthy_observers: 1, seen_observers: 1,
-        observer_evidence: [{ observer_id: 'primary', healthy: true, seen: true }],
-        revision: 1, finalized: true,
-      }]))
+      return fulfillJSON(route, list([
+        {
+          bucket_start: '2026-08-13T06:00:00Z', host: 'online', connectivity: 'full',
+          expected_observers: 1, healthy_observers: 1, seen_observers: 1,
+          observer_evidence: [{ observer_id: 'primary', observer_kind: 'primary', healthy: true, seen: true }],
+          revision: 1, finalized: true,
+        },
+        {
+          bucket_start: '2026-08-13T06:00:30Z', host: 'online', connectivity: 'full',
+          expected_observers: 1, healthy_observers: 1, seen_observers: 1,
+          observer_evidence: [{ observer_id: 'primary', observer_kind: 'primary', healthy: true, seen: true }],
+          revision: 1, finalized: true,
+        },
+        {
+          bucket_start: '2026-08-13T06:01:00Z', host: 'online', connectivity: 'full',
+          expected_observers: 1, healthy_observers: 1, seen_observers: 1,
+          observer_evidence: [{ observer_id: 'primary', observer_kind: 'primary', healthy: true, seen: true }],
+          revision: 1, finalized: true,
+        },
+        {
+          bucket_start: '2026-08-13T06:02:00Z', host: 'online', connectivity: 'full',
+          expected_observers: 1, healthy_observers: 1, seen_observers: 1,
+          observer_evidence: [{ observer_id: 'primary', observer_kind: 'primary', healthy: true, seen: true }],
+          revision: 1, finalized: true,
+        },
+      ]))
     }
     return fulfillJSON(route, list([{
       id: 7, name: 'edge-a', tag: 'edge', online: true, public_note: {}, monitoring_options: {},
@@ -435,8 +597,11 @@ test('server history drawer shows observer evidence and connection paths', async
   await page.goto('/admin/servers')
   await expect(page.locator('.availability-entry').filter({ visible: true }).first()).toContainText('2/2')
   await page.locator('.availability-entry').filter({ visible: true }).first().click()
-  await expect(page.getByText('观测证据').filter({ visible: true })).toBeVisible()
-  await expect(page.getByText('主面板').filter({ visible: true })).toBeVisible()
+  const drawer = page.locator('.el-drawer').filter({ visible: true })
+  await expect(drawer.getByText('观测点').filter({ visible: true })).toBeVisible()
+  await expect(drawer.getByText('主面板').filter({ visible: true }).first()).toBeVisible()
+  await expect(drawer.getByText('可用率').filter({ visible: true })).toBeVisible()
+  await expect(drawer.locator('.availability-history-table .el-table__body .el-table__row')).toHaveCount(3)
   await page.getByRole('tab', { name: '节点连接' }).click()
   await expect(page.getByText('已连接').filter({ visible: true })).toBeVisible()
   await expect(page.getByText('9 ms').filter({ visible: true })).toBeVisible()
@@ -502,4 +667,26 @@ test('telemetry dataset tabs paginate incident revisions', async ({ page }) => {
   await expect(pagination.locator('.el-pagination__total')).toContainText('45')
   await pagination.locator('.btn-next').click()
   await expect.poll(() => pages.includes('2')).toBeTruthy()
+})
+
+test('narrow admin lists scroll inside admin-content without moving the topbar', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 667 })
+  const servers = [
+    { id: 1, name: 'LAX-ALPHA', tag: 'USA', display_index: 2000, online: true, last_active: '2026-08-14T03:36:00Z', host: { Platform: 'debian', ipv4: '192.0.2.10', ipv6: '2001:db8::10' }, public_note: {}, telemetry: { available: true, coverage: '2/2' } },
+    { id: 2, name: 'LAX-BRAVO', tag: 'USA', display_index: 1990, online: true, last_active: '2026-08-14T03:36:00Z', host: { Platform: 'debian', ipv4: '192.0.2.11', ipv6: '2001:db8::11' }, public_note: {}, telemetry: { available: true, coverage: '2/2' } },
+    { id: 3, name: 'NRT-CHARLIE', tag: 'JPN', display_index: 1980, online: false, last_active: '2026-08-13T12:00:00Z', host: { Platform: 'ubuntu', ipv4: '192.0.2.12', ipv6: '2001:db8::12' }, public_note: {}, telemetry: { available: false, coverage: '0/2' } },
+  ]
+  await page.route('**/api/v2/admin/servers**', route => fulfillJSON(route, list(servers)))
+  await page.goto('/admin/servers')
+  await expect(page.locator('.mobile-card').filter({ visible: true })).toHaveCount(3)
+  await assertAdminContentScrolls(page, page.locator('.mobile-card').filter({ visible: true }).last())
+
+  const monitors = Array.from({ length: 6 }, (_, i) => ({
+    id: i + 1, name: `probe-${i + 1}`, type: 'http', target: `https://example.test/${i + 1}`, interval_seconds: 30,
+    notify: false, notification_tag: '', scope: { mode: 'all', server_ids: [] },
+  }))
+  await page.route('**/api/v2/admin/monitors**', route => fulfillJSON(route, list(monitors)))
+  await page.goto('/admin/services')
+  await expect(page.locator('.mobile-card').filter({ visible: true })).toHaveCount(6)
+  await assertAdminContentScrolls(page, page.locator('.mobile-card').filter({ visible: true }).last())
 })
