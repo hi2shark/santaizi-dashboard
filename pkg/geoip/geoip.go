@@ -48,10 +48,10 @@ func loadDatabase() {
 		opened, err := maxminddb.Open(path) // #nosec G304 -- operator-configured GeoIP path
 		if err == nil {
 			db = opened
-			log.Printf("SANTAIZI>> GeoIP 已从 %s=%s 加载", envGeoIPDB, path)
+			log.Printf("SANTAIZI>> GeoIP 已从环境变量 %s 加载", envGeoIPDB)
 			return
 		}
-		log.Printf("SANTAIZI>> %s 无法打开，回退内嵌库: %v", envGeoIPDB, err)
+		log.Printf("SANTAIZI>> 环境变量 %s 指向的库无法打开，回退内嵌库", envGeoIPDB)
 	}
 
 	data, err := geoDBFS.ReadFile("geoip.db")
