@@ -103,10 +103,18 @@ docker compose up -d
 
 ### 更新
 
+主面板：
+
 ```bash
 cd /opt/santaizi
 docker compose pull
 docker compose up -d
+```
+
+从端：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/upgrade_collector.sh | bash
 ```
 
 ### 安装探针

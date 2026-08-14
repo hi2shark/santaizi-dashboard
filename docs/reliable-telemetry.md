@@ -56,3 +56,5 @@ Santaizi 采用单 Primary 控制面与多从端（Collector）探测面。探�
 本架构只支持版本化 Santaizi 数据库。若目标 SQLite 非空但没有 `schema_migrations`（从端为 `collector_schema_migrations`），进程会拒绝启动并提示配置空数据库；不会导入其他产品数据库、身份或协议状态。上线前请单独备份现有数据库、配置和凭证主密钥。
 
 发布顺序固定为：Primary → 从端 → 清洁安装探针。Dashboard 与 Agent 必须成对升级；不要将从端与探针角色混淆。
+
+已安装从端在本机执行 [`script/upgrade_collector.sh`](../script/upgrade_collector.sh)（或重跑安装脚本且不传 `--token`）即可拉取镜像并重建容器，不改配置与数据目录。指定版本：`bash -s -- v1.0.1`。

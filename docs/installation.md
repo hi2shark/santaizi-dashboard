@@ -89,6 +89,8 @@ curl -fsSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/
   --primary-tls
 ```
 
+已安装的从端可重跑该脚本（不必再传 token）以拉取新镜像并重建容器，配置与数据目录保留。也可使用专用升级脚本，见下文「更新 / 从端」。
+
 详细步骤见 [可靠探测运维指南](reliable-telemetry.md)。
 
 ---
@@ -210,6 +212,22 @@ cd ~/santaizi
 docker compose pull
 docker compose up -d
 ```
+
+### 从端
+
+已安装从端在本机执行升级脚本即可拉取 GHCR 镜像并重建容器，**不改**配置与数据目录。请先升级 Primary，再升级从端，最后升级探针。
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/upgrade_collector.sh | bash
+```
+
+指定版本（会改 compose 中的镜像标签后再拉取）：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/upgrade_collector.sh | bash -s -- v1.0.1
+```
+
+工作目录默认 `/opt/santaizi/collector`，可用 `--dir` 或 `SANTAIZI_COLLECTOR_DIR` 覆盖。也可重跑 `install_collector.sh` 且不传 `--token`。
 
 ### Agent
 
