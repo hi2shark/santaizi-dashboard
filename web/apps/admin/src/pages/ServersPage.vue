@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -13,6 +13,15 @@ import { batchDeleteServers, batchUpdateServerGroup, deleteOfflineHistory, delet
 import {formatAdminValue} from '@/composables/format'
 import { notifyAPIError } from '@/composables/notify'
 import { isRowSelected, toggleRowSelection } from '@/composables/selection'
+import { shortId } from '@/composables/shortId'
+import {
+  buildAvailabilitySegments,
+  coverageLabel,
+  formatDurationMs,
+  summarizeAvailability,
+  type AvailabilitySegment,
+  type ObserverEvidence,
+} from '@/domain/availability'
 import { hostAddresses } from '@/domain/hostAddress'
 import { parsePublicNote } from '@/domain/publicNote'
 
@@ -23,6 +32,8 @@ const items = ref<ServerRecord[]>([]), selected = ref<ServerRecord[]>([]), editi
 const total = ref(0)
 const query = reactive({ page: 1, page_size: 20, q: '', sort: 'display_index', order: 'desc' as const })
 const historyDrawer = ref(false), historyLoading = ref(false), historyServer = ref<ServerRecord>(), historyTab = ref('availability'), history = ref<ResourceRecord[]>([]), availability = ref<ResourceRecord[]>([]), connectionPaths = ref<ConnectionPath[]>([])
+const availabilityHours = ref(6)
+const availabilityRangeOptions = [1, 6, 24]
 const sortDraft = ref<Record<number, string>>({})
 const sortSaving = ref<Record<number, boolean>>({})
 const hoverCapable = ref(false)
@@ -81,11 +92,10 @@ function availabilityIcon(server: ServerRecord) {
   return 'ri-question-fill'
 }
 function display(value: unknown, key: string) { return formatAdminValue(value, key, locale.value, t as never, te) }
-function observerName(id: string) { return id === 'primary' ? t('observerKindPrimary') : id }
-function seenObserverText(row: ResourceRecord) {
-  const evidence = Array.isArray(row.observer_evidence) ? row.observer_evidence as Array<{ observer_id?: string; seen?: boolean }> : []
-  const names = evidence.filter(item => item.seen && item.observer_id).map(item => observerName(String(item.observer_id)))
-  return names.length ? names.join(', ') : '—'
+function observerLabel(item: { observer_kind?: string; observer_name?: string; observer_id?: string }) {
+  if (item.observer_kind === 'primary' || item.observer_id === 'primary') return t('observerKindPrimary')
+  const name = item.observer_name || item.observer_id || ''
+  return name ? shortId(name) : '—'
 }
 function pathRowKey(row: ConnectionPath) { return `${row.node_uuid}:${row.observer_id}` }
 function pathObserverLabel(path: ConnectionPath) {
@@ -98,25 +108,83 @@ function showUpgrade(server: ServerRecord) { upgradeServer.value = server; upgra
 async function resetSecret(server: ServerRecord) { await ElMessageBox.confirm(t('confirmResetSecret'), t('confirm'), { type: 'warning' }); try { const result = await resetServerSecret(server.id); showInstall(server, result.secret) } catch (error) { notifyAPIError(error, t as never, te) } }
 async function resetAvailabilityHistory(server: ServerRecord) { await ElMessageBox.confirm(t('confirmResetAvailability'), t('confirm'), { type: 'warning' }); try { await resetServerAvailability(server.id); await load(); ElMessage.success(t('saveSuccess')) } catch (error) { notifyAPIError(error, t as never, te) } }
 async function saved(server: ServerRecord, created: boolean) { await load(); if (created) showInstall(server, server.secret || '') }
+async function loadAvailabilityHistory(server: ServerRecord) {
+  const to = new Date()
+  const from = new Date(to.getTime() - availabilityHours.value * 3600 * 1000)
+  const rows: ResourceRecord[] = []
+  let cursor: string | undefined
+  for (let page = 0; page < 3; page++) {
+    const result = await listServerAvailability(server.id, {
+      from: from.toISOString(),
+      to: to.toISOString(),
+      limit: 1000,
+      cursor,
+    })
+    rows.push(...result.data)
+    cursor = result.meta.next_cursor
+    if (!cursor) break
+  }
+  availability.value = rows
+}
 async function showHistory(server: ServerRecord) {
   historyServer.value = server
   historyDrawer.value = true
   historyTab.value = 'availability'
   historyLoading.value = true
+  history.value = []
+  availability.value = []
+  connectionPaths.value = []
   try {
-    const [offline, buckets, paths] = await Promise.all([
-      listOfflineHistory(server.id),
-      listServerAvailability(server.id, { limit: 200 }),
-      listConnectionPaths({ server_id: server.id }),
+    await Promise.all([
+      listOfflineHistory(server.id).then(result => { history.value = result.data }),
+      listConnectionPaths({ server_id: server.id }).then(result => { connectionPaths.value = result.data }),
+      loadAvailabilityHistory(server),
     ])
-    history.value = offline.data
-    availability.value = buckets.data
-    connectionPaths.value = paths.data
   } catch (error) {
     notifyAPIError(error, t as never, te)
   } finally {
     historyLoading.value = false
   }
+}
+async function onAvailabilityRangeChange() {
+  const server = historyServer.value
+  if (!server || !historyDrawer.value) return
+  historyLoading.value = true
+  try {
+    await loadAvailabilityHistory(server)
+  } catch (error) {
+    notifyAPIError(error, t as never, te)
+  } finally {
+    historyLoading.value = false
+  }
+}
+const availabilitySegmentsAsc = computed(() => buildAvailabilitySegments(availability.value))
+const availabilitySegments = computed(() => [...availabilitySegmentsAsc.value].reverse())
+const availabilitySummary = computed(() => summarizeAvailability(availabilitySegmentsAsc.value))
+function segmentTone(segment: AvailabilitySegment) {
+  if (segment.kind === 'gap') return ''
+  if (segment.connectivity === 'full') return 'online'
+  if (segment.connectivity === 'partial') return 'degraded'
+  if (segment.connectivity === 'unavailable') return 'offline'
+  return ''
+}
+function segmentStatusText(segment: AvailabilitySegment) {
+  if (segment.kind === 'gap') return t('noObservation')
+  const host = te(segment.host) ? t(segment.host) : (segment.host || t('unknown'))
+  const connectivity = te(segment.connectivity) ? t(segment.connectivity) : (segment.connectivity || t('unknown'))
+  return `${host} · ${connectivity}`
+}
+function segmentObserverText(segment: AvailabilitySegment) {
+  if (segment.kind === 'gap') return '—'
+  const names = segment.observerEvidence.filter(item => item.seen).map(item => observerLabel(item))
+  return names.length ? names.join(', ') : '—'
+}
+function observerDetail(item: ObserverEvidence) {
+  return `${observerLabel(item)} · ${t(item.seen ? 'yes' : 'no')} / ${t(item.healthy ? 'healthy' : 'degraded')}`
+}
+function percentText(value: number | null) {
+  if (value == null) return '—'
+  return `${new Intl.NumberFormat(locale.value, { maximumFractionDigits: 1 }).format(value)}%`
 }
 async function removeHistory(row: ResourceRecord) { await ElMessageBox.confirm(t('confirmDelete'), t('dangerousAction'), { type: 'warning' }); await deleteOfflineHistory(Number(row.id)); await showHistory(historyServer.value!) }
 
@@ -183,7 +251,7 @@ onUnmounted(() => { hoverMedia?.removeEventListener('change', onHoverMediaChange
           </div>
         </template>
       </el-table-column>
-      <el-table-column :label="t('note')" width="120" align="center">
+      <el-table-column :label="t('note')" width="72" align="center">
         <template #default="{row}">
           <el-tooltip v-if="hasAdminNote(row)" :disabled="!hoverCapable || noteDialog" placement="top" :show-after="300" :enterable="true">
             <template #content>
@@ -330,16 +398,40 @@ onUnmounted(() => { hoverMedia?.removeEventListener('change', onHoverMediaChange
   </AppDialog>
   <AppDrawer v-model="historyDrawer" :title="`${t('availabilityHistory')} · ${historyServer?.name || ''}`" mode="view" size="min(980px,96vw)">
     <el-tabs v-model="historyTab">
-      <el-tab-pane :label="t('availabilityHistory')" name="availability">
-        <el-table v-loading="historyLoading" :data="availability">
-          <el-table-column prop="bucket_start" :label="t('bucketStart')" min-width="190"><template #default="{row}">{{display(row.bucket_start,'bucket_start')}}</template></el-table-column>
-          <el-table-column prop="host" :label="t('host')" width="120"><template #default="{row}">{{t(String(row.host||'unknown'))}}</template></el-table-column>
-          <el-table-column prop="connectivity" :label="t('connectivity')" width="140"><template #default="{row}">{{t(String(row.connectivity||'unknown'))}}</template></el-table-column>
-          <el-table-column prop="expected_observers" :label="t('expectedObservers')" width="130"/>
-          <el-table-column prop="healthy_observers" :label="t('healthyObservers')" width="130"/>
-          <el-table-column prop="seen_observers" :label="t('seenObservers')" width="120"/>
-          <el-table-column :label="t('observerEvidence')" min-width="180"><template #default="{row}">{{ seenObserverText(row) }}</template></el-table-column>
-          <el-table-column prop="revision" :label="t('revision')" width="90"/>
+      <el-tab-pane :label="t('availability')" name="availability">
+        <div class="availability-toolbar">
+          <el-select v-model="availabilityHours" class="toolbar-filter" @change="onAvailabilityRangeChange">
+            <el-option v-for="hours in availabilityRangeOptions" :key="hours" :label="t('rangeLastHours', { hours })" :value="hours" />
+          </el-select>
+          <div v-if="availabilitySummary.windowStart" class="availability-summary">
+            <span>{{ t('availabilityRate') }} <strong>{{ percentText(availabilitySummary.availablePercent) }}</strong></span>
+            <span>{{ t('outages') }} <strong>{{ availabilitySummary.outageCount }}</strong></span>
+            <span v-if="availabilitySummary.gapMs">{{ t('noObservation') }} <strong>{{ formatDurationMs(availabilitySummary.gapMs) }}</strong></span>
+          </div>
+        </div>
+        <el-table class="availability-history-table" v-loading="historyLoading" table-layout="fixed" :data="availabilitySegments">
+          <el-table-column :label="t('status')" min-width="160">
+            <template #default="{row}">
+              <span class="state-label"><span class="status-dot" :class="segmentTone(row)"></span>{{ segmentStatusText(row) }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column :label="t('startedAt')" min-width="170"><template #default="{row}">{{ display(new Date(row.start).toISOString(), 'started_at') }}</template></el-table-column>
+          <el-table-column :label="t('endedAt')" min-width="170"><template #default="{row}">{{ display(new Date(row.end).toISOString(), 'ended_at') }}</template></el-table-column>
+          <el-table-column :label="t('lasted')" width="110"><template #default="{row}">{{ formatDurationMs(row.end - row.start) }}</template></el-table-column>
+          <el-table-column :label="t('coverage')" width="110"><template #default="{row}">{{ coverageLabel(row) }}</template></el-table-column>
+          <el-table-column :label="t('observers')" min-width="160">
+            <template #default="{row}">
+              <el-tooltip :disabled="row.kind === 'gap' || !row.observerEvidence.length" placement="top" :show-after="300">
+                <template #content>
+                  <div class="availability-observers">
+                    <div v-for="item in row.observerEvidence" :key="item.observer_id">{{ observerDetail(item) }}</div>
+                  </div>
+                </template>
+                <span class="cell-ellipsis">{{ segmentObserverText(row) }}</span>
+              </el-tooltip>
+            </template>
+          </el-table-column>
+          <template #empty><AppEmpty icon="ri-history-line" :description="t('noData')"/></template>
         </el-table>
       </el-tab-pane>
       <el-tab-pane :label="t('nodeLinks')" name="connections">
