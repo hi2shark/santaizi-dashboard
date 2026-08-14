@@ -29,6 +29,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Reject tracked development secrets
+        shell: bash
+        run: bash script/check-no-dev-secrets.sh
+
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod

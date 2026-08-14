@@ -15,10 +15,14 @@
 /data
 /bin
 /dist
+.env
+.env.*
+!.env.example
 .DS_Store
 /main
 /cmd/dashboard/main
 /config.yml
+*.mmdb
 /resource/template/theme-custom
 /resource/static/custom
 

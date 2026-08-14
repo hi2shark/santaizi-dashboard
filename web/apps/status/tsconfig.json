@@ -9,7 +9,6 @@
   "include": [
     "src/**/*.ts",
     "src/**/*.vue",
-    "vite.config.ts",
     "../../packages/theme-nazhua/src/**/*.ts",
     "../../packages/theme-nazhua/src/**/*.vue",
     "../../packages/theme-server-status/src/**/*.ts",
