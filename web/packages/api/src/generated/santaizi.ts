@@ -77,6 +77,7 @@ import type {
   ProbeCapabilitiesResponseResponse,
   PublicAvailabilityResponseResponse,
   PublicMetricListResponseResponse,
+  ScriptCommandsResponseResponse,
   ServerCredentialResponseResponse,
   ServerDisplayIndexWriteBody,
   ServerGroupListResponseResponse,
@@ -278,6 +279,7 @@ const listServers = (
     }
 
 /**
+ * 可选 `traffic_policies` 与服务器在同一事务写入；缺省不创建策略。
  * @summary 创建服务器
  */
 const createServer = (
@@ -305,6 +307,7 @@ const getServer = (
     }
 
 /**
+ * 可选 `traffic_policies` 按 id upsert、缺席删除；缺省不动既有策略。
  * @summary 更新服务器
  */
 const updateServer = (
@@ -947,6 +950,7 @@ const deleteNATTunnel = (
  * 返回当前站点设置。网络相关字段包括 `grpc_host`（公网地址）、
  * `proxy_grpc_port`（公网 gRPC 端口，0 表示使用监听端口 `grpcport`）、
  * `tls`（探针安装命令是否附加 `--tls` / `-Tls`）。
+ * `primary_location` 为主面板在地球上的位置（ISO 国家/地区码或 `lat,lon`）。
  * @summary 获取站点设置
  */
 const getSettings = (
@@ -961,6 +965,7 @@ const getSettings = (
 /**
  * 更新并保存站点设置。可写入 `grpc_host`、`proxy_grpc_port`（0–65535，0 表示使用监听端口）
  * 和 `tls`。这两项用于生成探针/从端安装命令中的公网端口与 TLS 标志，不改变本机 gRPC 监听端口。
+ * 可写入 `primary_location`（ISO 国家/地区码或 `lat,lon`，最多 64 字符）。
  * @summary 更新站点设置
  */
 const updateSettings = (
@@ -970,6 +975,19 @@ const updateSettings = (
       {url: `/api/v2/admin/settings`, method: 'PATCH',
       headers: {'Content-Type': 'application/json', },
       data: genericObjectBody
+    },
+      );
+    }
+
+/**
+ * 返回主面板、从端、探针的通用安装/升级/卸载命令。脚本地址来自 `installscript` 配置；不含密钥或 Token。
+ * @summary 列出可复制的无参脚本命令
+ */
+const listScriptCommands = (
+
+ ) => {
+      return santaiziRequest<ScriptCommandsResponseResponse>(
+      {url: `/api/v2/admin/script-commands`, method: 'GET'
     },
       );
     }
@@ -1337,7 +1355,7 @@ const listTelemetryAlerts = (
       );
     }
 
-return {getSession,logout,getPublicBootstrap,createViewPasswordSession,listPublicServers,getPublicServer,listPublicServices,getPublicNetworkHistory,listPublicCycleTransfer,getPublicServerAvailability,getPublicMetrics,getAdminSummary,listServers,createServer,getServer,updateServer,deleteServer,listServerAvailability,updateServerDisplayIndex,listServerGroups,renameServerGroup,resetServerSecret,resetServerAvailability,getServerCredential,getServerInstallPreview,getServerUpgradePreview,getProbeCapabilities,listTrafficPolicies,createTrafficPolicy,getTrafficPolicy,updateTrafficPolicy,deleteTrafficPolicy,getTrafficPolicyUsage,batchUpdateServerGroup,batchDeleteServers,listMonitors,createMonitor,getMonitor,updateMonitor,deleteMonitor,listMonitorHistory,listNotifications,createNotification,getNotification,updateNotification,deleteNotification,testNotification,listAlertRules,createAlertRule,getAlertRule,updateAlertRule,deleteAlertRule,listDDNSProviders,listDDNSProfiles,createDDNSProfile,getDDNSProfile,updateDDNSProfile,deleteDDNSProfile,listNATTunnels,createNATTunnel,getNATTunnel,updateNATTunnel,deleteNATTunnel,getSettings,updateSettings,listApiTokens,createApiToken,getApiToken,patchApiToken,deleteApiToken,listOfflineHistory,deleteOfflineHistory,cleanupOfflineHistory,getTelemetryOverview,getConnectionSummary,listConnectionPaths,listConnectionLatency,listCollectors,createCollector,getCollector,updateCollector,deleteCollector,rotateCollectorToken,getCollectorToken,revokeCollector,updateCollectorScope,getCollectorInstallPreview,listObserverAssignments,listAgentReliability,listIncidents,listIncidentRevisions,listTelemetryDataLoss,listTelemetryAlerts}};
+return {getSession,logout,getPublicBootstrap,createViewPasswordSession,listPublicServers,getPublicServer,listPublicServices,getPublicNetworkHistory,listPublicCycleTransfer,getPublicServerAvailability,getPublicMetrics,getAdminSummary,listServers,createServer,getServer,updateServer,deleteServer,listServerAvailability,updateServerDisplayIndex,listServerGroups,renameServerGroup,resetServerSecret,resetServerAvailability,getServerCredential,getServerInstallPreview,getServerUpgradePreview,getProbeCapabilities,listTrafficPolicies,createTrafficPolicy,getTrafficPolicy,updateTrafficPolicy,deleteTrafficPolicy,getTrafficPolicyUsage,batchUpdateServerGroup,batchDeleteServers,listMonitors,createMonitor,getMonitor,updateMonitor,deleteMonitor,listMonitorHistory,listNotifications,createNotification,getNotification,updateNotification,deleteNotification,testNotification,listAlertRules,createAlertRule,getAlertRule,updateAlertRule,deleteAlertRule,listDDNSProviders,listDDNSProfiles,createDDNSProfile,getDDNSProfile,updateDDNSProfile,deleteDDNSProfile,listNATTunnels,createNATTunnel,getNATTunnel,updateNATTunnel,deleteNATTunnel,getSettings,updateSettings,listScriptCommands,listApiTokens,createApiToken,getApiToken,patchApiToken,deleteApiToken,listOfflineHistory,deleteOfflineHistory,cleanupOfflineHistory,getTelemetryOverview,getConnectionSummary,listConnectionPaths,listConnectionLatency,listCollectors,createCollector,getCollector,updateCollector,deleteCollector,rotateCollectorToken,getCollectorToken,revokeCollector,updateCollectorScope,getCollectorInstallPreview,listObserverAssignments,listAgentReliability,listIncidents,listIncidentRevisions,listTelemetryDataLoss,listTelemetryAlerts}};
 export type GetSessionResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getSession']>>>
 export type LogoutResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['logout']>>>
 export type GetPublicBootstrapResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getPublicBootstrap']>>>
@@ -1403,6 +1421,7 @@ export type UpdateNATTunnelResult = NonNullable<Awaited<ReturnType<ReturnType<ty
 export type DeleteNATTunnelResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['deleteNATTunnel']>>>
 export type GetSettingsResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getSettings']>>>
 export type UpdateSettingsResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['updateSettings']>>>
+export type ListScriptCommandsResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['listScriptCommands']>>>
 export type ListApiTokensResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['listApiTokens']>>>
 export type CreateApiTokenResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['createApiToken']>>>
 export type GetApiTokenResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getApiToken']>>>

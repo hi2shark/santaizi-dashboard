@@ -12,6 +12,7 @@ import type { PublicNote } from './publicNote';
 import type { ServerHost } from './serverHost';
 import type { ServerState } from './serverState';
 import type { TelemetryPresentation } from './telemetryPresentation';
+import type { TrafficPolicy } from './trafficPolicy';
 
 export interface Server {
   id: number;
@@ -30,4 +31,6 @@ export interface Server {
   last_active?: string;
   online?: boolean;
   telemetry?: TelemetryPresentation;
+  /** 仅创建/更新响应填充；列表接口不带。 */
+  traffic_policies?: TrafficPolicy[];
 }

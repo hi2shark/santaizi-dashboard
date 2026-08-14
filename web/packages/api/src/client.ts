@@ -6,7 +6,7 @@ import type {
   IncidentRecord, IncidentRevisionRecord, InstallPreview, InstallPreviewWriteBody, ListConnectionLatencyParams, Monitor, MonitorWriteBody, NATTunnel,
   NATTunnelWriteBody, NotificationChannel, NotificationChannelWriteBody, ObserverAssignmentRecord,
   ProbeCapabilities, ServerCredential, ServerDisplayIndexWriteBody, ServerGroup,
-  ServerGroupRenameWriteBody, ServerWriteBody, TelemetryAlertRecord, TelemetryDataLossRecord, TrafficPolicy,
+  ServerGroupRenameWriteBody, ServerWriteBody, ScriptCommands, TelemetryAlertRecord, TelemetryDataLossRecord, TrafficPolicy,
   TrafficPolicyWriteBody, TrafficUsage, UpgradePreview, UpgradePreviewWriteBody,
   CycleTransfer, GetPublicMetricsParams, GetPublicServerAvailabilityParams, MonitorHistory, PublicAvailability, PublicMetricPoint,
 } from './generated/model'
@@ -60,6 +60,7 @@ export const renameServerGroup = (body: ServerGroupRenameWriteBody) => api.renam
 export const getServerCredential = (id: number) => api.getServerCredential(id).then(value => data<ServerCredential>(value))
 export const getServerInstallPreview = (id: number, body: InstallPreviewWriteBody) => api.getServerInstallPreview(id, body).then(value => data<InstallPreview>(value))
 export const getServerUpgradePreview = (id: number, body: UpgradePreviewWriteBody) => api.getServerUpgradePreview(id, body).then(value => data<UpgradePreview>(value))
+export const listScriptCommands = () => api.listScriptCommands().then(value => data<ScriptCommands>(value))
 export const getProbeCapabilities = () => api.getProbeCapabilities().then(value => data<ProbeCapabilities>(value))
 export const listServerAvailability = (serverId: number, params: { from?: string; to?: string; limit?: number; cursor?: string } = {}) => api.listServerAvailability(serverId, params).then(value => list<ResourceRecord>(value))
 

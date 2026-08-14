@@ -658,6 +658,90 @@ func (e PublicNotePlanIPv6) Valid() bool {
 	}
 }
 
+// Defines values for ScriptCommandGroup.
+const (
+	ScriptCommandGroupAgent     ScriptCommandGroup = "agent"
+	ScriptCommandGroupCollector ScriptCommandGroup = "collector"
+	ScriptCommandGroupDashboard ScriptCommandGroup = "dashboard"
+)
+
+// Valid indicates whether the value is a known member of the ScriptCommandGroup enum.
+func (e ScriptCommandGroup) Valid() bool {
+	switch e {
+	case ScriptCommandGroupAgent:
+		return true
+	case ScriptCommandGroupCollector:
+		return true
+	case ScriptCommandGroupDashboard:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ScriptCommandId.
+const (
+	AgentUninstallPosix   ScriptCommandId = "agent_uninstall_posix"
+	AgentUninstallWindows ScriptCommandId = "agent_uninstall_windows"
+	AgentUpgradeLinux     ScriptCommandId = "agent_upgrade_linux"
+	AgentUpgradeMacos     ScriptCommandId = "agent_upgrade_macos"
+	AgentUpgradeWindows   ScriptCommandId = "agent_upgrade_windows"
+	CollectorRemove       ScriptCommandId = "collector_remove"
+	CollectorUpgrade      ScriptCommandId = "collector_upgrade"
+	DashboardInstall      ScriptCommandId = "dashboard_install"
+	DashboardUpgrade      ScriptCommandId = "dashboard_upgrade"
+)
+
+// Valid indicates whether the value is a known member of the ScriptCommandId enum.
+func (e ScriptCommandId) Valid() bool {
+	switch e {
+	case AgentUninstallPosix:
+		return true
+	case AgentUninstallWindows:
+		return true
+	case AgentUpgradeLinux:
+		return true
+	case AgentUpgradeMacos:
+		return true
+	case AgentUpgradeWindows:
+		return true
+	case CollectorRemove:
+		return true
+	case CollectorUpgrade:
+		return true
+	case DashboardInstall:
+		return true
+	case DashboardUpgrade:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ScriptCommandPlatform.
+const (
+	ScriptCommandPlatformLinux   ScriptCommandPlatform = "linux"
+	ScriptCommandPlatformMacos   ScriptCommandPlatform = "macos"
+	ScriptCommandPlatformPosix   ScriptCommandPlatform = "posix"
+	ScriptCommandPlatformWindows ScriptCommandPlatform = "windows"
+)
+
+// Valid indicates whether the value is a known member of the ScriptCommandPlatform enum.
+func (e ScriptCommandPlatform) Valid() bool {
+	switch e {
+	case ScriptCommandPlatformLinux:
+		return true
+	case ScriptCommandPlatformMacos:
+		return true
+	case ScriptCommandPlatformPosix:
+		return true
+	case ScriptCommandPlatformWindows:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TelemetryDataLossRecordReason.
 const (
 	TelemetryDataLossRecordReasonCompacted         TelemetryDataLossRecordReason = "compacted"
@@ -787,6 +871,72 @@ func (e TrafficPolicyMode) Valid() bool {
 	case TrafficPolicyModeCumulative:
 		return true
 	case TrafficPolicyModeRecurring:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TrafficPolicyUpsertCycleUnit.
+const (
+	TrafficPolicyUpsertCycleUnitDay   TrafficPolicyUpsertCycleUnit = "day"
+	TrafficPolicyUpsertCycleUnitHour  TrafficPolicyUpsertCycleUnit = "hour"
+	TrafficPolicyUpsertCycleUnitMonth TrafficPolicyUpsertCycleUnit = "month"
+	TrafficPolicyUpsertCycleUnitWeek  TrafficPolicyUpsertCycleUnit = "week"
+	TrafficPolicyUpsertCycleUnitYear  TrafficPolicyUpsertCycleUnit = "year"
+)
+
+// Valid indicates whether the value is a known member of the TrafficPolicyUpsertCycleUnit enum.
+func (e TrafficPolicyUpsertCycleUnit) Valid() bool {
+	switch e {
+	case TrafficPolicyUpsertCycleUnitDay:
+		return true
+	case TrafficPolicyUpsertCycleUnitHour:
+		return true
+	case TrafficPolicyUpsertCycleUnitMonth:
+		return true
+	case TrafficPolicyUpsertCycleUnitWeek:
+		return true
+	case TrafficPolicyUpsertCycleUnitYear:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TrafficPolicyUpsertDirection.
+const (
+	TrafficPolicyUpsertDirectionInbound  TrafficPolicyUpsertDirection = "inbound"
+	TrafficPolicyUpsertDirectionOutbound TrafficPolicyUpsertDirection = "outbound"
+	TrafficPolicyUpsertDirectionTotal    TrafficPolicyUpsertDirection = "total"
+)
+
+// Valid indicates whether the value is a known member of the TrafficPolicyUpsertDirection enum.
+func (e TrafficPolicyUpsertDirection) Valid() bool {
+	switch e {
+	case TrafficPolicyUpsertDirectionInbound:
+		return true
+	case TrafficPolicyUpsertDirectionOutbound:
+		return true
+	case TrafficPolicyUpsertDirectionTotal:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TrafficPolicyUpsertMode.
+const (
+	TrafficPolicyUpsertModeCumulative TrafficPolicyUpsertMode = "cumulative"
+	TrafficPolicyUpsertModeRecurring  TrafficPolicyUpsertMode = "recurring"
+)
+
+// Valid indicates whether the value is a known member of the TrafficPolicyUpsertMode enum.
+func (e TrafficPolicyUpsertMode) Valid() bool {
+	switch e {
+	case TrafficPolicyUpsertModeCumulative:
+		return true
+	case TrafficPolicyUpsertModeRecurring:
 		return true
 	default:
 		return false
@@ -1269,17 +1419,20 @@ type BootstrapTheme string
 
 // Collector defines model for Collector.
 type Collector struct {
-	Address                 string            `json:"address"`
-	ConfigVersion           int64             `json:"config_version"`
-	ConnectedAgents         *int64            `json:"connected_agents,omitempty"`
-	Generation              int64             `json:"generation"`
-	HeartbeatRttMs          *float64          `json:"heartbeat_rtt_ms,omitempty"`
-	HeartbeatRttSampledAt   *time.Time        `json:"heartbeat_rtt_sampled_at,omitempty"`
-	Id                      string            `json:"id"`
-	InsecureTls             bool              `json:"insecure_tls"`
-	LastPrimarySeen         *time.Time        `json:"last_primary_seen,omitempty"`
-	LastSeen                *time.Time        `json:"last_seen,omitempty"`
-	LastSync                *time.Time        `json:"last_sync,omitempty"`
+	Address               string     `json:"address"`
+	ConfigVersion         int64      `json:"config_version"`
+	ConnectedAgents       *int64     `json:"connected_agents,omitempty"`
+	Generation            int64      `json:"generation"`
+	HeartbeatRttMs        *float64   `json:"heartbeat_rtt_ms,omitempty"`
+	HeartbeatRttSampledAt *time.Time `json:"heartbeat_rtt_sampled_at,omitempty"`
+	Id                    string     `json:"id"`
+	InsecureTls           bool       `json:"insecure_tls"`
+	LastPrimarySeen       *time.Time `json:"last_primary_seen,omitempty"`
+	LastSeen              *time.Time `json:"last_seen,omitempty"`
+	LastSync              *time.Time `json:"last_sync,omitempty"`
+
+	// Location 从端在地球上的位置，ISO 国家/地区码或 `lat,lon`
+	Location                *string           `json:"location,omitempty"`
 	Name                    string            `json:"name"`
 	OldestPending           *time.Time        `json:"oldest_pending,omitempty"`
 	PendingRecords          *int64            `json:"pending_records,omitempty"`
@@ -1345,6 +1498,7 @@ type CollectorToken struct {
 type CollectorWrite struct {
 	Address     string           `json:"address"`
 	InsecureTls *bool            `json:"insecure_tls,omitempty"`
+	Location    *string          `json:"location,omitempty"`
 	Name        string           `json:"name"`
 	Scopes      []CollectorScope `json:"scopes"`
 	Tls         *bool            `json:"tls,omitempty"`
@@ -1846,6 +2000,29 @@ type PublicNotePresentation struct {
 	AdditionalProperties map[string]interface{} `json:"-"`
 }
 
+// ScriptCommand defines model for ScriptCommand.
+type ScriptCommand struct {
+	Command     string                `json:"command"`
+	Destructive bool                  `json:"destructive"`
+	Group       ScriptCommandGroup    `json:"group"`
+	Id          ScriptCommandId       `json:"id"`
+	Platform    ScriptCommandPlatform `json:"platform"`
+}
+
+// ScriptCommandGroup defines model for ScriptCommand.Group.
+type ScriptCommandGroup string
+
+// ScriptCommandId defines model for ScriptCommand.Id.
+type ScriptCommandId string
+
+// ScriptCommandPlatform defines model for ScriptCommand.Platform.
+type ScriptCommandPlatform string
+
+// ScriptCommands defines model for ScriptCommands.
+type ScriptCommands struct {
+	Commands []ScriptCommand `json:"commands"`
+}
+
 // SensorTemperature defines model for SensorTemperature.
 type SensorTemperature struct {
 	Name        *string  `json:"Name,omitempty"`
@@ -1878,6 +2055,9 @@ type Server struct {
 	State     *ServerState           `json:"state,omitempty"`
 	Tag       string                 `json:"tag"`
 	Telemetry *TelemetryPresentation `json:"telemetry,omitempty"`
+
+	// TrafficPolicies 仅创建/更新响应填充；列表接口不带。
+	TrafficPolicies *[]TrafficPolicy `json:"traffic_policies,omitempty"`
 }
 
 // ServerCredential defines model for ServerCredential.
@@ -1982,6 +2162,9 @@ type ServerWrite struct {
 	Note              *string            `json:"note,omitempty"`
 	PublicNote        *PublicNote        `json:"public_note,omitempty"`
 	Tag               *string            `json:"tag,omitempty"`
+
+	// TrafficPolicies 缺省不动既有策略；传数组则以这份为准（含空数组清空）。
+	TrafficPolicies *[]TrafficPolicyUpsert `json:"traffic_policies,omitempty"`
 }
 
 // Session defines model for Session.
@@ -2066,6 +2249,32 @@ type TrafficPolicyDirection string
 
 // TrafficPolicyMode defines model for TrafficPolicy.Mode.
 type TrafficPolicyMode string
+
+// TrafficPolicyUpsert defines model for TrafficPolicyUpsert.
+type TrafficPolicyUpsert struct {
+	CycleInterval *int64                        `json:"cycle_interval,omitempty"`
+	CycleStart    *time.Time                    `json:"cycle_start,omitempty"`
+	CycleUnit     *TrafficPolicyUpsertCycleUnit `json:"cycle_unit,omitempty"`
+	Direction     TrafficPolicyUpsertDirection  `json:"direction"`
+	Enabled       bool                          `json:"enabled"`
+
+	// Id 已有策略的 ID；缺省视为新建。
+	Id              *int64                  `json:"id,omitempty"`
+	Mode            TrafficPolicyUpsertMode `json:"mode"`
+	Name            string                  `json:"name"`
+	NotificationTag *string                 `json:"notification_tag,omitempty"`
+	QuotaBytes      int64                   `json:"quota_bytes"`
+	WarningPercent  float32                 `json:"warning_percent"`
+}
+
+// TrafficPolicyUpsertCycleUnit defines model for TrafficPolicyUpsert.CycleUnit.
+type TrafficPolicyUpsertCycleUnit string
+
+// TrafficPolicyUpsertDirection defines model for TrafficPolicyUpsert.Direction.
+type TrafficPolicyUpsertDirection string
+
+// TrafficPolicyUpsertMode defines model for TrafficPolicyUpsert.Mode.
+type TrafficPolicyUpsertMode string
 
 // TrafficPolicyWrite defines model for TrafficPolicyWrite.
 type TrafficPolicyWrite struct {
@@ -2361,6 +2570,11 @@ type PublicAvailabilityResponse struct {
 type PublicMetricListResponse struct {
 	Data []PublicMetricPoint `json:"data"`
 	Meta Meta                `json:"meta"`
+}
+
+// ScriptCommandsResponse defines model for ScriptCommandsResponse.
+type ScriptCommandsResponse struct {
+	Data ScriptCommands `json:"data"`
 }
 
 // ServerCredentialResponse defines model for ServerCredentialResponse.
@@ -3662,6 +3876,9 @@ type ServerInterface interface {
 	// GetProbeCapabilities 探针能力清单
 	// (GET /api/v2/admin/probe-capabilities)
 	GetProbeCapabilities(c *gin.Context)
+	// ListScriptCommands 列出可复制的无参脚本命令
+	// (GET /api/v2/admin/script-commands)
+	ListScriptCommands(c *gin.Context)
 	// ListServerGroups 服务器分组列表
 	// (GET /api/v2/admin/server-groups)
 	ListServerGroups(c *gin.Context)
@@ -5498,6 +5715,19 @@ func (siw *ServerInterfaceWrapper) GetProbeCapabilities(c *gin.Context) {
 	}
 
 	siw.Handler.GetProbeCapabilities(c)
+}
+
+// ListScriptCommands operation middleware
+func (siw *ServerInterfaceWrapper) ListScriptCommands(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListScriptCommands(c)
 }
 
 // ListServerGroups operation middleware
@@ -7483,6 +7713,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.PATCH(options.BaseURL+"/api/v2/admin/nat/:id", wrapper.UpdateNATTunnel)
 	router.GET(options.BaseURL+"/api/v2/admin/settings", wrapper.GetSettings)
 	router.PATCH(options.BaseURL+"/api/v2/admin/settings", wrapper.UpdateSettings)
+	router.GET(options.BaseURL+"/api/v2/admin/script-commands", wrapper.ListScriptCommands)
 	router.GET(options.BaseURL+"/api/v2/admin/api-tokens", wrapper.ListApiTokens)
 	router.POST(options.BaseURL+"/api/v2/admin/api-tokens", wrapper.CreateApiToken)
 	router.DELETE(options.BaseURL+"/api/v2/admin/api-tokens/:id", wrapper.DeleteApiToken)

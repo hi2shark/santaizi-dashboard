@@ -85,6 +85,7 @@ export interface CollectorRecord {
   address: string
   tls: boolean
   insecure_tls: boolean
+  location?: string
   generation: number
   config_version: number
   revoked: boolean

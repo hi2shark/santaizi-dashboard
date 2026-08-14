@@ -16,6 +16,11 @@ export interface Collector {
   address: string;
   tls: boolean;
   insecure_tls: boolean;
+  /**
+     * 从端在地球上的位置，ISO 国家/地区码或 `lat,lon`
+     * @maxLength 64
+     */
+  location?: string;
   generation: number;
   config_version: number;
   revoked: boolean;

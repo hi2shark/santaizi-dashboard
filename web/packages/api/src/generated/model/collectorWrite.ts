@@ -22,6 +22,8 @@ export interface CollectorWrite {
   address: string;
   tls?: boolean;
   insecure_tls?: boolean;
+  /** @maxLength 64 */
+  location?: string;
   /** @minItems 1 */
   scopes: CollectorScope[];
 }

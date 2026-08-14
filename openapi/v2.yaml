@@ -265,6 +265,7 @@ paths:
       tags:
       - Servers
       summary: 创建服务器
+      description: 可选 `traffic_policies` 与服务器在同一事务写入；缺省不创建策略。
       operationId: createServer
       x-ui-route: /admin/servers
       security:
@@ -298,6 +299,7 @@ paths:
       tags:
       - Servers
       summary: 更新服务器
+      description: 可选 `traffic_policies` 按 id upsert、缺席删除；缺省不动既有策略。
       operationId: updateServer
       x-ui-route: /admin/servers
       security:
@@ -1148,6 +1150,7 @@ paths:
         返回当前站点设置。网络相关字段包括 `grpc_host`（公网地址）、
         `proxy_grpc_port`（公网 gRPC 端口，0 表示使用监听端口 `grpcport`）、
         `tls`（探针安装命令是否附加 `--tls` / `-Tls`）。
+        `primary_location` 为主面板在地球上的位置（ISO 国家/地区码或 `lat,lon`）。
       operationId: getSettings
       responses:
         '200':
@@ -1161,6 +1164,7 @@ paths:
       description: |
         更新并保存站点设置。可写入 `grpc_host`、`proxy_grpc_port`（0–65535，0 表示使用监听端口）
         和 `tls`。这两项用于生成探针/从端安装命令中的公网端口与 TLS 标志，不改变本机 gRPC 监听端口。
+        可写入 `primary_location`（ISO 国家/地区码或 `lat,lon`，最多 64 字符）。
       operationId: updateSettings
       x-ui-route: /admin/settings
       security:
@@ -1174,6 +1178,18 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ObjectResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/v2/admin/script-commands:
+    get:
+      tags:
+      - Settings
+      summary: 列出可复制的无参脚本命令
+      description: 返回主面板、从端、探针的通用安装/升级/卸载命令。脚本地址来自 `installscript` 配置；不含密钥或 Token。
+      operationId: listScriptCommands
+      responses:
+        '200':
+          $ref: '#/components/responses/ScriptCommandsResponse'
         default:
           $ref: '#/components/responses/Problem'
   /api/v2/admin/api-tokens:
@@ -2324,6 +2340,11 @@ components:
           type: boolean
         telemetry:
           $ref: '#/components/schemas/TelemetryPresentation'
+        traffic_policies:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrafficPolicy'
+          description: 仅创建/更新响应填充；列表接口不带。
     ServerWrite:
       type: object
       required:
@@ -2354,6 +2375,11 @@ components:
           items:
             type: integer
             format: int64
+        traffic_policies:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrafficPolicyUpsert'
+          description: 缺省不动既有策略；传数组则以这份为准（含空数组清空）。
     MonitorScope:
       type: object
       required:
@@ -2766,6 +2792,15 @@ components:
           type: string
         enabled:
           type: boolean
+    TrafficPolicyUpsert:
+      allOf:
+      - $ref: '#/components/schemas/TrafficPolicyWrite'
+      - type: object
+        properties:
+          id:
+            type: integer
+            format: int64
+            description: 已有策略的 ID；缺省视为新建。
     TrafficPolicy:
       allOf:
       - $ref: '#/components/schemas/TrafficPolicyWrite'
@@ -2914,6 +2949,55 @@ components:
           - windows
         command:
           type: string
+    ScriptCommand:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - group
+      - platform
+      - command
+      - destructive
+      properties:
+        id:
+          type: string
+          enum:
+          - dashboard_install
+          - dashboard_upgrade
+          - collector_upgrade
+          - collector_remove
+          - agent_upgrade_linux
+          - agent_upgrade_macos
+          - agent_upgrade_windows
+          - agent_uninstall_posix
+          - agent_uninstall_windows
+        group:
+          type: string
+          enum:
+          - dashboard
+          - collector
+          - agent
+        platform:
+          type: string
+          enum:
+          - linux
+          - macos
+          - windows
+          - posix
+        command:
+          type: string
+        destructive:
+          type: boolean
+    ScriptCommands:
+      type: object
+      additionalProperties: false
+      required:
+      - commands
+      properties:
+        commands:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScriptCommand'
     IPReportConfig:
       type: object
       additionalProperties: false
@@ -3171,6 +3255,10 @@ components:
           type: boolean
         insecure_tls:
           type: boolean
+        location:
+          type: string
+          maxLength: 64
+          description: 从端在地球上的位置，ISO 国家/地区码或 `lat,lon`
         generation:
           type: integer
           format: int64
@@ -3667,6 +3755,9 @@ components:
           type: boolean
         insecure_tls:
           type: boolean
+        location:
+          type: string
+          maxLength: 64
         scopes:
           type: array
           minItems: 1
@@ -4006,6 +4097,17 @@ components:
             properties:
               data:
                 $ref: '#/components/schemas/UpgradePreview'
+    ScriptCommandsResponse:
+      description: Copyable script commands
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - data
+            properties:
+              data:
+                $ref: '#/components/schemas/ScriptCommands'
     ProbeCapabilitiesResponse:
       description: Probe capability metadata
       content:

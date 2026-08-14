@@ -9,6 +9,7 @@
  */
 import type { MonitoringOptions } from './monitoringOptions';
 import type { PublicNote } from './publicNote';
+import type { TrafficPolicyUpsert } from './trafficPolicyUpsert';
 
 export interface ServerWrite {
   /**
@@ -26,4 +27,6 @@ export interface ServerWrite {
   hide_for_guest?: boolean;
   enable_ddns?: boolean;
   ddns_profiles?: number[];
+  /** 缺省不动既有策略；传数组则以这份为准（含空数组清空）。 */
+  traffic_policies?: TrafficPolicyUpsert[];
 }
