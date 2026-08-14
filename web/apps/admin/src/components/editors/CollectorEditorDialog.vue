@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage, type FormInstance } from 'element-plus'
 import { AppDialog } from '@santaizi/ui'
 import { createCollector, listAllServers, updateCollector, updateCollectorScope, type CollectorRecord, type ServerRecord } from '@/api/adminApi'
+import LocationPicker from '@/components/LocationPicker.vue'
 import { useEditorSnapshot } from '@/composables/editorSnapshot'
 import { notifyAPIError } from '@/composables/notify'
 import type { CollectorScope } from '@santaizi/api'
@@ -15,8 +16,8 @@ const saving = ref(false)
 const formRef = ref<FormInstance>()
 const servers = ref<ServerRecord[]>([])
 const selectedServerIds = ref<string[]>([])
-const form = reactive<{ id: string; name: string; address: string; tls: boolean; insecure_tls: boolean; scopes: CollectorScope[] }>({
-  id: '', name: '', address: '', tls: true, insecure_tls: false, scopes: [{ type: 'all', value: '' }],
+const form = reactive<{ id: string; name: string; address: string; tls: boolean; insecure_tls: boolean; location: string; scopes: CollectorScope[] }>({
+    id: '', name: '', address: '', tls: true, insecure_tls: false, location: '', scopes: [{ type: 'all', value: '' }],
 })
 const snapshotValue = computed(() => ({ form, selectedServerIds: selectedServerIds.value }))
 const { dirty, capture } = useEditorSnapshot(snapshotValue, computed(() => props.modelValue))
@@ -89,6 +90,7 @@ async function reset(value?: CollectorRecord) {
     address: value?.address || '',
     tls: value?.tls ?? true,
     insecure_tls: value?.insecure_tls ?? false,
+    location: value?.location || '',
     scopes: collapsed.ui,
   })
   selectedServerIds.value = collapsed.serverIds
@@ -110,7 +112,7 @@ async function submit() {
   try {
     let token = ''
     let created: CollectorRecord | undefined
-    const payload = { name: form.name, address: form.address, tls: form.tls, insecure_tls: form.insecure_tls, scopes }
+    const payload = { name: form.name, address: form.address, tls: form.tls, insecure_tls: form.insecure_tls, location: form.location, scopes }
     if (form.id) {
       await updateCollector(form.id, payload)
       await updateCollectorScope(form.id, { scopes })
@@ -136,6 +138,7 @@ watch(() => props.modelValue, value => { if (value) void reset(props.value) })
       <div class="editor-grid">
         <el-form-item :label="t('name')" prop="name" :rules="[{ required: true, message: t('required') }]"><el-input v-model="form.name" /></el-form-item>
         <el-form-item :label="t('address')" prop="address" :rules="[{ required: true, message: t('required') }]"><el-input v-model="form.address" placeholder="collector.example.com:5555" /></el-form-item>
+        <el-form-item :label="t('location')"><LocationPicker v-model="form.location" /></el-form-item>
       </div>
       <div class="switch-grid"><label><span>{{ t('tls') }}</span><el-switch v-model="form.tls" /></label><label v-if="form.tls"><span>{{ t('insecureTLS') }}</span><el-switch v-model="form.insecure_tls" /></label></div>
       <div class="editor-section">
