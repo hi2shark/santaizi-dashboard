@@ -8,6 +8,7 @@ import { useSessionStore } from '@/stores/session'
 import { useMessageStore, type AdminMessage } from '@/stores/messages'
 import { useTheme } from '@/composables/theme'
 import { formatDateTime } from '@/composables/format'
+import ScriptCommandsDrawer from '@/components/ScriptCommandsDrawer.vue'
 
 const { t, locale } = useI18n()
 const session = useSessionStore()
@@ -16,6 +17,7 @@ const router = useRouter()
 const collapsed = ref(localStorage.getItem('santaizi-admin-collapsed') === '1')
 const addonsOpen = ref(localStorage.getItem('santaizi-admin-addons-open') === '1')
 const mobileOpen = ref(false)
+const scriptsOpen = ref(false)
 const { setMode } = useTheme()
 const nav = computed(() => [
   ['overview', '/', 'ri-dashboard-line', t('overview')], ['servers', '/servers', 'ri-server-line', t('servers')],
@@ -60,6 +62,7 @@ function openItem(row: AdminMessage) { messages.openDetail(row.id) }
       <header class="admin-topbar">
         <el-button class="mobile-menu" @click="mobileOpen=!mobileOpen" :aria-label="t('openNavigation')"><i class="ri-menu-line"></i></el-button>
         <div class="topbar-spacer"></div>
+        <el-button class="topbar-icon" :aria-label="t('scriptCommands')" @click="scriptsOpen = true"><i class="ri-terminal-box-line"></i></el-button>
         <el-badge :value="messages.unreadCount" :hidden="!messages.unreadCount" :max="99" class="topbar-badge">
           <el-button class="topbar-icon" :aria-label="t('messageCenter')" @click="messages.openPanel()"><i class="ri-notification-badge-line"></i></el-button>
         </el-badge>
@@ -132,5 +135,6 @@ function openItem(row: AdminMessage) { messages.openDetail(row.id) }
         </template>
       </div>
     </AppDrawer>
+    <ScriptCommandsDrawer v-model="scriptsOpen" />
   </div>
 </template>
