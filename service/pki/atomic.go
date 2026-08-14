@@ -41,7 +41,7 @@ func syncDir(dir string) error {
 	if runtime.GOOS == "windows" {
 		return nil
 	}
-	d, err := os.Open(dir)
+	d, err := os.Open(dir) // #nosec G304 -- operator PKI directory fsync
 	if err != nil {
 		return err
 	}

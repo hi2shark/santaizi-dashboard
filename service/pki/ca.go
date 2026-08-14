@@ -80,8 +80,8 @@ func LoadOrCreateCollectorCA(dir string) (*Authority, error) {
 func loadOrCreateCA(dir, name, commonName string) (*Authority, error) {
 	keyPath := filepath.Join(dir, name+".key")
 	certPath := filepath.Join(dir, name+".crt")
-	keyPEM, keyErr := os.ReadFile(keyPath) // #nosec G304 -- operator PKI path
-	certPEM, certErr := os.ReadFile(certPath)
+	keyPEM, keyErr := os.ReadFile(keyPath)    // #nosec G304 -- operator PKI path
+	certPEM, certErr := os.ReadFile(certPath) // #nosec G304 -- operator PKI path
 	switch {
 	case errors.Is(keyErr, os.ErrNotExist) && errors.Is(certErr, os.ErrNotExist):
 		return createCA(keyPath, certPath, commonName)

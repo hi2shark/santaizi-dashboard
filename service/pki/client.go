@@ -110,21 +110,21 @@ func (s *ClientStore) Load() (*ClientBundle, error) {
 }
 
 func (s *ClientStore) loadLocked() (*ClientBundle, error) {
-	keyPEM, err := os.ReadFile(filepath.Join(s.dir, clientKeyName))
+	keyPEM, err := os.ReadFile(filepath.Join(s.dir, clientKeyName)) // #nosec G304 -- local PKI store
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, ErrClientBundleNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
-	certPEM, err := os.ReadFile(filepath.Join(s.dir, clientCertName))
+	certPEM, err := os.ReadFile(filepath.Join(s.dir, clientCertName)) // #nosec G304 -- local PKI store
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, ErrClientBundleNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
-	caPEM, err := os.ReadFile(filepath.Join(s.dir, clientCAName))
+	caPEM, err := os.ReadFile(filepath.Join(s.dir, clientCAName)) // #nosec G304 -- local PKI store
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
@@ -175,7 +175,7 @@ func (s *ClientStore) SaveAgentCA(pemBytes []byte) error {
 func (s *ClientStore) LoadAgentCA() ([]byte, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	pemBytes, err := os.ReadFile(filepath.Join(s.dir, agentCANameOnCollector))
+	pemBytes, err := os.ReadFile(filepath.Join(s.dir, agentCANameOnCollector)) // #nosec G304 -- local PKI store
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
 	}
@@ -185,7 +185,7 @@ func (s *ClientStore) LoadAgentCA() ([]byte, error) {
 func (s *ClientStore) GetClientCertificate(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	cert, err := tls.LoadX509KeyPair(filepath.Join(s.dir, clientCertName), filepath.Join(s.dir, clientKeyName))
+	cert, err := tls.LoadX509KeyPair(filepath.Join(s.dir, clientCertName), filepath.Join(s.dir, clientKeyName)) // #nosec G304 -- local PKI store
 	if errors.Is(err, os.ErrNotExist) {
 		return &tls.Certificate{}, nil
 	}
