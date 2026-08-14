@@ -1,18 +1,17 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { listPublicServices, type ResourceRecord } from '@santaizi/api'
 import { AppEmpty } from '@santaizi/ui'
+import DelaySparkline from '../components/DelaySparkline.vue'
+import { toServiceStatusViews } from '../domain/serviceStatusView'
 
 const { t } = useI18n()
 const services = ref<ResourceRecord[]>([])
 const loading = ref(false)
 const failed = ref(false)
-function percent(up: unknown, down: unknown) {
-  const a = Number(up || 0)
-  const b = Number(down || 0)
-  return a + b ? 100 * a / (a + b) : 0
-}
+const cards = computed(() => toServiceStatusViews(services.value))
+
 async function load() {
   loading.value = true
   try {
@@ -31,24 +30,29 @@ onMounted(load)
   <div class="status-container">
     <section class="status-panel service-panel">
       <header class="group-title"><span>{{ t('statusServices') }}</span></header>
-      <div v-if="services.length" class="service-list">
-        <article v-for="service in services" :key="String(service.id || service.name)">
-          <div class="service-title">
-            <div>
-              <i class="live-dot" :class="percent(service.current_up, service.current_down) > 95 ? 'online' : 'offline'"></i>
-              <strong>{{ service.name || service.monitor_name }}</strong>
+      <div v-if="cards.length" class="service-list">
+        <article v-for="card in cards" :key="card.id" class="svc-card">
+          <div class="svc-card__head">
+            <div class="svc-card__name">
+              <i class="live-dot" :class="card.live ? 'online' : 'offline'"></i>
+              <strong>{{ card.name }}</strong>
             </div>
-            <b>{{ percent(service.current_up, service.current_down).toFixed(2) }}%</b>
+            <b class="svc-card__rate">{{ card.uptimeLabel }}</b>
           </div>
-          <div class="availability-days">
-            <i
-              v-for="(up, index) in (service.up as unknown[] || [])"
+          <div v-if="card.days.length" class="svc-days">
+            <span
+              v-for="(day, index) in card.days"
               :key="index"
-              :class="percent(up, (service.down as unknown[] || [])[index]) > 95 ? 'good' : percent(up, (service.down as unknown[] || [])[index]) > 80 ? 'warn' : 'down'"
-              :title="`${percent(up, (service.down as unknown[] || [])[index]).toFixed(2)}%`"
+              class="svc-days__bar"
+              :class="day.tone"
+              :title="`${day.percent.toFixed(2)}%`"
             />
           </div>
-          <small v-if="service.avg_delay || service.delay">{{ t('averageLatency') }}: {{ service.avg_delay || service.delay }} ms</small>
+          <div class="svc-card__latency">
+            <span>{{ t('averageLatency') }}</span>
+            <b>{{ card.latencyLabel ? `${card.latencyLabel} ms` : '—' }}</b>
+          </div>
+          <DelaySparkline v-if="card.delayPoints.length" :points="card.delayPoints" />
         </article>
       </div>
       <div v-else class="empty-status status-page-empty">

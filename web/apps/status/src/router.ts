@@ -41,6 +41,10 @@ const NetworkPage = themedPage('Network')
 
 export const router = createRouter({
   history: createWebHistory('/'),
+  scrollBehavior(_to, _from, savedPosition) {
+    if (savedPosition) return savedPosition
+    return { top: 0 }
+  },
   routes: [
     { path: '/', name: 'home', component: HomePage },
     {

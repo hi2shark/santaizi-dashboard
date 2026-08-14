@@ -115,4 +115,12 @@ describe('publicNoteView', () => {
     expect(view.hasDetail).toBe(false)
     expect(view.hasBuy).toBe(false)
   })
+
+  it('amount-only billing has no remaining kind', () => {
+    const bill = getBillAndPlan({
+      billingDataMod: { amount: '109.00CNY', cycle: '月' },
+    })
+    expect(bill.amountKind).toBe('priced')
+    expect(bill.remainingKind).toBe('')
+  })
 })

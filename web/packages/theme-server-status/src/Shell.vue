@@ -1,7 +1,11 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
+import { AppDrawer } from '@santaizi/ui'
 import { useInjectedStatusStore } from '@santaizi/status-core'
+import { provideStatusPageActions, type StatusPageAction } from './composables/statusPageActions'
+import { formatProductVersion, PRODUCT_REPO_URL } from './domain/productVersion'
 
 defineProps<{
   publicTheme: 'server-status' | 'nazhua'
@@ -16,14 +20,27 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const route = useRoute()
 const store = useInjectedStatusStore()
-const brand = computed(() => store.bootstrap?.brand?.trim() || t('appName'))
-const version = computed(() => store.bootstrap?.version?.trim() || '')
+const pageActions = provideStatusPageActions()
+const mobileOpen = ref(false)
 const footerText = computed(() => store.bootstrap?.footer_text?.trim() || '')
-const poweredLine = computed(() => {
-  const line = t('poweredBy', { name: brand.value })
-  return version.value ? `${line} ${version.value}` : line
+const versionLine = computed(() => formatProductVersion(store.bootstrap?.version))
+const brandName = computed(() => store.bootstrap?.brand || t('appName'))
+
+watch(() => route.fullPath, () => {
+  mobileOpen.value = false
 })
+
+function closeMenu() {
+  mobileOpen.value = false
+}
+
+async function runAction(action: StatusPageAction) {
+  mobileOpen.value = false
+  await nextTick()
+  action.run()
+}
 </script>
 
 <template>
@@ -32,9 +49,9 @@ const poweredLine = computed(() => {
     <header class="status-nav">
       <RouterLink to="/" class="status-brand">
         <img :src="store.bootstrap?.logo_url || '/static/logo.svg'" alt="">
-        <span>{{ store.bootstrap?.brand || t('appName') }}</span>
+        <span>{{ brandName }}</span>
       </RouterLink>
-      <nav :aria-label="t('statusNavigation')">
+      <nav class="status-nav__links" :aria-label="t('statusNavigation')">
         <RouterLink to="/"><i class="ri-server-line"></i><span>{{ t('statusHome') }}</span></RouterLink>
         <RouterLink to="/service"><i class="ri-heart-pulse-line"></i><span>{{ t('statusServices') }}</span></RouterLink>
         <RouterLink to="/network"><i class="ri-line-chart-line"></i><span>{{ t('statusNetwork') }}</span></RouterLink>
@@ -64,13 +81,38 @@ const poweredLine = computed(() => {
           <i :class="actualColorMode === 'dark' ? 'ri-sun-line' : 'ri-moon-line'"></i>
         </button>
         <a v-if="store.bootstrap?.authenticated" class="status-icon-btn" href="/admin/" :aria-label="t('adminPanel')"><i class="ri-settings-3-line"></i></a>
+        <button type="button" class="status-icon-btn status-menu-btn" :aria-label="t('openNavigation')" @click="mobileOpen = true">
+          <i class="ri-menu-line"></i>
+        </button>
       </div>
     </header>
     <main id="status-main"><slot /></main>
+    <AppDrawer
+      v-if="mobileOpen"
+      :model-value="true"
+      :title="brandName"
+      mode="view"
+      direction="ltr"
+      size="min(300px, 88vw)"
+      @update:model-value="mobileOpen = $event"
+    >
+      <nav class="status-mobile-nav" :aria-label="t('statusNavigation')">
+        <RouterLink to="/" @click="closeMenu"><i class="ri-server-line"></i><span>{{ t('statusHome') }}</span></RouterLink>
+        <RouterLink to="/service" @click="closeMenu"><i class="ri-heart-pulse-line"></i><span>{{ t('statusServices') }}</span></RouterLink>
+        <RouterLink to="/network" @click="closeMenu"><i class="ri-line-chart-line"></i><span>{{ t('statusNetwork') }}</span></RouterLink>
+        <div v-if="pageActions.length" class="status-mobile-nav__actions">
+          <button v-for="action in pageActions" :key="action.id" type="button" @click="runAction(action)">
+            <i :class="action.icon"></i><span>{{ action.label }}</span>
+          </button>
+        </div>
+      </nav>
+    </AppDrawer>
     <footer>
       <span v-if="footerText">{{ footerText }}</span>
-      <span>{{ poweredLine }}</span>
-      <a href="https://github.com/naiba/nezha" target="_blank" rel="noopener noreferrer">{{ t('upstreamCredit') }}</a>
+      <span>
+        <a :href="PRODUCT_REPO_URL" target="_blank" rel="noopener noreferrer">{{ t('appName') }}</a>
+        <template v-if="versionLine"> · {{ versionLine }}</template>
+      </span>
     </footer>
   </div>
 </template>

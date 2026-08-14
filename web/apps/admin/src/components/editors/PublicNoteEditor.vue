@@ -78,7 +78,14 @@ watch(form, emitStructured, { deep: true })
       <div class="editor-grid">
         <el-form-item :label="t('bandwidth')"><el-input v-model="form.plan.bandwidth" placeholder="1 Gbps" /></el-form-item>
         <el-form-item :label="t('trafficVolume')"><el-input v-model="form.plan.trafficVol" placeholder="2 TB" /></el-form-item>
-        <el-form-item :label="t('trafficType')"><el-select v-model="form.plan.trafficType" clearable class="field-full"><el-option :label="t('trafficBidirectional')" value="1"/><el-option :label="t('trafficInbound')" value="2"/><el-option :label="t('trafficOutbound')" value="3"/></el-select></el-form-item>
+        <el-form-item :label="t('trafficType')">
+          <el-select v-model="form.plan.trafficType" clearable class="field-full">
+            <!-- 与 aobobo / 上游 Nezha 一致：1 单向出、2 双向、3 单向取最大；空=不限制 -->
+            <el-option :label="t('trafficOneWayOut')" value="1"/>
+            <el-option :label="t('trafficBidirectional')" value="2"/>
+            <el-option :label="t('trafficOneWayMax')" value="3"/>
+          </el-select>
+        </el-form-item>
         <el-form-item :label="t('ipSupport')"><el-checkbox v-model="form.plan.IPv4" true-value="1" false-value="0">IPv4</el-checkbox><el-checkbox v-model="form.plan.IPv6" true-value="1" false-value="0">IPv6</el-checkbox></el-form-item>
         <el-form-item class="span-2" :label="t('networkRoute')"><el-select v-model="form.plan.networkRoute" multiple filterable allow-create default-first-option class="field-full" /></el-form-item>
         <el-form-item class="span-2" :label="t('extraTags')"><el-select v-model="form.plan.extra" multiple filterable allow-create default-first-option class="field-full" /></el-form-item>

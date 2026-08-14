@@ -67,7 +67,12 @@ describe('ServerStatus view adapter', () => {
     expect(view.cpu.percent).toBe(12.5)
     expect(view.memory.percent).toBe(50)
     expect(view.disk.percent).toBe(50)
-    expect(view.memory.usedLabel).toBe('1.0 GB')
+    expect(view.memory.usedLabel).toBe('1024M')
+    expect(view.memory.totalLabel).toBe('2G')
+    expect(view.cpuCoreCount).toBe(0)
+    expect(view.trafficUsage.kind).toBe('both')
+    expect(view.transferInLabel).toBe('1K')
+    expect(view.lastActiveLabel).toBe('')
     expect(view.gpu?.percent).toBe(18)
     expect(view.cpuModels).toEqual(['AMD EPYC 7763'])
     expect(view.gpuNames).toEqual(['Tesla T4'])
@@ -85,10 +90,10 @@ describe('ServerStatus view adapter', () => {
     expect(view.hasSpecs).toBe(true)
   })
 
-  it('reads snake_case host and state snapshots', () => {
+  it('reads PascalCase host and state snapshots', () => {
     const view = toServerStatusView(server({
-      host: { platform: 'freebsd', mem_total: 1024, country_code: 'sg' } as ServerRecord['host'],
-      state: { cpu: 8, mem_used: 512, net_in_speed: 100 } as ServerRecord['state'],
+      host: { Platform: 'freebsd', MemTotal: 1024, CountryCode: 'SG' },
+      state: { CPU: 8, MemUsed: 512, NetInSpeed: 100 },
       public_note: {},
     }))
     expect(view.platform).toBe('freebsd')
@@ -134,6 +139,23 @@ describe('ServerStatus view adapter', () => {
     expect(cycles.get(7)).toHaveLength(2)
     expect(cycles.get(7)?.[1]).toMatchObject({ name: '附加', usagePercent: 40, status: 'warning' })
     expect(toServerStatusView(server(), cycles).cycles).toHaveLength(2)
+  })
+
+  it('parses physical cores, prefers cycle remaining, and hides zero last_active', () => {
+    const cycles = mapCycleTransfers([
+      { server_id: 7, policy_id: 1, name: '月流量', used_bytes: 30, quota_bytes: 100, remaining_bytes: 70, usage_percent: 30, status: 'normal' },
+    ])
+    const view = toServerStatusView(server({
+      host: { Platform: 'debian', CPU: ['AMD EPYC 2 Physical Core'], MemTotal: 1024 },
+      state: { CPU: 1, MemUsed: 10, Uptime: 90000, NetInTransfer: 10, NetOutTransfer: 20 },
+      last_active: '0001-01-01T00:00:00Z',
+    }), cycles)
+    expect(view.cpuCoreCount).toBe(2)
+    expect(view.platformLabel).toBe('Debian')
+    expect(view.trafficUsage.kind).toBe('cycle')
+    expect(view.trafficUsage.statusLevel).toBe('fine')
+    expect(view.lastActiveLabel).toBe('')
+    expect(view.uptimeLabel).toContain('1')
   })
 
   it('keeps format helpers bounded', () => {

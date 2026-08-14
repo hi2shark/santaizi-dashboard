@@ -17,7 +17,7 @@
 | 字段 | 说明 |
 | ---- | ---- |
 | bandwidth | 带宽文案 |
-| trafficVol / trafficType | 流量额度；`1` 单向出 / `3` 单向取最大 / 默认双向 |
+| trafficVol / trafficType | 流量额度；`1` 单向出 / `2` 双向 / `3` 单向取最大；未设置 = 不限制 |
 | IPv4 / IPv6 | `"1"` 启用 |
 | networkRoute / extra | 标签（逗号分隔） |
 

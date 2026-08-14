@@ -10,7 +10,10 @@ import { AppEmpty } from '@santaizi/ui'
 import { useInjectedStatusStore } from '@santaizi/status-core'
 import { getPresentation } from '../domain/publicNoteView'
 import { choroplethIso2, regionDisplayName } from '../domain/regionDisplay'
-import { mapCycleTransfers } from '../domain/serverStatusView'
+import { mapCycleTransfers, toServerStatusView } from '../domain/serverStatusView'
+import { resolveStatusNoteColumns, type StatusTableColumns } from '../domain/statusTableColumns'
+import { registerStatusPageActions } from '../composables/statusPageActions'
+import ServerDetailDrawer from '../components/ServerDetailDrawer.vue'
 import StatusTable from '../components/StatusTable.vue'
 
 echarts.use([MapChart, TooltipComponent, VisualMapComponent, CanvasRenderer])
@@ -18,6 +21,7 @@ echarts.use([MapChart, TooltipComponent, VisualMapComponent, CanvasRenderer])
 const { t, locale } = useI18n()
 const store = useInjectedStatusStore()
 const grouped = ref(localStorage.getItem('santaizi-status-grouped') !== '0')
+const selectedId = ref(0)
 const mapDialog = ref<HTMLDialogElement>()
 const mapNode = ref<HTMLElement>()
 const cycleRows = ref<CycleTransfer[]>([])
@@ -26,6 +30,10 @@ let chart: echarts.ECharts | undefined
 const cycles = computed(() => mapCycleTransfers(cycleRows.value))
 const all = computed(() => store.servers)
 const showAvailability = computed(() => store.bootstrap?.show_availability !== false)
+const tableColumns = computed((): StatusTableColumns => ({
+  availability: showAvailability.value,
+  ...resolveStatusNoteColumns(store.servers, Date.now(), locale.value),
+}))
 const connectionClass = computed(() => {
   if (store.loadError) return 'failed'
   if (store.connected) return 'connected'
@@ -41,10 +49,26 @@ const emptyDescription = computed(() => {
   if (store.loading) return t('loading')
   return t('noData')
 })
+const drawerOpen = computed({
+  get: () => selectedId.value > 0,
+  set: (open: boolean) => {
+    if (!open) selectedId.value = 0
+  },
+})
+const selectedServer = computed(() => {
+  const record = store.servers.find((row) => row.id === selectedId.value)
+  if (!record) return null
+  return toServerStatusView(record, cycles.value, Date.now(), locale.value)
+})
 
 function toggle() {
   grouped.value = !grouped.value
+  selectedId.value = 0
   localStorage.setItem('santaizi-status-grouped', grouped.value ? '1' : '0')
+}
+
+function selectRow(id: number) {
+  selectedId.value = selectedId.value === id ? 0 : id
 }
 
 async function loadCycles() {
@@ -118,22 +142,35 @@ function onMapClosed() {
 }
 
 onMounted(loadCycles)
+
+registerStatusPageActions(() => [
+  ...(store.loadError
+    ? [{ id: 'refresh', label: t('refresh'), icon: 'ri-refresh-line', run: () => { void store.load() } }]
+    : []),
+  { id: 'map', label: t('worldMap'), icon: 'ri-earth-line', run: () => { void showMap() } },
+  {
+    id: 'group',
+    label: t(grouped.value ? 'flatView' : 'groupView'),
+    icon: grouped.value ? 'ri-list-check-2' : 'ri-folder-chart-line',
+    run: toggle,
+  },
+])
 </script>
 
 <template>
   <div class="status-container">
     <div class="status-toolbar">
-      <span :class="['connection-state', connectionClass]">
-        <i></i>{{ connectionLabel }}
+      <span :class="['connection-state', connectionClass]" :aria-label="connectionLabel">
+        <i></i><span class="connection-state__label">{{ connectionLabel }}</span>
       </span>
       <span />
       <button v-if="store.loadError" type="button" @click="store.load">
         <i class="ri-refresh-line"></i>{{ t('refresh') }}
       </button>
-      <button type="button" @click="showMap">
+      <button type="button" class="status-toolbar__page-action" @click="showMap">
         <i class="ri-earth-line"></i>{{ t('worldMap') }}
       </button>
-      <button type="button" @click="toggle">
+      <button type="button" class="status-toolbar__page-action" @click="toggle">
         <i :class="grouped ? 'ri-list-check-2' : 'ri-folder-chart-line'"></i>
         {{ t(grouped ? 'flatView' : 'groupView') }}
       </button>
@@ -147,10 +184,17 @@ onMounted(loadCycles)
           :title="group.name"
           :servers="group.items"
           :cycles="cycles"
-          :show-availability="showAvailability"
+          :columns="tableColumns"
+          @select="selectRow"
         />
       </template>
-      <StatusTable v-else :servers="all" :cycles="cycles" :show-availability="showAvailability" />
+      <StatusTable
+        v-else
+        :servers="all"
+        :cycles="cycles"
+        :columns="tableColumns"
+        @select="selectRow"
+      />
     </template>
     <div v-else class="empty-status status-page-empty">
       <AppEmpty
@@ -163,6 +207,12 @@ onMounted(loadCycles)
         <i class="ri-refresh-line"></i>{{ t('refresh') }}
       </el-button>
     </div>
+
+    <ServerDetailDrawer
+      v-model="drawerOpen"
+      :server="selectedServer"
+      :show-availability="showAvailability"
+    />
 
     <dialog ref="mapDialog" class="map-dialog" @close="onMapClosed">
       <header>
