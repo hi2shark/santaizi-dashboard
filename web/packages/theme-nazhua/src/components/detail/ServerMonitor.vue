@@ -1,86 +1,57 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { toRef } from 'vue'
 import { useI18n } from 'vue-i18n'
-import * as echarts from 'echarts/core'
-import { LineChart } from 'echarts/charts'
-import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
-import { CanvasRenderer } from 'echarts/renderers'
-import { getPublicNetwork } from '@santaizi/api'
 import { AppEmpty } from '@santaizi/ui'
-
-echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer])
+import { NETWORK_RANGES, useNetworkMonitorChart } from '../../composables/useNetworkMonitorChart'
+import MonitorLineChart from './MonitorLineChart.vue'
 
 const props = defineProps<{ serverId: number }>()
 const { t } = useI18n()
-const node = ref<HTMLElement>()
-const loading = ref(false)
-const failed = ref(false)
-const empty = ref(false)
-let chart: echarts.ECharts | undefined
-let requestSeq = 0
-
-async function render() {
-  if (!props.serverId) return
-  const seq = ++requestSeq
-  loading.value = true
-  failed.value = false
-  empty.value = false
-  try {
-    const rows = (await getPublicNetwork(props.serverId)).data
-    if (seq !== requestSeq) return
-    if (!rows.length) {
-      empty.value = true
-      chart?.dispose()
-      chart = undefined
-      return
-    }
-    loading.value = false
-    await nextTick()
-    if (!node.value || seq !== requestSeq) return
-    chart?.dispose()
-    chart = echarts.init(node.value)
-    const isDark = document.documentElement.classList.contains('dark')
-    chart.setOption({
-      backgroundColor: 'transparent',
-      tooltip: { trigger: 'axis' },
-      legend: { top: 8 },
-      grid: { left: 48, right: 24, top: 56, bottom: 36 },
-      xAxis: { type: 'time' },
-      yAxis: { type: 'value', name: 'ms' },
-      series: rows.map((row, index) => ({
-        name: String(row.monitor_name || `${t('nazhua.networkMonitor')} ${index + 1}`),
-        type: 'line',
-        smooth: true,
-        showSymbol: false,
-        data: ((row.created_at as unknown[]) || []).map((time, i) => [time, ((row.avg_delay as unknown[]) || [])[i]]),
-      })),
-    })
-  } catch {
-    if (seq !== requestSeq) return
-    failed.value = true
-    chart?.dispose()
-    chart = undefined
-  } finally {
-    if (seq === requestSeq) loading.value = false
-  }
-}
-
-function onResize() {
-  chart?.resize()
-}
-
-watch(() => props.serverId, render, { immediate: true })
-onMounted(() => window.addEventListener('resize', onResize))
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', onResize)
-  chart?.dispose()
-})
+const {
+  loading,
+  failed,
+  empty,
+  aggregated,
+  autoRefresh,
+  cutPeak,
+  hours,
+  series,
+  load,
+} = useNetworkMonitorChart(toRef(props, 'serverId'))
 </script>
 
 <template>
   <section class="nazhua-monitor">
-    <h2>{{ t('nazhua.networkMonitor') }}</h2>
-    <div v-show="!failed && !empty && !loading" ref="node" class="nazhua-monitor__chart" />
+    <header class="nazhua-monitor__head">
+      <h2>{{ t('nazhua.networkMonitor') }}</h2>
+      <div class="nazhua-monitor__toolbar">
+        <div class="nazhua-monitor__toggles">
+          <label class="nazhua-monitor__switch">
+            <span>{{ t('nazhua.aggregate') }}</span>
+            <el-switch v-model="aggregated" size="small" />
+          </label>
+          <label class="nazhua-monitor__switch">
+            <span>{{ t('nazhua.autoRefresh') }}</span>
+            <el-switch v-model="autoRefresh" size="small" />
+          </label>
+          <label class="nazhua-monitor__switch">
+            <span>{{ t('nazhua.cutPeak') }}</span>
+            <el-switch v-model="cutPeak" size="small" />
+          </label>
+        </div>
+        <div class="nazhua-monitor__ranges" role="group" :aria-label="t('nazhua.recent')">
+          <span>{{ t('nazhua.recent') }}</span>
+          <el-button-group>
+            <el-button
+              v-for="item in NETWORK_RANGES"
+              :key="item.hours"
+              :type="hours === item.hours ? 'primary' : 'default'"
+              @click="hours = item.hours"
+            >{{ t(item.labelKey) }}</el-button>
+          </el-button-group>
+        </div>
+      </div>
+    </header>
     <div v-if="failed || empty || loading" class="nazhua-monitor__empty">
       <AppEmpty
         :tone="failed ? 'danger' : 'default'"
@@ -88,7 +59,17 @@ onBeforeUnmount(() => {
         :title="failed ? t('nazhua.loadFailed') : ''"
         :description="t(failed ? 'nazhua.requestFailed' : loading ? 'nazhua.loading' : 'nazhua.noData')"
       />
-      <button v-if="failed" type="button" @click="render"><i class="ri-refresh-line"></i>{{ t('nazhua.refresh') }}</button>
+      <button v-if="failed" type="button" @click="load"><i class="ri-refresh-line"></i>{{ t('nazhua.refresh') }}</button>
+    </div>
+    <MonitorLineChart v-else-if="aggregated" :series="series" />
+    <div v-else class="nazhua-monitor__grid">
+      <article v-for="item in series" :key="item.name" class="nazhua-monitor__card">
+        <header>
+          <strong>{{ item.name }}</strong>
+          <span>{{ item.average.toFixed(2) }} ms</span>
+        </header>
+        <MonitorLineChart :series="[item]" compact />
+      </article>
     </div>
   </section>
 </template>

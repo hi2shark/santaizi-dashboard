@@ -65,6 +65,19 @@ export const SORT_OPTIONS: SortOption[] = [
 
 const SORT_PROPS = new Set(SORT_OPTIONS.map(option => option.prop))
 
+// 排序菜单按分组分列展示，避免 23 个选项排成一列吃满视口高度
+export interface SortColumn {
+  group: SortGroup
+  options: SortOption[]
+}
+
+export const SORT_OPTION_COLUMNS: SortColumn[] = SORT_OPTIONS.reduce<SortColumn[]>((columns, option) => {
+  const current = columns[columns.length - 1]
+  if (current && current.group === option.group) current.options.push(option)
+  else columns.push({ group: option.group, options: [option] })
+  return columns
+}, [])
+
 export interface ServerListQuery {
   tag: string
   online: 'all' | 'online' | 'offline'

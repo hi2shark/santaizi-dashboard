@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { formatBinary, formatSpeed } from '../../utils/host'
+import { formatHeaderStat } from '../../utils/host'
 
 const props = defineProps<{
   brand?: string
@@ -16,8 +16,10 @@ const props = defineProps<{
 
 const { t } = useI18n()
 const title = computed(() => props.brand || t('nazhua.title'))
-const inTransfer = computed(() => formatBinary(props.transferIn))
-const outTransfer = computed(() => formatBinary(props.transferOut))
+const inTransfer = computed(() => formatHeaderStat(props.transferIn))
+const outTransfer = computed(() => formatHeaderStat(props.transferOut))
+const inSpeed = computed(() => formatHeaderStat(props.speedIn))
+const outSpeed = computed(() => formatHeaderStat(props.speedOut))
 </script>
 
 <template>
@@ -38,8 +40,8 @@ const outTransfer = computed(() => formatBinary(props.transferOut))
           </div>
           <div>
             <span class="nazhua-server-stat__label">{{ t('nazhua.netSpeed') }}</span>
-            <span><i class="ri-arrow-down-line"></i>{{ formatSpeed(speedIn).replace(' ', '') }}</span>
-            <span><i class="ri-arrow-up-line"></i>{{ formatSpeed(speedOut).replace(' ', '') }}</span>
+            <span><i class="ri-arrow-down-line"></i>{{ inSpeed.value }}{{ inSpeed.unit }}</span>
+            <span><i class="ri-arrow-up-line"></i>{{ outSpeed.value }}{{ outSpeed.unit }}</span>
           </div>
         </div>
       </div>

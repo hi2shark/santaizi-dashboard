@@ -1,6 +1,6 @@
 import type { CycleTransfer, ResourceRecord, SensorTemperature, ServerRecord } from '@santaizi/api'
-import { buildPublicNoteView, decodeOrderLink, type PublicNoteView } from '@santaizi/theme-server-status'
-import { formatBinary } from '../utils/host'
+import { buildPublicNoteView, decodeOrderLink, formatTransfer, resolveFlagCode, type PublicNoteView } from '@santaizi/theme-server-status'
+import { formatDonutDisk, formatDonutMem, formatSpec } from '../utils/host'
 import { resolveServerLocation, type ServerLocation } from '../utils/worldMap'
 
 export interface NazhuaCycleTransferView {
@@ -57,6 +57,10 @@ export interface NazhuaServerView {
   swapTotal: number
   memoryValue: string
   diskValue: string
+  swapValue: string
+  memoryTotalLabel: string
+  diskTotalLabel: string
+  swapTotalLabel: string
   memoryText: string
   diskText: string
   swapText: string
@@ -124,9 +128,8 @@ export function percentOf(used: number, total?: number) {
   return clampPercent(total && total > 0 ? (used / total) * 100 : used)
 }
 
-export function formatCompactBytes(value: number, decimals = 0) {
-  const result = formatBinary(value, decimals)
-  return `${result.value}${result.unit}`
+export function formatCompactBytes(value: number, _decimals = 0) {
+  return formatTransfer(value)
 }
 
 export function formatUptime(seconds: number) {
@@ -139,13 +142,25 @@ export function formatUptime(seconds: number) {
   return `${minutes}m`
 }
 
-export function usageText(used: number, total: number) {
-  if (total > 0) return `${formatCompactBytes(used, 1)} / ${formatCompactBytes(total, 1)}`
-  return formatCompactBytes(used, 1)
+export function usageText(used: number, total: number, kind: 'mem' | 'disk' = 'mem') {
+  const formatted = kind === 'disk' ? formatDonutDisk(used, total) : formatDonutMem(used, total)
+  if (total > 0) return `${formatted.value} / ${formatted.totalLabel}`
+  return formatted.value
 }
 
-export function usageCaption(used: number, total: number, percent: number) {
-  return `${usageText(used, total)} (${percent.toFixed(1)}%)`
+export function usageCaption(used: number, total: number, percent: number, kind: 'mem' | 'disk' = 'mem') {
+  return `${usageText(used, total, kind)} (${Number(percent.toFixed(1))}%)`
+}
+
+function planTrafficBytes(transferIn: number, transferOut: number, trafficType: string) {
+  switch (Number(trafficType)) {
+    case 1:
+      return transferOut
+    case 3:
+      return transferOut >= transferIn ? transferOut : transferIn
+    default:
+      return transferIn + transferOut
+  }
 }
 
 function readServerId(row: ResourceRecord | CycleTransfer) {
@@ -225,15 +240,23 @@ export function toNazhuaServerView(
   const transferOut = finite(state?.NetOutTransfer)
   const location = resolveServerLocation(server)
   const publicNote = buildPublicNoteView(server.public_note, nowMs)
-  const flagCode = (publicNote.presentation.flag || location?.countryCode || '').toLowerCase()
+  // 与 ServerStatus 同一套归一化：位置码可能是 IATA（LAX/HKG），flag-icons 只认 ISO2。
+  const flagCode = resolveFlagCode(
+    publicNote.presentation.flag,
+    publicNote.presentation.location || location?.code,
+    host?.CountryCode,
+  )
   const cpuModels = textList(host?.CPU)
   const cpuCores = parseCpuCores(host?.CPU)
-  const spec = [
-    cpuCores > 0 ? `${cpuCores}C` : '',
-    memoryTotal > 0 ? formatCompactBytes(memoryTotal) : '',
-    diskTotal > 0 ? formatCompactBytes(diskTotal) : '',
-  ].filter(Boolean).join('')
+  const spec = formatSpec(cpuCores, memoryTotal, diskTotal)
   const cycle = cycles?.get(server.id) || null
+  const memDonut = formatDonutMem(memoryUsed, memoryTotal)
+  const diskDonut = formatDonutDisk(diskUsed, diskTotal)
+  const swapDonut = formatDonutMem(swapUsed, swapTotal)
+  const cpuPercent = percentOf(finite(state?.CPU))
+  const memoryPercent = percentOf(memoryUsed, memoryTotal || undefined)
+  const diskPercent = percentOf(diskUsed, diskTotal || undefined)
+  const swapPercent = percentOf(swapUsed, swapTotal || undefined)
   return {
     id: server.id,
     source: server,
@@ -255,24 +278,28 @@ export function toNazhuaServerView(
     publicNote,
     slogan: publicNote.presentation.slogan,
     spec,
-    cpuPercent: percentOf(finite(state?.CPU)),
-    memoryPercent: percentOf(memoryUsed, memoryTotal || undefined),
-    diskPercent: percentOf(diskUsed, diskTotal || undefined),
-    swapPercent: percentOf(swapUsed, swapTotal || undefined),
+    cpuPercent,
+    memoryPercent,
+    diskPercent,
+    swapPercent,
     memoryUsed,
     memoryTotal,
     diskUsed,
     diskTotal,
     swapUsed,
     swapTotal,
-    memoryValue: formatCompactBytes(memoryUsed),
-    diskValue: formatCompactBytes(diskUsed),
-    memoryText: usageText(memoryUsed, memoryTotal),
-    diskText: usageText(diskUsed, diskTotal),
-    swapText: usageText(swapUsed, swapTotal),
-    memoryCaption: usageCaption(memoryUsed, memoryTotal, percentOf(memoryUsed, memoryTotal || undefined)),
-    diskCaption: usageCaption(diskUsed, diskTotal, percentOf(diskUsed, diskTotal || undefined)),
-    swapCaption: usageCaption(swapUsed, swapTotal, percentOf(swapUsed, swapTotal || undefined)),
+    memoryValue: memDonut.value,
+    diskValue: diskDonut.value,
+    swapValue: swapDonut.value,
+    memoryTotalLabel: memDonut.totalLabel,
+    diskTotalLabel: diskDonut.totalLabel,
+    swapTotalLabel: swapDonut.totalLabel,
+    memoryText: usageText(memoryUsed, memoryTotal, 'mem'),
+    diskText: usageText(diskUsed, diskTotal, 'disk'),
+    swapText: usageText(swapUsed, swapTotal, 'mem'),
+    memoryCaption: usageCaption(memoryUsed, memoryTotal, memoryPercent, 'mem'),
+    diskCaption: usageCaption(diskUsed, diskTotal, diskPercent, 'disk'),
+    swapCaption: usageCaption(swapUsed, swapTotal, swapPercent, 'mem'),
     cpuCaption: cpuCores > 0 ? `${cpuCores}C` : '',
     uptimeSeconds: finite(state?.Uptime),
     uptime: formatUptime(finite(state?.Uptime)),
@@ -284,7 +311,7 @@ export function toNazhuaServerView(
     transferOut,
     trafficBytes: cycle && cycle.quotaBytes > 0
       ? Math.max(cycle.quotaBytes - cycle.usedBytes, 0)
-      : transferIn + transferOut,
+      : planTrafficBytes(transferIn, transferOut, publicNote.bill.trafficType),
     load1: finite(state?.Load1),
     load5: finite(state?.Load5),
     load15: finite(state?.Load15),

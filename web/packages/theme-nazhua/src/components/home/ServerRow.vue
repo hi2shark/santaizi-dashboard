@@ -12,11 +12,15 @@ const { t } = useI18n()
 <template>
   <RouterLink :to="{ name: 'public-detail', params: { serverId: String(server.id) } }" class="nazhua-row" :class="{ offline: !server.online }">
     <div class="nazhua-row__name">
-      <span v-if="server.flagClass" :class="server.flagClass" class="nazhua-flag" />
-      <span v-else class="nazhua-flag-fallback"><i class="ri-global-line"></i></span>
+      <span v-if="server.flagClass" :class="server.flagClass" class="nazhua-flag" aria-hidden="true" />
+      <span v-else class="nazhua-flag-fallback" aria-hidden="true"><i class="ri-global-line"></i></span>
       <OsLogo :platform="server.platform" />
-      <div><strong>{{ server.name }}</strong><small>{{ server.slogan || server.spec }}</small></div>
-      <i :class="server.online ? 'ri-checkbox-circle-fill online' : 'ri-indeterminate-circle-fill offline'"></i>
+      <strong>{{ server.name }}</strong>
+      <i
+        class="nazhua-row__status"
+        :class="server.online ? 'ri-checkbox-circle-fill online' : 'ri-indeterminate-circle-fill offline'"
+      ></i>
+      <small>{{ server.slogan || server.spec }}</small>
     </div>
     <div class="nazhua-row__metric"><small>CPU</small>{{ server.cpuPercent.toFixed(1) }}%{{ server.cpuCaption ? ` ${server.cpuCaption}` : '' }}</div>
     <div class="nazhua-row__metric"><small>{{ t('nazhua.memory') }}</small>{{ server.memoryCaption }}</div>

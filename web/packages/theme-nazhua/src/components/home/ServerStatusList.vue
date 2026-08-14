@@ -7,33 +7,74 @@ import OsLogo from '../common/OsLogo.vue'
 
 defineProps<{ servers: NazhuaServerView[] }>()
 const { t } = useI18n()
+
+function tone(percent: number) {
+  if (percent >= 90) return 'critical'
+  if (percent >= 70) return 'warning'
+  return 'ok'
+}
 </script>
 
 <template>
-  <div class="nazhua-status-table">
-    <div class="nazhua-status-table__head">
-      <span>{{ t('nazhua.status') }}</span><span>{{ t('nazhua.name') }}</span><span>{{ t('nazhua.location') }}</span>
-      <span>{{ t('nazhua.platform') }}</span><span>{{ t('nazhua.arch') }}</span><span>{{ t('nazhua.uptime') }}</span>
-      <span>{{ t('nazhua.netSpeed') }}</span><span>{{ t('nazhua.cycleTransfer') }}</span><span>{{ t('load') }}</span>
-      <span>CPU</span><span>{{ t('nazhua.memory') }}</span><span>{{ t('nazhua.disk') }}</span><span>{{ t('nazhua.billing') }}</span>
+  <div class="nazhua-status-table" role="table">
+    <div class="nazhua-status-table__head" role="row">
+      <span role="columnheader">{{ t('nazhua.name') }}</span>
+      <span role="columnheader">{{ t('nazhua.location') }}</span>
+      <span role="columnheader" class="is-platform">{{ t('nazhua.platform') }}</span>
+      <span role="columnheader" class="is-spec">{{ t('nazhua.arch') }}</span>
+      <span role="columnheader">{{ t('nazhua.uptime') }}</span>
+      <span role="columnheader" class="is-metric">CPU</span>
+      <span role="columnheader" class="is-metric">{{ t('nazhua.memory') }}</span>
+      <span role="columnheader" class="is-metric">{{ t('nazhua.disk') }}</span>
+      <span role="columnheader" class="is-metric">{{ t('nazhua.netSpeed') }}</span>
+      <span role="columnheader" class="is-metric is-cycle">{{ t('nazhua.cycleTransfer') }}</span>
+      <span role="columnheader" class="is-load">{{ t('load') }}</span>
+      <span role="columnheader" class="is-billing">{{ t('nazhua.billing') }}</span>
     </div>
-    <RouterLink v-for="server in servers" :key="server.id" :to="{ name: 'public-detail', params: { serverId: String(server.id) } }" class="nazhua-status-table__row" :class="{ offline: !server.online }">
-      <span><i :class="server.online ? 'ri-checkbox-circle-fill online' : 'ri-indeterminate-circle-fill offline'"></i></span>
-      <span>{{ server.name }}</span>
-      <span class="nazhua-status-table__flag">
-        <span v-if="server.flagClass" :class="server.flagClass" class="nazhua-flag" />
-        {{ server.flagCode.toUpperCase() || 'UN' }}
+    <div
+      v-for="server in servers"
+      :key="server.id"
+      class="nazhua-status-table__row"
+      :class="{ offline: !server.online }"
+      role="row"
+    >
+      <span role="cell" class="nazhua-status-table__name">
+        <i :class="server.online ? 'ri-checkbox-circle-fill online' : 'ri-indeterminate-circle-fill offline'"></i>
+        <RouterLink
+          :to="{ name: 'public-detail', params: { serverId: String(server.id) } }"
+          class="nazhua-status-table__link"
+        >
+          <strong>{{ server.name }}</strong>
+          <small>{{ server.slogan || server.group }}</small>
+        </RouterLink>
       </span>
-      <span class="nazhua-status-table__os"><OsLogo :platform="server.platform" />{{ server.platform || '—' }}</span>
-      <span>{{ server.spec || server.arch || '—' }}</span>
-      <span>{{ server.uptime }}</span>
-      <span>{{ formatSpeed(server.speedIn) }} / {{ formatSpeed(server.speedOut) }}</span>
-      <span>{{ formatCompactBytes(server.trafficBytes, 1) }}</span>
-      <span>{{ server.load1.toFixed(2) }}</span>
-      <span>{{ server.cpuPercent.toFixed(1) }}%{{ server.cpuCaption ? ` ${server.cpuCaption}` : '' }}</span>
-      <span>{{ server.memoryCaption }}</span>
-      <span>{{ server.diskCaption }}</span>
-      <span>{{ server.billing || '—' }}</span>
-    </RouterLink>
+      <span role="cell" class="nazhua-status-table__flag">
+        <span v-if="server.flagClass" :class="server.flagClass" class="nazhua-flag" aria-hidden="true" />
+        <span v-else class="nazhua-flag-fallback" aria-hidden="true"><i class="ri-global-line"></i></span>
+        {{ server.flagCode.toUpperCase() || '—' }}
+      </span>
+      <span role="cell" class="nazhua-status-table__os is-platform"><OsLogo :platform="server.platform" />{{ server.platform || '—' }}</span>
+      <span role="cell" class="is-spec">{{ server.spec || server.arch || '—' }}</span>
+      <span role="cell">{{ server.uptime }}</span>
+      <span role="cell" class="nazhua-status-table__metric">
+        <small>{{ server.cpuPercent.toFixed(1) }}%{{ server.cpuCaption ? ` ${server.cpuCaption}` : '' }}</small>
+        <i class="nazhua-mini-bar" :class="`is-${tone(server.cpuPercent)}`"><b :style="{ width: `${server.cpuPercent}%` }" /></i>
+      </span>
+      <span role="cell" class="nazhua-status-table__metric">
+        <small>{{ server.memoryCaption }}</small>
+        <i class="nazhua-mini-bar" :class="`is-${tone(server.memoryPercent)}`"><b :style="{ width: `${server.memoryPercent}%` }" /></i>
+      </span>
+      <span role="cell" class="nazhua-status-table__metric">
+        <small>{{ server.diskCaption }}</small>
+        <i class="nazhua-mini-bar" :class="`is-${tone(server.diskPercent)}`"><b :style="{ width: `${server.diskPercent}%` }" /></i>
+      </span>
+      <span role="cell" class="nazhua-status-table__speed">{{ formatSpeed(server.speedIn) }} / {{ formatSpeed(server.speedOut) }}</span>
+      <span role="cell" class="nazhua-status-table__metric is-cycle">
+        <small>{{ formatCompactBytes(server.trafficBytes, 1) }}</small>
+        <i v-if="server.cycle" class="nazhua-mini-bar" :class="`is-${tone(server.cycle.usagePercent)}`"><b :style="{ width: `${Math.min(100, server.cycle.usagePercent)}%` }" /></i>
+      </span>
+      <span role="cell" class="is-load">{{ server.load1.toFixed(2) }}</span>
+      <span role="cell" class="is-billing">{{ server.billing || '—' }}</span>
+    </div>
   </div>
 </template>

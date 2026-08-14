@@ -54,12 +54,16 @@ describe('Nazhua server view adapter', () => {
     expect(view.online).toBe(true)
     expect(view.cpuPercent).toBe(12.5)
     expect(view.cpuCores).toBe(2)
-    expect(view.spec).toContain('2C')
+    expect(view.spec).toBe('2C2G20G')
     expect(view.memoryPercent).toBe(50)
     expect(view.diskPercent).toBe(50)
-    expect(view.memoryValue).toBe('1G')
-    expect(view.memoryText).toBe('1.0G / 2.0G')
-    expect(view.memoryCaption).toBe('1.0G / 2.0G (50.0%)')
+    expect(view.memoryValue).toBe('1024M')
+    expect(view.memoryTotalLabel).toBe('2048M')
+    expect(view.memoryText).toBe('1024M / 2048M')
+    expect(view.memoryCaption).toBe('1024M / 2048M (50%)')
+    expect(view.diskValue).toBe('10G')
+    expect(view.diskTotalLabel).toBe('20G')
+    expect(view.diskCaption).toBe('10G / 20G (50%)')
     expect(view.uptime).toBe('2')
     expect(view.slogan).toBe('香港边缘')
     expect(view.publicNote.planTags).toEqual(['CN2', 'GIA', '__dual_stack__'])
@@ -84,6 +88,18 @@ describe('Nazhua server view adapter', () => {
     expect(parseCpuCores(['not a core count'])).toBe(1)
   })
 
+  it('resolves flags through the shared normalizer instead of trusting raw codes', () => {
+    const host = { ...server().host, CountryCode: '' }
+    const flagOf = (note: Record<string, unknown>) => toNazhuaServerView(server({ host, public_note: note })).flagClass
+    // flag-icons 只有 ISO2，IATA 位置码必须先归一，否则渲染不出旗帜
+    expect(flagOf({ customData: { location: 'LAX' } })).toBe('fi fi-us')
+    expect(flagOf({ customData: { location: 'LON' } })).toBe('fi fi-gb')
+    expect(flagOf({ customData: { flag: 'hkg', location: 'HKG' } })).toBe('fi fi-hk')
+    expect(flagOf({ customData: { flag: 'uk' } })).toBe('fi fi-gb')
+    expect(flagOf({})).toBe('')
+    expect(toNazhuaServerView(server({ host, public_note: { customData: { location: 'LAX' } } })).flagCode).toBe('us')
+  })
+
   it('does not infer online from stale telemetry', () => {
     expect(toNazhuaServerView(server({ online: false })).online).toBe(false)
   })
@@ -99,10 +115,24 @@ describe('Nazhua server view adapter', () => {
     expect(toNazhuaServerView(server(), cycles).trafficBytes).toBe(150)
   })
 
+  it('uses trafficType when there is no cycle remaining', () => {
+    const inbound = 100
+    const outbound = 250
+    const withType = (trafficType: string) => toNazhuaServerView(server({
+      state: { ...server().state, NetInTransfer: inbound, NetOutTransfer: outbound },
+      public_note: { planDataMod: { trafficType } },
+    })).trafficBytes
+    expect(withType('1')).toBe(outbound)
+    expect(withType('2')).toBe(inbound + outbound)
+    expect(withType('3')).toBe(outbound)
+    expect(withType('')).toBe(inbound + outbound)
+  })
+
   it('keeps format helpers bounded and deterministic', () => {
     expect(clampPercent(140)).toBe(100)
     expect(percentOf(1, 4)).toBe(25)
-    expect(formatCompactBytes(1_073_741_824)).toBe('1G')
+    expect(formatCompactBytes(1_073_741_824)).toBe('1024M')
+    expect(formatCompactBytes(2 * 1024 ** 3)).toBe('2G')
     expect(formatUptime(3_601)).toBe('1h')
   })
 })

@@ -1,177 +1,129 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import * as echarts from 'echarts/core'
-import { LineChart } from 'echarts/charts'
-import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
-import { CanvasRenderer } from 'echarts/renderers'
-import { getPublicMetrics, type PublicMetricPoint } from '@santaizi/api'
+import { getPublicMetrics, type PublicMetricPoint, type ServerRecord } from '@santaizi/api'
+import { formatSpeed } from '@santaizi/theme-server-status'
 import { AppEmpty } from '@santaizi/ui'
-import { formatCompactBytes } from '../../domain/nazhuaServerView'
+import { percentOf, toNazhuaServerView } from '../../domain/nazhuaServerView'
+import ResourceHistoryChart, { type HistorySeries, type HistoryUnit } from './ResourceHistoryChart.vue'
 
-echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer])
+const COLORS = {
+  cpu: '#4e90ff',
+  memory: '#27c975',
+  disk: '#22d3ee',
+  netIn: '#f5b199',
+  netOut: '#89c3eb',
+}
 
-type Tab = 'cpu' | 'memory' | 'disk' | 'net'
+type HistoryCard = {
+  key: string
+  title: string
+  unit: HistoryUnit
+  summary?: string
+  detail?: string
+  metrics?: Array<{ key: string; label: string; value: string; color: string }>
+  series: HistorySeries[]
+}
 
-const props = defineProps<{ serverId: number }>()
+const props = defineProps<{ server: ServerRecord }>()
 const { t } = useI18n()
-const node = ref<HTMLElement>()
-const loading = ref(false)
+const loading = ref(true)
 const failed = ref(false)
 const empty = ref(false)
-const tab = ref<Tab>('cpu')
 const points = ref<PublicMetricPoint[]>([])
-let chart: echarts.ECharts | undefined
 let requestSeq = 0
 
-const tabs: Array<{ key: Tab; label: string }> = [
-  { key: 'cpu', label: 'nazhua.historyCpu' },
-  { key: 'memory', label: 'nazhua.historyMemory' },
-  { key: 'disk', label: 'nazhua.historyDisk' },
-  { key: 'net', label: 'nazhua.historyNet' },
-]
+const view = computed(() => toNazhuaServerView(props.server))
 
-function seriesFor(kind: Tab, rows: PublicMetricPoint[]) {
-  if (kind === 'cpu') {
-    return [{
-      name: 'CPU',
-      type: 'line' as const,
-      smooth: true,
-      showSymbol: false,
-      data: rows.map(row => [row.window_start, Number(row.cpu || 0)]),
-    }]
+function formatPercent(value: number) {
+  return `${Number(value).toFixed(1)}%`
+}
+
+function seriesOf(rows: PublicMetricPoint[], name: string, color: string, pick: (row: PublicMetricPoint) => number): HistorySeries {
+  return {
+    name,
+    color,
+    data: rows.map(row => [row.window_start || '', pick(row)]),
   }
-  if (kind === 'memory') {
-    return [{
-      name: t('nazhua.memory'),
-      type: 'line' as const,
-      smooth: true,
-      showSymbol: false,
-      data: rows.map(row => [row.window_start, Number(row.mem_used || 0)]),
-    }]
-  }
-  if (kind === 'disk') {
-    return [{
-      name: t('nazhua.disk'),
-      type: 'line' as const,
-      smooth: true,
-      showSymbol: false,
-      data: rows.map(row => [row.window_start, Number(row.disk_used || 0)]),
-    }]
-  }
+}
+
+const cards = computed<HistoryCard[]>(() => {
+  const rows = points.value
+  const current = view.value
+  const memTotal = current.memoryTotal
+  const diskTotal = current.diskTotal
+  const memUnit: HistoryUnit = memTotal > 0 ? 'percent' : 'bytes'
+  const diskUnit: HistoryUnit = diskTotal > 0 ? 'percent' : 'bytes'
   return [
     {
-      name: t('nazhua.download'),
-      type: 'line' as const,
-      smooth: true,
-      showSymbol: false,
-      data: rows.map(row => [row.window_start, Number(row.net_in_speed || 0)]),
+      key: 'cpu',
+      title: t('nazhua.historyCpu'),
+      unit: 'percent',
+      summary: formatPercent(current.cpuPercent),
+      series: [seriesOf(rows, 'CPU', COLORS.cpu, row => Number(row.cpu || 0))],
     },
     {
-      name: t('nazhua.upload'),
-      type: 'line' as const,
-      smooth: true,
-      showSymbol: false,
-      data: rows.map(row => [row.window_start, Number(row.net_out_speed || 0)]),
+      key: 'memory',
+      title: t('nazhua.historyMemory'),
+      unit: memUnit,
+      summary: formatPercent(current.memoryPercent),
+      detail: current.memoryText,
+      series: [seriesOf(rows, t('nazhua.memory'), COLORS.memory, row => (
+        memTotal > 0 ? percentOf(Number(row.mem_used || 0), memTotal) : Number(row.mem_used || 0)
+      ))],
+    },
+    {
+      key: 'disk',
+      title: t('nazhua.historyDisk'),
+      unit: diskUnit,
+      summary: formatPercent(current.diskPercent),
+      detail: current.diskText,
+      series: [seriesOf(rows, t('nazhua.disk'), COLORS.disk, row => (
+        diskTotal > 0 ? percentOf(Number(row.disk_used || 0), diskTotal) : Number(row.disk_used || 0)
+      ))],
+    },
+    {
+      key: 'net',
+      title: t('nazhua.historyNet'),
+      unit: 'speed',
+      metrics: [
+        { key: 'in', label: t('nazhua.download'), value: formatSpeed(current.speedIn), color: COLORS.netIn },
+        { key: 'out', label: t('nazhua.upload'), value: formatSpeed(current.speedOut), color: COLORS.netOut },
+      ],
+      series: [
+        seriesOf(rows, t('nazhua.download'), COLORS.netIn, row => Number(row.net_in_speed || 0)),
+        seriesOf(rows, t('nazhua.upload'), COLORS.netOut, row => Number(row.net_out_speed || 0)),
+      ],
     },
   ]
-}
-
-function yName(kind: Tab) {
-  if (kind === 'cpu') return '%'
-  if (kind === 'net') return 'B/s'
-  return 'B'
-}
-
-function formatAxis(kind: Tab, value: number) {
-  if (kind === 'cpu') return `${Number(value).toFixed(1)}%`
-  return formatCompactBytes(Number(value), 1) + (kind === 'net' ? '/s' : '')
-}
-
-function draw() {
-  if (!node.value || empty.value || failed.value) return
-  chart?.dispose()
-  chart = echarts.init(node.value)
-  const kind = tab.value
-  chart.setOption({
-    backgroundColor: 'transparent',
-    tooltip: {
-      trigger: 'axis',
-      valueFormatter: (value: unknown) => formatAxis(kind, Number(value || 0)),
-    },
-    legend: { top: 8 },
-    grid: { left: 56, right: 24, top: 56, bottom: 36 },
-    xAxis: { type: 'time' },
-    yAxis: {
-      type: 'value',
-      name: yName(kind),
-      axisLabel: { formatter: (value: number) => formatAxis(kind, value) },
-    },
-    series: seriesFor(kind, points.value),
-  })
-}
+})
 
 async function load() {
-  if (!props.serverId) return
+  if (!props.server.id) return
   const seq = ++requestSeq
   loading.value = true
   failed.value = false
   empty.value = false
   try {
-    const result = await getPublicMetrics(props.serverId, { resolution: '1m', hours: 24 })
+    const result = await getPublicMetrics(props.server.id, { resolution: '1m', hours: 24 })
     if (seq !== requestSeq) return
     points.value = result.data || []
-    if (!points.value.length) {
-      empty.value = true
-      chart?.dispose()
-      chart = undefined
-      return
-    }
-    loading.value = false
-    await nextTick()
-    if (seq !== requestSeq) return
-    draw()
+    empty.value = !points.value.length
   } catch {
     if (seq !== requestSeq) return
     failed.value = true
-    chart?.dispose()
-    chart = undefined
+    points.value = []
   } finally {
     if (seq === requestSeq) loading.value = false
   }
 }
 
-function onResize() {
-  chart?.resize()
-}
-
-watch(() => props.serverId, load, { immediate: true })
-watch(tab, async () => {
-  if (empty.value || failed.value || loading.value || !points.value.length) return
-  await nextTick()
-  draw()
-})
-onMounted(() => window.addEventListener('resize', onResize))
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', onResize)
-  chart?.dispose()
-})
+watch(() => props.server.id, load, { immediate: true })
 </script>
 
 <template>
   <section class="nazhua-history">
-    <header class="nazhua-history__head">
-      <h2>{{ t('nazhua.resourceHistory') }}</h2>
-      <el-button-group>
-        <el-button
-          v-for="item in tabs"
-          :key="item.key"
-          :type="tab === item.key ? 'primary' : 'default'"
-          @click="tab = item.key"
-        >{{ t(item.label) }}</el-button>
-      </el-button-group>
-    </header>
-    <div v-show="!failed && !empty && !loading" ref="node" class="nazhua-history__chart" />
+    <h2>{{ t('nazhua.resourceHistory') }}</h2>
     <div v-if="failed || empty || loading" class="nazhua-monitor__empty">
       <AppEmpty
         :tone="failed ? 'danger' : 'default'"
@@ -180,6 +132,30 @@ onBeforeUnmount(() => {
         :description="t(failed ? 'nazhua.requestFailed' : loading ? 'nazhua.loading' : 'nazhua.noData')"
       />
       <button v-if="failed" type="button" @click="load"><i class="ri-refresh-line"></i>{{ t('nazhua.refresh') }}</button>
+    </div>
+    <div v-else class="nazhua-history__grid">
+      <article v-for="card in cards" :key="card.key" class="nazhua-history__card">
+        <header>
+          <strong>{{ card.title }}</strong>
+          <div v-if="card.metrics" class="nazhua-history__metrics">
+            <span
+              v-for="metric in card.metrics"
+              :key="metric.key"
+              class="nazhua-history__metric"
+              :style="{ '--metric-color': metric.color }"
+            >
+              <em></em>
+              <span>{{ metric.label }}</span>
+              <b>{{ metric.value }}</b>
+            </span>
+          </div>
+          <div v-else class="nazhua-history__summary">
+            <span>{{ card.summary }}</span>
+            <small v-if="card.detail">{{ card.detail }}</small>
+          </div>
+        </header>
+        <ResourceHistoryChart :series="card.series" :unit="card.unit" />
+      </article>
     </div>
   </section>
 </template>

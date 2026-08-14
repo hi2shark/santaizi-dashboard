@@ -145,7 +145,7 @@ function hideTips() {
       :key="point.key"
       type="button"
       class="nazhua-world-map__point"
-      :class="{ 'is-offline': point.status === 'offline', 'is-mixed': point.status === 'mixed' }"
+      :class="{ 'is-offline': point.status === 'offline', 'is-mixed': point.status === 'mixed', 'is-grouped': point.size >= 6 }"
       :aria-label="point.label"
       :style="{ left: `${point.left}px`, top: `${point.top}px`, '--point-size': `${point.size}px` }"
       @mouseenter="showTips(point)"

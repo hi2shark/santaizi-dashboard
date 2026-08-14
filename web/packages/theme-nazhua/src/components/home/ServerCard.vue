@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { NazhuaServerView } from '../../domain/nazhuaServerView'
-import { formatCompactBytes } from '../../domain/nazhuaServerView'
+import { formatLiveSpeed, splitTransfer } from '../../utils/host'
 import DonutChart from '../charts/DonutChart.vue'
 import OsLogo from '../common/OsLogo.vue'
 
@@ -33,15 +33,9 @@ const uptime = computed(() => {
   return { value: String(Math.floor(seconds / 60)), unit: 'm' }
 })
 
-function splitCompact(value: number, decimals: number) {
-  const text = formatCompactBytes(value, decimals)
-  const matched = text.match(/^([0-9.]+)(.*)$/)
-  return { value: matched?.[1] || text, unit: matched?.[2] || '' }
-}
-
-const traffic = computed(() => splitCompact(props.server.trafficBytes, 2))
-const inSpeed = computed(() => splitCompact(props.server.speedIn, 1))
-const outSpeed = computed(() => splitCompact(props.server.speedOut, 1))
+const traffic = computed(() => splitTransfer(props.server.trafficBytes))
+const inSpeed = computed(() => formatLiveSpeed(props.server.speedIn))
+const outSpeed = computed(() => formatLiveSpeed(props.server.speedOut))
 const showFoot = computed(() => props.server.publicNote.planTags.length > 0 || Boolean(props.server.orderLink || billingText.value))
 
 function planTag(tag: string) {
@@ -55,20 +49,20 @@ function planTag(tag: string) {
 <template>
   <article class="nazhua-card" :class="{ offline: !server.online }">
     <RouterLink :to="{ name: 'public-detail', params: { serverId: String(server.id) } }" class="nazhua-card__head" :aria-label="server.name">
-      <span v-if="server.flagClass" :class="server.flagClass" class="nazhua-flag" />
-      <span v-else class="nazhua-flag-fallback"><i class="ri-global-line"></i></span>
+      <span v-if="server.flagClass" :class="server.flagClass" class="nazhua-flag" aria-hidden="true" />
+      <span v-else class="nazhua-flag-fallback" aria-hidden="true"><i class="ri-global-line"></i></span>
       <strong>{{ server.name }}</strong>
       <span v-if="!server.online" class="nazhua-offline-label"><i class="ri-wifi-off-line"></i>{{ t('nazhua.offline') }}</span>
       <span v-else class="nazhua-card__spec">
         <OsLogo :platform="server.platform" />
-        {{ server.spec || '—' }}
+        <span>{{ server.spec || '—' }}</span>
       </span>
     </RouterLink>
     <RouterLink :to="{ name: 'public-detail', params: { serverId: String(server.id) } }" class="nazhua-card__main" :aria-label="server.name">
       <div class="nazhua-card__metrics">
-        <DonutChart label="CPU" :percent="server.cpuPercent" :value="`${server.cpuPercent.toFixed(1)}%`" :caption="server.cpuCaption" color="blue" />
-        <DonutChart :label="t('nazhua.memory')" :percent="server.memoryPercent" :value="server.memoryValue" :caption="server.memoryCaption" color="green" />
-        <DonutChart :label="t('nazhua.disk')" :percent="server.diskPercent" :value="server.diskValue" :caption="server.diskCaption" color="cyan" />
+        <DonutChart label="CPU" :percent="server.cpuPercent" :value="`${Number(server.cpuPercent.toFixed(1))}%`" :caption="server.cpuCaption" color="blue" />
+        <DonutChart :label="t('nazhua.memory')" :percent="server.memoryPercent" :value="server.memoryValue" :caption="server.memoryTotalLabel" :caption-title="server.memoryCaption" color="green" />
+        <DonutChart :label="t('nazhua.disk')" :percent="server.diskPercent" :value="server.diskValue" :caption="server.diskTotalLabel" :caption-title="server.diskCaption" color="cyan" />
       </div>
       <div class="nazhua-card__stats">
         <span><strong>{{ uptime.value }}<em>{{ uptime.unit }}</em></strong><small>{{ t('nazhua.uptime') }}</small></span>

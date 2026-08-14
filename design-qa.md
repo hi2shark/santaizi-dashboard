@@ -29,7 +29,7 @@ The comparisons use the same viewport and first-screen state. Source production 
 - Product copy and data use 三太子 / Santaizi and the Santaizi V2 contract.
 - The function menu remains available for theme, locale, color mode, service, network and Admin navigation.
 - Source mobile filter controls are about 30px high. This port uses the repository-required 44px targets, moving the first card down by 28px while preserving the source order and density.
-- Light mode uses independent accessible tokens. The world map uses the same cool-grey family as the page (`#e4e9f0` panel, card-like 3px dots) with a CSS-filtered `#aaa` SVG. Map points are gold when online, red when offline, and mixed when a cluster contains both; light-mode points use a white halo so they stay readable on the grey panel. Detail panels use the same `#e4e9f0` cool-grey surface instead of near-white cards.
+- Light mode uses a complete cool-grey page + white surface + amber accent set, including a light header. Light mode does not consume `bg.webp`; dark mode keeps the horizon image. Cards, detail panels, the table and the map share `--nazhua-surface`. Map points are a hollow ring plus a solid center (grouped points add a second ring), gold when online and red when offline, with separate light/dark inks.
 - System Chinese fonts replace the upstream bundled Sarasa font.
 - The detail globe uses the same geographic data and visual orientation through a Canvas orthographic renderer, avoiding a separate WebGL dependency. Light mode uses a cool-grey ocean and darker land so the globe stays visible on white cards.
 

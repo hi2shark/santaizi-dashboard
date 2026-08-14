@@ -24,29 +24,20 @@ function isDarkTheme() {
 }
 
 function palette() {
-  if (isDarkTheme()) {
-    return {
-      ocean: '#0b2833',
-      land: '#5e8fa3',
-      landStroke: 'rgba(180, 236, 248, .35)',
-      highlight: '#2ee0f0',
-      sphereStroke: 'rgba(144, 242, 255, .5)',
-      graticule: 'rgba(144, 242, 255, .16)',
-      marker: '#e0fcff',
-      markerGlow: '#00dcff',
-      sphereGlow: 'rgba(0, 212, 255, .42)',
-    }
-  }
+  const shell = document.querySelector('.nazhua-shell')
+  const style = getComputedStyle(shell instanceof HTMLElement ? shell : document.documentElement)
+  const dark = isDarkTheme()
+  const read = (token: string, fallback: string) => style.getPropertyValue(token).trim() || fallback
   return {
-    ocean: '#d7e2ea',
-    land: '#5b7382',
-    landStroke: 'rgba(30, 41, 51, .28)',
-    highlight: '#0e7490',
-    sphereStroke: 'rgba(51, 65, 85, .28)',
-    graticule: 'rgba(51, 65, 85, .16)',
-    marker: '#b38b00',
-    markerGlow: 'rgba(179, 139, 0, .55)',
-    sphereGlow: 'rgba(15, 23, 42, .12)',
+    ocean: read('--nazhua-globe-ocean', dark ? '#0b2833' : '#cfe6f7'),
+    land: read('--nazhua-globe-land', dark ? '#5e8fa3' : '#ffffff'),
+    landStroke: read('--nazhua-globe-land-stroke', dark ? 'rgba(180, 236, 248, .35)' : 'rgba(147, 197, 222, .45)'),
+    highlight: read('--nazhua-globe-highlight', dark ? '#2ee0f0' : '#168be5'),
+    sphereStroke: read('--nazhua-globe-sphere-stroke', dark ? 'rgba(144, 242, 255, .5)' : 'rgba(147, 197, 222, .55)'),
+    graticule: read('--nazhua-globe-graticule', dark ? 'rgba(144, 242, 255, .16)' : 'rgba(147, 197, 222, .2)'),
+    marker: read('--nazhua-globe-marker', dark ? '#e0fcff' : '#c69c00'),
+    markerGlow: read('--nazhua-globe-marker-glow', dark ? '#00dcff' : 'rgba(198, 156, 0, .4)'),
+    sphereGlow: read('--nazhua-globe-glow', dark ? 'rgba(0, 212, 255, .42)' : 'rgba(110, 170, 210, .28)'),
   }
 }
 

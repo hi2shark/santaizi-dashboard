@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { SORT_OPTIONS, type ListMode, type SortOrder, type SortProp } from '../../composables/useServerListFilters'
+import { SORT_OPTIONS, SORT_OPTION_COLUMNS, type ListMode, type SortOrder, type SortProp } from '../../composables/useServerListFilters'
 
 const emit = defineEmits<{
   'update:tagFilter': [value: string]
@@ -44,7 +44,7 @@ function toggleOnline(value: 'online' | 'offline') {
       </el-button>
     </div>
     <div class="nazhua-filter__tools">
-      <el-dropdown trigger="click" @command="emit('update:sortProp', $event as SortProp)">
+      <el-dropdown trigger="click" popper-class="nazhua-sort-menu" @command="emit('update:sortProp', $event as SortProp)">
         <el-button class="nazhua-filter__sort" :aria-label="t('nazhua.sort')">
           <span>{{ sortLabel }}</span>
           <span
@@ -59,12 +59,14 @@ function toggleOnline(value: 'online' | 'offline') {
         </el-button>
         <template #dropdown>
           <el-dropdown-menu>
-            <el-dropdown-item
-              v-for="(option, index) in SORT_OPTIONS"
-              :key="option.prop"
-              :command="option.prop"
-              :divided="index > 0 && option.group !== SORT_OPTIONS[index - 1]?.group"
-            >{{ t(option.labelKey) }}</el-dropdown-item>
+            <div v-for="column in SORT_OPTION_COLUMNS" :key="column.group" class="nazhua-sort-menu__column" role="none">
+              <el-dropdown-item
+                v-for="option in column.options"
+                :key="option.prop"
+                :command="option.prop"
+                :class="{ 'is-current': option.prop === sortProp }"
+              >{{ t(option.labelKey) }}</el-dropdown-item>
+            </div>
           </el-dropdown-menu>
         </template>
       </el-dropdown>

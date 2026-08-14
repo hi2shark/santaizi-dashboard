@@ -6,10 +6,12 @@ const props = withDefaults(defineProps<{
   percent: number
   value?: string
   caption?: string
+  captionTitle?: string
   color?: 'blue' | 'green' | 'cyan' | 'orange'
 }>(), {
   value: '',
   caption: '',
+  captionTitle: '',
   color: 'blue',
 })
 
@@ -34,6 +36,6 @@ const displayValue = computed(() => {
         <span>{{ label }}</span>
       </div>
     </div>
-    <small v-if="caption" class="nazhua-donut__caption">{{ caption }}</small>
+    <small v-if="caption" class="nazhua-donut__caption" :title="captionTitle || caption">{{ caption }}</small>
   </div>
 </template>

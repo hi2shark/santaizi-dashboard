@@ -15,15 +15,13 @@ const view = computed(() => toNazhuaServerView(props.server))
 <template>
   <section class="nazhua-detail-name">
     <div class="nazhua-detail-name__main">
-      <div class="nazhua-detail-name__flag">
+      <div class="nazhua-detail-name__flag" aria-hidden="true">
         <span v-if="view.flagClass" :class="view.flagClass" />
         <i v-else class="ri-global-line"></i>
       </div>
       <div class="nazhua-detail-name__text">
-        <h1>{{ server.name }}</h1>
-        <p v-if="view.slogan">“{{ view.slogan }}”</p>
-        <p v-else-if="location?.name" class="nazhua-detail-name__loc">{{ location.name }}</p>
-        <div class="nazhua-detail-name__meta">
+        <div class="nazhua-detail-name__title">
+          <h1>{{ server.name }}</h1>
           <span v-if="view.spec" class="nazhua-detail-name__spec">
             <OsLogo :platform="view.platform" />{{ view.spec }}
           </span>
@@ -32,6 +30,7 @@ const view = computed(() => toNazhuaServerView(props.server))
             {{ t('nazhua.offline') }}
           </span>
         </div>
+        <p v-if="view.slogan">“{{ view.slogan }}”</p>
       </div>
     </div>
     <ServerGlobe :location="location" />

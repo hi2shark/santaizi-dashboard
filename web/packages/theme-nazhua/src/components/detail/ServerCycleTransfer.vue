@@ -4,7 +4,8 @@ import { useI18n } from 'vue-i18n'
 import type { CycleTransfer, ServerRecord } from '@santaizi/api'
 import { listPublicCycleTransfer } from '@santaizi/api'
 import { AppEmpty } from '@santaizi/ui'
-import { formatCompactBytes, percentOf } from '../../domain/nazhuaServerView'
+import { formatCycleBytes } from '@santaizi/theme-server-status'
+import { percentOf } from '../../domain/nazhuaServerView'
 import { formatDateTime } from '../../utils/host'
 
 const props = defineProps<{ server: ServerRecord }>()
@@ -41,6 +42,14 @@ function usage(row: CycleTransfer) {
   return quota > 0 ? percentOf(used, quota) : Number(row.usage_percent || 0)
 }
 
+function remaining(row: CycleTransfer) {
+  return Number(row.remaining_bytes ?? Math.max(Number(row.quota_bytes || 0) - Number(row.used_bytes || 0), 0))
+}
+
+function windowText(row: CycleTransfer) {
+  return [formatDateTime(row.window_start, locale.value), formatDateTime(row.window_end, locale.value)].filter(Boolean).join(' ~ ')
+}
+
 onMounted(load)
 watch(() => props.server.id, load)
 </script>
@@ -62,37 +71,33 @@ watch(() => props.server.id, load)
     </div>
     <div v-else class="nazhua-cycle-transfer__list">
       <article v-for="row in rows" :key="row.policy_id" class="nazhua-cycle-transfer__item">
-        <header>
+        <div class="nazhua-cycle-transfer__row">
           <strong>{{ row.name || t('nazhua.cycleTransfer') }}</strong>
           <span class="nazhua-cycle-transfer__status" :class="`is-${statusKey(row.status)}`">
             {{ t(`nazhua.cycleStatus.${statusKey(row.status)}`) }}
           </span>
-        </header>
-        <div class="nazhua-cycle-transfer__bar">
-          <div class="nazhua-cycle-transfer__fill" :style="{ width: `${Math.min(100, usage(row))}%` }" />
-          <i
-            v-if="row.warning_percent && row.warning_percent > 0 && row.warning_percent < 100"
-            class="nazhua-cycle-transfer__warn"
-            :style="{ left: `${row.warning_percent}%` }"
-          />
+          <div class="nazhua-cycle-transfer__bar">
+            <div class="nazhua-cycle-transfer__fill" :class="`is-${statusKey(row.status)}`" :style="{ width: `${Math.min(100, usage(row))}%` }" />
+            <i
+              v-if="row.warning_percent && row.warning_percent > 0 && row.warning_percent < 100"
+              class="nazhua-cycle-transfer__warn"
+              :style="{ left: `${row.warning_percent}%` }"
+            />
+          </div>
+          <p class="nazhua-cycle-transfer__usage">
+            {{ formatCycleBytes(Number(row.used_bytes || 0)) }}
+            /
+            {{ formatCycleBytes(Number(row.quota_bytes || 0)) }}
+            ({{ usage(row).toFixed(1) }}%)
+            ·
+            {{ t('nazhua.remainingBytes') }}
+            {{ formatCycleBytes(remaining(row)) }}
+          </p>
         </div>
-        <p>
-          {{ formatCompactBytes(Number(row.used_bytes || 0), 1) }}
-          /
-          {{ formatCompactBytes(Number(row.quota_bytes || 0), 1) }}
-          ({{ usage(row).toFixed(1) }}%)
-        </p>
-        <p v-if="(row.remaining_bytes ?? 0) > 0 || Number(row.quota_bytes || 0) > 0">
-          {{ t('nazhua.remainingBytes') }}
-          {{ formatCompactBytes(Number(row.remaining_bytes ?? Math.max(Number(row.quota_bytes || 0) - Number(row.used_bytes || 0), 0)), 1) }}
-        </p>
-        <p v-if="row.window_start || row.window_end">
-          {{ t('nazhua.windowRange') }}
-          {{ [formatDateTime(row.window_start, locale), formatDateTime(row.window_end, locale)].filter(Boolean).join(' ~ ') }}
-        </p>
-        <p v-if="row.next_reset_at">
-          {{ t('nazhua.nextReset') }}
-          {{ formatDateTime(row.next_reset_at, locale) }}
+        <p v-if="windowText(row) || row.next_reset_at" class="nazhua-cycle-transfer__meta">
+          <template v-if="windowText(row)">{{ t('nazhua.windowRange') }} {{ windowText(row) }}</template>
+          <template v-if="windowText(row) && row.next_reset_at"> · </template>
+          <template v-if="row.next_reset_at">{{ t('nazhua.nextReset') }} {{ formatDateTime(row.next_reset_at, locale) }}</template>
         </p>
       </article>
     </div>

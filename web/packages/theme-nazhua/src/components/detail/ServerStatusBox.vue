@@ -2,7 +2,8 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { ServerRecord } from '@santaizi/api'
-import { formatCompactBytes, toNazhuaServerView } from '../../domain/nazhuaServerView'
+import { toNazhuaServerView } from '../../domain/nazhuaServerView'
+import { formatLiveSpeed, splitTransfer } from '../../utils/host'
 import DonutChart from '../charts/DonutChart.vue'
 
 const props = defineProps<{ server: ServerRecord }>()
@@ -18,16 +19,15 @@ const stats = computed(() => {
       : { value: String(Math.floor(seconds / 60)), unit: 'm' }
   return [
     { key: 'duration', value: uptime.value, unit: uptime.unit, label: t('nazhua.uptime') },
-    { key: 'traffic', ...splitCompact(view.value.trafficBytes, 2), label: view.value.cycle?.quotaBytes ? t('nazhua.remainingTraffic') : t('trafficBidirectionalQuota') },
-    { key: 'in', ...splitCompact(view.value.speedIn, 1), label: t('nazhua.download') },
-    { key: 'out', ...splitCompact(view.value.speedOut, 1), label: t('nazhua.upload') },
+    { key: 'traffic', ...splitTransfer(view.value.trafficBytes), label: view.value.cycle?.quotaBytes ? t('nazhua.remainingTraffic') : t('trafficBidirectionalQuota') },
+    { key: 'in', ...toSpeed(view.value.speedIn), label: t('nazhua.download') },
+    { key: 'out', ...toSpeed(view.value.speedOut), label: t('nazhua.upload') },
   ]
 })
 
-function splitCompact(value: number, decimals: number) {
-  const text = formatCompactBytes(value, decimals)
-  const matched = text.match(/^([0-9.]+)(.*)$/)
-  return { value: matched?.[1] || text, unit: matched?.[2] || '' }
+function toSpeed(value: number) {
+  const speed = formatLiveSpeed(value)
+  return { value: String(speed.value), unit: speed.unit }
 }
 </script>
 
@@ -35,16 +35,16 @@ function splitCompact(value: number, decimals: number) {
   <section class="nazhua-detail-status">
     <div class="nazhua-detail-status__metrics">
       <div class="nazhua-detail-status__metric">
-        <DonutChart label="CPU" :percent="view.cpuPercent" :value="`${view.cpuPercent.toFixed(1)}%`" :caption="view.cpuCaption" color="blue" />
+        <DonutChart label="CPU" :percent="view.cpuPercent" :value="`${Number(view.cpuPercent.toFixed(1))}%`" :caption="view.cpuCaption" color="blue" />
       </div>
       <div class="nazhua-detail-status__metric">
-        <DonutChart :label="t('nazhua.memory')" :percent="view.memoryPercent" :value="view.memoryValue" :caption="view.memoryCaption" color="green" />
+        <DonutChart :label="t('nazhua.memory')" :percent="view.memoryPercent" :value="view.memoryValue" :caption="view.memoryTotalLabel" :caption-title="view.memoryCaption" color="green" />
       </div>
       <div v-if="view.swapTotal > 0" class="nazhua-detail-status__metric">
-        <DonutChart :label="t('nazhua.swap')" :percent="view.swapPercent" :value="formatCompactBytes(view.swapUsed)" :caption="view.swapCaption" color="orange" />
+        <DonutChart :label="t('nazhua.swap')" :percent="view.swapPercent" :value="view.swapValue" :caption="view.swapTotalLabel" :caption-title="view.swapCaption" color="orange" />
       </div>
       <div class="nazhua-detail-status__metric">
-        <DonutChart :label="t('nazhua.disk')" :percent="view.diskPercent" :value="view.diskValue" :caption="view.diskCaption" color="cyan" />
+        <DonutChart :label="t('nazhua.disk')" :percent="view.diskPercent" :value="view.diskValue" :caption="view.diskTotalLabel" :caption-title="view.diskCaption" color="cyan" />
       </div>
     </div>
     <div class="nazhua-detail-status__stats">

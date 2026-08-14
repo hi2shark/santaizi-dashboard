@@ -41,11 +41,11 @@ const rows = computed(() => {
       : note.bill.remainingKind === 'expired'
         ? t('expired')
         : ''
-  const list: Array<{ key: string; label: string; value: string; flag?: boolean; os?: boolean }> = []
-  const push = (key: string, label: string, value: string, extra?: { flag?: boolean; os?: boolean }) => {
+  const list: Array<{ key: string; label: string; value: string; flag?: boolean; os?: boolean; span?: boolean }> = []
+  const push = (key: string, label: string, value: string, extra?: { flag?: boolean; os?: boolean; span?: boolean }) => {
     if (value) list.push({ key, label, value, ...extra })
   }
-  push('cpu', t('nazhua.cpuModel'), item.cpuModels.join(' · '))
+  push('cpu', t('nazhua.cpuModel'), item.cpuModels.join(' · '), { span: true })
   push('gpu', t('nazhua.gpu'), item.gpuNames.join(' · ') || (item.gpuPercent > 0 ? `${item.gpuPercent.toFixed(1)}%` : ''))
   push('temp', t('nazhua.temperature'), temps)
   push('platform', t('nazhua.platform'), platform, { os: true })
@@ -72,10 +72,10 @@ const rows = computed(() => {
   <section v-if="rows.length || view.publicNote.planTags.length || view.orderLink" class="nazhua-info-box">
     <h2>{{ t('nazhua.serverInfo') }}</h2>
     <dl>
-      <div v-for="row in rows" :key="row.key">
+      <div v-for="row in rows" :key="row.key" :class="{ 'is-span': row.span }">
         <dt>{{ row.label }}</dt>
         <dd>
-          <span v-if="row.flag && view.flagClass" :class="view.flagClass" class="nazhua-flag" />
+          <span v-if="row.flag && view.flagClass" :class="view.flagClass" class="nazhua-flag" aria-hidden="true" />
           <OsLogo v-if="row.os" :platform="view.platform" />
           {{ row.value }}
         </dd>

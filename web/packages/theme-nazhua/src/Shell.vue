@@ -6,6 +6,7 @@ import { useInjectedStatusStore } from '@santaizi/status-core'
 import bgImage from './assets/bg.webp?url'
 import NazhuaHeader from './components/layout/NazhuaHeader.vue'
 import { useNavbarStats } from './composables/useServerListFilters'
+import { formatProductVersion, PRODUCT_REPO_URL } from '@santaizi/theme-server-status'
 
 const props = defineProps<{
   publicTheme: 'server-status' | 'nazhua'
@@ -22,6 +23,8 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const router = useRouter()
 const store = useInjectedStatusStore()
+const footerText = computed(() => store.bootstrap?.footer_text?.trim() || '')
+const versionLine = computed(() => formatProductVersion(store.bootstrap?.version))
 const navbarStats = useNavbarStats(() => store.servers)
 const counts = computed(() => ({
   total: store.servers.length,
@@ -36,8 +39,6 @@ function menuCommand(command: string) {
     emit('selectTheme', command.slice(6) as 'server-status' | 'nazhua')
   } else if (command.startsWith('locale:')) {
     emit('selectLocale', command.slice(7))
-  } else if (command === 'color') {
-    emit('toggleColor')
   } else if (command === 'admin') {
     window.location.assign('/admin/')
   }
@@ -58,6 +59,14 @@ function menuCommand(command: string) {
       :speed-out="navbarStats.speedOut"
     >
       <template #actions>
+        <button
+          type="button"
+          class="nazhua-theme-button"
+          :aria-label="t(actualColorMode === 'dark' ? 'light' : 'dark')"
+          @click="emit('toggleColor')"
+        >
+          <i :class="actualColorMode === 'dark' ? 'ri-sun-line' : 'ri-moon-line'"></i>
+        </button>
         <el-dropdown trigger="click" popper-class="nazhua-function-menu" @command="menuCommand">
           <button type="button" class="nazhua-menu-button" :aria-label="t('actions')">
             <i class="ri-menu-4-line"></i>
@@ -67,12 +76,8 @@ function menuCommand(command: string) {
               <el-dropdown-item command="route:/"><i class="ri-server-line"></i>{{ t('statusHome') }}</el-dropdown-item>
               <el-dropdown-item command="route:/service"><i class="ri-heart-pulse-line"></i>{{ t('statusServices') }}</el-dropdown-item>
               <el-dropdown-item command="route:/network"><i class="ri-line-chart-line"></i>{{ t('statusNetwork') }}</el-dropdown-item>
-              <el-dropdown-item divided command="color">
-                <i :class="actualColorMode === 'dark' ? 'ri-sun-line' : 'ri-moon-line'"></i>
-                {{ t(actualColorMode === 'dark' ? 'light' : 'dark') }}
-              </el-dropdown-item>
               <template v-if="allowThemeSwitch">
-                <el-dropdown-item command="theme:server-status" :disabled="publicTheme === 'server-status'"><i class="ri-table-view"></i>{{ t('themeServerStatus') }}</el-dropdown-item>
+                <el-dropdown-item divided command="theme:server-status" :disabled="publicTheme === 'server-status'"><i class="ri-table-view"></i>{{ t('themeServerStatus') }}</el-dropdown-item>
                 <el-dropdown-item command="theme:nazhua" :disabled="publicTheme === 'nazhua'"><i class="ri-gallery-view-2"></i>{{ t('themeNazhua') }}</el-dropdown-item>
               </template>
               <el-dropdown-item divided command="locale:zh-CN"><i class="ri-translate-2"></i>简体中文</el-dropdown-item>
@@ -87,7 +92,11 @@ function menuCommand(command: string) {
     </NazhuaHeader>
     <main id="status-main"><slot /></main>
     <footer class="nazhua-footer">
-      <span>{{ store.bootstrap?.footer_text || t('appName') }}</span>
+      <span v-if="footerText">{{ footerText }}</span>
+      <span>
+        <a :href="PRODUCT_REPO_URL" target="_blank" rel="noopener noreferrer">{{ t('appName') }}</a>
+        <template v-if="versionLine"> · {{ versionLine }}</template>
+      </span>
       <span>Theme by <a href="https://github.com/hi2shark/nazhua" target="_blank" rel="noopener noreferrer">Nazhua</a></span>
     </footer>
   </div>
