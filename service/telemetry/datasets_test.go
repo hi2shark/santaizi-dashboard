@@ -221,6 +221,31 @@ func TestListIncidentRevisionsPaginates(t *testing.T) {
 	}
 }
 
+func TestAnnotateObserverEvidenceResolvesCollectorNames(t *testing.T) {
+	db := newConnectionDB(t)
+	createCollector(t, db, "collector-east", "East")
+	blob, err := json.Marshal([]rawEvidence{
+		{ObserverID: PrimaryObserverID, Healthy: true, Seen: true},
+		{ObserverID: "collector-east", Healthy: true, Seen: true},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := AnnotateObserverEvidence(db, [][]byte{blob, nil})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("rows=%d", len(rows))
+	}
+	if len(rows[0]) != 2 || rows[0][0].ObserverKind != ObserverKindPrimary || rows[0][1].ObserverName != "East" || rows[0][1].ObserverKind != ObserverKindCollector {
+		t.Fatalf("evidence=%#v", rows[0])
+	}
+	if len(rows[1]) != 0 {
+		t.Fatalf("empty blob=%#v", rows[1])
+	}
+}
+
 func mustJSON(t *testing.T, value any) []byte {
 	t.Helper()
 	encoded, err := json.Marshal(value)

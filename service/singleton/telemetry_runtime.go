@@ -11,12 +11,15 @@ import (
 	"time"
 
 	"github.com/hi2shark/santaizi-dashboard/model"
+	"github.com/hi2shark/santaizi-dashboard/pkg/geoip"
 	pb "github.com/hi2shark/santaizi-dashboard/proto"
 	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
 )
 
 const primaryObserverID = "primary"
+
+var lookupCountryCode = geoip.LookupCodeFromAddr
 
 func BindServerNode(serverID uint64, nodeUUID []byte, now time.Time) (bool, error) {
 	return BindServerNodeForProtocol(serverID, nodeUUID, now, pb.SourceProtocol_SOURCE_PROTOCOL_UNSPECIFIED)
@@ -354,6 +357,55 @@ func preservePBHostIP(host *pb.Host, previousIP string) *pb.Host {
 	return cloned
 }
 
+func previousHostCountry(payload []byte) string {
+	if len(payload) == 0 {
+		return ""
+	}
+	previous := new(pb.Host)
+	if proto.Unmarshal(payload, previous) != nil {
+		return ""
+	}
+	return strings.TrimSpace(previous.GetCountryCode())
+}
+
+// enrichPBHost keeps LastIP / last CountryCode across empty HOST frames, then
+// fills CountryCode from the embedded GeoIP database when the agent did not
+// send a manual code. V2 never calls the unary LookupGeoIP RPC.
+func enrichPBHost(host *pb.Host, previousIP, previousCountry string) *pb.Host {
+	if host == nil {
+		return nil
+	}
+	merged := preservePBHostIP(host, previousIP)
+	if strings.TrimSpace(merged.GetCountryCode()) != "" {
+		return merged
+	}
+	ip := strings.TrimSpace(merged.GetIp())
+	prevIP := strings.TrimSpace(previousIP)
+	prevCode := strings.TrimSpace(previousCountry)
+	ipUnchanged := ip == "" || ip == prevIP
+	code := ""
+	if ipUnchanged {
+		code = prevCode
+	}
+	if code == "" {
+		code = lookupCountryCode(ip)
+	}
+	if code == "" {
+		code = prevCode
+	}
+	if code == "" {
+		return merged
+	}
+	if merged == host {
+		merged = proto.Clone(host).(*pb.Host)
+		if strings.TrimSpace(merged.GetIp()) == "" && prevIP != "" {
+			merged.Ip = prevIP
+		}
+	}
+	merged.CountryCode = code
+	return merged
+}
+
 func touchV2Runtime(nodeUUID, sessionID []byte, sequence uint64, collectedAt int64, receivedAt time.Time, state *pb.State, host *pb.Host) error {
 	var binding model.ServerNodeBinding
 	if err := DB.Where("node_uuid = ? AND current = ?", nodeUUID, true).First(&binding).Error; err != nil {
@@ -408,7 +460,7 @@ func touchV2Runtime(nodeUUID, sessionID []byte, sequence uint64, collectedAt int
 			}
 		}
 		if len(hostPayload) > 0 {
-			mergedHost = preservePBHostIP(host, runtime.LastIP)
+			mergedHost = enrichPBHost(host, runtime.LastIP, previousHostCountry(runtime.HostPayload))
 			if mergedHost != host {
 				var marshalErr error
 				hostPayload, marshalErr = proto.Marshal(mergedHost)
@@ -454,6 +506,9 @@ func touchV2Runtime(nodeUUID, sessionID []byte, sequence uint64, collectedAt int
 		converted := model.PB2Host(mergedHost)
 		if converted.IP == "" && server.Host != nil && strings.TrimSpace(server.Host.IP) != "" {
 			converted.IP = server.Host.IP
+		}
+		if converted.CountryCode == "" && server.Host != nil && strings.TrimSpace(server.Host.CountryCode) != "" {
+			converted.CountryCode = server.Host.CountryCode
 		}
 		server.Host = &converted
 	}

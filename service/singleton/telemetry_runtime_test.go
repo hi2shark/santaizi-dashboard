@@ -2,6 +2,7 @@ package singleton
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 	"time"
 
@@ -187,6 +188,20 @@ func TestBindingAndTagChangeRefreshCollectorAssignments(t *testing.T) {
 	}
 }
 
+func stubCountryLookup(t *testing.T, codes map[string]string) {
+	t.Helper()
+	previous := lookupCountryCode
+	lookupCountryCode = func(addr string) string {
+		for ip, code := range codes {
+			if strings.Contains(addr, ip) {
+				return code
+			}
+		}
+		return ""
+	}
+	t.Cleanup(func() { lookupCountryCode = previous })
+}
+
 func TestPreservePBHostIP(t *testing.T) {
 	if got := preservePBHostIP(&pb.Host{Ip: "", Version: "1"}, "203.0.113.10").GetIp(); got != "203.0.113.10" {
 		t.Fatalf("empty incoming should keep previous, got %q", got)
@@ -197,6 +212,46 @@ func TestPreservePBHostIP(t *testing.T) {
 	}
 	if preservePBHostIP(nil, "203.0.113.10") != nil {
 		t.Fatal("nil host should stay nil")
+	}
+}
+
+func TestEnrichPBHostFillsCountryFromGeoIP(t *testing.T) {
+	stubCountryLookup(t, map[string]string{"8.8.8.8": "us"})
+	incoming := &pb.Host{Ip: "8.8.8.8", Version: "1.0.0"}
+	got := enrichPBHost(incoming, "", "")
+	if got == incoming {
+		t.Fatal("GeoIP fill must clone so the original event is not mutated")
+	}
+	if incoming.GetCountryCode() != "" {
+		t.Fatalf("original mutated: %q", incoming.GetCountryCode())
+	}
+	if got.GetCountryCode() == "" {
+		t.Fatal("expected GeoIP country code")
+	}
+	if got.GetIp() != "8.8.8.8" || got.GetVersion() != "1.0.0" {
+		t.Fatalf("other fields drifted: %#v", got)
+	}
+}
+
+func TestEnrichPBHostManualCodeWins(t *testing.T) {
+	incoming := &pb.Host{Ip: "8.8.8.8", CountryCode: "CN"}
+	got := enrichPBHost(incoming, "1.1.1.1", "us")
+	if got != incoming || got.GetCountryCode() != "CN" {
+		t.Fatalf("manual code should win, got %#v", got)
+	}
+}
+
+func TestEnrichPBHostKeepsPreviousWhenIPEmpty(t *testing.T) {
+	incoming := &pb.Host{Ip: "", Version: "2"}
+	got := enrichPBHost(incoming, "8.8.8.8", "us")
+	if got.GetIp() != "8.8.8.8" {
+		t.Fatalf("ip=%q", got.GetIp())
+	}
+	if got.GetCountryCode() != "us" {
+		t.Fatalf("country=%q", got.GetCountryCode())
+	}
+	if got.GetVersion() != "2" {
+		t.Fatalf("version=%q", got.GetVersion())
 	}
 }
 
@@ -298,5 +353,85 @@ func TestEmptyHostIPDoesNotOverwriteLastKnown(t *testing.T) {
 	}
 	if ServerList[9].Host.IP != updatedIP {
 		t.Fatalf("non-empty IP should update, got %q", ServerList[9].Host.IP)
+	}
+}
+
+func TestV2HostFillsCountryCodeFromGeoIP(t *testing.T) {
+	stubCountryLookup(t, map[string]string{"8.8.8.8": "us"})
+	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(
+		&model.Server{}, &model.ServerNodeBinding{}, &model.ObserverAssignment{}, &model.Collector{}, &model.CollectorScope{},
+		&model.ServerRuntime{},
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.Server{Common: model.Common{ID: 11}, Name: "node-11", Secret: "secret-11"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	previousDB, previousConf, previousServers := DB, Conf, ServerList
+	DB = db
+	Conf = &model.Config{Telemetry: model.TelemetryConfig{OfflineThresholdSeconds: 30}}
+	ServerList = map[uint64]*model.Server{11: {Common: model.Common{ID: 11}, State: &model.HostState{}, Host: &model.Host{}}}
+	t.Cleanup(func() {
+		DB, Conf, ServerList = previousDB, previousConf, previousServers
+		_ = CloseDB(db)
+	})
+
+	node := bytes.Repeat([]byte{0x61}, 16)
+	session := bytes.Repeat([]byte{0x62}, 16)
+	now := time.Now()
+	if _, err := BindServerNode(11, node, now.Add(-time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := ApplyV2Event(&pb.TelemetryEvent{
+		EventId: bytes.Repeat([]byte{0x11}, 16), NodeUuid: node, SessionId: session, Sequence: 1,
+		CollectedAtUnixNano: now.UnixNano(),
+		Payload:             &pb.TelemetryEvent_Host{Host: &pb.Host{Ip: "8.8.8.8", Version: "1.0.0"}},
+	}, now); err != nil {
+		t.Fatal(err)
+	}
+	code := ServerList[11].Host.CountryCode
+	if code == "" {
+		t.Fatal("expected GeoIP CountryCode on first host")
+	}
+
+	later := now.Add(time.Second)
+	if err := ApplyV2Event(&pb.TelemetryEvent{
+		EventId: bytes.Repeat([]byte{0x12}, 16), NodeUuid: node, SessionId: session, Sequence: 2,
+		CollectedAtUnixNano: later.UnixNano(),
+		Payload:             &pb.TelemetryEvent_Host{Host: &pb.Host{Ip: "", Version: "1.0.1"}},
+	}, later); err != nil {
+		t.Fatal(err)
+	}
+	if ServerList[11].Host.CountryCode != code {
+		t.Fatalf("empty host overwrote CountryCode: %q", ServerList[11].Host.CountryCode)
+	}
+
+	var runtime model.ServerRuntime
+	if err := db.First(&runtime, "server_id = ?", 11).Error; err != nil {
+		t.Fatal(err)
+	}
+	var stored pb.Host
+	if err := proto.Unmarshal(runtime.HostPayload, &stored); err != nil {
+		t.Fatal(err)
+	}
+	if stored.GetCountryCode() != code {
+		t.Fatalf("HostPayload CountryCode=%q", stored.GetCountryCode())
+	}
+
+	manual := later.Add(time.Second)
+	if err := ApplyV2Event(&pb.TelemetryEvent{
+		EventId: bytes.Repeat([]byte{0x13}, 16), NodeUuid: node, SessionId: session, Sequence: 3,
+		CollectedAtUnixNano: manual.UnixNano(),
+		Payload:             &pb.TelemetryEvent_Host{Host: &pb.Host{Ip: "8.8.8.8", CountryCode: "CN"}},
+	}, manual); err != nil {
+		t.Fatal(err)
+	}
+	if ServerList[11].Host.CountryCode != "CN" {
+		t.Fatalf("manual CountryCode should win, got %q", ServerList[11].Host.CountryCode)
 	}
 }

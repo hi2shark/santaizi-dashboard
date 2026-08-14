@@ -387,3 +387,29 @@ func annotateEvidence(items []ObserverEvidenceItem, idx hostIndex) []ObserverEvi
 	}
 	return out
 }
+
+func AnnotateObserverEvidence(db *gorm.DB, blobs [][]byte) ([][]ObserverEvidenceItem, error) {
+	out := make([][]ObserverEvidenceItem, len(blobs))
+	if len(blobs) == 0 {
+		return out, nil
+	}
+	decoded := make([][]ObserverEvidenceItem, len(blobs))
+	observerIDs := make([]string, 0)
+	for i, blob := range blobs {
+		raw := decodeEvidence(blob)
+		decoded[i] = raw
+		for _, item := range raw {
+			if item.ObserverID != "" {
+				observerIDs = append(observerIDs, item.ObserverID)
+			}
+		}
+	}
+	idx, err := loadHostIndex(db, nil, observerIDs)
+	if err != nil {
+		return nil, err
+	}
+	for i, items := range decoded {
+		out[i] = annotateEvidence(items, idx)
+	}
+	return out, nil
+}
