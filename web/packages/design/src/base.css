@@ -205,6 +205,21 @@ html.dark .el-popper.is-light {
   outline: none;
   box-shadow: 0 0 0 1px var(--accent);
 }
+/* outline 不跟 border-radius，开关/滑杆会画出方形蓝框。 */
+.el-switch__input:focus-visible ~ .el-switch__core {
+  outline: none;
+  box-shadow: var(--sz-focus);
+}
+/* EP 只给圆钮 left:1px，不写 top，轨道里会偏上。 */
+.el-switch__core .el-switch__action {
+  top: 1px;
+}
+.el-slider__button-wrapper:focus-visible {
+  box-shadow: none;
+}
+.el-slider__button-wrapper:focus-visible .el-slider__button {
+  box-shadow: var(--sz-focus);
+}
 
 /* 触控 / 粗指针：取消 cursor:pointer（移动端无鼠标手型） */
 @media (hover: none), (pointer: coarse) {

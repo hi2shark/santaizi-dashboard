@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { AppDrawer, AppEmpty } from '@santaizi/ui'
 import type { ConnectionLatencyBucket, ConnectionPath } from '@santaizi/api'
 import { listCollectors, listConnectionLatency, listConnectionPaths, type CollectorRecord } from '@/api/adminApi'
@@ -11,6 +11,7 @@ import { notifyAPIError } from '@/composables/notify'
 
 const { t, te, locale } = useI18n()
 const router = useRouter()
+const route = useRoute()
 const loading = ref(false)
 const latencyLoading = ref(false)
 const collectors = ref<CollectorRecord[]>([])
@@ -133,6 +134,8 @@ async function load(quiet = false) {
 }
 
 onMounted(async () => {
+  const observerId = String(route.query.observer_id || '')
+  if (observerId) observerFilter.value = observerId
   await load()
   timer = setInterval(() => { void load(true) }, 15000)
 })

@@ -24,6 +24,14 @@
   --sz-sidebar-active: #eff6ff;
   --sz-sidebar-active-text: #1d4ed8;
   --sz-focus: 0 0 0 3px rgba(37, 99, 235, .24);
+  /* 与 theme-nazhua 详情页地球同调（Canvas 直接读取，含透明度） */
+  --sz-globe-ocean: #d7e2ea;
+  --sz-globe-land: #5b7382;
+  --sz-globe-land-stroke: rgba(30, 41, 51, .28);
+  --sz-globe-sphere-stroke: rgba(51, 65, 85, .28);
+  --sz-globe-graticule: rgba(51, 65, 85, .16);
+  --sz-globe-highlight: #0e7490;
+  --sz-globe-glow: rgba(15, 23, 42, .12);
 
   /* aliases used by shared ui / EP bridge (map to --sz-*) */
   --bg: var(--sz-bg);
@@ -136,6 +144,13 @@ html.dark,
   --sz-sidebar-active: #172554;
   --sz-sidebar-active-text: #f8fafc;
   --sz-focus: 0 0 0 3px rgba(96, 165, 250, .28);
+  --sz-globe-ocean: #0b2833;
+  --sz-globe-land: #5e8fa3;
+  --sz-globe-land-stroke: rgba(180, 236, 248, .35);
+  --sz-globe-sphere-stroke: rgba(144, 242, 255, .5);
+  --sz-globe-graticule: rgba(144, 242, 255, .16);
+  --sz-globe-highlight: #2bc4dd;
+  --sz-globe-glow: rgba(0, 212, 255, .42);
 
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
   --shadow-raised: 0 4px 18px rgba(0, 0, 0, 0.4);

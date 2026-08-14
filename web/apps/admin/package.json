@@ -15,6 +15,7 @@
     "@santaizi/i18n": "workspace:*",
     "@santaizi/ui": "workspace:*",
     "axios": "1.19.0",
+    "d3-geo": "3.1.1",
     "echarts": "6.1.0",
     "element-plus": "2.14.4",
     "pinia": "4.0.2",
@@ -24,6 +25,7 @@
     "vue-router": "5.2.0"
   },
   "devDependencies": {
+    "@types/d3-geo": "3.1.1",
     "@vitejs/plugin-vue": "6.0.8",
     "@vue/test-utils": "2.4.11",
     "typescript": "6.0.3",
