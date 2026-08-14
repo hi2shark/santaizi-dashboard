@@ -39,7 +39,6 @@ function tone(percent: number) {
       role="row"
     >
       <span role="cell" class="nazhua-status-table__name">
-        <i :class="server.online ? 'ri-checkbox-circle-fill online' : 'ri-indeterminate-circle-fill offline'"></i>
         <RouterLink
           :to="{ name: 'public-detail', params: { serverId: String(server.id) } }"
           class="nazhua-status-table__link"

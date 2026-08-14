@@ -377,21 +377,54 @@ test('desktop exposes the card, row and ServerStatus list modes', async ({ page 
   await modes.getByRole('button', { name: '列表' }).click()
   await expect(page.locator('.nazhua-home__list.mode-row')).toBeVisible()
   await expect(page.locator('.nazhua-row')).toHaveCount(3)
+  await expect(page.locator('.nazhua-home__list .ri-checkbox-circle-fill, .nazhua-home__list .ri-indeterminate-circle-fill')).toHaveCount(0)
   const rowAlign = await page.locator('.nazhua-row').first().evaluate(row => {
     const name = row.querySelector('strong')!.getBoundingClientRect()
-    const status = row.querySelector('.nazhua-row__status')!.getBoundingClientRect()
+    const flag = row.querySelector('.nazhua-flag, .nazhua-flag-fallback')!.getBoundingClientRect()
+    const os = row.querySelector('.nazhua-os-logo')!.getBoundingClientRect()
     const spec = row.querySelector('small')!.getBoundingClientRect()
     return {
-      nameStatusDelta: Math.abs((name.top + name.height / 2) - (status.top + status.height / 2)),
+      nameFlagDelta: Math.abs((name.top + name.height / 2) - (flag.top + flag.height / 2)),
+      nameOsDelta: Math.abs((name.top + name.height / 2) - (os.top + os.height / 2)),
       specBelowName: spec.top >= name.bottom - 1,
     }
   })
-  expect(rowAlign.nameStatusDelta).toBeLessThan(4)
+  expect(rowAlign.nameFlagDelta).toBeLessThan(4)
+  expect(rowAlign.nameOsDelta).toBeLessThan(4)
   expect(rowAlign.specBelowName).toBe(true)
+  const rowGray = await page.locator('.nazhua-row').evaluateAll(rows => rows.map(row => {
+    const style = getComputedStyle(row)
+    return { offline: row.classList.contains('offline'), filter: style.filter, opacity: Number(style.opacity) }
+  }))
+  expect(rowGray.filter(row => row.offline)).toHaveLength(1)
+  for (const row of rowGray) {
+    if (row.offline) {
+      expect(row.filter).toContain('grayscale')
+      expect(row.opacity).toBeLessThan(1)
+    } else {
+      expect(row.filter === 'none' || !row.filter.includes('grayscale')).toBe(true)
+      expect(row.opacity).toBe(1)
+    }
+  }
   await modes.getByRole('button', { name: 'ServerStatus' }).click()
   await expect(page.locator('.nazhua-home__list.mode-server-status')).toBeVisible()
   await expect(page.locator('.nazhua-status-table__head [role="columnheader"]')).toHaveCount(12)
   await expect(page.locator('.nazhua-status-table__row').first().getByRole('link')).toBeVisible()
+  await expect(page.locator('.nazhua-status-table .ri-checkbox-circle-fill, .nazhua-status-table .ri-indeterminate-circle-fill')).toHaveCount(0)
+  const tableGray = await page.locator('.nazhua-status-table__row').evaluateAll(rows => rows.map(row => {
+    const style = getComputedStyle(row)
+    return { offline: row.classList.contains('offline'), filter: style.filter, opacity: Number(style.opacity) }
+  }))
+  expect(tableGray.filter(row => row.offline)).toHaveLength(1)
+  for (const row of tableGray) {
+    if (row.offline) {
+      expect(row.filter).toContain('grayscale')
+      expect(row.opacity).toBeLessThan(1)
+    } else {
+      expect(row.filter === 'none' || !row.filter.includes('grayscale')).toBe(true)
+      expect(row.opacity).toBe(1)
+    }
+  }
   const tableOverflow = await page.locator('.nazhua-status-table').evaluate(node => node.scrollWidth - node.clientWidth)
   expect(tableOverflow).toBeLessThanOrEqual(1)
   await modes.getByRole('button', { name: '卡片' }).click()

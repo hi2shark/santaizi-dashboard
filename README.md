@@ -20,7 +20,7 @@
 管理后台（`/admin/`）、OAuth 回调、API 与 WebSocket 一旦可被任意访问，即构成高风险控制面。部署时必须将面板置于可信访问控制之后，例如 [Cloudflare Zero Trust](https://developers.cloudflare.com/cloudflare-one/)，或 SSO + 反向代理鉴权、WireGuard / Tailscale、仅内网 + VPN。
 
 1. **Web**：仅通过 Zero Trust / 私有网络访问；公网不开放裸 HTTP(S) 到面板端口。
-2. **gRPC（探针上报，默认 `5555`）**：按需要放行给探针，不要与未受保护的管理 Web 混在同一公网入口。
+2. **gRPC（探针上报，默认 `5555`）**：按需要放行给探针，不要与未受保护的管理 Web 混在同一公网入口。默认明文；生产应启用 `grpc_tls`（见 [SECURITY.md](./SECURITY.md) 与 [配置参考](docs/configuration.md#grpc_tls-grpc-传输与设备证书)）。
 3. 仍须配置 OAuth2 管理员白名单；访问控制不能替代登录鉴权。
 
 未落实上述防护即公网裸奔面板，后果自负。

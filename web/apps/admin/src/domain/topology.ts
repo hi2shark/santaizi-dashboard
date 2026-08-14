@@ -87,17 +87,30 @@ function mixStatus(online: number, offline: number): MarkerStatus {
 }
 
 const RING_ANGLES = [0, 45, 90, 135, 180, 225, 270, 315]
+/** 约 1° 以内视为同城，走屏幕星座而不是地理错开。 */
+const CLUSTER_RAD = Math.PI / 180
 
 /**
- * 推算位置常常互相重合（无节点定位时主面板与从端都会落到同一锚点），
- * 重合的点在地球上只剩一个可点区域，因此按环形错开。手填位置不动。
+ * 推算位置常常互相重合。混种类（主端/从端/节点同城）保持锚点，交给屏幕星座拨开。
+ * 仅「同类推算点抢同一空锚」时才 7° 环形错开。手填位置不动。
  */
-function spread(point: GeoPoint, taken: Set<string>, derived: boolean): GeoPoint {
-  const claim = (candidate: GeoPoint) => {
-    taken.add(locationKey(candidate))
+function spread(
+  point: GeoPoint,
+  taken: Map<string, Set<MarkerKind>>,
+  derived: boolean,
+  kind: MarkerKind,
+): GeoPoint {
+  const record = (candidate: GeoPoint) => {
+    const key = locationKey(candidate)
+    const kinds = taken.get(key) ?? new Set<MarkerKind>()
+    kinds.add(kind)
+    taken.set(key, kinds)
     return candidate
   }
-  if (!derived || !taken.has(locationKey(point))) return claim(point)
+  if (!derived) return record(point)
+  const occupants = taken.get(locationKey(point))
+  if (!occupants || occupants.size === 0) return record(point)
+  if ([...occupants].some(item => item !== kind)) return record(point)
   for (const radius of [7, 14, 21]) {
     for (const angle of RING_ANGLES) {
       const rad = angle * Math.PI / 180
@@ -107,10 +120,10 @@ function spread(point: GeoPoint, taken: Set<string>, derived: boolean): GeoPoint
       while (lon > 180) lon -= 360
       while (lon < -180) lon += 360
       const candidate = { lon, lat }
-      if (!taken.has(locationKey(candidate))) return claim(candidate)
+      if (!taken.has(locationKey(candidate))) return record(candidate)
     }
   }
-  return claim(point)
+  return record(point)
 }
 
 export function buildTopology(input: TopologyInput): TopologyGraph {
@@ -158,11 +171,12 @@ export function buildTopology(input: TopologyInput): TopologyGraph {
       : `${existing.marker.names[0]} +${existing.marker.count - 1}`
   }
 
-  const taken = new Set<string>([...nodeGroups.keys()].map(id => id.slice('node:'.length)))
+  const taken = new Map<string, Set<MarkerKind>>()
+  for (const id of nodeGroups.keys()) taken.set(id.slice('node:'.length), new Set<MarkerKind>(['node']))
   const locatedPoints = locatedServers.map(item => item.point)
   const parsedPrimary = parseLocation(input.primaryLocation)
   const anchor = parsedPrimary || sphericalMean(locatedPoints) || DEFAULT_VIEW
-  const primaryPoint = spread(anchor, taken, !parsedPrimary)
+  const primaryPoint = spread(anchor, taken, !parsedPrimary, 'primary')
   const primary: TopologyMarker = {
     id: 'primary',
     kind: 'primary',
@@ -179,7 +193,7 @@ export function buildTopology(input: TopologyInput): TopologyGraph {
   const collectors: TopologyMarker[] = input.collectors.map((collector) => {
     const parsed = parseLocation(collector.location)
     const covered = locatedServers.filter(item => collectorCovers(collector, item.server, input.paths)).map(item => item.point)
-    const point = spread(parsed || sphericalMean(covered) || anchor, taken, !parsed)
+    const point = spread(parsed || sphericalMean(covered) || anchor, taken, !parsed, 'collector')
     const assigned = input.paths.filter(path => path.observer_id === collector.id)
     const connected = assigned.filter(path => path.sink.connected)
     return {
@@ -244,6 +258,175 @@ export function buildTopology(input: TopologyInput): TopologyGraph {
 
 export function allMarkers(graph: TopologyGraph): TopologyMarker[] {
   return [graph.primary, ...graph.collectors, ...graph.nodes]
+}
+
+export interface LinkViewOptions {
+  highlightId?: string
+  showRays?: boolean
+  showPath?: boolean
+  showCollectorPath?: boolean
+  showReplication?: boolean
+}
+
+export function isCollectorPath(link: TopologyLink): boolean {
+  return link.kind === 'path' && link.toId !== 'primary'
+}
+
+export function visibleLinks(links: TopologyLink[], options: LinkViewOptions = {}): TopologyLink[] {
+  if (options.showRays === false) return []
+  const showPath = options.showPath !== false
+  const showCollectorPath = options.showCollectorPath !== false
+  const showReplication = options.showReplication !== false
+  const highlight = options.highlightId || ''
+  return links.filter((link) => {
+    if (link.kind === 'replication') {
+      if (!showReplication) return false
+    }
+    else if (isCollectorPath(link)) {
+      if (!showCollectorPath) return false
+    }
+    else if (!showPath) {
+      return false
+    }
+    if (highlight && highlight !== 'primary' && link.fromId !== highlight && link.toId !== highlight) return false
+    return true
+  })
+}
+
+export interface ScreenOffset {
+  x: number
+  y: number
+  clustered?: boolean
+}
+
+/** 世界地球上 22px ≈ 邻国。同城只允许约 0.7°，钉在城市锚点上。 */
+export function siteClusterRadius(globeR: number): number {
+  const oneDeg = Math.max(1, globeR) * Math.PI / 180
+  return Math.min(6, Math.max(3, oneDeg * 0.7))
+}
+
+function closeEnough(a: TopologyMarker, b: TopologyMarker): boolean {
+  if (locationKey({ lon: a.lon, lat: a.lat }) === locationKey({ lon: b.lon, lat: b.lat })) return true
+  const rad = Math.PI / 180
+  const lat1 = a.lat * rad
+  const lat2 = b.lat * rad
+  const dLat = (b.lat - a.lat) * rad
+  const dLon = (b.lon - a.lon) * rad
+  const hav = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2
+  return 2 * Math.asin(Math.min(1, Math.sqrt(hav))) < CLUSTER_RAD
+}
+
+export function colocatedClusters(markers: TopologyMarker[]): TopologyMarker[][] {
+  const items = markers.filter(item => Number.isFinite(item.lon) && Number.isFinite(item.lat))
+  const parent = items.map((_, index) => index)
+  const find = (index: number): number => {
+    const current = parent[index] ?? index
+    if (current === index) return index
+    const root = find(current)
+    parent[index] = root
+    return root
+  }
+  for (let i = 0; i < items.length; i++) {
+    const left = items[i]
+    if (!left) continue
+    for (let j = i + 1; j < items.length; j++) {
+      const right = items[j]
+      if (!right) continue
+      if (closeEnough(left, right)) {
+        const a = find(i)
+        const b = find(j)
+        if (a !== b) parent[a] = b
+      }
+    }
+  }
+  const groups = new Map<number, TopologyMarker[]>()
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i]
+    if (!item) continue
+    const root = find(i)
+    const list = groups.get(root)
+    if (list) list.push(item)
+    else groups.set(root, [item])
+  }
+  return [...groups.values()]
+}
+
+function polar(deg: number, radius: number): ScreenOffset {
+  const rad = (deg * Math.PI) / 180
+  return { x: Math.cos(rad) * radius, y: -Math.sin(rad) * radius }
+}
+
+function fan(
+  items: TopologyMarker[],
+  centerDeg: number,
+  span: number,
+  radius: number,
+  place: (id: string, offset: ScreenOffset) => void,
+) {
+  if (!items.length) return
+  if (items.length === 1) {
+    const only = items[0]
+    if (only) place(only.id, polar(centerDeg, radius))
+    return
+  }
+  const start = centerDeg - span / 2
+  const step = span / (items.length - 1)
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i]
+    if (item) place(item.id, polar(start + step * i, radius))
+  }
+}
+
+/** 同城混种类：主端钉在城市点，从端/节点在旁边探出一点。单一种类且只有一个标点不偏移。 */
+export function layoutSite(cluster: TopologyMarker[], radius: number): Map<string, ScreenOffset> {
+  const result = new Map<string, ScreenOffset>()
+  const clustered = cluster.length > 1
+  const place = (id: string, offset: ScreenOffset) => {
+    result.set(id, clustered ? { ...offset, clustered: true } : offset)
+  }
+  const zero = { x: 0, y: 0 }
+  if (cluster.length <= 1) {
+    for (const marker of cluster) place(marker.id, zero)
+    return result
+  }
+  const primary = cluster.filter(item => item.kind === 'primary')
+  const collectors = cluster.filter(item => item.kind === 'collector')
+  const nodes = cluster.filter(item => item.kind === 'node')
+  const kinds = Number(primary.length > 0) + Number(collectors.length > 0) + Number(nodes.length > 0)
+  if (kinds <= 1) {
+    for (let i = 0; i < cluster.length; i++) {
+      const marker = cluster[i]
+      if (marker) place(marker.id, polar(-90 + (360 * i) / cluster.length, radius))
+    }
+    return result
+  }
+  const hub = primary[0]
+  if (hub) place(hub.id, zero)
+  if (primary.length && collectors.length && nodes.length) {
+    fan(collectors, 210, 40, radius, place)
+    fan(nodes, 330, 40, radius, place)
+    return result
+  }
+  if (primary.length && nodes.length) {
+    fan(nodes, 270, 40, radius, place)
+    return result
+  }
+  if (primary.length && collectors.length) {
+    fan(collectors, 270, 50, radius, place)
+    return result
+  }
+  fan(collectors, 180, 40, radius, place)
+  fan(nodes, 0, 40, radius, place)
+  return result
+}
+
+export function siteOffsets(markers: TopologyMarker[], globeR: number): Map<string, ScreenOffset> {
+  const radius = siteClusterRadius(globeR)
+  const result = new Map<string, ScreenOffset>()
+  for (const cluster of colocatedClusters(markers)) {
+    for (const [id, offset] of layoutSite(cluster, radius)) result.set(id, offset)
+  }
+  return result
 }
 
 export interface NodeLatencyRow {

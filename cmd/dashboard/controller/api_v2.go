@@ -192,6 +192,7 @@ func currentNodeForServer(c *gin.Context) ([]byte, bool) {
 type collectorRequest struct {
 	Name        string                  `json:"name" binding:"required"`
 	Address     string                  `json:"address" binding:"required"`
+	ListenPort  uint                    `json:"listen_port"`
 	TLS         bool                    `json:"tls"`
 	InsecureTLS bool                    `json:"insecure_tls"`
 	Location    string                  `json:"location"`
@@ -221,6 +222,11 @@ func createCollector(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	listenPort, err := normalizeCollectorListenPort(request.ListenPort, request.Address)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	id, err := randomCollectorID()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -232,7 +238,7 @@ func createCollector(c *gin.Context) {
 		return
 	}
 	collector := model.Collector{
-		CollectorUUID: id, Name: request.Name, Address: request.Address, TokenHash: hash,
+		CollectorUUID: id, Name: request.Name, Address: request.Address, ListenPort: listenPort, TokenHash: hash,
 		RegistrationToken: plain,
 		Generation:        1, ConfigVersion: singleton.CurrentTelemetryConfigVersion() + 1, TLS: request.TLS, InsecureTLS: request.InsecureTLS,
 		Location: strings.TrimSpace(request.Location),
@@ -256,7 +262,12 @@ func updateCollector(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	updates := map[string]any{"name": request.Name, "address": request.Address, "tls": request.TLS, "insecure_tls": request.InsecureTLS, "location": strings.TrimSpace(request.Location), "updated_at": time.Now()}
+	listenPort, err := normalizeCollectorListenPort(request.ListenPort, request.Address)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	updates := map[string]any{"name": request.Name, "address": request.Address, "listen_port": listenPort, "tls": request.TLS, "insecure_tls": request.InsecureTLS, "location": strings.TrimSpace(request.Location), "updated_at": time.Now()}
 	result := singleton.DB.Model(&model.Collector{}).Where("collector_uuid = ? AND deleted = ?", c.Param("id"), false).Updates(updates)
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})

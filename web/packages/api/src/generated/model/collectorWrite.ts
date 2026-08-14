@@ -16,10 +16,17 @@ export interface CollectorWrite {
      */
   name: string;
   /**
+     * 探针访问地址（host:访问端口）
      * @minLength 1
      * @maxLength 255
      */
   address: string;
+  /**
+     * 从端进程监听端口。0 表示与 address 中的访问端口相同。
+     * @minimum 0
+     * @maximum 65535
+     */
+  listen_port?: number;
   tls?: boolean;
   insecure_tls?: boolean;
   /** @maxLength 64 */

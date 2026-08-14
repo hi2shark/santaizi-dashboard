@@ -83,6 +83,7 @@ export interface CollectorRecord {
   id: string
   name: string
   address: string
+  listen_port?: number
   tls: boolean
   insecure_tls: boolean
   location?: string

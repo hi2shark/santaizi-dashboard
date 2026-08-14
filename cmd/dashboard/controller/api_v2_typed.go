@@ -1351,6 +1351,36 @@ func parseCollectorListenPort(address string) (int, error) {
 	return value, nil
 }
 
+func normalizeCollectorListenPort(listenPort uint, address string) (uint, error) {
+	if listenPort > 65535 {
+		return 0, errors.New("listen_port must be between 0 and 65535")
+	}
+	if listenPort != 0 {
+		return listenPort, nil
+	}
+	parsed, err := parseCollectorListenPort(address)
+	if err != nil {
+		return 0, err
+	}
+	return uint(parsed), nil
+}
+
+func resolveCollectorInstallPort(listenPort uint, address string, requested int) (int, error) {
+	if requested != 0 {
+		if requested < 1 || requested > 65535 {
+			return 0, errors.New("grpc_port must be between 1 and 65535")
+		}
+		return requested, nil
+	}
+	if listenPort != 0 {
+		if listenPort > 65535 {
+			return 0, errors.New("listen_port must be between 1 and 65535")
+		}
+		return int(listenPort), nil
+	}
+	return parseCollectorListenPort(address)
+}
+
 func buildCollectorInstallCommand(script, endpoint, token string, grpcPort int, primaryTLS, primaryInsecureTLS bool) string {
 	parts := []string{
 		"curl -fsSL", shellQuote(script), "| bash -s --",

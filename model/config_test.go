@@ -36,6 +36,9 @@ retention:
 	if config.Retention.StateRawHours != 12 || config.Retention.ObservationDays != 20 {
 		t.Fatalf("retention=%#v", config.Retention)
 	}
+	if config.GRPCTLS.Enabled || config.GRPCTLS.RequireAgentMTLS || config.GRPCTLS.RequireCollectorMTLS {
+		t.Fatalf("grpc_tls defaults=%#v", config.GRPCTLS)
+	}
 }
 
 func TestReliableTelemetryEnvironmentKeyMapping(t *testing.T) {
@@ -44,6 +47,8 @@ func TestReliableTelemetryEnvironmentKeyMapping(t *testing.T) {
 		"SANTAIZI_SITE_BRAND":                       "site.brand",
 		"SANTAIZI_TELEMETRY_STATE_INTERVAL_SECONDS": "telemetry.state_interval_seconds",
 		"SANTAIZI_COLLECTOR_SPOOL_MAX_BYTES":        "collector.spool_max_bytes",
+		"SANTAIZI_GRPC_TLS_ENABLED":                 "grpc_tls.enabled",
+		"SANTAIZI_GRPC_TLS_REQUIRE_AGENT_MTLS":      "grpc_tls.require_agent_mtls",
 	}
 	for input, expected := range tests {
 		if actual := configEnvKey(input); actual != expected {

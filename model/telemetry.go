@@ -85,6 +85,7 @@ type Collector struct {
 	CollectorUUID     string `gorm:"primaryKey;size:64"`
 	Name              string `gorm:"not null"`
 	Address           string `gorm:"not null"`
+	ListenPort        uint   `gorm:"not null;default:0"`
 	TokenHash         []byte `gorm:"type:BLOB;size:32;not null" json:"-"`
 	RegistrationToken string `gorm:"-" json:"-"`
 	TokenCiphertext   []byte `gorm:"column:token_ciphertext;type:BLOB;not null" json:"-"`

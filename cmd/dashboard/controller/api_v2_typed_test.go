@@ -214,6 +214,32 @@ func TestParseCollectorListenPort(t *testing.T) {
 	}
 }
 
+func TestNormalizeCollectorListenPort(t *testing.T) {
+	port, err := normalizeCollectorListenPort(5556, "edge.example.com:443")
+	if err != nil || port != 5556 {
+		t.Fatalf("explicit got %d %v", port, err)
+	}
+	port, err = normalizeCollectorListenPort(0, "edge.example.com:443")
+	if err != nil || port != 443 {
+		t.Fatalf("from address got %d %v", port, err)
+	}
+}
+
+func TestResolveCollectorInstallPort(t *testing.T) {
+	port, err := resolveCollectorInstallPort(5556, "edge.example.com:443", 0)
+	if err != nil || port != 5556 {
+		t.Fatalf("listen_port got %d %v", port, err)
+	}
+	port, err = resolveCollectorInstallPort(0, "edge.example.com:443", 0)
+	if err != nil || port != 443 {
+		t.Fatalf("address fallback got %d %v", port, err)
+	}
+	port, err = resolveCollectorInstallPort(5556, "edge.example.com:443", 8443)
+	if err != nil || port != 8443 {
+		t.Fatalf("requested override got %d %v", port, err)
+	}
+}
+
 func TestApplyAlertRuleWriteAllowsOfflineWithoutThreshold(t *testing.T) {
 	request := alertRuleWriteDTO{
 		Name:            "Host offline",

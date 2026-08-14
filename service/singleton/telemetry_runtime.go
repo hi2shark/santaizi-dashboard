@@ -294,7 +294,7 @@ func EndpointAssignmentForNode(nodeUUID, sessionID []byte, activationSequence ui
 	}
 	assignment := &pb.EndpointAssignment{ConfigVersion: version, Endpoints: []*pb.TelemetryEndpoint{{
 		EndpointId: "primary", Kind: pb.EndpointKind_ENDPOINT_KIND_PRIMARY, Address: primaryAddress,
-		Reliable: true, Tls: Conf.TLS, Generation: 1, ActivationSessionId: append([]byte(nil), sessionID...),
+		Reliable: true, Tls: Conf.TLS || Conf.GRPCTLS.Enabled, Generation: 1, ActivationSessionId: append([]byte(nil), sessionID...),
 		ActivationSequence: 1,
 	}}}
 	var observerAssignments []model.ObserverAssignment
@@ -316,6 +316,50 @@ func EndpointAssignmentForNode(nodeUUID, sessionID []byte, activationSequence ui
 		})
 	}
 	return assignment, nil
+}
+
+// ServerIDFromNodeUUID resolves the live server ID for a bound node UUID.
+// It reads ServerNodeBinding then checks ServerList under ServerLock.
+func ServerIDFromNodeUUID(nodeUUID []byte) (uint64, error) {
+	if len(nodeUUID) != 16 {
+		return 0, errors.New("node UUID must be 16 bytes")
+	}
+	var binding model.ServerNodeBinding
+	if err := DB.Where("node_uuid = ? AND current = ?", nodeUUID, true).First(&binding).Error; err != nil {
+		return 0, err
+	}
+	ServerLock.RLock()
+	defer ServerLock.RUnlock()
+	if _, ok := ServerList[binding.ServerID]; !ok {
+		return 0, fmt.Errorf("server %d is not loaded", binding.ServerID)
+	}
+	return binding.ServerID, nil
+}
+
+// EnsureServerNodeAvailableForEnroll rejects Enroll when the server is already
+// bound to a different node UUID.
+func EnsureServerNodeAvailableForEnroll(serverID uint64, nodeUUID []byte) error {
+	if len(nodeUUID) != 16 {
+		return errors.New("node UUID must be 16 bytes")
+	}
+	var binding model.ServerNodeBinding
+	err := DB.Where("server_id = ? AND current = ?", serverID, true).First(&binding).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(binding.NodeUUID, nodeUUID) {
+		return errServerBoundToOtherNode
+	}
+	return nil
+}
+
+var errServerBoundToOtherNode = errors.New("server is already bound to another node")
+
+func IsServerBoundToOtherNode(err error) bool {
+	return errors.Is(err, errServerBoundToOtherNode)
 }
 
 func ApplyV2Event(event *pb.TelemetryEvent, receivedAt time.Time) error {

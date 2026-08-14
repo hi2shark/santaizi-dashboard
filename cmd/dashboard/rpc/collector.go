@@ -7,13 +7,18 @@ import (
 
 	pb "github.com/hi2shark/santaizi-dashboard/proto"
 	collectorservice "github.com/hi2shark/santaizi-dashboard/service/collector"
+	"github.com/hi2shark/santaizi-dashboard/service/singleton"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	grpc_health_v1 "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 func ServeCollectorRPC(ctx context.Context, port uint, runtime *collectorservice.Runtime) error {
-	server := grpc.NewServer()
+	options, err := collectorServerOptions(singleton.Conf.GRPCTLS, runtime.AgentCAPool)
+	if err != nil {
+		return err
+	}
+	server := grpc.NewServer(options...)
 	pb.RegisterSantaiziTelemetryServiceServer(server, runtime)
 	pb.RegisterSantaiziCollectorServiceServer(server, runtime)
 	healthServer := health.NewServer()

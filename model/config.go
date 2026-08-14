@@ -135,6 +135,15 @@ type CollectorModeConfig struct {
 	StatusAuthorization string `koanf:"status_authorization" yaml:"status_authorization"`
 }
 
+type GRPCTLSConfig struct {
+	Enabled              bool   `koanf:"enabled" yaml:"enabled"`
+	CertFile             string `koanf:"cert_file" yaml:"cert_file"`
+	KeyFile              string `koanf:"key_file" yaml:"key_file"`
+	ClientCAFile         string `koanf:"client_ca_file" yaml:"client_ca_file"`
+	RequireAgentMTLS     bool   `koanf:"require_agent_mtls" yaml:"require_agent_mtls"`
+	RequireCollectorMTLS bool   `koanf:"require_collector_mtls" yaml:"require_collector_mtls"`
+}
+
 type RollupConfig struct {
 	Enabled   bool `koanf:"enabled" yaml:"enabled"`
 	BatchSize int  `koanf:"batch_size" yaml:"batch_size"`
@@ -163,6 +172,7 @@ type Config struct {
 	InstallScript InstallScriptConfig
 	Telemetry     TelemetryConfig     `koanf:"telemetry" yaml:"telemetry"`
 	Collector     CollectorModeConfig `koanf:"collector" yaml:"collector"`
+	GRPCTLS       GRPCTLSConfig       `koanf:"grpc_tls" yaml:"grpc_tls"`
 	Rollup        RollupConfig        `koanf:"rollup" yaml:"rollup"`
 	Retention     RetentionConfig     `koanf:"retention" yaml:"retention"`
 	Web           WebConfig           `koanf:"web" yaml:"web"`
@@ -435,6 +445,16 @@ func (c *Config) Read(path string) error {
 		c.Oauth2.OidcGroupClaim = "groups"
 	}
 
+	if c.GRPCTLS.RequireAgentMTLS && !c.GRPCTLS.Enabled {
+		return errors.New("grpc_tls.require_agent_mtls requires grpc_tls.enabled")
+	}
+	if c.GRPCTLS.RequireCollectorMTLS && !c.GRPCTLS.Enabled {
+		return errors.New("grpc_tls.require_collector_mtls requires grpc_tls.enabled")
+	}
+	if c.GRPCTLS.Enabled && (c.GRPCTLS.CertFile == "" || c.GRPCTLS.KeyFile == "") {
+		return errors.New("grpc_tls.enabled requires cert_file and key_file")
+	}
+
 	c.NormalizeOfflineConfig()
 	c.updateIgnoredIPNotificationID()
 	return nil
@@ -442,7 +462,7 @@ func (c *Config) Read(path string) error {
 
 func configEnvKey(name string) string {
 	key := strings.ToLower(strings.TrimPrefix(name, "SANTAIZI_"))
-	for _, section := range []string{"telemetry", "collector", "rollup", "retention", "web", "site", "oauth2", "installscript"} {
+	for _, section := range []string{"grpc_tls", "telemetry", "collector", "rollup", "retention", "web", "site", "oauth2", "installscript"} {
 		prefix := section + "_"
 		if strings.HasPrefix(key, prefix) {
 			return section + "." + strings.TrimPrefix(key, prefix)

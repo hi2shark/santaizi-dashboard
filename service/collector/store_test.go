@@ -73,6 +73,12 @@ func TestCollectorIngestCommitsFactsOutboxAndCursorTogether(t *testing.T) {
 		if len(result.Acks) != 1 || result.Acks[0].GetAckThrough() != 4 {
 			t.Fatalf("acks=%#v", result.Acks)
 		}
+		if index == 0 && result.Enqueued != 5 {
+			t.Fatalf("first ingest enqueued=%d want 5", result.Enqueued)
+		}
+		if index == 1 && result.Enqueued != 0 {
+			t.Fatalf("duplicate ingest enqueued=%d want 0", result.Enqueued)
+		}
 	}
 	var events, observations, gaps, outbox int64
 	store.db.Model(&model.CollectorStoredEvent{}).Count(&events)
@@ -124,6 +130,34 @@ func TestCollectorAuthorizationCacheHonorsAssignmentAndRevocation(t *testing.T) 
 	}
 	if allowed, err := store.IsNodeAuthorized(context.Background(), node, now); err != nil || allowed {
 		t.Fatalf("revoked allowed=%t err=%v", allowed, err)
+	}
+}
+
+func TestCollectorAuthorizationCachePersistsAgentCA(t *testing.T) {
+	store := openTestStore(t)
+	now := time.Now()
+	pem := "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n"
+	config := &pb.CollectorAuthorizationConfig{
+		ConfigVersion: 4, PrimaryPublicKey: bytes.Repeat([]byte{4}, 32), KeyId: bytes.Repeat([]byte{5}, 16),
+		AgentCaCertificatePem: pem,
+	}
+	if err := store.SaveAuthorization(context.Background(), "collector-a", config, now); err != nil {
+		t.Fatal(err)
+	}
+	cache, err := store.Authorization(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cache.AgentCACertificatePEM != pem {
+		t.Fatalf("agent CA pem=%q", cache.AgentCACertificatePEM)
+	}
+	config.AgentCaCertificatePem = ""
+	if err := store.SaveAuthorization(context.Background(), "collector-a", config, now); err != nil {
+		t.Fatal(err)
+	}
+	cache, err = store.Authorization(context.Background())
+	if err != nil || cache.AgentCACertificatePEM != pem {
+		t.Fatalf("empty update wiped agent CA: %#v err=%v", cache, err)
 	}
 }
 

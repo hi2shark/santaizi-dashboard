@@ -8,6 +8,7 @@ import (
 
 	"github.com/hi2shark/santaizi-dashboard/model"
 	pb "github.com/hi2shark/santaizi-dashboard/proto"
+	"github.com/hi2shark/santaizi-dashboard/service/pki"
 	"github.com/hi2shark/santaizi-dashboard/service/singleton"
 	telemetryservice "github.com/hi2shark/santaizi-dashboard/service/telemetry"
 	"google.golang.org/grpc"
@@ -19,19 +20,26 @@ import (
 type PrimaryCollectorHandler struct {
 	pb.UnimplementedSantaiziCollectorServiceServer
 	pb.UnimplementedSantaiziReplicationServiceServer
-	signer *telemetryservice.Signer
-	store  *telemetryservice.Store
+	signer      *telemetryservice.Signer
+	store       *telemetryservice.Store
+	agentCA     *pki.Authority
+	collectorCA *pki.Authority
 }
 
-func NewPrimaryCollectorHandler() (*PrimaryCollectorHandler, error) {
+func NewPrimaryCollectorHandler(bundle *pki.Bundle) (*PrimaryCollectorHandler, error) {
 	signer, err := telemetryservice.LoadOrCreateSigner(singleton.Conf.Telemetry.SigningKeyPath)
 	if err != nil {
 		return nil, err
 	}
-	return &PrimaryCollectorHandler{
+	handler := &PrimaryCollectorHandler{
 		signer: signer,
 		store:  telemetryservice.NewStoreWithBucketSize(singleton.DB, time.Duration(singleton.Conf.Telemetry.AvailabilityBucketSeconds)*time.Second),
-	}, nil
+	}
+	if bundle != nil {
+		handler.agentCA = bundle.Agent
+		handler.collectorCA = bundle.Collector
+	}
+	return handler, nil
 }
 
 func (h *PrimaryCollectorHandler) Register(ctx context.Context, request *pb.RegisterCollectorRequest) (*pb.RegisterCollectorResponse, error) {
@@ -39,10 +47,58 @@ func (h *PrimaryCollectorHandler) Register(ctx context.Context, request *pb.Regi
 	if err != nil {
 		return nil, err
 	}
-	return &pb.RegisterCollectorResponse{
+	response := &pb.RegisterCollectorResponse{
 		CollectorUuid: collector.CollectorUUID, PrimaryPublicKey: h.signer.PublicKey(), KeyId: h.signer.KeyID(),
 		ConfigVersion: collector.ConfigVersion,
-	}, nil
+	}
+	if h.agentCA != nil {
+		response.AgentCaCertificatePem = string(h.agentCA.CertPEM)
+	}
+	if len(request.GetCsrDer()) > 0 {
+		if h.collectorCA == nil {
+			return nil, status.Error(codes.FailedPrecondition, "collector CA is not available")
+		}
+		certPEM, notBefore, notAfter, err := pki.SignCollectorCSR(h.collectorCA, request.GetCsrDer(), collector.CollectorUUID, time.Now())
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		response.CollectorCertificatePem = string(certPEM)
+		response.CollectorCaCertificatePem = string(h.collectorCA.CertPEM)
+		response.NotBeforeUnix = notBefore.Unix()
+		response.ExpiresAtUnix = notAfter.Unix()
+	}
+	return response, nil
+}
+
+func (h *PrimaryCollectorHandler) RenewCollector(ctx context.Context, request *pb.CollectorRenewRequest) (*pb.CollectorEnrollResponse, error) {
+	ident, hasCert, err := pki.PeerDeviceIdentityFromContext(ctx)
+	if err != nil {
+		return nil, status.Error(codes.PermissionDenied, err.Error())
+	}
+	if !hasCert || ident.Kind != pki.DeviceCollector {
+		return nil, status.Error(codes.Unauthenticated, "collector certificate is required")
+	}
+	if ident.CollectorUUID != request.GetCollectorUuid() {
+		return nil, status.Error(codes.PermissionDenied, "certificate UUID does not match request")
+	}
+	if _, err := findCollectorByUUID(ctx, ident.CollectorUUID); err != nil {
+		return nil, err
+	}
+	if h.collectorCA == nil {
+		return nil, status.Error(codes.FailedPrecondition, "collector CA is not available")
+	}
+	certPEM, notBefore, notAfter, err := pki.SignCollectorCSR(h.collectorCA, request.GetCsrDer(), ident.CollectorUUID, time.Now())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	response := &pb.CollectorEnrollResponse{
+		CertificatePem: string(certPEM), CaCertificatePem: string(h.collectorCA.CertPEM),
+		NotBeforeUnix: notBefore.Unix(), ExpiresAtUnix: notAfter.Unix(),
+	}
+	if h.agentCA != nil {
+		response.AgentCaCertificatePem = string(h.agentCA.CertPEM)
+	}
+	return response, nil
 }
 
 func (h *PrimaryCollectorHandler) Sync(stream grpc.BidiStreamingServer[pb.CollectorSyncRequest, pb.CollectorSyncResponse]) error {
@@ -54,12 +110,9 @@ func (h *PrimaryCollectorHandler) Sync(stream grpc.BidiStreamingServer[pb.Collec
 	if hello == nil {
 		return status.Error(codes.InvalidArgument, "collector sync hello is required")
 	}
-	collector, err := findCollectorByToken(stream.Context(), hello.GetRegistrationToken())
+	collector, err := h.identifyCollector(stream.Context(), hello.GetCollectorUuid(), hello.GetRegistrationToken())
 	if err != nil {
 		return err
-	}
-	if collector.CollectorUUID != hello.GetCollectorUuid() {
-		return status.Error(codes.PermissionDenied, "collector token identity mismatch")
 	}
 	if err := h.sendCollectorConfig(stream, collector); err != nil {
 		return err
@@ -100,6 +153,9 @@ func (h *PrimaryCollectorHandler) sendCollectorConfig(stream grpc.BidiStreamingS
 	config := &pb.CollectorAuthorizationConfig{
 		ConfigVersion: collector.ConfigVersion, PrimaryPublicKey: h.signer.PublicKey(), KeyId: h.signer.KeyID(),
 	}
+	if h.agentCA != nil {
+		config.AgentCaCertificatePem = string(h.agentCA.CertPEM)
+	}
 	for _, row := range rows {
 		config.Assignments = append(config.Assignments, &pb.NodeAssignment{
 			NodeUuid: row.NodeUUID, ObserverId: row.ObserverID, ValidFromUnixNano: row.ValidFrom,
@@ -110,8 +166,7 @@ func (h *PrimaryCollectorHandler) sendCollectorConfig(stream grpc.BidiStreamingS
 }
 
 func (h *PrimaryCollectorHandler) Replicate(stream grpc.BidiStreamingServer[pb.ReplicationBatch, pb.ReplicationAck]) error {
-	token := collectorTokenFromMetadata(stream.Context())
-	collector, err := findCollectorByToken(stream.Context(), token)
+	collector, err := h.identifyCollector(stream.Context(), "", collectorTokenFromMetadata(stream.Context()))
 	if err != nil {
 		return err
 	}
@@ -137,6 +192,41 @@ func (h *PrimaryCollectorHandler) Replicate(stream grpc.BidiStreamingServer[pb.R
 			return err
 		}
 	}
+}
+
+func (h *PrimaryCollectorHandler) identifyCollector(ctx context.Context, collectorUUID, token string) (*model.Collector, error) {
+	ident, hasCert, err := pki.PeerDeviceIdentityFromContext(ctx)
+	if err != nil {
+		return nil, status.Error(codes.PermissionDenied, err.Error())
+	}
+	if hasCert {
+		if ident.Kind != pki.DeviceCollector {
+			return nil, status.Error(codes.PermissionDenied, "collector certificate is required")
+		}
+		if collectorUUID != "" && ident.CollectorUUID != collectorUUID {
+			return nil, status.Error(codes.PermissionDenied, "certificate UUID does not match hello")
+		}
+		return findCollectorByUUID(ctx, ident.CollectorUUID)
+	}
+	collector, err := findCollectorByToken(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+	if collectorUUID != "" && collector.CollectorUUID != collectorUUID {
+		return nil, status.Error(codes.PermissionDenied, "collector token identity mismatch")
+	}
+	return collector, nil
+}
+
+func findCollectorByUUID(ctx context.Context, collectorUUID string) (*model.Collector, error) {
+	if collectorUUID == "" {
+		return nil, status.Error(codes.Unauthenticated, "collector UUID is required")
+	}
+	var collector model.Collector
+	if err := singleton.DB.WithContext(ctx).Where("collector_uuid = ? AND revoked = ? AND deleted = ?", collectorUUID, false, false).First(&collector).Error; err != nil {
+		return nil, status.Error(codes.Unauthenticated, "collector certificate is invalid or revoked")
+	}
+	return &collector, nil
 }
 
 func findCollectorByToken(ctx context.Context, token string) (*model.Collector, error) {

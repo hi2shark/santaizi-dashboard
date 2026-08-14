@@ -1419,6 +1419,7 @@ type BootstrapTheme string
 
 // Collector defines model for Collector.
 type Collector struct {
+	// Address 探针访问地址（host:访问端口）
 	Address               string     `json:"address"`
 	ConfigVersion         int64      `json:"config_version"`
 	ConnectedAgents       *int64     `json:"connected_agents,omitempty"`
@@ -1430,6 +1431,9 @@ type Collector struct {
 	LastPrimarySeen       *time.Time `json:"last_primary_seen,omitempty"`
 	LastSeen              *time.Time `json:"last_seen,omitempty"`
 	LastSync              *time.Time `json:"last_sync,omitempty"`
+
+	// ListenPort 从端进程监听端口。0 表示与 address 中的访问端口相同。
+	ListenPort *int `json:"listen_port,omitempty"`
 
 	// Location 从端在地球上的位置，ISO 国家/地区码或 `lat,lon`
 	Location                *string           `json:"location,omitempty"`
@@ -1496,12 +1500,16 @@ type CollectorToken struct {
 
 // CollectorWrite defines model for CollectorWrite.
 type CollectorWrite struct {
-	Address     string           `json:"address"`
-	InsecureTls *bool            `json:"insecure_tls,omitempty"`
-	Location    *string          `json:"location,omitempty"`
-	Name        string           `json:"name"`
-	Scopes      []CollectorScope `json:"scopes"`
-	Tls         *bool            `json:"tls,omitempty"`
+	// Address 探针访问地址（host:访问端口）
+	Address     string `json:"address"`
+	InsecureTls *bool  `json:"insecure_tls,omitempty"`
+
+	// ListenPort 从端进程监听端口。0 表示与 address 中的访问端口相同。
+	ListenPort *int             `json:"listen_port,omitempty"`
+	Location   *string          `json:"location,omitempty"`
+	Name       string           `json:"name"`
+	Scopes     []CollectorScope `json:"scopes"`
+	Tls        *bool            `json:"tls,omitempty"`
 }
 
 // ConnectionLatencyBucket defines model for ConnectionLatencyBucket.

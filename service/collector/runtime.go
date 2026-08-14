@@ -5,16 +5,19 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/hi2shark/santaizi-dashboard/model"
 	pb "github.com/hi2shark/santaizi-dashboard/proto"
+	"github.com/hi2shark/santaizi-dashboard/service/pki"
 	"github.com/hi2shark/santaizi-dashboard/service/telemetry"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -25,6 +28,13 @@ import (
 )
 
 const collectorProtocolVersion = "2"
+
+const (
+	replicationBatchSize = 512
+	replicationIdleWait  = 2 * time.Second
+	replicationRetryMin  = time.Second
+	replicationRetryMax  = 10 * time.Second
+)
 
 type Runtime struct {
 	pb.UnimplementedSantaiziTelemetryServiceServer
@@ -50,6 +60,12 @@ type Runtime struct {
 	replicationRttMs   float64
 	replicationRttAt   int64
 	connectedAgents    atomic.Uint64
+	replicateWake      chan struct{}
+	clientStore        *pki.ClientStore
+	forceAgentIngest   bool
+	renewBackoff       time.Duration
+	nextRenew          time.Time
+	legacyPrimary      bool
 }
 
 func NewRuntime(parent context.Context, store *Store, config model.CollectorModeConfig, grace time.Duration) (*Runtime, error) {
@@ -68,14 +84,43 @@ func NewRuntime(parent context.Context, store *Store, config model.CollectorMode
 	runtime := &Runtime{
 		store: store, config: config, grace: grace, ctx: ctx, cancel: cancel,
 		processSession: hex.EncodeToString(processID), replicationSession: replicationID, nextBatchSequence: 1,
+		replicateWake: make(chan struct{}, 1),
 	}
+	pkiDir := filepath.Join(filepath.Dir(config.DatabasePath), "pki")
+	clientStore, err := pki.NewClientStore(pkiDir)
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+	runtime.clientStore = clientStore
 	if cache, err := store.Authorization(ctx); err == nil {
 		runtime.collectorUUID = cache.CollectorUUID
+		if pem := cache.AgentCACertificatePEM; pem != "" {
+			_ = clientStore.SaveAgentCA([]byte(pem))
+		}
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 		cancel()
 		return nil, err
 	}
 	return runtime, nil
+}
+
+func (r *Runtime) SetForceAgentIngest(enabled bool) {
+	r.forceAgentIngest = enabled
+}
+
+func (r *Runtime) AgentCAPool() *x509.CertPool {
+	pool := x509.NewCertPool()
+	if r.clientStore == nil {
+		return pool
+	}
+	if pemBytes, err := r.clientStore.LoadAgentCA(); err == nil && len(pemBytes) > 0 {
+		_ = pki.AppendPEMToPool(pool, pemBytes)
+	}
+	if cache, err := r.store.Authorization(r.ctx); err == nil && cache.AgentCACertificatePEM != "" {
+		_ = pki.AppendPEMToPool(pool, []byte(cache.AgentCACertificatePEM))
+	}
+	return pool
 }
 
 func (r *Runtime) Start() {
@@ -114,23 +159,19 @@ func (r *Runtime) syncOnce() error {
 	}
 	defer conn.Close()
 	client := pb.NewSantaiziCollectorServiceClient(conn)
+	if err := r.ensureCollectorCertificate(client); err != nil {
+		return err
+	}
 	r.mu.RLock()
 	collectorUUID := r.collectorUUID
 	r.mu.RUnlock()
-	if collectorUUID == "" {
-		response, err := client.Register(r.ctx, &pb.RegisterCollectorRequest{RegistrationToken: r.config.RegistrationToken, ProtocolVersion: collectorProtocolVersion})
-		if err != nil {
+	if collectorUUID == "" || (!r.hasCollectorCert() && !r.legacyPrimary) {
+		if err := r.registerWithPrimary(client); err != nil {
 			return err
 		}
-		collectorUUID = response.GetCollectorUuid()
-		if err := r.store.SaveAuthorization(r.ctx, collectorUUID, &pb.CollectorAuthorizationConfig{
-			ConfigVersion: response.GetConfigVersion(), PrimaryPublicKey: response.GetPrimaryPublicKey(), KeyId: response.GetKeyId(),
-		}, time.Now()); err != nil {
-			return err
-		}
-		r.mu.Lock()
-		r.collectorUUID = collectorUUID
-		r.mu.Unlock()
+		r.mu.RLock()
+		collectorUUID = r.collectorUUID
+		r.mu.RUnlock()
 	}
 	stream, err := client.Sync(r.ctx)
 	if err != nil {
@@ -140,11 +181,14 @@ func (r *Runtime) syncOnce() error {
 	if err != nil {
 		return err
 	}
+	hello := &pb.CollectorSyncHello{
+		CollectorUuid: collectorUUID, CurrentConfigVersion: cache.ConfigVersion, Runtime: r.runtimeSnapshot(),
+	}
+	if r.legacyPrimary || !r.hasCollectorCert() {
+		hello.RegistrationToken = r.config.RegistrationToken
+	}
 	sent := time.Now()
-	if err := stream.Send(&pb.CollectorSyncRequest{Body: &pb.CollectorSyncRequest_Hello{Hello: &pb.CollectorSyncHello{
-		CollectorUuid: collectorUUID, RegistrationToken: r.config.RegistrationToken,
-		CurrentConfigVersion: cache.ConfigVersion, Runtime: r.runtimeSnapshot(),
-	}}}); err != nil {
+	if err := stream.Send(&pb.CollectorSyncRequest{Body: &pb.CollectorSyncRequest_Hello{Hello: hello}}); err != nil {
 		return err
 	}
 	r.markSyncSent(sent)
@@ -178,6 +222,9 @@ func (r *Runtime) syncOnce() error {
 				if err := r.store.SaveAuthorization(r.ctx, collectorUUID, config, time.Now()); err != nil {
 					return err
 				}
+				if pem := config.GetAgentCaCertificatePem(); pem != "" {
+					_ = r.clientStore.SaveAgentCA([]byte(pem))
+				}
 			} else if response.GetAccepted() {
 				if err := r.store.TouchPrimarySeen(r.ctx, time.Now()); err != nil {
 					return err
@@ -195,19 +242,33 @@ func (r *Runtime) syncOnce() error {
 
 func (r *Runtime) replicationLoop() {
 	defer r.wg.Done()
+	retry := replicationRetryMin
 	for {
 		if r.ctx.Err() != nil {
 			return
 		}
-		if err := r.replicationOnce(); err != nil && !errors.Is(err, context.Canceled) {
+		err := r.replicationOnce()
+		if err != nil && !errors.Is(err, context.Canceled) {
 			fmt.Printf("SANTAIZI>> collector replication disconnected: %v\n", err)
+		}
+		if r.ctx.Err() != nil {
+			return
 		}
 		select {
 		case <-r.ctx.Done():
 			return
-		case <-time.After(10 * time.Second):
+		case <-time.After(retry):
+		}
+		retry = nextReplicationRetry(retry)
+		if err == nil {
+			retry = replicationRetryMin
 		}
 	}
+}
+
+type replicationStream interface {
+	Send(*pb.ReplicationBatch) error
+	Recv() (*pb.ReplicationAck, error)
 }
 
 func (r *Runtime) replicationOnce() error {
@@ -217,7 +278,7 @@ func (r *Runtime) replicationOnce() error {
 	if collectorUUID == "" {
 		return errors.New("collector is not registered")
 	}
-	conn, err := grpc.NewClient(r.config.PrimaryEndpoint, append(r.dialOptions(), grpc.WithPerRPCCredentials(&collectorTokenCredential{token: r.config.RegistrationToken}))...)
+	conn, err := grpc.NewClient(r.config.PrimaryEndpoint, r.replicationDialOptions()...)
 	if err != nil {
 		return err
 	}
@@ -226,54 +287,109 @@ func (r *Runtime) replicationOnce() error {
 	if err != nil {
 		return err
 	}
-	r.mu.RLock()
-	session := append([]byte(nil), r.replicationSession...)
-	r.mu.RUnlock()
-	ticker := time.NewTicker(2 * time.Second)
-	defer ticker.Stop()
 	for {
+		if err := r.ctx.Err(); err != nil {
+			return err
+		}
+		flushed, err := r.flushOutbox(stream)
+		if err != nil {
+			return err
+		}
+		if flushed > 0 {
+			continue
+		}
+		if r.replicateWake == nil {
+			select {
+			case <-r.ctx.Done():
+				return r.ctx.Err()
+			case <-time.After(replicationIdleWait):
+			}
+			continue
+		}
 		select {
 		case <-r.ctx.Done():
 			return r.ctx.Err()
-		case <-ticker.C:
-			r.mu.RLock()
-			batchSequence := r.nextBatchSequence
-			r.mu.RUnlock()
-			outbox, err := r.store.ReadOutbox(r.ctx, 512)
-			if err != nil {
-				return err
-			}
-			if outbox.Through == 0 {
-				continue
-			}
-			batch := &pb.ReplicationBatch{
-				CollectorUuid: collectorUUID, ReplicationSession: session, BatchSequence: batchSequence,
-				SpoolThroughId: outbox.Through, Events: outbox.Events, Observations: outbox.Observations,
-				Gaps: outbox.Gaps, Health: outbox.Health, Runtime: r.runtimeSnapshot(), DataLoss: outbox.DataLoss,
-			}
-			sent := time.Now()
-			if err := stream.Send(batch); err != nil {
-				return err
-			}
-			ack, err := stream.Recv()
-			if err != nil {
-				return err
-			}
-			if ack.GetError() != "" {
-				return errors.New(ack.GetError())
-			}
-			if ack.GetCollectorUuid() != collectorUUID || !subtleBytesEqual(ack.GetReplicationSession(), session) || ack.GetBatchSequence() != batchSequence {
-				return errors.New("replication ACK identity mismatch")
-			}
-			if err := r.store.CommitReplicationAck(r.ctx, ack.GetCommittedSpoolThroughId()); err != nil {
-				return err
-			}
-			r.noteReplicationRTT(sent, time.Now())
-			r.mu.Lock()
-			r.lastReplicationAck = ack.GetCommittedSpoolThroughId()
-			r.nextBatchSequence++
-			r.mu.Unlock()
+		case <-r.replicateWake:
+		case <-time.After(replicationIdleWait):
 		}
+	}
+}
+
+func (r *Runtime) flushOutbox(stream replicationStream) (int, error) {
+	flushed := 0
+	for {
+		sent, err := r.replicateBatch(stream)
+		if err != nil {
+			return flushed, err
+		}
+		if !sent {
+			return flushed, nil
+		}
+		flushed++
+	}
+}
+
+func (r *Runtime) replicateBatch(stream replicationStream) (bool, error) {
+	r.mu.RLock()
+	collectorUUID := r.collectorUUID
+	session := append([]byte(nil), r.replicationSession...)
+	batchSequence := r.nextBatchSequence
+	r.mu.RUnlock()
+	outbox, err := r.store.ReadOutbox(r.ctx, replicationBatchSize)
+	if err != nil {
+		return false, err
+	}
+	if outbox.Through == 0 {
+		return false, nil
+	}
+	batch := &pb.ReplicationBatch{
+		CollectorUuid: collectorUUID, ReplicationSession: session, BatchSequence: batchSequence,
+		SpoolThroughId: outbox.Through, Events: outbox.Events, Observations: outbox.Observations,
+		Gaps: outbox.Gaps, Health: outbox.Health, Runtime: r.runtimeSnapshot(), DataLoss: outbox.DataLoss,
+	}
+	sent := time.Now()
+	if err := stream.Send(batch); err != nil {
+		return false, err
+	}
+	ack, err := stream.Recv()
+	if err != nil {
+		return false, err
+	}
+	if ack.GetError() != "" {
+		return false, errors.New(ack.GetError())
+	}
+	if ack.GetCollectorUuid() != collectorUUID || !subtleBytesEqual(ack.GetReplicationSession(), session) || ack.GetBatchSequence() != batchSequence {
+		return false, errors.New("replication ACK identity mismatch")
+	}
+	if err := r.store.CommitReplicationAck(r.ctx, ack.GetCommittedSpoolThroughId()); err != nil {
+		return false, err
+	}
+	r.noteReplicationRTT(sent, time.Now())
+	r.mu.Lock()
+	r.lastReplicationAck = ack.GetCommittedSpoolThroughId()
+	r.nextBatchSequence++
+	r.mu.Unlock()
+	return true, nil
+}
+
+func (r *Runtime) wakeReplication() {
+	if r == nil || r.replicateWake == nil {
+		return
+	}
+	select {
+	case r.replicateWake <- struct{}{}:
+	default:
+	}
+}
+
+func nextReplicationRetry(current time.Duration) time.Duration {
+	switch {
+	case current < 2*time.Second:
+		return 2 * time.Second
+	case current < 5*time.Second:
+		return 5 * time.Second
+	default:
+		return replicationRetryMax
 	}
 }
 
@@ -338,6 +454,9 @@ func (r *Runtime) Ingest(stream grpc.BidiStreamingServer[pb.TelemetryRequest, pb
 	if !subtleBytesEqual(verification.Claims.GetNodeUuid(), hello.GetNodeUuid()) {
 		return status.Error(codes.PermissionDenied, "credential node mismatch")
 	}
+	if err := r.matchIngestCertificate(stream.Context(), hello.GetNodeUuid(), verification.Claims.GetNodeUuid()); err != nil {
+		return err
+	}
 	r.connectedAgents.Add(1)
 	defer r.connectedAgents.Add(^uint64(0))
 	for {
@@ -352,6 +471,9 @@ func (r *Runtime) Ingest(stream grpc.BidiStreamingServer[pb.TelemetryRequest, pb
 			result, err := r.store.Ingest(stream.Context(), batch, collectorUUID, time.Now())
 			if err != nil {
 				return status.Error(codes.InvalidArgument, err.Error())
+			}
+			if result.Enqueued > 0 {
+				r.wakeReplication()
 			}
 			if err := stream.Send(&pb.TelemetryResponse{Acks: result.Acks}); err != nil {
 				return err
@@ -436,12 +558,177 @@ func durationMilliseconds(d time.Duration) float64 {
 }
 
 func (r *Runtime) dialOptions() []grpc.DialOption {
-	if r.config.PrimaryTLS {
-		return []grpc.DialOption{grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
-			MinVersion: tls.VersionTLS12, InsecureSkipVerify: r.config.PrimaryInsecureTLS,
-		}))}
+	return r.dialOptionsWithToken(false)
+}
+
+func (r *Runtime) replicationDialOptions() []grpc.DialOption {
+	return r.dialOptionsWithToken(!r.hasCollectorCert() || r.legacyPrimary)
+}
+
+func (r *Runtime) dialOptionsWithToken(withToken bool) []grpc.DialOption {
+	options := []grpc.DialOption{r.transportCredentials()}
+	if withToken {
+		if r.config.PrimaryTLS {
+			options = append(options, grpc.WithPerRPCCredentials(&collectorBootstrapCredential{token: r.config.RegistrationToken}))
+		} else {
+			options = append(options, grpc.WithPerRPCCredentials(&collectorTokenCredential{token: r.config.RegistrationToken}))
+		}
 	}
-	return []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+	return options
+}
+
+func (r *Runtime) transportCredentials() grpc.DialOption {
+	if !r.config.PrimaryTLS {
+		return grpc.WithTransportCredentials(insecure.NewCredentials())
+	}
+	cfg, err := pki.ClientTLSConfig(pki.ClientTLSOptions{
+		InsecureSkipVerify:   r.config.PrimaryInsecureTLS,
+		GetClientCertificate: r.clientStore.GetClientCertificate,
+	})
+	if err != nil || cfg == nil {
+		cfg = &tls.Config{MinVersion: tls.VersionTLS12, InsecureSkipVerify: r.config.PrimaryInsecureTLS}
+	}
+	if bundle, loadErr := r.clientStore.Load(); loadErr == nil && len(bundle.CAPEM) > 0 {
+		if cfg.RootCAs == nil {
+			cfg.RootCAs = x509.NewCertPool()
+		}
+		_ = pki.AppendPEMToPool(cfg.RootCAs, bundle.CAPEM)
+	}
+	return grpc.WithTransportCredentials(credentials.NewTLS(cfg))
+}
+
+func (r *Runtime) hasCollectorCert() bool {
+	if r.clientStore == nil {
+		return false
+	}
+	bundle, err := r.clientStore.Load()
+	return err == nil && bundle != nil && !bundle.Expired(time.Now())
+}
+
+func (r *Runtime) registerWithPrimary(client pb.SantaiziCollectorServiceClient) error {
+	key, err := pki.GenerateKey()
+	if err != nil {
+		return err
+	}
+	csr, err := pki.CreateCSR(key, pki.EncodeCollectorURI("pending"))
+	if err != nil {
+		return err
+	}
+	response, err := client.Register(r.ctx, &pb.RegisterCollectorRequest{
+		RegistrationToken: r.config.RegistrationToken, ProtocolVersion: collectorProtocolVersion, CsrDer: csr,
+	})
+	if err != nil {
+		return err
+	}
+	collectorUUID := response.GetCollectorUuid()
+	config := &pb.CollectorAuthorizationConfig{
+		ConfigVersion: response.GetConfigVersion(), PrimaryPublicKey: response.GetPrimaryPublicKey(), KeyId: response.GetKeyId(),
+		AgentCaCertificatePem: response.GetAgentCaCertificatePem(),
+	}
+	if err := r.store.SaveAuthorization(r.ctx, collectorUUID, config, time.Now()); err != nil {
+		return err
+	}
+	if pem := response.GetAgentCaCertificatePem(); pem != "" {
+		_ = r.clientStore.SaveAgentCA([]byte(pem))
+	}
+	if certPEM := response.GetCollectorCertificatePem(); certPEM != "" {
+		cert, err := pki.ParseCertificatePEM([]byte(certPEM))
+		if err != nil {
+			return err
+		}
+		if err := r.clientStore.Save(&pki.ClientBundle{
+			Key: key, Cert: cert, CertPEM: []byte(certPEM), CAPEM: []byte(response.GetCollectorCaCertificatePem()),
+		}); err != nil {
+			return err
+		}
+		r.legacyPrimary = false
+	} else {
+		r.legacyPrimary = true
+	}
+	r.mu.Lock()
+	r.collectorUUID = collectorUUID
+	r.mu.Unlock()
+	return nil
+}
+
+func (r *Runtime) ensureCollectorCertificate(client pb.SantaiziCollectorServiceClient) error {
+	if r.legacyPrimary {
+		return nil
+	}
+	bundle, err := r.clientStore.Load()
+	if errors.Is(err, pki.ErrClientBundleNotFound) || (err == nil && bundle.Expired(time.Now()) && r.config.RegistrationToken != "") {
+		return nil
+	}
+	if err != nil && !errors.Is(err, pki.ErrClientBundleNotFound) {
+		return err
+	}
+	if bundle == nil {
+		return nil
+	}
+	now := time.Now()
+	if !bundle.NeedsRenew(now, pki.DefaultRenewWindow) || now.Before(r.nextRenew) {
+		return nil
+	}
+	key, err := pki.GenerateKey()
+	if err != nil {
+		return err
+	}
+	r.mu.RLock()
+	collectorUUID := r.collectorUUID
+	r.mu.RUnlock()
+	csr, err := pki.CreateCSR(key, pki.EncodeCollectorURI(collectorUUID))
+	if err != nil {
+		return err
+	}
+	response, err := client.RenewCollector(r.ctx, &pb.CollectorRenewRequest{CollectorUuid: collectorUUID, CsrDer: csr})
+	if err != nil {
+		if !bundle.Expired(now) {
+			if r.renewBackoff == 0 {
+				r.renewBackoff = time.Second
+			} else if r.renewBackoff < 10*time.Second {
+				r.renewBackoff *= 2
+			}
+			r.nextRenew = now.Add(r.renewBackoff)
+			fmt.Printf("SANTAIZI>> collector certificate renew failed, keeping existing cert: %v\n", err)
+			return nil
+		}
+		return err
+	}
+	cert, err := pki.ParseCertificatePEM([]byte(response.GetCertificatePem()))
+	if err != nil {
+		return err
+	}
+	if err := r.clientStore.Save(&pki.ClientBundle{
+		Key: key, Cert: cert, CertPEM: []byte(response.GetCertificatePem()), CAPEM: []byte(response.GetCaCertificatePem()),
+	}); err != nil {
+		return err
+	}
+	if pem := response.GetAgentCaCertificatePem(); pem != "" {
+		_ = r.clientStore.SaveAgentCA([]byte(pem))
+	}
+	r.renewBackoff = 0
+	r.nextRenew = time.Time{}
+	return nil
+}
+
+func (r *Runtime) matchIngestCertificate(ctx context.Context, helloUUID, credentialUUID []byte) error {
+	ident, hasCert, err := pki.PeerDeviceIdentityFromContext(ctx)
+	if err != nil {
+		return status.Error(codes.PermissionDenied, err.Error())
+	}
+	if r.forceAgentIngest && !hasCert {
+		return status.Error(codes.Unauthenticated, "agent certificate is required")
+	}
+	if !hasCert {
+		return nil
+	}
+	if ident.Kind != pki.DeviceAgent {
+		return status.Error(codes.PermissionDenied, "ingest requires an agent certificate")
+	}
+	if !subtleBytesEqual(ident.NodeUUID, helloUUID) || !subtleBytesEqual(ident.NodeUUID, credentialUUID) {
+		return status.Error(codes.PermissionDenied, "certificate UUID does not match hello or credential")
+	}
+	return nil
 }
 
 type collectorTokenCredential struct{ token string }
@@ -451,6 +738,14 @@ func (c *collectorTokenCredential) GetRequestMetadata(context.Context, ...string
 }
 
 func (c *collectorTokenCredential) RequireTransportSecurity() bool { return false }
+
+type collectorBootstrapCredential struct{ token string }
+
+func (c *collectorBootstrapCredential) GetRequestMetadata(context.Context, ...string) (map[string]string, error) {
+	return map[string]string{"collector_token": c.token}, nil
+}
+
+func (c *collectorBootstrapCredential) RequireTransportSecurity() bool { return true }
 
 func subtleBytesEqual(left, right []byte) bool {
 	return len(left) == len(right) && subtle.ConstantTimeCompare(left, right) == 1

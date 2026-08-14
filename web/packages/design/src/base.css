@@ -36,6 +36,7 @@ html.dark {
   --el-fill-color-lighter: var(--bg);
   --el-fill-color-extra-light: var(--bg);
   --el-mask-color: rgba(0, 0, 0, 0.4);
+  --el-mask-color-extra-light: var(--sz-loading-mask);
   --el-box-shadow: var(--shadow-raised);
   --el-box-shadow-light: var(--shadow-raised);
   --el-box-shadow-lighter: var(--shadow);
@@ -87,6 +88,7 @@ html.dark {
   --el-text-color-disabled: color-mix(in srgb, var(--text-muted) 72%, var(--bg-elevated));
   --el-disabled-text-color: var(--el-text-color-disabled);
   --el-mask-color: rgba(0, 0, 0, 0.55);
+  --el-mask-color-extra-light: var(--sz-loading-mask);
   --el-popper-bg-color-light: var(--bg-elevated);
   --el-table-header-bg-color: var(--bg-muted);
   --el-table-header-text-color: var(--text-secondary);
@@ -247,6 +249,44 @@ html.dark .el-popper.is-light {
 .el-message {
   border: none;
   box-shadow: var(--shadow-overlay);
+}
+
+/* v-loading：盖表面色磨砂，不要 EP 深色近黑幕。 */
+.el-loading-mask {
+  background-color: var(--el-mask-color-extra-light);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.el-loading-spinner {
+  width: auto;
+  left: 50%;
+  margin-top: 0;
+  transform: translate(-50%, -50%);
+  padding: 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-raised);
+  line-height: 0;
+}
+.el-loading-spinner .circular {
+  display: none;
+}
+.el-loading-spinner::before {
+  content: "";
+  display: block;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: sz-loading-spin 0.7s linear infinite;
+}
+@keyframes sz-loading-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .el-loading-spinner::before { animation: none; }
 }
 
 .skeleton-bone {

@@ -1878,7 +1878,7 @@ func collectorDTO(collector model.Collector) gin.H {
 		scopeItems = append(scopeItems, gin.H{"type": scope.ScopeType, "value": scope.ScopeValue})
 	}
 	return gin.H{
-		"id": collector.CollectorUUID, "name": collector.Name, "address": collector.Address, "tls": collector.TLS,
+		"id": collector.CollectorUUID, "name": collector.Name, "address": collector.Address, "listen_port": collector.ListenPort, "tls": collector.TLS,
 		"insecure_tls": collector.InsecureTLS, "location": collector.Location, "generation": collector.Generation, "config_version": collector.ConfigVersion,
 		"revoked": collector.Revoked, "status": telemetry.CollectorStatus(runtime.LastSeen, time.Now()),
 		"last_seen": optionalRFC3339Nano(runtime.LastSeen), "last_sync": optionalRFC3339Nano(runtime.LastSync),
@@ -1917,6 +1917,11 @@ func v2CreateCollector(c *gin.Context) {
 		writeV2Problem(c, 400, "invalid_collector", err.Error())
 		return
 	}
+	listenPort, err := normalizeCollectorListenPort(request.ListenPort, request.Address)
+	if err != nil {
+		writeV2Problem(c, 400, "invalid_collector", err.Error())
+		return
+	}
 	id, err := randomCollectorID()
 	if err != nil {
 		writeV2Problem(c, 500, "collector_id_failed", err.Error())
@@ -1927,7 +1932,7 @@ func v2CreateCollector(c *gin.Context) {
 		writeV2Problem(c, 500, "token_generation_failed", err.Error())
 		return
 	}
-	collector := model.Collector{CollectorUUID: id, Name: request.Name, Address: request.Address, TokenHash: hash, RegistrationToken: plain, Generation: 1, ConfigVersion: singleton.CurrentTelemetryConfigVersion() + 1, TLS: request.TLS, InsecureTLS: request.InsecureTLS, Location: strings.TrimSpace(request.Location)}
+	collector := model.Collector{CollectorUUID: id, Name: request.Name, Address: request.Address, ListenPort: listenPort, TokenHash: hash, RegistrationToken: plain, Generation: 1, ConfigVersion: singleton.CurrentTelemetryConfigVersion() + 1, TLS: request.TLS, InsecureTLS: request.InsecureTLS, Location: strings.TrimSpace(request.Location)}
 	if err := singleton.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&collector).Error; err != nil {
 			return err
@@ -1946,12 +1951,17 @@ func v2UpdateCollector(c *gin.Context) {
 		writeV2Problem(c, 400, "invalid_collector", err.Error())
 		return
 	}
+	listenPort, err := normalizeCollectorListenPort(request.ListenPort, request.Address)
+	if err != nil {
+		writeV2Problem(c, 400, "invalid_collector", err.Error())
+		return
+	}
 	var collector model.Collector
-	err := singleton.DB.Transaction(func(tx *gorm.DB) error {
+	err = singleton.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.First(&collector, "collector_uuid = ? AND deleted = ?", c.Param("id"), false).Error; err != nil {
 			return err
 		}
-		collector.Name, collector.Address, collector.TLS, collector.InsecureTLS, collector.Location = request.Name, request.Address, request.TLS, request.InsecureTLS, strings.TrimSpace(request.Location)
+		collector.Name, collector.Address, collector.ListenPort, collector.TLS, collector.InsecureTLS, collector.Location = request.Name, request.Address, listenPort, request.TLS, request.InsecureTLS, strings.TrimSpace(request.Location)
 		collector.ConfigVersion++
 		if err := tx.Save(&collector).Error; err != nil {
 			return err
@@ -2028,14 +2038,10 @@ func v2CollectorInstallPreview(c *gin.Context) {
 		}
 		endpoint = fmt.Sprintf("%s:%d", host, publicGRPCPort())
 	}
-	grpcPort := request.GRPCPort
-	if grpcPort == 0 {
-		parsed, err := parseCollectorListenPort(collector.Address)
-		if err != nil {
-			writeV2Problem(c, 400, "invalid_collector", err.Error())
-			return
-		}
-		grpcPort = parsed
+	grpcPort, err := resolveCollectorInstallPort(collector.ListenPort, collector.Address, request.GRPCPort)
+	if err != nil {
+		writeV2Problem(c, 400, "invalid_collector", err.Error())
+		return
 	}
 	if grpcPort < 1 || grpcPort > 65535 {
 		writeV2Problem(c, 400, "invalid_install_preview", "grpc_port must be between 1 and 65535")

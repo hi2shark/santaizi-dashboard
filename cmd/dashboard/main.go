@@ -136,6 +136,7 @@ func runCollector() {
 		log.Fatalf("SANTAIZI>> collector runtime: %v", err)
 	}
 	runtime.Start()
+	runtime.SetForceAgentIngest(singleton.Conf.GRPCTLS.Enabled)
 	defer func() {
 		runtime.Close()
 		if err := store.Close(); err != nil {

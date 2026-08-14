@@ -69,13 +69,14 @@ type CollectorReplicationCursor struct {
 }
 
 type CollectorAuthorizationCache struct {
-	ID                  uint64 `gorm:"primaryKey"`
-	CollectorUUID       string `gorm:"size:64;not null"`
-	PrimaryPublicKey    []byte `gorm:"type:BLOB;not null"`
-	KeyID               []byte `gorm:"type:BLOB;not null"`
-	ConfigVersion       uint64 `gorm:"not null"`
-	LastPrimarySeenNano int64  `gorm:"not null"`
-	UpdatedAt           time.Time
+	ID                    uint64 `gorm:"primaryKey"`
+	CollectorUUID         string `gorm:"size:64;not null"`
+	PrimaryPublicKey      []byte `gorm:"type:BLOB;not null"`
+	KeyID                 []byte `gorm:"type:BLOB;not null"`
+	ConfigVersion         uint64 `gorm:"not null"`
+	LastPrimarySeenNano   int64  `gorm:"not null"`
+	AgentCACertificatePEM string `gorm:"type:TEXT"`
+	UpdatedAt             time.Time
 }
 
 type CollectorCachedAssignment struct {

@@ -14,6 +14,7 @@ import { notifyAPIError } from '@/composables/notify'
 import CollectorEditorDialog from '@/components/editors/CollectorEditorDialog.vue'
 import InstallCollectorDialog from '@/components/InstallCollectorDialog.vue'
 import CopyableId from '@/components/CopyableId.vue'
+import { collectorAccessHost, collectorAccessPort, collectorListenPort } from '@/domain/collectorAddress'
 
 type DatasetKey = 'assignments' | 'agents' | 'incidents' | 'revisions' | 'loss' | 'alerts'
 type DatasetRow = ObserverAssignmentRecord | AgentReliabilityRecord | IncidentRecord | IncidentRevisionRecord | TelemetryDataLossRecord | TelemetryAlertRecord
@@ -193,7 +194,15 @@ onMounted(async () => {
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="address" :label="t('address')" min-width="200" />
+        <el-table-column :label="t('address')" min-width="180">
+          <template #default="{row}"><span class="cell-ellipsis">{{ collectorAccessHost(row) || '—' }}</span></template>
+        </el-table-column>
+        <el-table-column :label="t('accessPort')" width="110">
+          <template #default="{row}">{{ collectorAccessPort(row) ?? '—' }}</template>
+        </el-table-column>
+        <el-table-column :label="t('listenPort')" width="110">
+          <template #default="{row}">{{ collectorListenPort(row) ?? '—' }}</template>
+        </el-table-column>
         <el-table-column prop="generation" :label="t('generation')" width="100" />
         <el-table-column prop="config_version" :label="t('configVersion')" width="120" />
         <el-table-column prop="last_seen" :label="t('lastSeen')" width="190">
@@ -254,7 +263,9 @@ onMounted(async () => {
               </div>
             </div>
             <dl class="mobile-card-meta">
-              <div><dt>{{ t('address') }}</dt><dd>{{ row.address }}</dd></div>
+              <div><dt>{{ t('address') }}</dt><dd>{{ collectorAccessHost(row) || '—' }}</dd></div>
+              <div><dt>{{ t('accessPort') }}</dt><dd>{{ collectorAccessPort(row) ?? '—' }}</dd></div>
+              <div><dt>{{ t('listenPort') }}</dt><dd>{{ collectorListenPort(row) ?? '—' }}</dd></div>
               <div><dt>{{ t('generation') }}</dt><dd>{{ row.generation }}</dd></div>
               <div><dt>{{ t('configVersion') }}</dt><dd>{{ row.config_version }}</dd></div>
               <div><dt>{{ t('lastSeen') }}</dt><dd>{{ pretty(row.last_seen, 'last_seen') }}</dd></div>

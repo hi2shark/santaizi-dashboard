@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { CollectorRecord, ServerRecord } from '@santaizi/api'
 import type { ConnectionPath } from '@santaizi/api'
 import { DEFAULT_VIEW } from './geo'
-import { buildTopology, primaryLatencyRows } from './topology'
+import { allMarkers, buildTopology, layoutSite, primaryLatencyRows, siteClusterRadius, siteOffsets, visibleLinks } from './topology'
 
 function server(id: number, name: string, extra: { country?: string; note?: Record<string, unknown>; online?: boolean } = {}): ServerRecord {
   return {
@@ -43,8 +43,8 @@ describe('buildTopology', () => {
     expect(graph.unlocated).toEqual([{ id: '3', name: 'c' }])
     expect(graph.countries).toEqual(['CN'])
     expect(graph.primary.derived).toBe(true)
-    expect(graph.primary.lon).not.toBeCloseTo(116.41)
-    expect(Math.abs(graph.primary.lon - 116.41)).toBeLessThan(15)
+    expect(graph.primary.lon).toBeCloseTo(116.41)
+    expect(graph.primary.lat).toBeCloseTo(39.9)
   })
 
   it('derives collector position from covered nodes, then falls back to primary', () => {
@@ -55,7 +55,8 @@ describe('buildTopology', () => {
       primaryLocation: 'DE',
     })
     expect(derived.collectors[0]?.derived).toBe(true)
-    expect(Math.abs((derived.collectors[0]?.lon ?? 0) - 139.65)).toBeLessThan(15)
+    expect(derived.collectors[0]?.lon).toBeCloseTo(139.65)
+    expect(derived.collectors[0]?.lat).toBeCloseTo(35.68)
 
     const empty = buildTopology({
       servers: [],
@@ -68,15 +69,33 @@ describe('buildTopology', () => {
     expect(empty.primary.lon).toBeCloseTo(8.68)
   })
 
-  it('spreads derived markers that would land on the same spot', () => {
+  it('keeps mixed-kind markers on the same city for screen clustering', () => {
     const graph = buildTopology({
       servers: [server(1, 'a', { country: 'CN' })],
       collectors: [collector('c1', 'one'), collector('c2', 'two')],
       paths: [],
     })
-    const keys = [graph.primary, ...graph.collectors, ...graph.nodes].map(marker => `${marker.lon.toFixed(1)},${marker.lat.toFixed(1)}`)
+    const node = graph.nodes[0]
+    expect(node?.lon).toBeCloseTo(116.41)
+    expect(graph.primary.lon).toBeCloseTo(116.41)
+    expect(graph.collectors[0]?.lon).toBeCloseTo(116.41)
+    expect(graph.collectors[1]?.lon).toBeCloseTo(116.41)
+    const offsets = siteOffsets(allMarkers(graph), 200)
+    const keys = [graph.primary, ...graph.collectors, ...graph.nodes].map(marker => {
+      const offset = offsets.get(marker.id)
+      return `${offset?.x.toFixed(1)},${offset?.y.toFixed(1)}`
+    })
     expect(new Set(keys).size).toBe(keys.length)
-    expect(graph.nodes[0]?.lon).toBeCloseTo(116.41)
+  })
+
+  it('still spreads derived collectors that collide without mixed kinds', () => {
+    const graph = buildTopology({
+      servers: [server(1, 'a', { country: 'CN' }), server(2, 'b', { country: 'JP' })],
+      collectors: [collector('c1', 'one'), collector('c2', 'two')],
+      paths: [],
+      primaryLocation: 'DE',
+    })
+    expect(graph.collectors[0]?.lon).not.toBeCloseTo(graph.collectors[1]?.lon ?? 0)
   })
 
   it('uses the default facing when nothing is located', () => {
@@ -141,5 +160,82 @@ describe('buildTopology', () => {
       [path(1, 'primary', 'primary', false)],
     )
     expect(rows[0]).toMatchObject({ online: false, rttMs: undefined })
+  })
+
+  it('keeps hand-filled primary, collector and node on the same city', () => {
+    const graph = buildTopology({
+      servers: [server(1, 'sg', { note: { customData: { location: 'SGP' } } })],
+      collectors: [collector('c1', 'edge', { location: 'SGP' })],
+      paths: [path(1, 'primary', 'primary'), path(1, 'c1', 'collector')],
+      primaryLocation: 'SGP',
+    })
+    const node = graph.nodes[0]
+    expect(node).toBeTruthy()
+    expect(graph.primary.lon).toBeCloseTo(node!.lon)
+    expect(graph.primary.lat).toBeCloseTo(node!.lat)
+    expect(graph.collectors[0]?.lon).toBeCloseTo(node!.lon)
+    const laid = layoutSite(allMarkers(graph), 6)
+    expect(laid.get('primary')).toMatchObject({ x: 0, y: 0 })
+    expect(laid.get('c1')?.x).toBeLessThan(0)
+    expect(laid.get(node!.id)?.x).toBeGreaterThan(0)
+    const globeR = 200
+    const offsets = siteOffsets(allMarkers(graph), globeR)
+    const limit = siteClusterRadius(globeR) + 0.01
+    for (const offset of offsets.values()) {
+      expect(Math.hypot(offset.x, offset.y)).toBeLessThanOrEqual(limit)
+    }
+  })
+})
+
+describe('visibleLinks', () => {
+  const links = [
+    { fromId: 'node:a', toId: 'primary', connected: true, kind: 'path' as const },
+    { fromId: 'node:a', toId: 'c1', connected: true, kind: 'path' as const },
+    { fromId: 'c1', toId: 'primary', connected: true, kind: 'replication' as const },
+  ]
+
+  it('hides all rays', () => {
+    expect(visibleLinks(links, { showRays: false })).toEqual([])
+  })
+
+  it('hides a connection kind', () => {
+    expect(visibleLinks(links, { showPath: false }).map(item => `${item.kind}:${item.toId}`)).toEqual(['path:c1', 'replication:primary'])
+    expect(visibleLinks(links, { showCollectorPath: false }).map(item => `${item.kind}:${item.toId}`)).toEqual(['path:primary', 'replication:primary'])
+    expect(visibleLinks(links, { showReplication: false }).map(item => item.kind)).toEqual(['path', 'path'])
+  })
+
+  it('keeps links that touch the highlighted node', () => {
+    expect(visibleLinks(links, { highlightId: 'node:a' }).map(item => item.toId)).toEqual(['primary', 'c1'])
+    expect(visibleLinks(links, { highlightId: 'primary' })).toEqual(links)
+  })
+})
+
+describe('layoutSite', () => {
+  function marker(id: string, kind: 'primary' | 'collector' | 'node'): ReturnType<typeof allMarkers>[number] {
+    return {
+      id, kind, name: id, lon: 0, lat: 0, derived: false, status: 'online',
+      count: 1, names: [id], onlines: [true],
+    }
+  }
+
+  it('does not offset a single marker', () => {
+    const laid = layoutSite([marker('primary', 'primary')], 26)
+    expect(laid.get('primary')).toEqual({ x: 0, y: 0 })
+  })
+
+  it('pins primary at the city and peeks collector/node beside it', () => {
+    const laid = layoutSite([
+      marker('primary', 'primary'),
+      marker('c1', 'collector'),
+      marker('n1', 'node'),
+    ], 6)
+    expect(laid.get('primary')).toMatchObject({ x: 0, y: 0 })
+    expect(laid.get('c1')?.x).toBeLessThan(0)
+    expect(laid.get('n1')?.x).toBeGreaterThan(0)
+    expect(Math.hypot(laid.get('c1')!.x, laid.get('c1')!.y)).toBeCloseTo(6)
+  })
+
+  it('caps world-globe cluster radius under one degree', () => {
+    expect(siteClusterRadius(200)).toBeLessThanOrEqual(200 * Math.PI / 180)
   })
 })

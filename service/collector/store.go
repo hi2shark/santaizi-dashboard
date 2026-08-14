@@ -133,11 +133,22 @@ func migrate(db *gorm.DB) error {
 		current = 1
 	}
 	if current < 2 {
-		return db.Transaction(func(tx *gorm.DB) error {
+		if err := db.Transaction(func(tx *gorm.DB) error {
 			if err := tx.AutoMigrate(&model.CollectorDataLoss{}); err != nil {
 				return err
 			}
 			return tx.Create(&model.CollectorSchemaMigration{Version: 2, AppliedAt: time.Now().UTC()}).Error
+		}); err != nil {
+			return err
+		}
+		current = 2
+	}
+	if current < 3 {
+		return db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.AutoMigrate(&model.CollectorAuthorizationCache{}); err != nil {
+				return err
+			}
+			return tx.Create(&model.CollectorSchemaMigration{Version: 3, AppliedAt: time.Now().UTC()}).Error
 		})
 	}
 	return nil
@@ -146,7 +157,8 @@ func migrate(db *gorm.DB) error {
 func (s *Store) DB() *gorm.DB { return s.db }
 
 type IngestResult struct {
-	Acks []*pb.SessionAck
+	Acks     []*pb.SessionAck
+	Enqueued int
 }
 
 func (s *Store) Ingest(ctx context.Context, batch *pb.TelemetryBatch, observerID string, receivedAt time.Time) (*IngestResult, error) {
@@ -181,6 +193,7 @@ func (s *Store) Ingest(ctx context.Context, batch *pb.TelemetryBatch, observerID
 					if err := enqueue(tx, outboxEvent, encoded); err != nil {
 						return err
 					}
+					result.Enqueued++
 				}
 				observation := &pb.TelemetryObservation{
 					EventId: event.GetEventId(), ObserverId: observerID, ReceivedAtUnixNano: receivedAt.UnixNano(),
@@ -199,6 +212,7 @@ func (s *Store) Ingest(ctx context.Context, batch *pb.TelemetryBatch, observerID
 					if err := enqueue(tx, outboxObservation, observationBytes); err != nil {
 						return err
 					}
+					result.Enqueued++
 				}
 				key := sessionKey(event.GetNodeUuid(), event.GetSessionId())
 				maxBySession[key] = max(maxBySession[key], event.GetSequence())
@@ -225,6 +239,7 @@ func (s *Store) Ingest(ctx context.Context, batch *pb.TelemetryBatch, observerID
 					if err := enqueue(tx, outboxGap, encoded); err != nil {
 						return err
 					}
+					result.Enqueued++
 				}
 				key := sessionKey(gap.GetNodeUuid(), gap.GetSessionId())
 				maxBySession[key] = max(maxBySession[key], gap.GetEndSequence())
@@ -435,6 +450,11 @@ func (s *Store) SaveAuthorization(ctx context.Context, collectorUUID string, con
 		cache := model.CollectorAuthorizationCache{
 			ID: 1, CollectorUUID: collectorUUID, PrimaryPublicKey: config.GetPrimaryPublicKey(), KeyID: config.GetKeyId(),
 			ConfigVersion: config.GetConfigVersion(), LastPrimarySeenNano: seenAt.UnixNano(),
+			AgentCACertificatePEM: config.GetAgentCaCertificatePem(),
+		}
+		var existing model.CollectorAuthorizationCache
+		if err := tx.First(&existing, "id = 1").Error; err == nil && cache.AgentCACertificatePEM == "" {
+			cache.AgentCACertificatePEM = existing.AgentCACertificatePEM
 		}
 		if err := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "id"}}, UpdateAll: true}).Create(&cache).Error; err != nil {
 			return err

@@ -13,7 +13,14 @@ import type { CollectorStatus } from './collectorStatus';
 export interface Collector {
   id: string;
   name: string;
+  /** 探针访问地址（host:访问端口） */
   address: string;
+  /**
+     * 从端进程监听端口。0 表示与 address 中的访问端口相同。
+     * @minimum 0
+     * @maximum 65535
+     */
+  listen_port?: number;
   tls: boolean;
   insecure_tls: boolean;
   /**

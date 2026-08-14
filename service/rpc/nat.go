@@ -172,7 +172,7 @@ func resolveNATOpenResult(serverID uint64, result *pb.NATOpenResult) {
 }
 
 func (h *V2Handler) NATStream(stream grpc.BidiStreamingServer[pb.NATFrame, pb.NATFrame]) error {
-	serverID, err := h.auth.Check(stream.Context())
+	serverID, err := h.authenticateAgent(stream.Context())
 	if err != nil {
 		return err
 	}

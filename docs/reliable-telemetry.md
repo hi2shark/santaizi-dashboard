@@ -28,7 +28,8 @@ Santaizi 采用单 Primary 控制面与多从端（Collector）探测面。探�
 5. 用管理后台或 `PUT /api/v2/admin/telemetry/collectors/:id/scope` 更新 `all`、`server`、`group` 或 `tag` Scope。Scope/标签变化会产生新配置版本和带有效期的 Assignment，不删除历史 Evidence。
 6. Rotate、Revoke 或 Delete 后旧 Token 立即失效。Delete 仅结束未来 Assignment；历史事实仍保留。删除后重新添加会获得新的稳定 ID/Generation。
 
-生产公网 gRPC 推荐启用 TLS 并使用受信任证书。`primary_insecure_tls` 和 endpoint 的 `insecure_tls` 只适用于受控测试。
+生产公网 gRPC 推荐启用进程内 `grpc_tls`（Server 证由运营提供）并成对升级探针/从端。`primary_insecure_tls`、`--insecure` 和 endpoint 的 `insecure_tls` 只适用于受控测试。设备 CA 路径、迁移步骤与 `require_*_mtls` 开关见 [SECURITY.md](../SECURITY.md)。
+
 
 一键安装脚本：[`script/install_collector.sh`](../script/install_collector.sh)。
 

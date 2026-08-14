@@ -26,7 +26,15 @@ const collectorDrawer = ref(false)
 const pathDrawer = ref(false)
 const activeCollector = ref<CollectorRecord>()
 const activePath = ref<ConnectionPath>()
+const POLL_MS = 5000
 let timer: ReturnType<typeof setInterval> | undefined
+let inflight = false
+
+type PathMatrixRow = {
+  node_uuid: string
+  server_name: string
+  cells: Record<string, ConnectionPath>
+}
 
 const observerOptions = computed(() => {
   const names = new Map<string, string>()
@@ -45,6 +53,31 @@ const filteredPaths = computed(() => paths.value.filter((path) => {
   return true
 }))
 
+const matrixObservers = computed(() => {
+  const ids = new Set<string>()
+  for (const path of paths.value) {
+    if (observerFilter.value && path.observer_id !== observerFilter.value) continue
+    ids.add(path.observer_id)
+  }
+  return observerOptions.value.filter((item) => ids.has(item.id))
+})
+
+const matrixRows = computed(() => {
+  const matching = new Set(filteredPaths.value.map((path) => path.node_uuid))
+  const rows: PathMatrixRow[] = []
+  const seen = new Set<string>()
+  for (const path of paths.value) {
+    if (seen.has(path.node_uuid) || !matching.has(path.node_uuid)) continue
+    seen.add(path.node_uuid)
+    const cells: Record<string, ConnectionPath> = {}
+    for (const item of paths.value) {
+      if (item.node_uuid === path.node_uuid) cells[item.observer_id] = item
+    }
+    rows.push({ node_uuid: path.node_uuid, server_name: path.server_name || '', cells })
+  }
+  return rows
+})
+
 function pretty(value: unknown, key = '') {
   return formatAdminValue(value, key, locale.value, t as never, te)
 }
@@ -62,6 +95,28 @@ function collectorStatus(row: CollectorRecord) {
   return row.revoked ? 'offline' : (row.status || 'unknown')
 }
 
+function collectorRttTone(row: CollectorRecord) {
+  return collectorStatus(row) === 'online' ? 'is-connected' : 'is-disconnected'
+}
+
+function collectorRttText(row: CollectorRecord) {
+  if (collectorStatus(row) !== 'online') return t('offline')
+  return latencyText(row.heartbeat_rtt_ms, row.heartbeat_rtt_sampled_at)
+}
+
+function collectorReplicationText(row: CollectorRecord) {
+  if (!row.pending_records) return t('caughtUp')
+  const oldest = row.oldest_pending ? new Date(row.oldest_pending) : null
+  if (!oldest || Number.isNaN(oldest.valueOf())) return t('replicating')
+  const lagMs = Date.now() - oldest.getTime()
+  if (lagMs < 0) return t('replicating')
+  const hours = Math.floor(lagMs / 3_600_000)
+  if (hours >= 1) return t('replicationLagHours', { n: hours })
+  const minutes = Math.floor(lagMs / 60_000)
+  if (minutes >= 1) return t('replicationLagMinutes', { n: minutes })
+  return t('replicationLagSeconds', { n: Math.max(1, Math.floor(lagMs / 1000)) })
+}
+
 function pathRowKey(row: ConnectionPath) {
   return `${row.node_uuid}:${row.observer_id}`
 }
@@ -69,6 +124,20 @@ function pathRowKey(row: ConnectionPath) {
 function observerLabel(path: ConnectionPath) {
   if (path.observer_kind === 'primary') return t('observerKindPrimary')
   return path.observer_name || path.observer_id
+}
+
+function matrixCells(row: PathMatrixRow, observerId: string) {
+  const path = row.cells[observerId]
+  if (!path) return []
+  return [{
+    path,
+    connected: path.sink.connected,
+    hasError: Boolean(path.sink.last_error),
+    title: path.sink.last_error ? lastErrorText(path.sink.last_error) : undefined,
+    text: path.sink.connected
+      ? latencyText(path.sink.last_rtt_ms, path.sink.rtt_sampled_at)
+      : t('disconnected'),
+  }]
 }
 
 async function loadCollectorLatency() {
@@ -121,6 +190,8 @@ function openPath(row: ConnectionPath) {
 }
 
 async function load(quiet = false) {
+  if (inflight) return
+  inflight = true
   if (!quiet) loading.value = true
   try {
     const [collectorList, pathList] = await Promise.all([listCollectors(), listConnectionPaths()])
@@ -129,20 +200,30 @@ async function load(quiet = false) {
   } catch (error) {
     notifyAPIError(error, t as never, te)
   } finally {
+    inflight = false
     loading.value = false
   }
+}
+
+function onVisibility() {
+  if (!document.hidden) void load(true)
 }
 
 onMounted(async () => {
   const observerId = String(route.query.observer_id || '')
   if (observerId) observerFilter.value = observerId
   await load()
-  timer = setInterval(() => { void load(true) }, 15000)
+  timer = setInterval(() => { if (!document.hidden) void load(true) }, POLL_MS)
+  document.addEventListener('visibilitychange', onVisibility)
 })
-onUnmounted(() => { if (timer) clearInterval(timer) })
+onUnmounted(() => {
+  if (timer) clearInterval(timer)
+  document.removeEventListener('visibilitychange', onVisibility)
+})
 </script>
 
 <template>
+  <div class="connections-page">
   <div class="page-head">
     <h1>{{ t('connections') }}</h1>
     <el-button @click="load()"><i class="ri-refresh-line"></i>{{ t('refresh') }}</el-button>
@@ -153,57 +234,29 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
       <div class="toolbar">
         <h2 class="table-card-title">{{ t('collectorLinks') }} <small>{{ collectors.length }}</small></h2>
       </div>
-      <el-table class="desktop-only dataset-table" v-loading="loading" table-layout="fixed" :data="collectors" row-key="id" @row-click="openCollector">
-        <el-table-column class-name="col-status" label-class-name="col-status" width="44" align="center">
-          <template #default="{row}"><span class="status-dot" :class="collectorStatus(row)"></span></template>
-        </el-table-column>
-        <el-table-column prop="name" :label="t('name')" min-width="180">
-          <template #default="{row}">
-            <div class="server-name">
-              <strong>{{ row.name }}</strong>
-              <CopyableId :value="row.id" />
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column :label="t('lastSeen')" min-width="180">
-          <template #default="{row}">{{ pretty(row.last_seen, 'last_seen') }}</template>
-        </el-table-column>
-        <el-table-column :label="t('lastSync')" min-width="180">
-          <template #default="{row}">{{ pretty(row.last_sync, 'last_sync') }}</template>
-        </el-table-column>
-        <el-table-column :label="t('heartbeatLatency')" width="120">
-          <template #default="{row}">{{ latencyText(row.heartbeat_rtt_ms, row.heartbeat_rtt_sampled_at) }}</template>
-        </el-table-column>
-        <el-table-column :label="t('connectedAgents')" width="120">
-          <template #default="{row}">{{ pretty(row.connected_agents, 'connected_agents') }}</template>
-        </el-table-column>
-        <el-table-column :label="t('pendingRecords')" width="120">
-          <template #default="{row}">{{ pretty(row.pending_records, 'pending_records') }}</template>
-        </el-table-column>
-        <template #empty>
-          <AppEmpty class="empty-state" icon="ri-radar-line" :title="t('noCollectorsTitle')" :description="t('noCollectorsHint')" />
-        </template>
-      </el-table>
-      <div class="mobile-only" v-loading="loading">
+      <div class="collector-grid" v-loading="loading">
         <AppEmpty v-if="!collectors.length && !loading" class="empty-state" icon="ri-radar-line" :title="t('noCollectorsTitle')" :description="t('noCollectorsHint')" />
-        <div v-else class="mobile-card-list">
-          <article v-for="row in collectors" :key="row.id" class="mobile-card" @click="openCollector(row)">
-            <div class="mobile-card-head">
-              <span class="mobile-card-status"><span class="status-dot" :class="collectorStatus(row)"></span></span>
-              <div class="mobile-card-title">
-                <strong>{{ row.name }}</strong>
-                <CopyableId :value="row.id" />
-              </div>
-            </div>
-            <dl class="mobile-card-meta">
-              <div><dt>{{ t('lastSeen') }}</dt><dd>{{ pretty(row.last_seen, 'last_seen') }}</dd></div>
-              <div><dt>{{ t('lastSync') }}</dt><dd>{{ pretty(row.last_sync, 'last_sync') }}</dd></div>
-              <div><dt>{{ t('heartbeatLatency') }}</dt><dd>{{ latencyText(row.heartbeat_rtt_ms, row.heartbeat_rtt_sampled_at) }}</dd></div>
-              <div><dt>{{ t('connectedAgents') }}</dt><dd>{{ pretty(row.connected_agents, 'connected_agents') }}</dd></div>
-              <div><dt>{{ t('pendingRecords') }}</dt><dd>{{ pretty(row.pending_records, 'pending_records') }}</dd></div>
-            </dl>
-          </article>
-        </div>
+        <article
+          v-for="row in collectors"
+          :key="row.id"
+          class="collector-tile"
+          role="button"
+          tabindex="0"
+          @click="openCollector(row)"
+          @keydown.enter.prevent="openCollector(row)"
+          @keydown.space.prevent="openCollector(row)"
+        >
+          <span class="status-dot" :class="collectorStatus(row)"></span>
+          <div class="collector-tile__id">
+            <strong>{{ row.name }}</strong>
+            <CopyableId :value="row.id" />
+          </div>
+          <span class="rtt-chip" :class="collectorRttTone(row)">{{ collectorRttText(row) }}</span>
+          <div class="collector-tile__metrics">
+            <span>{{ pretty(row.connected_agents, 'connected_agents') }} {{ t('connectedAgents') }}</span>
+            <span>{{ collectorReplicationText(row) }}</span>
+          </div>
+        </article>
       </div>
       <div v-if="!collectors.length && !loading" class="pagination">
         <el-button type="primary" @click="router.push('/telemetry?create=1')"><i class="ri-add-line"></i>{{ t('createCollector') }}</el-button>
@@ -213,50 +266,67 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
     <section class="surface table-card">
       <div class="toolbar">
         <h2 class="table-card-title">{{ t('nodeLinks') }} <small>{{ filteredPaths.length }}</small></h2>
-        <span class="toolbar-spacer"></span>
-        <el-select v-model="observerFilter" class="toolbar-filter" clearable :placeholder="t('allObservers')">
-          <el-option v-for="item in observerOptions" :key="item.id" :label="item.name" :value="item.id" />
-        </el-select>
-        <el-select v-model="linkFilter" class="toolbar-filter" clearable :placeholder="t('allLinkStatus')">
-          <el-option :label="t('connected')" value="connected" />
-          <el-option :label="t('disconnected')" value="disconnected" />
-        </el-select>
+        <div class="toolbar-filters mobile-only">
+          <el-select v-model="observerFilter" class="toolbar-filter" clearable :placeholder="t('allObservers')">
+            <el-option v-for="item in observerOptions" :key="item.id" :label="item.name" :value="item.id" />
+          </el-select>
+          <el-select v-model="linkFilter" class="toolbar-filter" clearable :placeholder="t('allLinkStatus')">
+            <el-option :label="t('connected')" value="connected" />
+            <el-option :label="t('disconnected')" value="disconnected" />
+          </el-select>
+        </div>
       </div>
-      <el-table class="desktop-only dataset-table" v-loading="loading" table-layout="fixed" :data="filteredPaths" :row-key="pathRowKey" @row-click="openPath">
-        <el-table-column class-name="col-status" label-class-name="col-status" width="44" align="center">
-          <template #default="{row}"><span class="status-dot" :class="row.sink.connected ? 'online' : 'offline'"></span></template>
-        </el-table-column>
-        <el-table-column :label="t('server')" min-width="160">
-          <template #default="{row}">{{ row.server_name || '—' }}</template>
-        </el-table-column>
-        <el-table-column :label="t('observer')" min-width="160">
-          <template #default="{row}">{{ observerLabel(row) }}</template>
-        </el-table-column>
-        <el-table-column :label="t('linkStatus')" width="110">
-          <template #default="{row}">{{ t(row.sink.connected ? 'connected' : 'disconnected') }}</template>
-        </el-table-column>
-        <el-table-column :label="t('lastObservation')" min-width="180">
-          <template #default="{row}">{{ pretty(row.last_seen, 'last_seen') }}</template>
-        </el-table-column>
-        <el-table-column :label="t('latency')" width="110">
-          <template #default="{row}">{{ latencyText(row.sink.last_rtt_ms, row.sink.rtt_sampled_at) }}</template>
-        </el-table-column>
-        <el-table-column :label="t('pendingEvents')" width="120">
-          <template #default="{row}">{{ pretty(row.sink.pending_events, 'pending_events') }}</template>
-        </el-table-column>
-        <el-table-column :label="t('lastError')" min-width="200">
-          <template #default="{row}">
-            <span class="cell-ellipsis" :title="lastErrorText(row.sink.last_error)">{{ lastErrorText(row.sink.last_error) }}</span>
-          </template>
-        </el-table-column>
-        <template #empty>
-          <AppEmpty class="empty-state" icon="ri-links-line" :title="t('noPathsTitle')" :description="t('noPathsHint')" />
-        </template>
-      </el-table>
+      <div class="path-matrix-wrap desktop-only" v-loading="loading">
+        <AppEmpty v-if="!matrixRows.length && !loading" class="empty-state" icon="ri-links-line" :title="t('noPathsTitle')" :description="t('noPathsHint')" />
+        <div
+          v-else
+          class="path-matrix"
+          role="table"
+          :style="{ '--obs-count': String(matrixObservers.length || 1) }"
+        >
+          <div class="path-matrix__head" role="row">
+            <div class="col-server" role="columnheader">{{ t('server') }}</div>
+            <div
+              v-for="obs in matrixObservers"
+              :key="obs.id"
+              class="col-observer"
+              role="columnheader"
+            >{{ obs.name }}</div>
+          </div>
+          <div
+            v-for="row in matrixRows"
+            :key="row.node_uuid"
+            class="path-matrix__row"
+            role="row"
+          >
+            <div class="col-server" role="rowheader">{{ row.server_name || '—' }}</div>
+            <div
+              v-for="obs in matrixObservers"
+              :key="obs.id"
+              class="col-observer"
+              role="cell"
+            >
+              <button
+                v-for="cell in matrixCells(row, obs.id)"
+                :key="pathRowKey(cell.path)"
+                type="button"
+                class="path-matrix__cell"
+                :class="cell.connected ? 'is-connected' : 'is-disconnected'"
+                :title="cell.title"
+                @click="openPath(cell.path)"
+              >
+                <i v-if="cell.hasError" class="ri-error-warning-line" aria-hidden="true"></i>
+                <span>{{ cell.text }}</span>
+              </button>
+              <span v-if="!row.cells[obs.id]" class="path-matrix__empty" aria-hidden="true"></span>
+            </div>
+          </div>
+        </div>
+      </div>
       <div class="mobile-only" v-loading="loading">
         <AppEmpty v-if="!filteredPaths.length && !loading" class="empty-state" icon="ri-links-line" :title="t('noPathsTitle')" :description="t('noPathsHint')" />
         <div v-else class="mobile-card-list">
-          <article v-for="row in filteredPaths" :key="`${row.node_uuid}-${row.observer_id}`" class="mobile-card" @click="openPath(row)">
+          <article v-for="row in filteredPaths" :key="pathRowKey(row)" class="mobile-card" @click="openPath(row)">
             <div class="mobile-card-head">
               <span class="mobile-card-status"><span class="status-dot" :class="row.sink.connected ? 'online' : 'offline'"></span></span>
               <div class="mobile-card-title"><strong>{{ row.server_name || '—' }}</strong><small>{{ observerLabel(row) }}</small></div>
@@ -331,4 +401,5 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
     </div>
     </div>
   </AppDrawer>
+  </div>
 </template>

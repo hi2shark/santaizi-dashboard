@@ -586,10 +586,16 @@ html.dark .nazhua-card:hover,
 .nazhua-row:hover,
 .nazhua-status-table__row:hover { background-color: color-mix(in srgb, var(--nazhua-accent) 8%, var(--nazhua-surface)); }
 .nazhua-row.offline,
-.nazhua-status-table__row.offline { background-color: color-mix(in srgb, var(--nazhua-offline) 6%, var(--nazhua-surface)); }
+.nazhua-status-table__row.offline {
+  color: var(--nazhua-muted);
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+.nazhua-row.offline:hover,
+.nazhua-status-table__row.offline:hover { opacity: 0.72; }
 .nazhua-row__name {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-columns: auto auto minmax(0, 1fr);
   grid-template-rows: auto auto;
   align-items: center;
   column-gap: var(--icon-text-gap);
@@ -608,12 +614,6 @@ html.dark .nazhua-card:hover,
   line-height: 1;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.nazhua-row__status {
-  grid-column: 4;
-  grid-row: 1;
-  font-size: 16px;
-  line-height: 1;
 }
 .nazhua-row__name small {
   grid-column: 3;

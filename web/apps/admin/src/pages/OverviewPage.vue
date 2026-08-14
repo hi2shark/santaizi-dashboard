@@ -10,7 +10,7 @@ import TopologyGlobe from '@/components/TopologyGlobe.vue'
 import logoUrl from '@/assets/logo.svg?url'
 import { formatLatencyMs } from '@/composables/format'
 import { notifyAPIError } from '@/composables/notify'
-import { buildTopology, primaryLatencyRows, type TopologyGraph, type TopologyMarker } from '@/domain/topology'
+import { buildTopology, primaryLatencyRows, type NodeLatencyRow, type TopologyGraph, type TopologyMarker } from '@/domain/topology'
 
 const { t, te, locale } = useI18n()
 const router = useRouter()
@@ -51,9 +51,19 @@ function selectMarker(marker: TopologyMarker) {
   if (marker.href) void router.push(marker.href)
 }
 
+function clearHighlight() {
+  highlightId.value = ''
+}
+
 function selectLatency(name: string) {
   const marker = graph.value.nodes.find(item => item.names.includes(name))
-  if (marker) highlightId.value = marker.id
+  if (!marker) return
+  highlightId.value = highlightId.value === marker.id ? '' : marker.id
+}
+
+function isLatencyActive(row: NodeLatencyRow) {
+  if (!highlightId.value) return false
+  return graph.value.nodes.some(item => item.id === highlightId.value && item.names.includes(row.name))
 }
 
 async function load() {
@@ -110,17 +120,21 @@ onMounted(load)
             <div><h2>{{ t('globalLinks') }}</h2></div>
           </div>
           <div class="topology-body">
-            <TopologyGlobe :graph="graph" :highlight-id="highlightId" @select="selectMarker">
+            <TopologyGlobe :graph="graph" :highlight-id="highlightId" @select="selectMarker" @clear="clearHighlight">
               <template #legend>
                 <div class="topology-legend">
-                  <span><img class="topology-legend__primary" :src="logoUrl" alt="">{{ t('observerKindPrimary') }}</span>
-                  <span>
-                    <i class="ri-base-station-fill topology-legend__collector" aria-hidden="true"></i>{{ t('observerKindCollector') }}
-                  </span>
-                  <span><i class="topology-legend__node"></i>{{ t('nodes') }}</span>
-                  <span><i class="status-dot online"></i>{{ t('online') }}</span>
-                  <span><i class="status-dot offline"></i>{{ t('offline') }}</span>
-                  <span><i class="status-dot degraded"></i>{{ t('mixed') }}</span>
+                  <div class="topology-legend__group">
+                    <span><img class="topology-legend__primary" :src="logoUrl" alt="">{{ t('observerKindPrimary') }}</span>
+                    <span>
+                      <i class="ri-base-station-fill topology-legend__collector" aria-hidden="true"></i>{{ t('observerKindCollector') }}
+                    </span>
+                    <span><i class="topology-legend__node"></i>{{ t('nodes') }}</span>
+                  </div>
+                  <div class="topology-legend__group">
+                    <span><i class="status-dot online"></i>{{ t('online') }}</span>
+                    <span><i class="status-dot offline"></i>{{ t('offline') }}</span>
+                    <span><i class="status-dot degraded"></i>{{ t('mixed') }}</span>
+                  </div>
                 </div>
               </template>
               <template #note>
@@ -134,7 +148,12 @@ onMounted(load)
         <aside class="surface dashboard-panel latency-panel">
           <div class="section-title">
             <div><h2>{{ t('nodeLatency') }}</h2></div>
-            <RouterLink to="/connections">{{ t('details') }} <i class="ri-arrow-right-line"></i></RouterLink>
+            <div class="latency-panel__actions">
+              <button v-if="highlightId" type="button" class="latency-reset" @click="clearHighlight">
+                <i class="ri-close-line"></i>{{ t('reset') }}
+              </button>
+              <RouterLink to="/connections">{{ t('details') }} <i class="ri-arrow-right-line"></i></RouterLink>
+            </div>
           </div>
           <AppEmpty v-if="!latencyRows.length" icon="ri-timer-line" :description="t('noData')" />
           <div v-else class="latency-list">
@@ -143,7 +162,7 @@ onMounted(load)
               :key="row.id"
               type="button"
               class="latency-row"
-              :class="{ 'is-offline': !row.online }"
+              :class="{ 'is-offline': !row.online, 'is-active': isLatencyActive(row) }"
               @click="selectLatency(row.name)"
             >
               <span>{{ row.name }}</span>

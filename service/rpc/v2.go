@@ -9,6 +9,7 @@ import (
 
 	"github.com/hi2shark/santaizi-dashboard/model"
 	pb "github.com/hi2shark/santaizi-dashboard/proto"
+	"github.com/hi2shark/santaizi-dashboard/service/pki"
 	"github.com/hi2shark/santaizi-dashboard/service/singleton"
 	telemetryservice "github.com/hi2shark/santaizi-dashboard/service/telemetry"
 	"google.golang.org/grpc"
@@ -104,6 +105,9 @@ func (h *V2Handler) Ingest(stream grpc.BidiStreamingServer[pb.TelemetryRequest, 
 	if !bytes.Equal(verification.Claims.GetNodeUuid(), hello.GetNodeUuid()) {
 		return status.Error(codes.PermissionDenied, "credential node does not match telemetry hello")
 	}
+	if err := matchAgentCertificate(stream.Context(), hello.GetNodeUuid(), verification.Claims.GetNodeUuid()); err != nil {
+		return err
+	}
 
 	for {
 		request, err := stream.Recv()
@@ -149,10 +153,6 @@ func (h *V2Handler) Ingest(stream grpc.BidiStreamingServer[pb.TelemetryRequest, 
 }
 
 func (h *V2Handler) Control(stream grpc.BidiStreamingServer[pb.AgentControlRequest, pb.PrimaryControlResponse]) error {
-	serverID, err := h.auth.Check(stream.Context())
-	if err != nil {
-		return err
-	}
 	first, err := stream.Recv()
 	if err != nil {
 		return err
@@ -160,6 +160,10 @@ func (h *V2Handler) Control(stream grpc.BidiStreamingServer[pb.AgentControlReque
 	hello := first.GetHello()
 	if hello == nil || len(hello.GetNodeUuid()) != 16 || len(hello.GetSessionId()) != 16 {
 		return status.Error(codes.InvalidArgument, "valid control hello is required")
+	}
+	serverID, err := h.authenticateControl(stream.Context(), hello)
+	if err != nil {
+		return err
 	}
 	if _, err := singleton.BindServerNodeForProtocol(serverID, hello.GetNodeUuid(), time.Now(), pb.SourceProtocol_SOURCE_PROTOCOL_SANTAIZI_V2); err != nil {
 		return status.Error(codes.Internal, err.Error())
@@ -248,4 +252,63 @@ func (h *V2Handler) Control(stream grpc.BidiStreamingServer[pb.AgentControlReque
 			}
 		}
 	}
+}
+
+func (h *V2Handler) authenticateControl(ctx context.Context, hello *pb.AgentControlHello) (uint64, error) {
+	ident, hasCert, err := pki.PeerDeviceIdentityFromContext(ctx)
+	if err != nil {
+		return 0, status.Error(codes.PermissionDenied, err.Error())
+	}
+	if hasCert {
+		if ident.Kind != pki.DeviceAgent {
+			return 0, status.Error(codes.PermissionDenied, "control requires an agent certificate")
+		}
+		if !bytes.Equal(ident.NodeUUID, hello.GetNodeUuid()) {
+			return 0, status.Error(codes.PermissionDenied, "certificate UUID does not match hello")
+		}
+		serverID, err := singleton.ServerIDFromNodeUUID(ident.NodeUUID)
+		if err != nil {
+			return 0, status.Error(codes.Unauthenticated, "node is not bound to a server")
+		}
+		return serverID, nil
+	}
+	return h.auth.Check(ctx)
+}
+
+func (h *V2Handler) authenticateAgent(ctx context.Context) (uint64, error) {
+	ident, hasCert, err := pki.PeerDeviceIdentityFromContext(ctx)
+	if err != nil {
+		return 0, status.Error(codes.PermissionDenied, err.Error())
+	}
+	if hasCert {
+		if ident.Kind != pki.DeviceAgent {
+			return 0, status.Error(codes.PermissionDenied, "agent certificate is required")
+		}
+		serverID, err := singleton.ServerIDFromNodeUUID(ident.NodeUUID)
+		if err != nil {
+			return 0, status.Error(codes.Unauthenticated, "node is not bound to a server")
+		}
+		return serverID, nil
+	}
+	return h.auth.Check(ctx)
+}
+
+func matchAgentCertificate(ctx context.Context, helloUUID, credentialUUID []byte) error {
+	ident, hasCert, err := pki.PeerDeviceIdentityFromContext(ctx)
+	if err != nil {
+		return status.Error(codes.PermissionDenied, err.Error())
+	}
+	if !hasCert {
+		if singleton.Conf != nil && singleton.Conf.GRPCTLS.RequireAgentMTLS {
+			return status.Error(codes.Unauthenticated, "agent certificate is required")
+		}
+		return nil
+	}
+	if ident.Kind != pki.DeviceAgent {
+		return status.Error(codes.PermissionDenied, "ingest requires an agent certificate")
+	}
+	if !bytes.Equal(ident.NodeUUID, helloUUID) || !bytes.Equal(ident.NodeUUID, credentialUUID) {
+		return status.Error(codes.PermissionDenied, "certificate UUID does not match hello or credential")
+	}
+	return nil
 }

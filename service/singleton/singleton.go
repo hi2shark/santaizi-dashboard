@@ -255,11 +255,22 @@ func migrateDatabase(db *gorm.DB) error {
 		current = 8
 	}
 	if current < 9 {
-		return db.Transaction(func(tx *gorm.DB) error {
+		if err := db.Transaction(func(tx *gorm.DB) error {
 			if err := tx.AutoMigrate(&model.Collector{}); err != nil {
 				return err
 			}
 			return tx.Create(&model.SchemaMigration{Version: 9, AppliedAt: time.Now().UTC()}).Error
+		}); err != nil {
+			return err
+		}
+		current = 9
+	}
+	if current < 10 {
+		return db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.AutoMigrate(&model.Collector{}); err != nil {
+				return err
+			}
+			return tx.Create(&model.SchemaMigration{Version: 10, AppliedAt: time.Now().UTC()}).Error
 		})
 	}
 	return nil

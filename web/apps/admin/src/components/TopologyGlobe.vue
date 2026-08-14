@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { geoDistance, geoGraticule, geoInterpolate, geoOrthographic, geoPath, geoRotation } from 'd3-geo'
-import type { TopologyGraph, TopologyLink, TopologyMarker } from '@/domain/topology'
-import { allMarkers } from '@/domain/topology'
+import type { ScreenOffset, TopologyGraph, TopologyLink, TopologyMarker } from '@/domain/topology'
+import { allMarkers, isCollectorPath, siteOffsets, visibleLinks } from '@/domain/topology'
 // 随 admin 打包：/static 在本地开发时被代理到线上面板，拿不到新资产。
 import worldUrl from '@/assets/world.geo.json?url'
 
 const props = defineProps<{ graph: TopologyGraph; highlightId?: string }>()
-const emit = defineEmits<{ select: [marker: TopologyMarker] }>()
+const emit = defineEmits<{ select: [marker: TopologyMarker]; clear: [] }>()
 
 const boxRef = ref<HTMLElement>()
 const canvasRef = ref<HTMLCanvasElement>()
@@ -42,10 +42,12 @@ const GLOBE_FIT_PAD = 0
 const GLOBE_SCALE_MIN = 0.64
 const GLOBE_SCALE_DEFAULT = 0.82
 const SPIN_STORE = 'santaizi.globe.spin'
+const RAY_STORE = 'santaizi.globe.rays'
 const SPIN_SPEED_MIN = 4
 const SPIN_SPEED_MAX = 36
 const SPIN_SPEED_DEFAULT = 12
 let scaleMul = GLOBE_SCALE_DEFAULT
+let markerOffsets = new Map<string, ScreenOffset>()
 
 function loadSpin() {
   try {
@@ -74,6 +76,45 @@ function persistSpin() {
     localStorage.setItem(SPIN_STORE, JSON.stringify({ on: autoRotate.value, speed: rotateSpeed.value }))
   }
   catch { /* quota / private mode */ }
+}
+
+function loadRays() {
+  try {
+    const raw = localStorage.getItem(RAY_STORE)
+    if (!raw) return { on: true, path: true, collectorPath: true, replication: true }
+    const parsed = JSON.parse(raw) as { on?: unknown; path?: unknown; collectorPath?: unknown; replication?: unknown }
+    return {
+      on: parsed.on !== false,
+      path: parsed.path !== false,
+      collectorPath: parsed.collectorPath !== false,
+      replication: parsed.replication !== false,
+    }
+  }
+  catch {
+    return { on: true, path: true, collectorPath: true, replication: true }
+  }
+}
+
+const savedRays = loadRays()
+const showRays = ref(savedRays.on)
+const showPath = ref(savedRays.path)
+const showCollectorPath = ref(savedRays.collectorPath)
+const showReplication = ref(savedRays.replication)
+
+function persistRays() {
+  try {
+    localStorage.setItem(RAY_STORE, JSON.stringify({
+      on: showRays.value,
+      path: showPath.value,
+      collectorPath: showCollectorPath.value,
+      replication: showReplication.value,
+    }))
+  }
+  catch { /* quota / private mode */ }
+}
+
+function offsetOf(id: string): ScreenOffset {
+  return markerOffsets.get(id) || { x: 0, y: 0 }
 }
 /** 3D 径向高度：贴地为 0，中点 sin 抬到半径的这一比例。短弧低、长弧高。 */
 const ARC_PEAK_MIN = 0.09
@@ -148,7 +189,17 @@ function reduceMotion() {
 }
 
 function shouldPulse() {
-  return !document.hidden && !reduceMotion() && props.graph.links.some(link => link.connected)
+  return !document.hidden && !reduceMotion() && visibleGraphLinks().some(link => link.connected)
+}
+
+function visibleGraphLinks() {
+  return visibleLinks(props.graph.links, {
+    highlightId: props.highlightId,
+    showRays: showRays.value,
+    showPath: showPath.value,
+    showCollectorPath: showCollectorPath.value,
+    showReplication: showReplication.value,
+  })
 }
 
 function spinning() {
@@ -450,7 +501,12 @@ function sampleArc(
       out.push(null)
       continue
     }
-    out.push({ x: px, y: py })
+    const fromOff = offsetOf(from.id)
+    const toOff = offsetOf(to.id)
+    out.push({
+      x: px + (1 - t) * fromOff.x + t * toOff.x,
+      y: py + (1 - t) * fromOff.y + t * toOff.y,
+    })
   }
   return out
 }
@@ -535,7 +591,9 @@ function drawLink(
 ) {
   const track = sampleArc(projection, from, to, 0, 1, ARC_STEPS)
   if (!lastVisible(track)) return
-  const live = link.kind === 'replication' ? colors.replication : colors.pulse
+  const live = link.kind === 'replication'
+    ? colors.replication
+    : isCollectorPath(link) ? colors.collector : colors.pulse
   ctx.save()
   ctx.strokeStyle = link.connected ? live : colors.danger
   ctx.globalAlpha = link.connected ? (link.kind === 'replication' ? 0.62 : 0.48) : 0.4
@@ -564,8 +622,10 @@ function drawMarker(
   size: number,
   colors: Palette,
   now: number,
+  clustered = false,
 ) {
-  const r = markerRadius(marker, size)
+  const shrink = clustered ? (marker.kind === 'primary' ? 0.88 : 0.8) : 1
+  const r = markerRadius(marker, size) * shrink
   const kind = kindColor(marker, colors)
   const offline = marker.status === 'offline'
   const mixed = marker.status === 'mixed'
@@ -588,29 +648,31 @@ function drawMarker(
   }
   else {
     const layout = nodeVisual(marker.count)
+    const visual = layout.visual * shrink
+    const dot = layout.dot * shrink
     const flags = marker.onlines.length ? marker.onlines : Array.from({ length: marker.count }, () => !offline)
-    if (!offline) drawPulseRing(ctx, x, y, layout.visual / 2, kind, now)
+    if (!offline) drawPulseRing(ctx, x, y, visual / 2, kind, now)
     if (layout.large) {
       ctx.save()
       ctx.globalAlpha = projected.fade * 0.16
       ctx.beginPath()
-      ctx.arc(x, y, layout.visual / 2 + 3.5, 0, Math.PI * 2)
+      ctx.arc(x, y, visual / 2 + 3.5, 0, Math.PI * 2)
       ctx.fillStyle = kind
       ctx.fill()
       ctx.restore()
       const fill = offline ? muted : kind
       const stroke = mixed ? colors.warning : ring
-      drawDot(ctx, x, y, layout.visual / 2, fill, stroke, glow)
+      drawDot(ctx, x, y, visual / 2, fill, stroke, glow)
     }
     else if (marker.count === 1) {
-      drawDot(ctx, x, y, layout.dot / 2, flags[0] ? kind : muted, ring, glow)
+      drawDot(ctx, x, y, dot / 2, flags[0] ? kind : muted, ring, glow)
     }
     else {
-      const radius = (layout.visual - layout.dot) / 2 - 1
+      const radius = (visual - dot) / 2 - 1
       const start = marker.count > 6 ? 1 : 0
       const surrounding = marker.count > 6 ? marker.count - 1 : marker.count
       if (marker.count > 6) {
-        drawDot(ctx, x, y, layout.dot / 2, flags[0] ? kind : muted, ring, glow)
+        drawDot(ctx, x, y, dot / 2, flags[0] ? kind : muted, ring, glow)
       }
       for (let i = 0; i < surrounding; i++) {
         const angle = (Math.PI * 2 * i) / surrounding - Math.PI / 2
@@ -619,7 +681,7 @@ function drawMarker(
           ctx,
           x + Math.cos(angle) * radius,
           y + Math.sin(angle) * radius,
-          layout.dot / 2,
+          dot / 2,
           online ? kind : muted,
           ring,
           glow,
@@ -676,14 +738,13 @@ function render() {
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
 
   const projection = projectionFor(width, height, size)
-  const highlight = props.highlightId
   const markerById = new Map(allMarkers(props.graph).map(item => [item.id, item]))
+  markerOffsets = siteOffsets([...markerById.values()], size * GLOBE_RATIO * scaleMul)
   const now = performance.now()
   let pulseIndex = 0
 
-  const links = [...props.graph.links].sort((a, b) => Number(b.kind === 'replication') - Number(a.kind === 'replication'))
+  const links = [...visibleGraphLinks()].sort((a, b) => Number(b.kind === 'replication') - Number(a.kind === 'replication'))
   for (const link of links) {
-    if (highlight && link.fromId !== highlight && link.toId !== highlight && highlight !== 'primary') continue
     const from = markerById.get(link.fromId)
     const to = markerById.get(link.toId)
     if (!from || !to) continue
@@ -696,7 +757,8 @@ function render() {
   for (const marker of drawOrder) {
     const projected = projectVisible(projection, marker.lon, marker.lat)
     if (!projected) continue
-    drawMarker(ctx, marker, projected, size, colors, now)
+    const shift = offsetOf(marker.id)
+    drawMarker(ctx, marker, { x: projected.x + shift.x, y: projected.y + shift.y, fade: projected.fade }, size, colors, now, Boolean(shift.clustered))
   }
 }
 
@@ -762,6 +824,7 @@ function onPointerUp(event: PointerEvent) {
   if (!moved) {
     const hit = hitTest(point.x, point.y)
     if (hit) emit('select', hit.marker)
+    else emit('clear')
   }
 }
 
@@ -825,6 +888,10 @@ watch(autoRotate, () => {
   else schedule()
 })
 watch(rotateSpeed, persistSpin)
+watch([showRays, showPath, showCollectorPath, showReplication], () => {
+  persistRays()
+  schedule()
+})
 
 onBeforeUnmount(() => {
   if (frame) cancelAnimationFrame(frame)
@@ -839,26 +906,6 @@ onBeforeUnmount(() => {
 <template>
   <div ref="boxRef" class="topology-globe">
     <div class="topology-globe__halo" aria-hidden="true" />
-    <div
-      class="topology-globe__spin"
-      @pointerdown.stop
-      @pointerup.stop
-      @pointermove.stop
-      @wheel.stop.prevent
-    >
-      <label class="topology-globe__spin-toggle">
-        <span>{{ $t('globeSpin') }}</span>
-        <el-switch v-model="autoRotate" size="small" />
-      </label>
-      <el-slider
-        v-if="autoRotate"
-        v-model="rotateSpeed"
-        :min="SPIN_SPEED_MIN"
-        :max="SPIN_SPEED_MAX"
-        :show-tooltip="false"
-        :aria-label="$t('globeSpinSpeed')"
-      />
-    </div>
     <canvas
       ref="canvasRef"
       class="topology-globe__canvas"
@@ -872,8 +919,64 @@ onBeforeUnmount(() => {
       <span v-if="tooltip.marker.derived">{{ $t('derivedLocation') }}</span>
       <span v-if="tooltip.marker.coverage">{{ tooltip.marker.coverage }}</span>
     </div>
-    <div v-if="$slots.legend" class="topology-globe__legend">
+    <div
+      v-if="$slots.legend"
+      class="topology-globe__legend"
+      @pointerdown.stop
+      @pointerup.stop
+      @pointermove.stop
+      @wheel.stop.prevent
+    >
       <slot name="legend" />
+      <div class="topology-legend-controls">
+        <label class="topology-legend-rays__toggle">
+          <span>{{ $t('globeRays') }}</span>
+          <el-switch v-model="showRays" size="small" />
+        </label>
+        <div class="topology-globe__spin">
+          <label class="topology-legend-rays__toggle">
+            <span>{{ $t('globeSpin') }}</span>
+            <el-switch v-model="autoRotate" size="small" />
+          </label>
+          <el-slider
+            v-if="autoRotate"
+            v-model="rotateSpeed"
+            :min="SPIN_SPEED_MIN"
+            :max="SPIN_SPEED_MAX"
+            :show-tooltip="false"
+            :aria-label="$t('globeSpinSpeed')"
+          />
+        </div>
+      </div>
+      <div v-if="showRays" class="topology-legend-rays">
+        <button
+          type="button"
+          class="topology-legend-rays__kind"
+          :class="{ 'is-off': !showPath }"
+          :aria-pressed="showPath"
+          @click="showPath = !showPath"
+        >
+          <i class="topology-legend-rays__swatch is-path" aria-hidden="true"></i>{{ $t('nodeLinks') }}
+        </button>
+        <button
+          type="button"
+          class="topology-legend-rays__kind"
+          :class="{ 'is-off': !showCollectorPath }"
+          :aria-pressed="showCollectorPath"
+          @click="showCollectorPath = !showCollectorPath"
+        >
+          <i class="topology-legend-rays__swatch is-collector-path" aria-hidden="true"></i>{{ $t('nodeCollectorLinks') }}
+        </button>
+        <button
+          type="button"
+          class="topology-legend-rays__kind"
+          :class="{ 'is-off': !showReplication }"
+          :aria-pressed="showReplication"
+          @click="showReplication = !showReplication"
+        >
+          <i class="topology-legend-rays__swatch is-replication" aria-hidden="true"></i>{{ $t('collectorLinks') }}
+        </button>
+      </div>
     </div>
     <div v-if="$slots.note" class="topology-globe__note">
       <slot name="note" />

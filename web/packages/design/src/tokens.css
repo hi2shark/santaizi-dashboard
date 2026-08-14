@@ -91,6 +91,7 @@
   --skeleton-highlight: rgba(255, 255, 255, 0.55);
   --skeleton-radius: var(--radius-sm);
   --duration-skeleton: 1.2s;
+  --sz-loading-mask: color-mix(in srgb, var(--sz-surface) 78%, transparent);
 
   --font-size-min: 12px;
   --font-size-caption: 12px;
@@ -156,6 +157,7 @@ html.dark,
   --shadow-raised: 0 4px 18px rgba(0, 0, 0, 0.4);
   --shadow-overlay: 0 12px 40px rgba(0, 0, 0, 0.5);
   --skeleton-highlight: rgba(255, 255, 255, 0.1);
+  --sz-loading-mask: color-mix(in srgb, var(--sz-surface) 78%, transparent);
 }
 
 html {

@@ -8,6 +8,9 @@ import LocationPicker from '@/components/LocationPicker.vue'
 import { useEditorSnapshot } from '@/composables/editorSnapshot'
 import { notifyAPIError } from '@/composables/notify'
 import type { CollectorScope } from '@santaizi/api'
+import { joinHostPort, parsePort, splitHostPort } from '@/domain/collectorAddress'
+
+const defaultListenPort = 5556
 
 const props = defineProps<{ modelValue: boolean; value?: CollectorRecord }>()
 const emit = defineEmits<{ 'update:modelValue': [boolean]; saved: [string, CollectorRecord?] }>()
@@ -16,8 +19,8 @@ const saving = ref(false)
 const formRef = ref<FormInstance>()
 const servers = ref<ServerRecord[]>([])
 const selectedServerIds = ref<string[]>([])
-const form = reactive<{ id: string; name: string; address: string; tls: boolean; insecure_tls: boolean; location: string; scopes: CollectorScope[] }>({
-    id: '', name: '', address: '', tls: true, insecure_tls: false, location: '', scopes: [{ type: 'all', value: '' }],
+const form = reactive<{ id: string; name: string; host: string; listen_port: string; access_port: string; tls: boolean; insecure_tls: boolean; location: string; scopes: CollectorScope[] }>({
+    id: '', name: '', host: '', listen_port: String(defaultListenPort), access_port: '', tls: true, insecure_tls: false, location: '', scopes: [{ type: 'all', value: '' }],
 })
 const snapshotValue = computed(() => ({ form, selectedServerIds: selectedServerIds.value }))
 const { dirty, capture } = useEditorSnapshot(snapshotValue, computed(() => props.modelValue))
@@ -25,6 +28,20 @@ const groups = computed(() => [...new Set(servers.value.map(server => server.tag
 const tags = groups
 const transferData = computed(() => servers.value.map(server => ({ key: String(server.id), label: server.name })))
 const firstServerScopeIndex = computed(() => form.scopes.findIndex(scope => scope.type === 'server'))
+
+function portRule(required: boolean) {
+  return {
+    validator: (_rule: unknown, value: unknown, callback: (error?: Error) => void) => {
+      if (value === '' || value === null || value === undefined) {
+        if (required) callback(new Error(t('required')))
+        else callback()
+        return
+      }
+      if (parsePort(value) == null) callback(new Error(t('required')))
+      else callback()
+    },
+  }
+}
 
 function collapseScopesForUi(scopes: CollectorScope[]): { ui: CollectorScope[]; serverIds: string[] } {
   const serverIds = scopes.filter(scope => scope.type === 'server').map(scope => scope.value.trim()).filter(Boolean)
@@ -84,10 +101,15 @@ async function reset(value?: CollectorRecord) {
     }))
     : [{ type: 'all', value: '' }]
   const collapsed = collapseScopesForUi(rawScopes)
+  const parsed = splitHostPort(value?.address || '')
+  const access = parsePort(parsed.port)
+  const listen = parsePort(value?.listen_port) ?? access ?? defaultListenPort
   Object.assign(form, {
     id: value?.id || '',
     name: value?.name || '',
-    address: value?.address || '',
+    host: parsed.host,
+    listen_port: String(listen),
+    access_port: access == null ? '' : String(access),
     tls: value?.tls ?? true,
     insecure_tls: value?.insecure_tls ?? false,
     location: value?.location || '',
@@ -101,6 +123,12 @@ async function reset(value?: CollectorRecord) {
 
 async function submit() {
   await formRef.value?.validate()
+  const listen = parsePort(form.listen_port)
+  const access = parsePort(form.access_port) ?? listen
+  if (!form.host.trim() || listen == null || access == null) {
+    ElMessage.warning(t('required'))
+    return
+  }
   const scopes = buildScopesForSubmit()
   const hasAll = scopes.some(scope => scope.type === 'all')
   const incomplete = scopes.some(scope => scope.type !== 'all' && !scope.value.trim())
@@ -112,7 +140,15 @@ async function submit() {
   try {
     let token = ''
     let created: CollectorRecord | undefined
-    const payload = { name: form.name, address: form.address, tls: form.tls, insecure_tls: form.insecure_tls, location: form.location, scopes }
+    const payload = {
+      name: form.name,
+      address: joinHostPort(form.host, access),
+      listen_port: listen,
+      tls: form.tls,
+      insecure_tls: form.insecure_tls,
+      location: form.location,
+      scopes,
+    }
     if (form.id) {
       await updateCollector(form.id, payload)
       await updateCollectorScope(form.id, { scopes })
@@ -137,7 +173,9 @@ watch(() => props.modelValue, value => { if (value) void reset(props.value) })
     <el-form ref="formRef" :model="form" label-position="top" @submit.prevent="submit">
       <div class="editor-grid">
         <el-form-item :label="t('name')" prop="name" :rules="[{ required: true, message: t('required') }]"><el-input v-model="form.name" /></el-form-item>
-        <el-form-item :label="t('address')" prop="address" :rules="[{ required: true, message: t('required') }]"><el-input v-model="form.address" placeholder="collector.example.com:5555" /></el-form-item>
+        <el-form-item :label="t('address')" prop="host" :rules="[{ required: true, message: t('required') }]"><el-input v-model="form.host" placeholder="collector.example.com" /></el-form-item>
+        <el-form-item :label="t('listenPort')" prop="listen_port" :rules="[portRule(true)]"><el-input v-model="form.listen_port" inputmode="numeric" placeholder="5556" /></el-form-item>
+        <el-form-item :label="t('accessPort')" prop="access_port" :rules="[portRule(false)]"><el-input v-model="form.access_port" inputmode="numeric" :placeholder="form.listen_port || '5556'" /></el-form-item>
         <el-form-item :label="t('location')"><LocationPicker v-model="form.location" /></el-form-item>
       </div>
       <div class="switch-grid"><label><span>{{ t('tls') }}</span><el-switch v-model="form.tls" /></label><label v-if="form.tls"><span>{{ t('insecureTLS') }}</span><el-switch v-model="form.insecure_tls" /></label></div>

@@ -435,3 +435,62 @@ func TestV2HostFillsCountryCodeFromGeoIP(t *testing.T) {
 		t.Fatalf("manual CountryCode should win, got %q", ServerList[11].Host.CountryCode)
 	}
 }
+
+func TestEndpointAssignmentPrimaryTLSFollowsGRPCTLS(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.Server{}, &model.ServerNodeBinding{}, &model.ObserverAssignment{}, &model.Collector{}, &model.CollectorScope{}); err != nil {
+		t.Fatal(err)
+	}
+	previousDB, previousConf := DB, Conf
+	DB = db
+	Conf = &model.Config{GRPCPort: 5555, GRPCTLS: model.GRPCTLSConfig{Enabled: true}, Telemetry: model.TelemetryConfig{PrimaryEndpoint: "primary.example:5555"}}
+	t.Cleanup(func() {
+		DB = previousDB
+		Conf = previousConf
+		_ = CloseDB(db)
+	})
+	node, session := bytes.Repeat([]byte{0x51}, 16), bytes.Repeat([]byte{0x52}, 16)
+	assignment, err := EndpointAssignmentForNode(node, session, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(assignment.GetEndpoints()) != 1 || !assignment.GetEndpoints()[0].GetTls() {
+		t.Fatalf("primary tls=%v", assignment.GetEndpoints())
+	}
+}
+
+func TestServerIDFromNodeUUIDUsesBindingAndLock(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.Server{}, &model.ServerNodeBinding{}, &model.ObserverAssignment{}, &model.Collector{}, &model.CollectorScope{}); err != nil {
+		t.Fatal(err)
+	}
+	previousDB, previousList := DB, ServerList
+	DB = db
+	InitServer()
+	ServerList[8] = &model.Server{Common: model.Common{ID: 8}}
+	t.Cleanup(func() {
+		DB = previousDB
+		ServerList = previousList
+		_ = CloseDB(db)
+	})
+	if err := db.Create(&model.Server{Common: model.Common{ID: 8}, Name: "n8", Secret: "secret-8"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	node := bytes.Repeat([]byte{0x61}, 16)
+	if _, err := BindServerNodeForProtocol(8, node, time.Unix(1_800_200_000, 0), pb.SourceProtocol_SOURCE_PROTOCOL_SANTAIZI_V2); err != nil {
+		t.Fatal(err)
+	}
+	got, err := ServerIDFromNodeUUID(node)
+	if err != nil || got != 8 {
+		t.Fatalf("serverID=%d err=%v", got, err)
+	}
+	if err := EnsureServerNodeAvailableForEnroll(8, bytes.Repeat([]byte{0x62}, 16)); !IsServerBoundToOtherNode(err) {
+		t.Fatalf("conflict err=%v", err)
+	}
+}

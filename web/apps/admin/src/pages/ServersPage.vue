@@ -71,6 +71,7 @@ function openNote(server: ServerRecord) {
   noteDialog.value = true
 }
 function reportedAddresses(server: ServerRecord) { return hostAddresses(server.host) }
+function agentVersionText(server: ServerRecord) { return server.host?.Version?.trim() || '—' }
 async function removeOne(server: ServerRecord) { await ElMessageBox.confirm(t('confirmDelete'), t('dangerousAction'), { type: 'warning' }); try { await deleteServer(server.id); ElMessage.success(t('deleteSuccess')); await load() } catch (error) { notifyAPIError(error, t as never, te) } }
 async function groupSelected() { try { const { value } = await ElMessageBox.prompt(t('group'), t('batchGroup'), { inputValue: selected.value[0]?.tag || '' }); await batchUpdateServerGroup(selected.value.map(server => server.id), value); await load() } catch { /* user cancelled */ } }
 async function deleteSelected() { await ElMessageBox.confirm(t('confirmDelete'), t('dangerousAction'), { type: 'warning' }); try { await batchDeleteServers(selected.value.map(server => server.id)); selected.value = []; await load(); ElMessage.success(t('deleteSuccess')) } catch (error) { notifyAPIError(error, t as never, te) } }
@@ -282,6 +283,9 @@ onUnmounted(() => { hoverMedia?.removeEventListener('change', onHoverMediaChange
       <el-table-column :label="t('host')" min-width="170">
         <template #default="{row}">{{ row.host?.Platform || '—' }}</template>
       </el-table-column>
+      <el-table-column :label="t('agentVersion')" min-width="120">
+        <template #default="{row}">{{ agentVersionText(row) }}</template>
+      </el-table-column>
       <el-table-column :label="`${t('ipv4')} / ${t('ipv6')}`" min-width="200">
         <template #default="{row}">
           <div class="server-ip">
@@ -365,6 +369,7 @@ onUnmounted(() => { hoverMedia?.removeEventListener('change', onHoverMediaChange
           </div>
           <dl class="mobile-card-meta mobile-card-meta--stats">
             <div><dt>{{ t('host') }}</dt><dd>{{ row.host?.Platform || '—' }}</dd></div>
+            <div><dt>{{ t('agentVersion') }}</dt><dd>{{ agentVersionText(row) }}</dd></div>
             <div><dt>{{ t('lastSeen') }}</dt><dd>{{ display(row.last_active,'last_active') }}</dd></div>
             <div><dt>{{ t('ipv4') }}</dt><dd>{{ reportedAddresses(row).ipv4 || '—' }}</dd></div>
             <div><dt>{{ t('ipv6') }}</dt><dd>{{ reportedAddresses(row).ipv6 || '—' }}</dd></div>

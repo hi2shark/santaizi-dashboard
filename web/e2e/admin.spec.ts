@@ -362,15 +362,20 @@ test('dirty editor blocks escape and confirms cancellation', async ({ page }) =>
 })
 
 test('collector and API token credentials can be viewed again by stable identifier', async ({ page }) => {
-  const collector = { id: 'collector-1', name: 'Shanghai edge', address: 'collector.example.com:5555', tls: true, insecure_tls: false, generation: 1, config_version: 1, status: 'online', revoked: false, connected_agents: 3, pending_records: 1, scopes: [{ type: 'all', value: '' }] }
+  const collector = { id: 'collector-1', name: 'Shanghai edge', address: 'collector.example.com:5555', listen_port: 5556, tls: true, insecure_tls: false, generation: 1, config_version: 1, status: 'online', revoked: false, connected_agents: 3, pending_records: 1, scopes: [{ type: 'all', value: '' }] }
   await page.route('**/api/v2/admin/telemetry/collectors**', route => {
     const path = new URL(route.request().url()).pathname
     if (path.endsWith('/token')) return fulfillJSON(route, item({ collector_id: 'collector-1', registration_token: 'collector-token', revoked: false }))
-    if (path.endsWith('/install-preview')) return fulfillJSON(route, item({ command: "curl -fsSL 'https://example.invalid/install_collector.sh' | bash -s -- --primary-endpoint '127.0.0.1:5555' --token 'collector-token' --grpc-port 5555", primary_endpoint: '127.0.0.1:5555', grpc_port: 5555, primary_tls: true, primary_insecure_tls: false }))
+    if (path.endsWith('/install-preview')) return fulfillJSON(route, item({ command: "curl -fsSL 'https://example.invalid/install_collector.sh' | bash -s -- --primary-endpoint '127.0.0.1:5555' --token 'collector-token' --grpc-port 5556", primary_endpoint: '127.0.0.1:5555', grpc_port: 5556, primary_tls: true, primary_insecure_tls: false }))
     return fulfillJSON(route, list([collector]))
   })
   await page.goto('/admin/telemetry')
   await expect(page.getByText('连接探针').filter({ visible: true })).toBeVisible()
+  await expect(page.getByText('collector.example.com').filter({ visible: true })).toBeVisible()
+  await expect(page.getByText('访问端口').filter({ visible: true })).toBeVisible()
+  await expect(page.getByText('监听端口').filter({ visible: true })).toBeVisible()
+  await expect(page.getByText('5555', { exact: true }).filter({ visible: true })).toBeVisible()
+  await expect(page.getByText('5556', { exact: true }).filter({ visible: true })).toBeVisible()
   await clickVisibleRowAction(page, '查看 Token')
   await expect(page.getByRole('dialog', { name: '注册 Token' }).locator('input')).toHaveValue('collector-token')
 
@@ -481,6 +486,9 @@ test('overview counts live collectors and links to connection observation', asyn
     return land > 20
   })
   await expect(page.locator('.topology-legend')).toContainText('主面板')
+  await expect(page.locator('.topology-globe__legend')).toContainText('射线')
+  await expect(page.locator('.topology-globe__legend')).toContainText('自转')
+  await expect(page.locator('.topology-legend-rays')).toContainText('从端节点')
   await expect(page.locator('.topology-globe__legend')).toBeVisible()
   await expect(page.locator('.topology-unlocated')).toContainText('1 个节点未定位')
   await expect(page.locator('.topology-panel > .section-title')).not.toContainText('详情')
@@ -488,13 +496,18 @@ test('overview counts live collectors and links to connection observation', asyn
   await expect(page.locator('.latency-panel')).toContainText('12 ms')
   await expect(page.locator('.latency-panel')).toContainText('ghost')
   await expect(page.locator('.latency-panel')).toContainText('离线')
+  await page.locator('.latency-row').filter({ hasText: 'tokyo' }).click()
+  await expect(page.locator('.latency-row').filter({ hasText: 'tokyo' })).toHaveClass(/is-active/)
+  await expect(page.locator('.latency-reset')).toBeVisible()
+  await page.locator('.latency-reset').click()
+  await expect(page.locator('.latency-row').filter({ hasText: 'tokyo' })).not.toHaveClass(/is-active/)
   await expect(page.locator('.overview-top .quick-grid')).toContainText('添加服务器')
   await expect(page.locator('.topology-panel')).not.toContainText('Shanghai edge')
   await page.locator('.latency-panel > .section-title').getByRole('link', { name: /详情/ }).click()
   await expect(page).toHaveURL(/\/admin\/connections$/)
 })
 
-test('connection observation shows collector links and node paths', async ({ page }) => {
+test('connection observation shows collector links and node paths', async ({ page }, testInfo) => {
   const collector = {
     id: 'collector-1', name: 'Shanghai edge', address: 'collector.example.com:5555', tls: true, insecure_tls: false,
     generation: 1, config_version: 1, status: 'online', revoked: false, connected_agents: 3, pending_records: 1,
@@ -515,18 +528,28 @@ test('connection observation shows collector links and node paths', async ({ pag
   await expect(page.getByRole('heading', { name: '连接观察' })).toBeVisible()
   await expect(page.getByText('主从连接').filter({ visible: true })).toBeVisible()
   await expect(page.getByText('Shanghai edge').filter({ visible: true })).toBeVisible()
+  await expect(page.getByText('复制中').filter({ visible: true })).toBeVisible()
+  await expect(page.locator('.collector-grid')).not.toContainText('待同步记录')
   await expect(page.getByText('18.5 ms').filter({ visible: true }).first()).toBeVisible()
   await expect(page.getByText('节点连接').filter({ visible: true })).toBeVisible()
+  const pathFilters = page.locator('.connections-page .toolbar-filters')
+  if (testInfo.project.name === 'admin-mobile') {
+    await expect(pathFilters).toBeVisible()
+    await expect(pathFilters.getByRole('combobox')).toHaveCount(2)
+  } else {
+    await expect(pathFilters).toBeHidden()
+  }
   await expect(page.getByText('edge-a').filter({ visible: true })).toBeVisible()
   await expect(page.getByText('12.5 ms').filter({ visible: true }).first()).toBeVisible()
   await page.getByText('Shanghai edge').filter({ visible: true }).first().click()
   const drawer = page.locator('.el-drawer').filter({ visible: true })
   await expect(drawer.getByText('心跳', { exact: true })).toBeVisible()
+  await expect(drawer.getByText('待同步记录').filter({ visible: true })).toBeVisible()
   await expect(drawer.getByText('16 ms', { exact: true })).toBeVisible()
   await expect(drawer.getByText('21 ms', { exact: true })).toBeVisible()
 })
 
-test('connection observation truncates long path errors until the drawer opens', async ({ page }) => {
+test('connection observation truncates long path errors until the drawer opens', async ({ page }, testInfo) => {
   const collectorId = 'collector-2aee9892d4c14e4c8b9a112233445566'
   const lastError = 'rpc error: code = Unavailable desc = connection error: desc = "transport: authentication handshake failed: tls: first record does not look like a TLS handshake"'
   await page.route('**/api/v2/admin/telemetry/collectors**', route => fulfillJSON(route, list([{
@@ -541,18 +564,97 @@ test('connection observation truncates long path errors until the drawer opens',
   }])))
   await page.route('**/api/v2/admin/connections/latency**', route => fulfillJSON(route, list()))
   await page.goto('/admin/connections')
-  const collectorList = page.locator('.dataset-table, .mobile-card-list').filter({ visible: true }).first()
+  const collectorList = page.locator('.collector-grid').filter({ visible: true })
   await expect(collectorList.getByText('盐湖城1212').filter({ visible: true })).toBeVisible()
+  await expect(collectorList.getByText('已跟上').filter({ visible: true })).toBeVisible()
   await expect(collectorList.getByText('collector-2aee9892…').filter({ visible: true })).toBeVisible()
   await expect(collectorList).not.toContainText(collectorId)
-  const pathList = page.locator('.dataset-table, .mobile-card-list').filter({ visible: true }).last()
-  const errorEl = pathList.locator('.cell-ellipsis').filter({ hasText: 'rpc error' })
-  await expect(errorEl).toBeVisible()
-  const box = await errorEl.boundingBox()
-  expect(box?.height ?? 99).toBeLessThan(40)
-  await pathList.locator('.el-table__row, .mobile-card').first().click()
+  if (testInfo.project.name === 'admin-mobile') {
+    const pathList = page.locator('.mobile-card-list').filter({ visible: true }).last()
+    const errorEl = pathList.locator('.cell-ellipsis').filter({ hasText: 'rpc error' })
+    await expect(errorEl).toBeVisible()
+    const box = await errorEl.boundingBox()
+    expect(box?.height ?? 99).toBeLessThan(40)
+    await pathList.locator('.mobile-card').first().click()
+  } else {
+    const matrix = page.locator('.path-matrix').filter({ visible: true })
+    await expect(matrix.getByText('LAX-DMIT.PRO').filter({ visible: true })).toBeVisible()
+    await expect(matrix).not.toContainText(lastError)
+    await matrix.getByRole('button').filter({ hasText: '未连接' }).click()
+  }
   const drawer = page.locator('.el-drawer').filter({ visible: true })
   await expect(drawer.getByText(lastError).filter({ visible: true })).toBeVisible()
+})
+
+test('connection observation shows node paths as a server-observer matrix', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === 'admin-mobile', 'matrix is desktop-only')
+  const collector = {
+    id: 'collector-1', name: 'Shanghai edge', address: 'collector.example.com:5555', tls: true, insecure_tls: false,
+    generation: 1, config_version: 1, status: 'online', revoked: false, connected_agents: 3, pending_records: 1,
+    last_seen: '2026-08-13T06:00:00Z', last_sync: '2026-08-13T05:59:00Z', scopes: [{ type: 'all', value: '' }],
+  }
+  const sinks = {
+    up: { connected: true, pending_events: 0, last_error: '', ack_through: 11, last_rtt_ms: 12.5, rtt_sampled_at: '2026-08-13T06:00:00Z' },
+    down: { connected: false, pending_events: 0, last_error: '', ack_through: 0 },
+    far: { connected: true, pending_events: 0, last_error: '', ack_through: 8, last_rtt_ms: 40, rtt_sampled_at: '2026-08-13T06:00:00Z' },
+  }
+  await page.route('**/api/v2/admin/telemetry/collectors**', route => fulfillJSON(route, list([collector])))
+  await page.route('**/api/v2/admin/connections/paths**', route => fulfillJSON(route, list([
+    { server_id: 7, server_name: 'edge-a', node_uuid: '09090909090909090909090909090909', observer_id: 'primary', observer_kind: 'primary', observer_name: '', assigned: true, last_seen: '2026-08-13T06:00:00Z', sink: sinks.up },
+    { server_id: 7, server_name: 'edge-a', node_uuid: '09090909090909090909090909090909', observer_id: 'collector-1', observer_kind: 'collector', observer_name: 'Shanghai edge', assigned: true, last_seen: '2026-08-13T06:00:00Z', sink: sinks.down },
+    { server_id: 8, server_name: 'edge-b', node_uuid: '0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a', observer_id: 'primary', observer_kind: 'primary', observer_name: '', assigned: true, last_seen: '2026-08-13T06:00:00Z', sink: sinks.down },
+    { server_id: 8, server_name: 'edge-b', node_uuid: '0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a', observer_id: 'collector-1', observer_kind: 'collector', observer_name: 'Shanghai edge', assigned: true, last_seen: '2026-08-13T06:00:00Z', sink: sinks.far },
+  ])))
+  await page.goto('/admin/connections')
+  const matrix = page.locator('.path-matrix').filter({ visible: true })
+  await expect(matrix.getByRole('columnheader', { name: '服务器' })).toBeVisible()
+  await expect(matrix.getByRole('columnheader', { name: '主面板' })).toBeVisible()
+  await expect(matrix.getByRole('columnheader', { name: 'Shanghai edge' })).toBeVisible()
+  await expect(matrix.getByText('edge-a', { exact: true })).toBeVisible()
+  await expect(matrix.getByText('edge-b', { exact: true })).toBeVisible()
+  await expect(matrix.getByRole('button', { name: '12.5 ms' })).toBeVisible()
+  await expect(matrix.getByRole('button', { name: '40 ms' })).toBeVisible()
+  await expect(matrix.getByRole('button', { name: '未连接' })).toHaveCount(2)
+  const observerHeads = matrix.locator('[role=columnheader].col-observer')
+  await expect(observerHeads).toHaveCount(2)
+  const widths = await observerHeads.evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().width))
+  expect(Math.abs(widths[0] - widths[1])).toBeLessThan(2)
+  const chipWidths = await matrix.locator('.path-matrix__cell').evaluateAll(nodes => nodes.map(node => Math.round(node.getBoundingClientRect().width)))
+  expect(new Set(chipWidths).size).toBe(1)
+})
+
+test('connection observation refreshes matrix latency on poll', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === 'admin-mobile', 'matrix is desktop-only')
+  await page.clock.install()
+  const path = {
+    server_id: 7, server_name: 'edge-a', node_uuid: '09090909090909090909090909090909', observer_id: 'primary',
+    observer_kind: 'primary', observer_name: '', assigned: true, last_seen: '2026-08-13T06:00:00Z',
+    sink: { connected: true, pending_events: 0, last_error: '', ack_through: 11, last_rtt_ms: 12.5, rtt_sampled_at: '2026-08-13T06:00:00Z' },
+  }
+  let hits = 0
+  await page.route('**/api/v2/admin/telemetry/collectors**', route => fulfillJSON(route, list()))
+  await page.route('**/api/v2/admin/connections/paths**', route => {
+    hits += 1
+    return fulfillJSON(route, list([{
+      ...path,
+      sink: { ...path.sink, last_rtt_ms: hits === 1 ? 12.5 : 88 },
+    }]))
+  })
+  await page.goto('/admin/connections')
+  const matrix = page.locator('.path-matrix').filter({ visible: true })
+  await expect(matrix.getByRole('button', { name: '12.5 ms' })).toBeVisible()
+  await page.clock.fastForward(5000)
+  await expect(matrix.getByRole('button', { name: '88 ms' })).toBeVisible()
+})
+
+test('servers list shows reported agent version', async ({ page }) => {
+  await page.route('**/api/v2/admin/servers**', route => fulfillJSON(route, list([{
+    id: 7, name: 'edge-a', tag: 'edge', online: true, last_active: '2026-08-14T03:36:00Z',
+    host: { Platform: 'debian', Version: '1.0.0' }, public_note: {}, telemetry: { available: true, coverage: '1/1' },
+  }])))
+  await page.goto('/admin/servers')
+  await expect(page.getByText('探针版本').filter({ visible: true }).first()).toBeVisible()
+  await expect(page.getByText('1.0.0').filter({ visible: true }).first()).toBeVisible()
 })
 
 test('server history drawer shows observer evidence and connection paths', async ({ page }) => {
@@ -676,7 +778,7 @@ test('telemetry dataset tabs paginate incident revisions', async ({ page }) => {
 test('narrow admin lists scroll inside admin-content without moving the topbar', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 667 })
   const servers = [
-    { id: 1, name: 'LAX-ALPHA', tag: 'USA', display_index: 2000, online: true, last_active: '2026-08-14T03:36:00Z', host: { Platform: 'debian', ipv4: '192.0.2.10', ipv6: '2001:db8::10' }, public_note: {}, telemetry: { available: true, coverage: '2/2' } },
+    { id: 1, name: 'LAX-ALPHA', tag: 'USA', display_index: 2000, online: true, last_active: '2026-08-14T03:36:00Z', host: { Platform: 'debian', Version: '1.0.0', ipv4: '192.0.2.10', ipv6: '2001:db8::10' }, public_note: {}, telemetry: { available: true, coverage: '2/2' } },
     { id: 2, name: 'LAX-BRAVO', tag: 'USA', display_index: 1990, online: true, last_active: '2026-08-14T03:36:00Z', host: { Platform: 'debian', ipv4: '192.0.2.11', ipv6: '2001:db8::11' }, public_note: {}, telemetry: { available: true, coverage: '2/2' } },
     { id: 3, name: 'NRT-CHARLIE', tag: 'JPN', display_index: 1980, online: false, last_active: '2026-08-13T12:00:00Z', host: { Platform: 'ubuntu', ipv4: '192.0.2.12', ipv6: '2001:db8::12' }, public_note: {}, telemetry: { available: false, coverage: '0/2' } },
   ]

@@ -22,6 +22,30 @@ func (a *authHandler) RequireTransportSecurity() bool {
 	return false
 }
 
+type EnrollmentCredential struct {
+	ClientSecret string
+}
+
+func (e *EnrollmentCredential) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
+	return map[string]string{"client_secret": e.ClientSecret}, nil
+}
+
+func (e *EnrollmentCredential) RequireTransportSecurity() bool {
+	return true
+}
+
+type CollectorBootstrapCredential struct {
+	Token string
+}
+
+func (c *CollectorBootstrapCredential) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
+	return map[string]string{"collector_token": c.Token}, nil
+}
+
+func (c *CollectorBootstrapCredential) RequireTransportSecurity() bool {
+	return true
+}
+
 func (a *authHandler) Check(ctx context.Context) (uint64, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {

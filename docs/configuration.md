@@ -36,7 +36,8 @@ site:
 | `grpcport` | uint | `5555` | Agent gRPC 上报端口 |
 | `grpchost` | string | `""` | 面板对外域名/IP，用于生成 Agent 一键安装命令 |
 | `proxygrpcport` | uint | `0` | 如果设置，生成安装命令时使用该端口代替 `grpcport` |
-| `tls` | bool | `false` | 下发 Agent 以 TLS 连接 Primary；证书通常由公网 gRPC 反向代理终止 |
+| `tls` | bool | `false` | 下发探针以 TLS 连接 Primary；证书通常由公网 gRPC 反向代理终止 |
+| `grpc_tls` | object | 见下 | 面板/从端进程自身的 gRPC Server TLS 与设备 mTLS。默认全关，旧配置可直接启动 |
 | `enableplainipinnotification` | bool | `false` | 通知中 IP 是否不打码 |
 | `enableipchangenotification` | bool | `false` | 是否启用服务器 IP 变动通知 |
 | `ipchangenotificationtag` | string | `default` | IP 变动通知使用的通知组 |
@@ -54,6 +55,33 @@ site:
 | `enableofflinenotification` | bool | `false` | 离线时发送通知 |
 | `enablerecoverynotification` | bool | `false` | 恢复时发送通知 |
 | `showavailabilitytoguest` | bool | `false` | 是否向前台访客展示服务器可用性摘要（30 天可用率、离线次数等） |
+
+### `grpc_tls` gRPC 传输与设备证书
+
+设备身份由两套独立 CA 签发，**禁止**用 Agent CA 给从端签身份证，也**永不**下发任何 CA 私钥。Server 证书由运营提供，不用设备 CA 签。
+
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
+| `grpc_tls.enabled` | `false` | 为 true 时 gRPC 监听 TLS1.2+；缺 `cert_file`/`key_file` 则拒绝启动 |
+| `grpc_tls.cert_file` | `""` | Server 证书 PEM |
+| `grpc_tls.key_file` | `""` | Server 私钥 PEM |
+| `grpc_tls.client_ca_file` | `""` | 额外客户端 CA bundle；空则只用内置 Agent CA + Collector CA |
+| `grpc_tls.require_agent_mtls` | `false` | 探针 Control/Ingest/NAT/Renew 必须出示 Agent 证 |
+| `grpc_tls.require_collector_mtls` | `false` | 从端 Sync/Replicate/RenewCollector 必须出示 Collector 证 |
+
+内置 CA 默认目录：`/var/lib/santaizi-dashboard/pki/`（`agent-ca.{key,crt}` 与 `collector-ca.{key,crt}`）。`enabled=true` 时 assignment 的 primary `Tls=true`。
+
+```yaml
+grpc_tls:
+  enabled: false
+  cert_file: ""
+  key_file: ""
+  client_ca_file: ""
+  require_agent_mtls: false
+  require_collector_mtls: false
+```
+
+迁移：先升面板、两开关保持 false → 配置 Server 证并打开 `grpc_tls.enabled` → 升探针完成 Enroll → 升从端 Register+CSR → 确认两边已走 mTLS → 再分别打开 `require_agent_mtls` / `require_collector_mtls`。注册 Token 与 `client_secret` 变为 bootstrap；`--insecure` 仅测试。
 
 > 离线历史相关配置在后台设置页面保存后立即生效，无需重启 Dashboard。
 

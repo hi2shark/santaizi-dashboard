@@ -16,10 +16,6 @@ const { t } = useI18n()
       <span v-else class="nazhua-flag-fallback" aria-hidden="true"><i class="ri-global-line"></i></span>
       <OsLogo :platform="server.platform" />
       <strong>{{ server.name }}</strong>
-      <i
-        class="nazhua-row__status"
-        :class="server.online ? 'ri-checkbox-circle-fill online' : 'ri-indeterminate-circle-fill offline'"
-      ></i>
       <small>{{ server.slogan || server.spec }}</small>
     </div>
     <div class="nazhua-row__metric"><small>CPU</small>{{ server.cpuPercent.toFixed(1) }}%{{ server.cpuCaption ? ` ${server.cpuCaption}` : '' }}</div>

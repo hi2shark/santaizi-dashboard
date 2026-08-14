@@ -3251,6 +3251,12 @@ components:
           type: string
         address:
           type: string
+          description: 探针访问地址（host:访问端口）
+        listen_port:
+          type: integer
+          minimum: 0
+          maximum: 65535
+          description: 从端进程监听端口。0 表示与 address 中的访问端口相同。
         tls:
           type: boolean
         insecure_tls:
@@ -3751,6 +3757,12 @@ components:
           type: string
           minLength: 1
           maxLength: 255
+          description: 探针访问地址（host:访问端口）
+        listen_port:
+          type: integer
+          minimum: 0
+          maximum: 65535
+          description: 从端进程监听端口。0 表示与 address 中的访问端口相同。
         tls:
           type: boolean
         insecure_tls:

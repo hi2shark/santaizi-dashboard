@@ -28,6 +28,9 @@ func TestOpenDBFromPathCreatesVersionedSchema(t *testing.T) {
 	if !db.Migrator().HasTable(&model.TelemetryEvent{}) || !db.Migrator().HasTable(&model.AvailabilityBucket{}) {
 		t.Fatal("telemetry schema was not created")
 	}
+	if !db.Migrator().HasColumn(&model.Collector{}, "listen_port") {
+		t.Fatal("collector listen_port column was not created")
+	}
 }
 
 func TestOpenDBFromPathRejectsUnversionedDatabase(t *testing.T) {
