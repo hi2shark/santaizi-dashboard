@@ -52,6 +52,7 @@ func registerTypedAdminRoutes(admin *gin.RouterGroup) {
 	admin.DELETE("/nat/:id", v2DeleteNATTunnel)
 
 	admin.GET("/probe-capabilities", v2ProbeCapabilities)
+	admin.GET("/script-commands", v2ScriptCommands)
 	admin.GET("/servers/:id/credential", v2ServerCredential)
 	admin.POST("/servers/:id/install-preview", v2InstallPreview)
 	admin.POST("/servers/:id/upgrade-preview", v2UpgradePreview)
@@ -1058,7 +1059,7 @@ func v2ProbeCapabilities(c *gin.Context) {
 			{"id": "tcp_probe", "disable_flag": "--disable-tcp-probe"}, {"id": "nat", "disable_flag": "--disable-nat"},
 		},
 		"presets": gin.H{
-			"standard_cloud":     cloud,
+			"standard_cloud":    cloud,
 			"standard_physical": physical,
 			"light":             monitoringOptionsDTO{CPU: true, Memory: true, Disk: true, Network: true, HostInfo: true, IPReport: true, HTTPProbe: true, ICMPProbe: true, TCPProbe: true, NAT: false},
 			"alive":             monitoringOptionsDTO{},
@@ -1199,6 +1200,78 @@ func buildUpgradeCommand(platform, script string) (string, error) {
 	default:
 		return "", errors.New("platform must be linux, macos, or windows")
 	}
+}
+
+type scriptCommandDTO struct {
+	ID          string `json:"id"`
+	Group       string `json:"group"`
+	Platform    string `json:"platform"`
+	Command     string `json:"command"`
+	Destructive bool   `json:"destructive"`
+}
+
+func buildDashboardInstallCommand(script string) string {
+	return `sh -c "$(curl -fsSL ` + shellQuote(script) + `)"`
+}
+
+func appendUpgradeScriptCommand(out []scriptCommandDTO, id, group, platform, script string) []scriptCommandDTO {
+	command, err := buildUpgradeCommand(platform, script)
+	if err != nil {
+		return out
+	}
+	return append(out, scriptCommandDTO{ID: id, Group: group, Platform: platform, Command: command})
+}
+
+func buildScriptCommands(conf *model.Config) []scriptCommandDTO {
+	out := make([]scriptCommandDTO, 0, 9)
+	if conf == nil {
+		return out
+	}
+	scripts := conf.InstallScript
+	if strings.TrimSpace(scripts.Dashboard) != "" {
+		out = append(out, scriptCommandDTO{
+			ID:       "dashboard_install",
+			Group:    "dashboard",
+			Platform: "linux",
+			Command:  buildDashboardInstallCommand(scripts.Dashboard),
+		})
+	}
+	out = append(out, scriptCommandDTO{
+		ID:       "dashboard_upgrade",
+		Group:    "dashboard",
+		Platform: "linux",
+		Command:  "cd /opt/santaizi && docker compose pull && docker compose up -d",
+	})
+	out = appendUpgradeScriptCommand(out, "collector_upgrade", "collector", "linux", scripts.UpgradeCollector)
+	out = append(out, scriptCommandDTO{
+		ID:          "collector_remove",
+		Group:       "collector",
+		Platform:    "linux",
+		Command:     "cd /opt/santaizi/collector && docker compose down",
+		Destructive: true,
+	})
+	out = appendUpgradeScriptCommand(out, "agent_upgrade_linux", "agent", "linux", scripts.UpgradeLinux)
+	out = appendUpgradeScriptCommand(out, "agent_upgrade_macos", "agent", "macos", scripts.UpgradeMacOS)
+	out = appendUpgradeScriptCommand(out, "agent_upgrade_windows", "agent", "windows", scripts.UpgradeWindows)
+	out = append(out, scriptCommandDTO{
+		ID:          "agent_uninstall_posix",
+		Group:       "agent",
+		Platform:    "posix",
+		Command:     "santaizi-agent-uninstall",
+		Destructive: true,
+	})
+	out = append(out, scriptCommandDTO{
+		ID:          "agent_uninstall_windows",
+		Group:       "agent",
+		Platform:    "windows",
+		Command:     `C:\santaizi\santaizi-agent-uninstall.cmd`,
+		Destructive: true,
+	})
+	return out
+}
+
+func v2ScriptCommands(c *gin.Context) {
+	writeV2Data(c, 200, gin.H{"commands": buildScriptCommands(singleton.Conf)})
 }
 func installFlags(options monitoringOptionsDTO, windows bool, ipCfg ipReportConfigDTO) []string {
 	pairs := []struct {

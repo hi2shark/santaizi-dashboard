@@ -67,6 +67,7 @@ type SiteConfig struct {
 	LogoURL             string
 	BackgroundURL       string
 	SafeCustomCSS       string
+	PrimaryLocation     string // 主面板在地球上的位置：ISO2 或 "lat,lon"
 }
 
 // PublicSiteConfig 仅包含未登录页面所需的站点配置字段（去除敏感信息）
@@ -89,15 +90,17 @@ type PublicConfig struct {
 
 // InstallScriptConfig 一键安装脚本源配置
 type InstallScriptConfig struct {
-	Linux          string // Linux 中文安装脚本 URL（探针）
-	LinuxEn        string // Linux 英文安装脚本 URL（探针）
-	Windows        string // Windows 安装脚本 URL（探针）
-	MacOS          string // macOS 安装脚本 URL（探针）
-	Collector      string // Linux 从端（Collector）安装脚本 URL
-	UpgradeLinux   string `koanf:"upgrade_linux" yaml:"upgrade_linux"`     // Linux 中文升级脚本 URL
-	UpgradeLinuxEn string `koanf:"upgrade_linuxen" yaml:"upgrade_linuxen"` // Linux 英文升级脚本 URL
-	UpgradeWindows string `koanf:"upgrade_windows" yaml:"upgrade_windows"`
-	UpgradeMacOS   string `koanf:"upgrade_macos" yaml:"upgrade_macos"`
+	Linux            string // Linux 中文安装脚本 URL（探针）
+	LinuxEn          string // Linux 英文安装脚本 URL（探针）
+	Windows          string // Windows 安装脚本 URL（探针）
+	MacOS            string // macOS 安装脚本 URL（探针）
+	Collector        string // Linux 从端（Collector）安装脚本 URL
+	Dashboard        string `koanf:"dashboard" yaml:"dashboard"`                 // 主面板安装脚本 URL
+	UpgradeCollector string `koanf:"upgrade_collector" yaml:"upgrade_collector"` // 从端升级脚本 URL
+	UpgradeLinux     string `koanf:"upgrade_linux" yaml:"upgrade_linux"`         // Linux 中文升级脚本 URL
+	UpgradeLinuxEn   string `koanf:"upgrade_linuxen" yaml:"upgrade_linuxen"`     // Linux 英文升级脚本 URL
+	UpgradeWindows   string `koanf:"upgrade_windows" yaml:"upgrade_windows"`
+	UpgradeMacOS     string `koanf:"upgrade_macos" yaml:"upgrade_macos"`
 }
 
 type TelemetryConfig struct {
@@ -400,6 +403,12 @@ func (c *Config) Read(path string) error {
 	}
 	if c.InstallScript.Collector == "" {
 		c.InstallScript.Collector = "https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install_collector.sh"
+	}
+	if c.InstallScript.Dashboard == "" {
+		c.InstallScript.Dashboard = "https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install_dashboard.sh"
+	}
+	if c.InstallScript.UpgradeCollector == "" {
+		c.InstallScript.UpgradeCollector = "https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/upgrade_collector.sh"
 	}
 	if c.InstallScript.UpgradeLinux == "" {
 		c.InstallScript.UpgradeLinux = "https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/upgrade_agent.sh"

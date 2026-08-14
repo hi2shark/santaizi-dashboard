@@ -134,6 +134,71 @@ func TestBuildCollectorInstallCommand(t *testing.T) {
 	}
 }
 
+func TestBuildScriptCommands(t *testing.T) {
+	conf := &model.Config{
+		InstallScript: model.InstallScriptConfig{
+			Dashboard:        "https://example.invalid/install_dashboard.sh",
+			UpgradeCollector: "https://example.invalid/upgrade_collector.sh",
+			UpgradeLinux:     "https://example.invalid/upgrade_agent.sh",
+			UpgradeMacOS:     "https://example.invalid/upgrade.command",
+			UpgradeWindows:   "https://example.invalid/upgrade.ps1",
+		},
+	}
+	commands := buildScriptCommands(conf)
+	if len(commands) != 9 {
+		t.Fatalf("len=%d", len(commands))
+	}
+	byID := map[string]scriptCommandDTO{}
+	for _, cmd := range commands {
+		if _, exists := byID[cmd.ID]; exists {
+			t.Fatalf("duplicate id %s", cmd.ID)
+		}
+		byID[cmd.ID] = cmd
+		lower := strings.ToLower(cmd.Command)
+		if strings.Contains(lower, "secret") || strings.Contains(lower, "token") || strings.Contains(lower, "-p ") {
+			t.Fatalf("command must not include secrets: %s=%s", cmd.ID, cmd.Command)
+		}
+	}
+	wantIDs := []string{
+		"dashboard_install", "dashboard_upgrade",
+		"collector_upgrade", "collector_remove",
+		"agent_upgrade_linux", "agent_upgrade_macos", "agent_upgrade_windows",
+		"agent_uninstall_posix", "agent_uninstall_windows",
+	}
+	for _, id := range wantIDs {
+		if _, ok := byID[id]; !ok {
+			t.Fatalf("missing id %s", id)
+		}
+	}
+	if got := byID["dashboard_install"].Command; got != `sh -c "$(curl -fsSL 'https://example.invalid/install_dashboard.sh')"` {
+		t.Fatalf("dashboard_install=%s", got)
+	}
+	if got := byID["collector_upgrade"].Command; got != "curl -fsSL 'https://example.invalid/upgrade_collector.sh' | bash" {
+		t.Fatalf("collector_upgrade=%s", got)
+	}
+	if got := byID["agent_upgrade_linux"].Command; got != "curl -fsSL 'https://example.invalid/upgrade_agent.sh' | bash" {
+		t.Fatalf("agent_upgrade_linux=%s", got)
+	}
+	if !byID["collector_remove"].Destructive || !byID["agent_uninstall_posix"].Destructive || !byID["agent_uninstall_windows"].Destructive {
+		t.Fatal("destructive flags missing")
+	}
+	if byID["dashboard_upgrade"].Destructive || byID["collector_upgrade"].Destructive {
+		t.Fatal("upgrade commands must not be destructive")
+	}
+
+	skipped := buildScriptCommands(&model.Config{})
+	if len(skipped) != 4 {
+		t.Fatalf("empty urls should skip install/upgrade scripts, got %d", len(skipped))
+	}
+	for _, cmd := range skipped {
+		switch cmd.ID {
+		case "dashboard_upgrade", "collector_remove", "agent_uninstall_posix", "agent_uninstall_windows":
+		default:
+			t.Fatalf("unexpected remaining command %s", cmd.ID)
+		}
+	}
+}
+
 func TestParseCollectorListenPort(t *testing.T) {
 	port, err := parseCollectorListenPort("hk.example.com:6666")
 	if err != nil || port != 6666 {
@@ -148,7 +213,6 @@ func TestParseCollectorListenPort(t *testing.T) {
 		t.Fatalf("empty got %d %v", port, err)
 	}
 }
-
 
 func TestApplyAlertRuleWriteAllowsOfflineWithoutThreshold(t *testing.T) {
 	request := alertRuleWriteDTO{
