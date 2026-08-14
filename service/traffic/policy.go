@@ -66,6 +66,62 @@ func Validate(policy *model.TrafficPolicy) error {
 	return nil
 }
 
+func ValidateAll(policies []model.TrafficPolicy) error {
+	for i := range policies {
+		if err := Validate(&policies[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func Replace(tx *gorm.DB, serverID uint64, policies []model.TrafficPolicy) error {
+	var existing []model.TrafficPolicy
+	if err := tx.Where("server_id = ?", serverID).Find(&existing).Error; err != nil {
+		return err
+	}
+	keep := make(map[uint64]struct{}, len(policies))
+	seen := make(map[uint64]struct{}, len(policies))
+	for i := range policies {
+		policy := &policies[i]
+		policy.ServerID = serverID
+		if policy.ID == 0 {
+			if err := tx.Create(policy).Error; err != nil {
+				return err
+			}
+			continue
+		}
+		if _, dup := seen[policy.ID]; dup {
+			return fmt.Errorf("duplicate traffic policy id %d", policy.ID)
+		}
+		seen[policy.ID] = struct{}{}
+		var row model.TrafficPolicy
+		if err := tx.First(&row, "id = ? AND server_id = ?", policy.ID, serverID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return fmt.Errorf("traffic policy %d does not belong to this server", policy.ID)
+			}
+			return err
+		}
+		policy.CreatedAt = row.CreatedAt
+		if err := tx.Save(policy).Error; err != nil {
+			return err
+		}
+		keep[policy.ID] = struct{}{}
+	}
+	for _, row := range existing {
+		if _, ok := keep[row.ID]; ok {
+			continue
+		}
+		if err := tx.Unscoped().Delete(&model.TrafficPolicy{}, "id = ? AND server_id = ?", row.ID, serverID).Error; err != nil {
+			return err
+		}
+		if err := tx.Unscoped().Delete(&model.TrafficPolicyState{}, "policy_id = ?", row.ID).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func Window(policy model.TrafficPolicy, now time.Time) (time.Time, *time.Time, error) {
 	if policy.Mode == model.TrafficModeCumulative {
 		start := policy.CreatedAt

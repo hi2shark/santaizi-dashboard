@@ -461,15 +461,21 @@ func v2AdminSummary(c *gin.Context) {
 }
 
 type serverV2Write struct {
-	Name              string          `json:"name" binding:"required"`
-	Tag               string          `json:"tag"`
-	Note              string          `json:"note"`
-	PublicNote        map[string]any  `json:"public_note"`
-	MonitoringOptions map[string]bool `json:"monitoring_options"`
-	DisplayIndex      int             `json:"display_index"`
-	HideForGuest      bool            `json:"hide_for_guest"`
-	EnableDDNS        bool            `json:"enable_ddns"`
-	DDNSProfiles      []uint64        `json:"ddns_profiles"`
+	Name              string                    `json:"name" binding:"required"`
+	Tag               string                    `json:"tag"`
+	Note              string                    `json:"note"`
+	PublicNote        map[string]any            `json:"public_note"`
+	MonitoringOptions map[string]bool           `json:"monitoring_options"`
+	DisplayIndex      int                       `json:"display_index"`
+	HideForGuest      bool                      `json:"hide_for_guest"`
+	EnableDDNS        bool                      `json:"enable_ddns"`
+	DDNSProfiles      []uint64                  `json:"ddns_profiles"`
+	TrafficPolicies   *[]trafficPolicyUpsertDTO `json:"traffic_policies"`
+}
+
+type trafficPolicyUpsertDTO struct {
+	ID uint64 `json:"id"`
+	trafficPolicyWriteDTO
 }
 
 func hostAdminDTO(host *model.Host) any {
@@ -608,6 +614,11 @@ func v2SaveServer(c *gin.Context, id uint64) {
 	server.DDNSProfiles = append([]uint64(nil), request.DDNSProfiles...)
 	raw, _ := utils.Json.Marshal(server.DDNSProfiles)
 	server.DDNSProfilesRaw = string(raw)
+	policies, err := trafficPoliciesFromWrite(request.TrafficPolicies)
+	if err != nil {
+		writeV2Problem(c, 400, "invalid_traffic_policy", err.Error())
+		return
+	}
 	if created {
 		secret, err := utils.GenerateRandomString(18)
 		if err != nil {
@@ -615,10 +626,35 @@ func v2SaveServer(c *gin.Context, id uint64) {
 			return
 		}
 		server.Secret = secret
-		if err := singleton.DB.Create(&server).Error; err != nil {
-			writeV2Problem(c, 400, "server_create_failed", err.Error())
+	}
+	var policyErr error
+	err = singleton.DB.Transaction(func(tx *gorm.DB) error {
+		if created {
+			if err := tx.Create(&server).Error; err != nil {
+				return err
+			}
+		} else if err := tx.Save(&server).Error; err != nil {
+			return err
+		}
+		if policies != nil {
+			policyErr = trafficservice.Replace(tx, server.ID, policies)
+			return policyErr
+		}
+		return nil
+	})
+	if err != nil {
+		if policyErr != nil {
+			writeV2Problem(c, 400, "invalid_traffic_policy", policyErr.Error())
 			return
 		}
+		code := "server_update_failed"
+		if created {
+			code = "server_create_failed"
+		}
+		writeV2Problem(c, 400, code, err.Error())
+		return
+	}
+	if created {
 		server.Host, server.State = &model.Host{}, &model.HostState{}
 		singleton.ServerLock.Lock()
 		singleton.SecretToID[server.Secret] = server.ID
@@ -626,10 +662,6 @@ func v2SaveServer(c *gin.Context, id uint64) {
 		singleton.ServerTagToIDList[server.Tag] = append(singleton.ServerTagToIDList[server.Tag], server.ID)
 		singleton.ServerLock.Unlock()
 	} else {
-		if err := singleton.DB.Save(&server).Error; err != nil {
-			writeV2Problem(c, 400, "server_update_failed", err.Error())
-			return
-		}
 		if err := singleton.RefreshObserverAssignmentsForServer(server.ID, time.Now()); err != nil {
 			writeV2Problem(c, 500, "assignment_refresh_failed", err.Error())
 			return
@@ -647,7 +679,39 @@ func v2SaveServer(c *gin.Context, id uint64) {
 		singleton.ServerLock.Unlock()
 	}
 	singleton.ReSortServer()
-	writeV2Data(c, map[bool]int{true: http.StatusCreated, false: http.StatusOK}[created], serverAdminDTO(server, created))
+	result := serverAdminDTO(server, created)
+	attachTrafficPolicies(result, server.ID)
+	writeV2Data(c, map[bool]int{true: http.StatusCreated, false: http.StatusOK}[created], result)
+}
+
+func trafficPoliciesFromWrite(request *[]trafficPolicyUpsertDTO) ([]model.TrafficPolicy, error) {
+	if request == nil {
+		return nil, nil
+	}
+	rows := make([]model.TrafficPolicy, 0, len(*request))
+	for _, item := range *request {
+		row := model.TrafficPolicy{Common: model.Common{ID: item.ID}}
+		if err := applyTrafficPolicyWrite(&row, item.trafficPolicyWriteDTO); err != nil {
+			return nil, err
+		}
+		rows = append(rows, row)
+	}
+	if err := trafficservice.ValidateAll(rows); err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
+func attachTrafficPolicies(result gin.H, serverID uint64) {
+	var rows []model.TrafficPolicy
+	if err := singleton.DB.Where("server_id = ?", serverID).Order("id ASC").Find(&rows).Error; err != nil {
+		return
+	}
+	items := make([]gin.H, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, trafficPolicyDTO(row))
+	}
+	result["traffic_policies"] = items
 }
 
 func removeServerTag(tag string, id uint64) {
@@ -787,8 +851,17 @@ func v2AdminServerAvailability(c *gin.Context) {
 		next = strconv.FormatInt(rows[limit-1].BucketStart, 10)
 		rows = rows[:limit]
 	}
+	blobs := make([][]byte, len(rows))
+	for i, row := range rows {
+		blobs[i] = row.ObserverSummary
+	}
+	evidenceRows, err := telemetry.AnnotateObserverEvidence(singleton.DB, blobs)
+	if err != nil {
+		writeV2Problem(c, http.StatusInternalServerError, "database_error", err.Error())
+		return
+	}
 	result := make([]gin.H, 0, len(rows))
-	for _, row := range rows {
+	for i, row := range rows {
 		var available any
 		switch row.ConnectivityState {
 		case model.ConnectivityFull, model.ConnectivityPartial:
@@ -796,15 +869,11 @@ func v2AdminServerAvailability(c *gin.Context) {
 		case model.ConnectivityUnavailable:
 			available = false
 		}
-		var evidence any
-		if len(row.ObserverSummary) > 0 {
-			_ = json.Unmarshal(row.ObserverSummary, &evidence)
-		}
 		result = append(result, gin.H{
 			"node_uuid": hex.EncodeToString(row.NodeUUID), "bucket_start": time.Unix(0, row.BucketStart).UTC().Format(time.RFC3339Nano),
-			"host": row.HostState, "connectivity": row.ConnectivityState, "available": available, "coverage": row.ConnectivityState,
+			"host": row.HostState, "connectivity": row.ConnectivityState, "available": available, "coverage": coverageLabel(row),
 			"expected_observers": row.ExpectedObservers, "healthy_observers": row.HealthyObservers, "seen_observers": row.SeenObservers,
-			"observer_evidence": evidence, "revision": row.Revision, "finalized": row.Finalized,
+			"observer_evidence": evidenceRows[i], "revision": row.Revision, "finalized": row.Finalized,
 			"recalculated_at": optionalRFC3339Nano(row.RecalculatedAt),
 		})
 	}
@@ -1398,7 +1467,8 @@ func v2SettingsDTO() gin.H {
 		"correction_notification": singleton.Conf.Telemetry.EnableCorrectionNotification, "collector_offline_notification": singleton.Conf.Telemetry.EnableCollectorOfflineNotification,
 		"data_loss_notification": singleton.Conf.Telemetry.EnableDataLossNotification, "primary_color": singleton.Conf.Site.PrimaryColor, "footer_text": singleton.Conf.Site.FooterText,
 		"logo_url": singleton.Conf.Site.LogoURL, "background_url": singleton.Conf.Site.BackgroundURL, "custom_css": singleton.Conf.Site.SafeCustomCSS,
-		"theme": model.NormalizePublicTheme(singleton.Conf.Site.Theme), "allow_frontend_theme_switch": !singleton.Conf.DisableSwitchTemplateInFrontend,
+		"primary_location": singleton.Conf.Site.PrimaryLocation,
+		"theme":            model.NormalizePublicTheme(singleton.Conf.Site.Theme), "allow_frontend_theme_switch": !singleton.Conf.DisableSwitchTemplateInFrontend,
 		"retention": snakeValue(singleton.Conf.Retention), "web_delivery": singleton.Conf.Web.Delivery,
 	}
 }
@@ -1533,6 +1603,14 @@ func v2UpdateSettings(c *gin.Context) {
 	}
 	if value, exists := body["footer_text"]; exists {
 		singleton.Conf.Site.FooterText = stringValue(value)
+	}
+	if value, exists := body["primary_location"]; exists {
+		location := stringValue(value)
+		if len(location) > 64 {
+			writeV2Problem(c, 400, "invalid_primary_location", "主控位置不得超过 64 个字符")
+			return
+		}
+		singleton.Conf.Site.PrimaryLocation = location
 	}
 	if value, exists := body["logo_url"]; exists {
 		candidate := stringValue(value)
@@ -1801,7 +1879,7 @@ func collectorDTO(collector model.Collector) gin.H {
 	}
 	return gin.H{
 		"id": collector.CollectorUUID, "name": collector.Name, "address": collector.Address, "tls": collector.TLS,
-		"insecure_tls": collector.InsecureTLS, "generation": collector.Generation, "config_version": collector.ConfigVersion,
+		"insecure_tls": collector.InsecureTLS, "location": collector.Location, "generation": collector.Generation, "config_version": collector.ConfigVersion,
 		"revoked": collector.Revoked, "status": telemetry.CollectorStatus(runtime.LastSeen, time.Now()),
 		"last_seen": optionalRFC3339Nano(runtime.LastSeen), "last_sync": optionalRFC3339Nano(runtime.LastSync),
 		"last_primary_seen": optionalRFC3339Nano(runtime.LastPrimarySeen), "spool_size": runtime.SpoolSize,
@@ -1849,7 +1927,7 @@ func v2CreateCollector(c *gin.Context) {
 		writeV2Problem(c, 500, "token_generation_failed", err.Error())
 		return
 	}
-	collector := model.Collector{CollectorUUID: id, Name: request.Name, Address: request.Address, TokenHash: hash, RegistrationToken: plain, Generation: 1, ConfigVersion: singleton.CurrentTelemetryConfigVersion() + 1, TLS: request.TLS, InsecureTLS: request.InsecureTLS}
+	collector := model.Collector{CollectorUUID: id, Name: request.Name, Address: request.Address, TokenHash: hash, RegistrationToken: plain, Generation: 1, ConfigVersion: singleton.CurrentTelemetryConfigVersion() + 1, TLS: request.TLS, InsecureTLS: request.InsecureTLS, Location: strings.TrimSpace(request.Location)}
 	if err := singleton.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&collector).Error; err != nil {
 			return err
@@ -1873,7 +1951,7 @@ func v2UpdateCollector(c *gin.Context) {
 		if err := tx.First(&collector, "collector_uuid = ? AND deleted = ?", c.Param("id"), false).Error; err != nil {
 			return err
 		}
-		collector.Name, collector.Address, collector.TLS, collector.InsecureTLS = request.Name, request.Address, request.TLS, request.InsecureTLS
+		collector.Name, collector.Address, collector.TLS, collector.InsecureTLS, collector.Location = request.Name, request.Address, request.TLS, request.InsecureTLS, strings.TrimSpace(request.Location)
 		collector.ConfigVersion++
 		if err := tx.Save(&collector).Error; err != nil {
 			return err
