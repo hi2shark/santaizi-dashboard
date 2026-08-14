@@ -43,8 +43,8 @@ func TestRawRollupAndPayloadRetentionRequireCompletedMinute(t *testing.T) {
 	end := time.Now().Add(-8 * time.Hour).Truncate(time.Minute)
 	start := end.Add(-time.Minute)
 	for index, state := range []*pb.State{
-		{Cpu: 10, MemUsed: 100, Uptime: 100, NetInTransfer: 1000},
-		{Cpu: 30, MemUsed: 300, Uptime: 105, NetInTransfer: 1250},
+		{Cpu: 10, MemUsed: 100, Uptime: 100, NetInTransfer: 1000, NetInSpeed: 100, NetOutSpeed: 40},
+		{Cpu: 30, MemUsed: 300, Uptime: 105, NetInTransfer: 1250, NetInSpeed: 300, NetOutSpeed: 80},
 	} {
 		sequence := uint64(index + 1)
 		eventID, _ := EventID(node, session, sequence)
@@ -78,6 +78,9 @@ func TestRawRollupAndPayloadRetentionRequireCompletedMinute(t *testing.T) {
 	}
 	if payload.GetSampleCount() != 2 || payload.GetAverage().GetCpu() != 20 || payload.GetNetInTotal() != 250 {
 		t.Fatalf("payload=%#v", payload)
+	}
+	if payload.GetAverage().GetNetInSpeed() != 200 || payload.GetAverage().GetNetOutSpeed() != 60 {
+		t.Fatalf("speed average in=%d out=%d", payload.GetAverage().GetNetInSpeed(), payload.GetAverage().GetNetOutSpeed())
 	}
 	if err := worker.ApplyRetention(context.Background(), time.Now()); err != nil {
 		t.Fatal(err)

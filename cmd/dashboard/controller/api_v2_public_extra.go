@@ -123,6 +123,26 @@ func clampPublicMetricWindow(resolution string, hours int) (string, int) {
 	return resolution, hours
 }
 
+func publicMetricWindowSeconds(row model.StateRollup) int64 {
+	if row.WindowEnd > row.WindowStart {
+		sec := (row.WindowEnd - row.WindowStart) / int64(time.Second)
+		if sec > 0 {
+			return sec
+		}
+	}
+	if row.Resolution == "1h" {
+		return 3600
+	}
+	return 60
+}
+
+func publicMetricSpeed(average, total uint64, windowSec int64) uint64 {
+	if average > 0 || total == 0 || windowSec <= 0 {
+		return average
+	}
+	return total / uint64(windowSec)
+}
+
 func decodePublicMetricPoints(rows []model.StateRollup) []gin.H {
 	items := make([]gin.H, 0, len(rows))
 	for _, row := range rows {
@@ -136,13 +156,14 @@ func decodePublicMetricPoints(rows []model.StateRollup) []gin.H {
 		if avg == nil {
 			avg = &pb.State{}
 		}
+		windowSec := publicMetricWindowSeconds(row)
 		items = append(items, gin.H{
 			"window_start":  time.Unix(0, row.WindowStart).UTC().Format(time.RFC3339),
 			"cpu":           avg.GetCpu(),
 			"mem_used":      avg.GetMemUsed(),
 			"disk_used":     avg.GetDiskUsed(),
-			"net_in_speed":  avg.GetNetInSpeed(),
-			"net_out_speed": avg.GetNetOutSpeed(),
+			"net_in_speed":  publicMetricSpeed(avg.GetNetInSpeed(), payload.GetNetInTotal(), windowSec),
+			"net_out_speed": publicMetricSpeed(avg.GetNetOutSpeed(), payload.GetNetOutTotal(), windowSec),
 			"net_in_total":  payload.GetNetInTotal(),
 			"net_out_total": payload.GetNetOutTotal(),
 		})

@@ -169,6 +169,8 @@ func aggregateStates(states []*pb.State, start, end time.Time) *pb.StateRollupPa
 		minimum.TcpConnCount = min(minimum.GetTcpConnCount(), state.GetTcpConnCount())
 		minimum.UdpConnCount = min(minimum.GetUdpConnCount(), state.GetUdpConnCount())
 		minimum.ProcessCount = min(minimum.GetProcessCount(), state.GetProcessCount())
+		minimum.NetInSpeed = min(minimum.GetNetInSpeed(), state.GetNetInSpeed())
+		minimum.NetOutSpeed = min(minimum.GetNetOutSpeed(), state.GetNetOutSpeed())
 		maximum.Cpu = math.Max(maximum.GetCpu(), state.GetCpu())
 		maximum.MemUsed = max(maximum.GetMemUsed(), state.GetMemUsed())
 		maximum.SwapUsed = max(maximum.GetSwapUsed(), state.GetSwapUsed())
@@ -179,6 +181,8 @@ func aggregateStates(states []*pb.State, start, end time.Time) *pb.StateRollupPa
 		maximum.TcpConnCount = max(maximum.GetTcpConnCount(), state.GetTcpConnCount())
 		maximum.UdpConnCount = max(maximum.GetUdpConnCount(), state.GetUdpConnCount())
 		maximum.ProcessCount = max(maximum.GetProcessCount(), state.GetProcessCount())
+		maximum.NetInSpeed = max(maximum.GetNetInSpeed(), state.GetNetInSpeed())
+		maximum.NetOutSpeed = max(maximum.GetNetOutSpeed(), state.GetNetOutSpeed())
 		average.Cpu += state.GetCpu()
 		average.MemUsed += state.GetMemUsed()
 		average.SwapUsed += state.GetSwapUsed()
@@ -189,6 +193,8 @@ func aggregateStates(states []*pb.State, start, end time.Time) *pb.StateRollupPa
 		average.TcpConnCount += state.GetTcpConnCount()
 		average.UdpConnCount += state.GetUdpConnCount()
 		average.ProcessCount += state.GetProcessCount()
+		average.NetInSpeed += state.GetNetInSpeed()
+		average.NetOutSpeed += state.GetNetOutSpeed()
 	}
 	count := uint64(len(states))
 	average.Cpu /= float64(count)
@@ -201,6 +207,8 @@ func aggregateStates(states []*pb.State, start, end time.Time) *pb.StateRollupPa
 	average.TcpConnCount /= count
 	average.UdpConnCount /= count
 	average.ProcessCount /= count
+	average.NetInSpeed /= count
+	average.NetOutSpeed /= count
 	netIn, netOut := counterDeltas(states)
 	return &pb.StateRollupPayload{
 		WindowStartUnixNano: start.UnixNano(), WindowEndUnixNano: end.UnixNano(), SampleCount: uint32(len(states)),
@@ -254,6 +262,8 @@ func mergeStateExtrema(minimum, maximum, candidateMinimum, candidateMaximum *pb.
 	minimum.TcpConnCount = min(minimum.GetTcpConnCount(), candidateMinimum.GetTcpConnCount())
 	minimum.UdpConnCount = min(minimum.GetUdpConnCount(), candidateMinimum.GetUdpConnCount())
 	minimum.ProcessCount = min(minimum.GetProcessCount(), candidateMinimum.GetProcessCount())
+	minimum.NetInSpeed = min(minimum.GetNetInSpeed(), candidateMinimum.GetNetInSpeed())
+	minimum.NetOutSpeed = min(minimum.GetNetOutSpeed(), candidateMinimum.GetNetOutSpeed())
 	maximum.Cpu = math.Max(maximum.GetCpu(), candidateMaximum.GetCpu())
 	maximum.MemUsed = max(maximum.GetMemUsed(), candidateMaximum.GetMemUsed())
 	maximum.SwapUsed = max(maximum.GetSwapUsed(), candidateMaximum.GetSwapUsed())
@@ -264,6 +274,8 @@ func mergeStateExtrema(minimum, maximum, candidateMinimum, candidateMaximum *pb.
 	maximum.TcpConnCount = max(maximum.GetTcpConnCount(), candidateMaximum.GetTcpConnCount())
 	maximum.UdpConnCount = max(maximum.GetUdpConnCount(), candidateMaximum.GetUdpConnCount())
 	maximum.ProcessCount = max(maximum.GetProcessCount(), candidateMaximum.GetProcessCount())
+	maximum.NetInSpeed = max(maximum.GetNetInSpeed(), candidateMaximum.GetNetInSpeed())
+	maximum.NetOutSpeed = max(maximum.GetNetOutSpeed(), candidateMaximum.GetNetOutSpeed())
 }
 
 func counterDeltas(states []*pb.State) (uint64, uint64) {

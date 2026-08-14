@@ -139,6 +139,33 @@ func TestDecodePublicMetricPoints(t *testing.T) {
 	if items[0]["window_start"] != start.Format(time.RFC3339) {
 		t.Fatalf("window_start=%v", items[0]["window_start"])
 	}
+	if items[0]["net_in_speed"] != uint64(10) || items[0]["net_out_speed"] != uint64(20) {
+		t.Fatalf("speed=%#v", items[0])
+	}
+}
+
+func TestDecodePublicMetricPointsDerivesSpeedFromWindowTotals(t *testing.T) {
+	t.Parallel()
+	start := time.Date(2026, 8, 13, 10, 0, 0, 0, time.UTC)
+	payload, err := proto.Marshal(&pb.StateRollupPayload{
+		Average:    &pb.State{Cpu: 4, NetInSpeed: 0, NetOutSpeed: 0},
+		NetInTotal: 6000, NetOutTotal: 3000,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	items := decodePublicMetricPoints([]model.StateRollup{{
+		Resolution:  "1m",
+		WindowStart: start.UnixNano(),
+		WindowEnd:   start.Add(time.Minute).UnixNano(),
+		Payload:     payload,
+	}})
+	if len(items) != 1 {
+		t.Fatalf("len=%d", len(items))
+	}
+	if items[0]["net_in_speed"] != uint64(100) || items[0]["net_out_speed"] != uint64(50) {
+		t.Fatalf("derived speed=%#v", items[0])
+	}
 }
 
 func TestPublicMetricAndAvailabilityRoutesRegistered(t *testing.T) {
