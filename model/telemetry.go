@@ -92,8 +92,9 @@ type Collector struct {
 	ConfigVersion     uint64 `gorm:"not null;default:1"`
 	TLS               bool
 	InsecureTLS       bool
-	Revoked           bool `gorm:"not null;index"`
-	Deleted           bool `gorm:"not null;index"`
+	Location          string `gorm:"size:64"`
+	Revoked           bool   `gorm:"not null;index"`
+	Deleted           bool   `gorm:"not null;index"`
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 }
@@ -125,15 +126,15 @@ type CollectorScope struct {
 }
 
 type CollectorRuntime struct {
-	CollectorUUID     string `gorm:"primaryKey;size:64"`
-	Status            string `gorm:"size:32;not null;index"`
-	LastSeen          int64  `gorm:"index"`
-	LastSync          int64  `gorm:"index"`
-	LastPrimarySeen   int64  `gorm:"index"`
-	SpoolSize         uint64
-	PendingRecords    uint64
-	OldestPending     int64
-	ReplicationCursor uint64
+	CollectorUUID           string `gorm:"primaryKey;size:64"`
+	Status                  string `gorm:"size:32;not null;index"`
+	LastSeen                int64  `gorm:"index"`
+	LastSync                int64  `gorm:"index"`
+	LastPrimarySeen         int64  `gorm:"index"`
+	SpoolSize               uint64
+	PendingRecords          uint64
+	OldestPending           int64
+	ReplicationCursor       uint64
 	ConnectedAgents         uint64
 	ProtocolVersion         string
 	HeartbeatRttMs          float64

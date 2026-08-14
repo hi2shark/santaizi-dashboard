@@ -194,6 +194,7 @@ type collectorRequest struct {
 	Address     string                  `json:"address" binding:"required"`
 	TLS         bool                    `json:"tls"`
 	InsecureTLS bool                    `json:"insecure_tls"`
+	Location    string                  `json:"location"`
 	Scopes      []collectorScopeRequest `json:"scopes"`
 }
 
@@ -234,6 +235,7 @@ func createCollector(c *gin.Context) {
 		CollectorUUID: id, Name: request.Name, Address: request.Address, TokenHash: hash,
 		RegistrationToken: plain,
 		Generation:        1, ConfigVersion: singleton.CurrentTelemetryConfigVersion() + 1, TLS: request.TLS, InsecureTLS: request.InsecureTLS,
+		Location: strings.TrimSpace(request.Location),
 	}
 	if err := singleton.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&collector).Error; err != nil {
@@ -254,7 +256,7 @@ func updateCollector(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	updates := map[string]any{"name": request.Name, "address": request.Address, "tls": request.TLS, "insecure_tls": request.InsecureTLS, "updated_at": time.Now()}
+	updates := map[string]any{"name": request.Name, "address": request.Address, "tls": request.TLS, "insecure_tls": request.InsecureTLS, "location": strings.TrimSpace(request.Location), "updated_at": time.Now()}
 	result := singleton.DB.Model(&model.Collector{}).Where("collector_uuid = ? AND deleted = ?", c.Param("id"), false).Updates(updates)
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
