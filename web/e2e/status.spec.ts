@@ -50,6 +50,47 @@ async function useServerStatus(page: Page, mode: 'dark' | 'light' = 'light') {
   }, { color: mode })
 }
 
+async function useNazhuaFromQuery(page: Page) {
+  await page.addInitScript(() => {
+    localStorage.setItem('santaizi-public-theme', 'nazhua')
+    localStorage.setItem('santaizi-locale', 'zh-CN')
+    localStorage.setItem('santaizi-status-theme', new URL(window.location.href).searchParams.get('visual-mode') || 'dark')
+  })
+}
+
+const nazhuaScreenshot = {
+  animations: 'disabled' as const,
+  fullPage: false,
+  maxDiffPixelRatio: 0.01,
+  timeout: 8_000,
+}
+
+async function waitNazhuaHomeReady(page: Page, mode: 'dark' | 'light') {
+  await expect(page.locator('html')).toHaveAttribute('data-theme', mode)
+  await expect(page.locator('.nazhua-card').first()).toBeVisible()
+  await page.evaluate(async () => {
+    await document.fonts.ready
+    const urls = new Set<string>()
+    const take = (value: string) => {
+      for (const match of value.matchAll(/url\((['"]?)(.*?)\1\)/g)) {
+        if (match[2] && match[2] !== 'none') urls.add(new URL(match[2], location.href).href)
+      }
+    }
+    const shell = document.querySelector<HTMLElement>('.nazhua-shell')
+    if (shell) {
+      take(getComputedStyle(shell).getPropertyValue('--nazhua-bg-image'))
+      take(getComputedStyle(shell, ':before').backgroundImage)
+    }
+    const map = document.querySelector<HTMLElement>('.nazhua-world-map__image')
+    if (map) take(getComputedStyle(map).backgroundImage)
+    await Promise.all([...urls].map(src => {
+      const img = new Image()
+      img.src = src
+      return img.decode().catch(() => undefined)
+    }))
+  })
+}
+
 test.beforeEach(async ({ page }) => {
   await page.route('**/static/logo.svg', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><path fill="#2563eb" d="M4 4h24v24H4z"/></svg>' }))
   await page.route('**/static/theme-server-status/**', route => route.fulfill({ status: 204 }))
@@ -498,44 +539,41 @@ test('mobile controls keep 44px touch targets', async ({ page }, testInfo) => {
   expect(filterRow).toBeLessThanOrEqual(2)
 })
 
-test('captures accepted Nazhua visual baselines', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'status-desktop')
-  await page.addInitScript(() => {
-    localStorage.setItem('santaizi-public-theme', 'nazhua')
-    localStorage.setItem('santaizi-locale', 'zh-CN')
-    localStorage.setItem('santaizi-status-theme', new URL(window.location.href).searchParams.get('visual-mode') || 'dark')
-  })
-  const cases = [
-    { name: 'nazhua-dark-1920x947.png', width: 1920, height: 947, mode: 'dark' as const },
-    { name: 'nazhua-dark-1440x900.png', width: 1440, height: 900, mode: 'dark' as const },
-    { name: 'nazhua-dark-reference-1399x945.png', width: 1399, height: 945, mode: 'dark' as const },
-    { name: 'nazhua-dark-mobile-390x844.png', width: 390, height: 844, mode: 'dark' as const },
-    { name: 'nazhua-light-1920x947.png', width: 1920, height: 947, mode: 'light' as const },
-    { name: 'nazhua-light-1440x900.png', width: 1440, height: 900, mode: 'light' as const },
-    { name: 'nazhua-light-mobile-390x844.png', width: 390, height: 844, mode: 'light' as const },
-  ]
-  for (const visual of cases) {
-    await page.setViewportSize({ width: visual.width, height: visual.height })
-    await page.goto(`/?visual-mode=${visual.mode}`)
-    await expect(page.locator('html')).toHaveAttribute('data-theme', visual.mode)
-    await page.evaluate(() => window.scrollTo(0, 0))
-    await expect(page.locator('.nazhua-card').first()).toBeVisible()
-    await expect(page).toHaveScreenshot(visual.name, { animations: 'disabled', fullPage: false, maxDiffPixelRatio: .01 })
-    if (visual.width === 390 && visual.mode === 'dark') {
-      await page.goto('/server/1')
-      await expect(page.locator('.nazhua-detail')).toBeVisible()
-      await expect(page).toHaveScreenshot('nazhua-detail-dark-mobile-390x844.png', { animations: 'disabled', fullPage: false, maxDiffPixelRatio: .01 })
-    }
+const nazhuaVisualCases = [
+  { name: 'nazhua-dark-1920x947.png', width: 1920, height: 947, mode: 'dark' as const },
+  { name: 'nazhua-dark-1440x900.png', width: 1440, height: 900, mode: 'dark' as const },
+  { name: 'nazhua-dark-reference-1399x945.png', width: 1399, height: 945, mode: 'dark' as const },
+  { name: 'nazhua-dark-mobile-390x844.png', width: 390, height: 844, mode: 'dark' as const },
+  { name: 'nazhua-light-1920x947.png', width: 1920, height: 947, mode: 'light' as const },
+  { name: 'nazhua-light-1440x900.png', width: 1440, height: 900, mode: 'light' as const },
+  { name: 'nazhua-light-mobile-390x844.png', width: 390, height: 844, mode: 'light' as const },
+]
+
+test.describe('captures accepted Nazhua visual baselines', () => {
+  // 8 张全页图不能共用默认 30s；串行避免 1920 截图互相抢 Vite。
+  test.describe.configure({ mode: 'serial' })
+
+  for (const visual of nazhuaVisualCases) {
+    test(visual.name, async ({ page }, testInfo) => {
+      test.skip(testInfo.project.name !== 'status-desktop')
+      await useNazhuaFromQuery(page)
+      await page.setViewportSize({ width: visual.width, height: visual.height })
+      await page.goto(`/?visual-mode=${visual.mode}`)
+      await page.evaluate(() => window.scrollTo(0, 0))
+      await waitNazhuaHomeReady(page, visual.mode)
+      await expect(page).toHaveScreenshot(visual.name, nazhuaScreenshot)
+      if (visual.width === 390 && visual.mode === 'dark') {
+        await page.goto('/server/1?visual-mode=dark')
+        await expect(page.locator('.nazhua-detail')).toBeVisible()
+        await expect(page).toHaveScreenshot('nazhua-detail-dark-mobile-390x844.png', nazhuaScreenshot)
+      }
+    })
   }
 })
 
 test('captures accepted Nazhua table and resource history baselines', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'status-desktop')
-  await page.addInitScript(() => {
-    localStorage.setItem('santaizi-public-theme', 'nazhua')
-    localStorage.setItem('santaizi-locale', 'zh-CN')
-    localStorage.setItem('santaizi-status-theme', new URL(window.location.href).searchParams.get('visual-mode') || 'dark')
-  })
+  await useNazhuaFromQuery(page)
   await page.setViewportSize({ width: 1440, height: 900 })
   for (const mode of ['dark', 'light'] as const) {
     await page.goto(`/?visual-mode=${mode}`)
