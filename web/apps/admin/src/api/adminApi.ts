@@ -2,7 +2,7 @@ import * as api from '@santaizi/api'
 import type {
   AlertRuleWriteBody, CollectorRecord, DDNSProfileWriteBody, MonitorWriteBody,
   NATTunnelWriteBody, NotificationChannelWriteBody, ResourceQuery, ResourceRecord,
-  ServerRecord, ServerWriteBody, TrafficPolicyWriteBody,
+  ScriptCommand, ServerRecord, ServerWriteBody,
 } from '@santaizi/api'
 import type {
   AlertRuleRecord, DDNSProfileRecord, MonitorRecord,
@@ -12,6 +12,18 @@ import type {
 
 export const listServers = (query: ResourceQuery = {}) => api.listServers(query)
 export const listAllServers = () => api.listServers({ page: 1, page_size: 1000, sort: 'name', order: 'asc' })
+
+export async function listAllServersPaged() {
+  const pageSize = 200
+  const all: ServerRecord[] = []
+  for (let page = 1; page <= 50; page++) {
+    const result = await listServers({ page, page_size: pageSize, sort: 'name', order: 'asc' })
+    all.push(...result.data)
+    const total = result.meta.total ?? all.length
+    if (all.length >= total || result.data.length < pageSize) break
+  }
+  return all
+}
 
 export const listMonitors = (query: ResourceQuery = {}) => api.listMonitors(query) as Promise<api.ApiList<MonitorRecord>>
 export const createMonitor = (body: MonitorWriteBody) => api.createMonitor(body)
@@ -54,21 +66,11 @@ export const renameServerGroup = api.renameServerGroup
 export const getServerCredential = (server: ServerRecord) => api.getServerCredential(server.id)
 
 export const listTrafficPolicies = (serverId: number) => api.listTrafficPolicies(serverId) as Promise<api.ApiList<TrafficPolicyRecord>>
-export async function saveTrafficPolicies(serverId: number, current: TrafficPolicyRecord[], original: TrafficPolicyRecord[]) {
-  const currentIDs = new Set(current.flatMap(item => item.id ? [item.id] : []))
-  for (const item of original) {
-    if (item.id && !currentIDs.has(item.id)) await api.deleteTrafficPolicy(serverId, item.id)
-  }
-  for (const item of current) {
-    const { id: _id, server_id: _serverID, usage: _usage, ...write } = item
-    if (item.id) await api.updateTrafficPolicy(serverId, item.id, write as TrafficPolicyWriteBody)
-    else await api.createTrafficPolicy(serverId, write as TrafficPolicyWriteBody)
-  }
-}
 export const getTrafficPolicyUsage = api.getTrafficPolicyUsage
 export const getProbeCapabilities = () => api.getProbeCapabilities() as Promise<ProbeCapabilitiesMetadata>
 export const getServerInstallPreview = api.getServerInstallPreview
 export const getServerUpgradePreview = api.getServerUpgradePreview
+export const listScriptCommands = api.listScriptCommands
 
 export const listCollectors = api.listCollectors
 export const getConnectionSummary = api.getConnectionSummary
@@ -93,4 +95,4 @@ export async function listNotificationGroups() {
   return [...new Set(result.data.map(item => item.tag).filter(Boolean))].sort()
 }
 
-export type { CollectorRecord, ResourceRecord, ServerRecord }
+export type { CollectorRecord, ResourceRecord, ServerRecord, ScriptCommand }

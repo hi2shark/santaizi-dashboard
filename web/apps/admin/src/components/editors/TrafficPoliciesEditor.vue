@@ -114,7 +114,7 @@ function onQuotaUnitChange(index: number, unit: QuotaUnit) {
       <div class="condition-head"><span class="condition-icon"><i class="ri-exchange-2-line"></i></span><strong>{{ policy.name || t('unnamedPolicy') }}</strong><el-switch v-model="policy.enabled"/><el-button circle :aria-label="t('delete')" @click="remove(index)"><i class="ri-delete-bin-6-line"></i></el-button></div>
       <div v-if="policy.usage" class="traffic-progress"><el-progress :percentage="Math.min(100, Math.round(policy.usage.usage_percent))" :status="policy.usage.status === 'exceeded' ? 'exception' : undefined"/><span>{{ byteLabel(policy.usage.used_bytes) }} / {{ byteLabel(policy.quota_bytes) }}</span></div>
       <div class="editor-grid">
-        <el-form-item :label="t('name')"><el-input v-model="policy.name" /></el-form-item>
+        <el-form-item :label="t('name')" required><el-input v-model="policy.name" /></el-form-item>
         <el-form-item :label="t('notificationGroup')"><el-select v-model="policy.notification_tag" filterable allow-create class="field-full"><el-option v-for="group in notificationGroups" :key="group" :label="group" :value="group" /></el-select></el-form-item>
         <el-form-item :label="t('trafficDirection')"><el-select v-model="policy.direction" class="field-full"><el-option :label="t('inbound')" value="inbound"/><el-option :label="t('outbound')" value="outbound"/><el-option :label="t('totalDirection')" value="total"/></el-select></el-form-item>
         <el-form-item :label="t('trafficMode')"><el-segmented v-model="policy.mode" :options="[{ label: t('cumulative'), value: 'cumulative' }, { label: t('recurring'), value: 'recurring' }]" /></el-form-item>
@@ -133,7 +133,7 @@ function onQuotaUnitChange(index: number, unit: QuotaUnit) {
           </div>
         </el-form-item>
         <el-form-item v-if="policy.mode === 'recurring'" :label="t('cycle')"><div class="compound-field"><el-input v-model.number="policy.cycle_interval" inputmode="numeric" @blur="policy.cycle_interval = clampNumber(policy.cycle_interval, 1, undefined, 1)" /><el-select v-model="policy.cycle_unit"><el-option :label="t('hour')" value="hour"/><el-option :label="t('day')" value="day"/><el-option :label="t('week')" value="week"/><el-option :label="t('month')" value="month"/><el-option :label="t('year')" value="year"/></el-select></div></el-form-item>
-        <el-form-item v-if="policy.mode === 'recurring'" class="span-2" :label="t('cycleStart')"><el-date-picker v-model="policy.cycle_start" type="datetime" value-format="YYYY-MM-DDTHH:mm:ssZ" class="field-full" /></el-form-item>
+        <el-form-item v-if="policy.mode === 'recurring'" class="span-2" :label="t('cycleStart')" required><el-date-picker v-model="policy.cycle_start" type="datetime" value-format="YYYY-MM-DDTHH:mm:ssZ" :clearable="false" class="field-full" /></el-form-item>
       </div>
     </section>
   </div>

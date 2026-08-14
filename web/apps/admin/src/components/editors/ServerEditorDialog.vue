@@ -3,7 +3,7 @@ import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, type FormInstance } from 'element-plus'
 import { AppDialog } from '@santaizi/ui'
-import { createServer, listDDNSProfiles, listNotificationGroups, listServerGroups, listTrafficPolicies, saveTrafficPolicies, updateServer, type ServerRecord } from '@/api/adminApi'
+import { createServer, listDDNSProfiles, listNotificationGroups, listServerGroups, listTrafficPolicies, updateServer, type ServerRecord } from '@/api/adminApi'
 import { useEditorSnapshot } from '@/composables/editorSnapshot'
 import { notifyAPIError } from '@/composables/notify'
 import type { DDNSProfileRecord, TrafficPolicyRecord } from '@/types/admin'
@@ -22,7 +22,6 @@ const ddnsProfiles = ref<DDNSProfileRecord[]>([])
 const notificationGroups = ref<string[]>(['default'])
 const serverGroups = ref<string[]>([])
 const policies = ref<TrafficPolicyRecord[]>([])
-const originalPolicies = ref<TrafficPolicyRecord[]>([])
 const form = reactive({ id: 0, name: '', tag: '', note: '', public_note: '', monitoring_options: {} as Record<string, boolean>, display_index: 0, hide_for_guest: false, enable_ddns: false, ddns_profiles: [] as number[] })
 const reported = reactive({ ipv4: '', ipv6: '' })
 const snapshotValue = computed(() => ({ form, policies: policies.value }))
@@ -53,19 +52,22 @@ async function reset(value?: ServerRecord) {
     notificationGroups.value = groups.length ? groups : ['default']
     serverGroups.value = serverGroupResult.data.map(item => item.name).filter(Boolean)
     policies.value = traffic.data.map(item => ({ ...item }))
-    originalPolicies.value = traffic.data.map(item => ({ ...item }))
   } catch (error) { notifyAPIError(error, t as never, te) }
   finally { loading.value = false; await nextTick(); capture() }
 }
+function hasIncompletePolicy() {
+  return policies.value.some(item => !item.name.trim() || (item.mode === 'recurring' && !item.cycle_start))
+}
 async function submit() {
   await formRef.value?.validate()
+  if (hasIncompletePolicy()) { activeTab.value = 'traffic'; ElMessage.error(t('trafficPolicyIncomplete')); return }
   saving.value = true
   try {
     const { id, public_note, ...rest } = form
-    const payload = { ...rest, public_note: public_note.trim() ? JSON.parse(public_note) as Record<string, unknown> : {} }
+    const traffic_policies = policies.value.map(({ usage: _usage, server_id: _serverID, ...policy }) => policy)
+    const payload = { ...rest, public_note: public_note.trim() ? JSON.parse(public_note) as Record<string, unknown> : {}, traffic_policies }
     const created = !id
     const server = id ? await updateServer(id, payload) : await createServer(payload)
-    await saveTrafficPolicies(server.id, policies.value, originalPolicies.value)
     capture(); emit('update:modelValue', false); emit('saved', server, created); ElMessage.success(t('saveSuccess'))
   } catch (error) { notifyAPIError(error, t as never, te) }
   finally { saving.value = false }
