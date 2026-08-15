@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/hi2shark/santaizi-dashboard/model"
 	"gorm.io/driver/sqlite"
@@ -40,6 +41,9 @@ func TestOpenDBFromPathCreatesVersionedSchema(t *testing.T) {
 	if !db.Migrator().HasTable(&model.ProbeSampleBucket{}) || !db.Migrator().HasTable(&model.ProbeTrace{}) {
 		t.Fatal("probe tables were not created")
 	}
+	if !db.Migrator().HasColumn(&model.CollectorRuntime{}, "software_version") {
+		t.Fatal("collector_runtimes software_version column was not created")
+	}
 }
 
 func TestOpenDBFromPathRejectsUnversionedDatabase(t *testing.T) {
@@ -63,5 +67,52 @@ func TestOpenDBFromPathRejectsUnversionedDatabase(t *testing.T) {
 	}
 	if err := os.Remove(path); err != nil {
 		t.Fatalf("rejected open left the sqlite file locked: %v", err)
+	}
+}
+
+func TestMigrateV12AddsCollectorRuntimeSoftwareVersion(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "v11.db")
+	db, err := gorm.Open(sqlite.Open(path), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := CloseDB(db); err != nil {
+			t.Errorf("close db: %v", err)
+		}
+	})
+	if err := db.AutoMigrate(&model.SchemaMigration{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec(`CREATE TABLE collector_runtimes (
+		collector_uuid TEXT PRIMARY KEY,
+		status TEXT NOT NULL,
+		last_seen INTEGER,
+		protocol_version TEXT,
+		updated_at DATETIME
+	)`).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.SchemaMigration{Version: 11, AppliedAt: time.Now().UTC()}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if db.Migrator().HasColumn(&model.CollectorRuntime{}, "software_version") {
+		t.Fatal("fixture should omit software_version")
+	}
+	if err := migrateDatabase(db); err != nil {
+		t.Fatal(err)
+	}
+	if !db.Migrator().HasColumn(&model.CollectorRuntime{}, "software_version") {
+		t.Fatal("v12 should add software_version")
+	}
+	var current uint64
+	if err := db.Model(&model.SchemaMigration{}).Select("COALESCE(MAX(version), 0)").Scan(&current).Error; err != nil {
+		t.Fatal(err)
+	}
+	if current != 12 {
+		t.Fatalf("version = %d", current)
+	}
+	if err := db.Create(&model.CollectorRuntime{CollectorUUID: "c1", Status: "online", SoftwareVersion: "1.2.3"}).Error; err != nil {
+		t.Fatal(err)
 	}
 }
