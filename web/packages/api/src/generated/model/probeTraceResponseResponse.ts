@@ -10,5 +10,6 @@
 import type { ProbeTrace } from './probeTrace';
 
 export type ProbeTraceResponseResponse = {
+  /** @nullable */
   data: ProbeTrace | null;
 };

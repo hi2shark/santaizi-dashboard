@@ -4909,6 +4909,7 @@ components:
             - data
             properties:
               data:
+                type: object
                 nullable: true
                 allOf:
                 - $ref: '#/components/schemas/ProbeTrace'
