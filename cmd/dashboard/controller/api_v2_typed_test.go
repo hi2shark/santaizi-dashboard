@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"context"
+	"net"
 	"strings"
 	"testing"
 
@@ -19,7 +21,7 @@ func TestProbeCapabilityPresetsCloudPhysical(t *testing.T) {
 	if !physical.Temperature || !physical.GPU || physical.NAT {
 		t.Fatalf("physical should enable temperature/gpu and disable nat: %#v", physical)
 	}
-	posix, err := buildInstallCommand("linux", "https://example.invalid/install.sh", "h", 5555, "s", false, false, physical, ipReportConfigDTO{})
+	posix, err := buildInstallCommand("linux", "https://example.invalid/install.sh", "h", 5555, "s", false, false, physical, ipReportConfigDTO{}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +33,7 @@ func TestProbeCapabilityPresetsCloudPhysical(t *testing.T) {
 func TestBuildInstallCommandMatchesInstallerArguments(t *testing.T) {
 	options := monitoringOptionsDTO{CPU: true, Memory: true, Disk: true, Network: true, HostInfo: true, IPReport: true, HTTPProbe: true, ICMPProbe: true, TCPProbe: true}
 	ipCfg := ipReportConfigDTO{Interface: "eth0", CountryCode: "CN", PreferIPv6: true}
-	posix, err := buildInstallCommand("linux", "https://example.invalid/install.sh", "grpc.example.invalid", 5555, "secret", true, false, options, ipCfg)
+	posix, err := buildInstallCommand("linux", "https://example.invalid/install.sh", "grpc.example.invalid", 5555, "secret", true, false, options, ipCfg, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +43,7 @@ func TestBuildInstallCommandMatchesInstallerArguments(t *testing.T) {
 	if !strings.Contains(posix, "--disable-nat") || !strings.Contains(posix, "--ip-report-interface 'eth0'") || !strings.Contains(posix, "--country-code 'CN'") || !strings.Contains(posix, "--use-ipv6-countrycode") {
 		t.Fatalf("posix flags=%s", posix)
 	}
-	windows, err := buildInstallCommand("windows", "https://example.invalid/install.ps1", "grpc.example.invalid", 5555, "secret", true, false, options, ipCfg)
+	windows, err := buildInstallCommand("windows", "https://example.invalid/install.ps1", "grpc.example.invalid", 5555, "secret", true, false, options, ipCfg, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,19 +84,61 @@ func TestBuildUpgradeCommandOmitsSecret(t *testing.T) {
 
 func TestBuildInstallCommandUsesTLSAndPublicPort(t *testing.T) {
 	options := monitoringOptionsDTO{CPU: true, Memory: true, Disk: true, Network: true, HostInfo: true, IPReport: true, HTTPProbe: true, ICMPProbe: true, TCPProbe: true}
-	posix, err := buildInstallCommand("linux", "https://example.invalid/install.sh", "main.example.invalid", 443, "secret", false, true, options, ipReportConfigDTO{})
+	posix, err := buildInstallCommand("linux", "https://example.invalid/install.sh", "main.example.invalid", 443, "secret", false, true, options, ipReportConfigDTO{}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(posix, "'main.example.invalid' 443 'secret' --tls") {
 		t.Fatalf("posix=%s", posix)
 	}
-	windows, err := buildInstallCommand("windows", "https://example.invalid/install.ps1", "main.example.invalid", 443, "secret", false, true, options, ipReportConfigDTO{})
+	windows, err := buildInstallCommand("windows", "https://example.invalid/install.ps1", "main.example.invalid", 443, "secret", false, true, options, ipReportConfigDTO{}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(windows, "-Server 'main.example.invalid' -Port 443 -Key 'secret' -Tls") {
 		t.Fatalf("windows=%s", windows)
+	}
+}
+
+func TestBuildInstallCommandAppendsServerIPHints(t *testing.T) {
+	options := monitoringOptionsDTO{CPU: true, Memory: true, Disk: true, Network: true, HostInfo: true, IPReport: true, HTTPProbe: true, ICMPProbe: true, TCPProbe: true}
+	posix, err := buildInstallCommand("linux", "https://example.invalid/install.sh", "grpc.example.invalid", 5555, "secret", false, true, options, ipReportConfigDTO{}, []string{"192.0.2.10", "2001:db8::10"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(posix, "'grpc.example.invalid' 5555 'secret' --tls --server-ip '192.0.2.10' --server-ip '2001:db8::10'") {
+		t.Fatalf("posix=%s", posix)
+	}
+	windows, err := buildInstallCommand("windows", "https://example.invalid/install.ps1", "grpc.example.invalid", 5555, "secret", false, true, options, ipReportConfigDTO{}, []string{"192.0.2.10"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(windows, "-Server 'grpc.example.invalid' -Port 5555 -Key 'secret' -Tls -ServerIP '192.0.2.10'") {
+		t.Fatalf("windows=%s", windows)
+	}
+}
+
+func TestResolveGRPCHintIPsSkipsLiteralAndLookupFailure(t *testing.T) {
+	if got := resolveGRPCHintIPs("192.0.2.10"); len(got) != 0 {
+		t.Fatalf("literal v4 = %v", got)
+	}
+	if got := resolveGRPCHintIPs("2001:db8::10"); len(got) != 0 {
+		t.Fatalf("literal v6 = %v", got)
+	}
+	original := lookupGRPCHost
+	t.Cleanup(func() { lookupGRPCHost = original })
+	lookupGRPCHost = func(context.Context, string) ([]net.IPAddr, error) {
+		return []net.IPAddr{{IP: net.ParseIP("192.0.2.10")}, {IP: net.ParseIP("192.0.2.10")}, {IP: net.ParseIP("2001:db8::10")}}, nil
+	}
+	got := resolveGRPCHintIPs("grpc.example.invalid")
+	if len(got) != 2 || got[0] != "192.0.2.10" || got[1] != "2001:db8::10" {
+		t.Fatalf("resolved = %v", got)
+	}
+	lookupGRPCHost = func(context.Context, string) ([]net.IPAddr, error) {
+		return nil, context.DeadlineExceeded
+	}
+	if got := resolveGRPCHintIPs("grpc.example.invalid"); len(got) != 0 {
+		t.Fatalf("lookup failure = %v", got)
 	}
 }
 

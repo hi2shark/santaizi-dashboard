@@ -105,7 +105,7 @@ Agent 默认从 `hi2shark/santaizi-agent` 仓库下载，可通过环境变量 `
 ### Linux
 
 ```bash
-curl -fSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install_agent.sh | bash -s -- install_agent <面板地址> <端口> <密钥> --clean-install --confirm-clean-install
+curl -fSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install_agent.sh | bash -s -- install_agent <面板地址> <端口> <密钥> --clean-install --confirm-clean-install [--server-ip <主端IP>]
 ```
 
 英文版脚本：
@@ -139,6 +139,7 @@ curl -fSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/s
 | 面板地址 | `10.0.0.10` 或 `santaizi.example.com` | Dashboard 的 IP 或域名 |
 | 端口 | `5555` | `config.yaml` 中的 `grpcport` |
 | 密钥 | `abcdef123456` | 服务器详情中的 Secret |
+| `--server-ip` / `-ServerIP` | `1.2.3.4` | 可选。域名安装时预缓存主端 IP；探针仍先 DNS，解析并连上成功后覆盖。管理后台生成命令时会自动附带面板解析到的地址 |
 
 ### 清洁安装
 

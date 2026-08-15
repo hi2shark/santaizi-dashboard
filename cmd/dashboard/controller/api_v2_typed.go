@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1104,7 +1105,7 @@ func v2InstallPreview(c *gin.Context) {
 	} else if platform == "windows" {
 		script = singleton.Conf.InstallScript.Windows
 	}
-	command, err := buildInstallCommand(platform, script, host, publicGRPCPort(), row.Secret, request.CleanInstall, singleton.Conf.TLS, request.Options, request.IPReportConfig)
+	command, err := buildInstallCommand(platform, script, host, publicGRPCPort(), row.Secret, request.CleanInstall, singleton.Conf.TLS, request.Options, request.IPReportConfig, resolveGRPCHintIPs(host))
 	if err != nil {
 		writeV2Problem(c, 400, "invalid_platform", err.Error())
 		return
@@ -1158,7 +1159,52 @@ func publicGRPCPort() uint {
 	return 5555
 }
 
-func buildInstallCommand(platform, script, host string, port uint, secret string, clean, useTLS bool, options monitoringOptionsDTO, ipCfg ipReportConfigDTO) (string, error) {
+var lookupGRPCHost = func(ctx context.Context, host string) ([]net.IPAddr, error) {
+	return net.DefaultResolver.LookupIPAddr(ctx, host)
+}
+
+func resolveGRPCHintIPs(host string) []string {
+	host = strings.Trim(strings.TrimSpace(host), "[]")
+	if host == "" || net.ParseIP(host) != nil {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	addresses, err := lookupGRPCHost(ctx, host)
+	if err != nil {
+		return nil
+	}
+	seen := map[string]bool{}
+	out := make([]string, 0, len(addresses))
+	for _, address := range addresses {
+		if address.IP == nil || address.IP.IsUnspecified() || address.IP.IsMulticast() {
+			continue
+		}
+		value := address.IP.String()
+		if seen[value] {
+			continue
+		}
+		seen[value] = true
+		out = append(out, value)
+	}
+	return out
+}
+
+func appendServerIPFlags(parts []string, hintIPs []string, windows bool) []string {
+	for _, ip := range hintIPs {
+		if net.ParseIP(ip) == nil {
+			continue
+		}
+		if windows {
+			parts = append(parts, "-ServerIP", powershellQuote(ip))
+			continue
+		}
+		parts = append(parts, "--server-ip", shellQuote(ip))
+	}
+	return parts
+}
+
+func buildInstallCommand(platform, script, host string, port uint, secret string, clean, useTLS bool, options monitoringOptionsDTO, ipCfg ipReportConfigDTO, hintIPs []string) (string, error) {
 	flags := installFlags(options, platform == "windows", ipCfg)
 	switch platform {
 	case "linux", "macos":
@@ -1169,6 +1215,7 @@ func buildInstallCommand(platform, script, host string, port uint, secret string
 		if useTLS {
 			parts = append(parts, "--tls")
 		}
+		parts = appendServerIPFlags(parts, hintIPs, false)
 		parts = append(parts, flags...)
 		return strings.Join(parts, " "), nil
 	case "windows":
@@ -1179,6 +1226,7 @@ func buildInstallCommand(platform, script, host string, port uint, secret string
 		if useTLS {
 			parts = append(parts, "-Tls")
 		}
+		parts = appendServerIPFlags(parts, hintIPs, true)
 		parts = append(parts, flags...)
 		return strings.Join(parts, " "), nil
 	default:

@@ -22,7 +22,8 @@ param(
     [switch] $DisableNat,
     [string] $IpReportInterface = "",
     [string] $CountryCode = "",
-    [switch] $UseIPv6CountryCode
+    [switch] $UseIPv6CountryCode,
+    [string[]] $ServerIP = @()
 )
 
 $ErrorActionPreference = "Stop"
@@ -142,6 +143,11 @@ if (-not $DisableIpReport) {
     }
     if ($UseIPv6CountryCode) {
         $InstallArguments += "--use-ipv6-countrycode"
+    }
+}
+foreach ($HintIP in $ServerIP) {
+    if ($HintIP) {
+        $InstallArguments += @("--server-ip", $HintIP)
     }
 }
 

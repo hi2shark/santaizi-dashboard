@@ -77,6 +77,8 @@ curl -fSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/s
 curl -fSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install_agent.sh | bash -s -- install_agent 10.0.0.10 5555 abcdef123456
 ```
 
+`grpchost` 是域名时，管理后台生成的命令会附带 `--server-ip`，供探针在本机 dig 失败时先连上；DNS 解析成功则以解析结果为准并更新缓存。
+
 4. 安装完成后，Agent 会自动启动并上报数据。返回 Dashboard 即可看到服务器上线。
 
 ## 6. 下一步

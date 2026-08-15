@@ -198,7 +198,7 @@ fi
 
 if [ $# -lt 3 ]; then
     echo "Usage: $0 [install_agent] <server> <port> <secret> [--clean-install --confirm-clean-install] [agent args]"
-    echo "Example: $0 install_agent 1.2.3.4 5555 abcdef --clean-install --confirm-clean-install --tls --disable-connections"
+    echo "Example: $0 install_agent grpc.example.com 5555 abcdef --clean-install --confirm-clean-install --tls --server-ip 1.2.3.4"
     exit 1
 fi
 

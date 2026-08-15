@@ -199,7 +199,7 @@ fi
 
 if [ $# -lt 3 ]; then
     echo "用法: $0 [install_agent] <服务器地址> <端口> <密钥> [--clean-install --confirm-clean-install] [Agent 参数]"
-    echo "示例: $0 install_agent 1.2.3.4 5555 abcdef --clean-install --confirm-clean-install --tls --disable-connections"
+    echo "示例: $0 install_agent grpc.example.com 5555 abcdef --clean-install --confirm-clean-install --tls --server-ip 1.2.3.4"
     exit 1
 fi
 
