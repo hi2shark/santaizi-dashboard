@@ -91,6 +91,8 @@ type CollectorCachedProbeTarget struct {
 	EnableICMP     bool
 	EnableTCP      bool
 	EnableMTR      bool
+	EnableIPv4     bool
+	EnableIPv6     bool
 	IntervalSec    uint
 	MTRIntervalSec uint
 	UpdatedAt      time.Time

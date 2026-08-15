@@ -64,6 +64,13 @@ function collectorStatus(row: CollectorRecord): MarkerStatus {
   return 'mixed'
 }
 
+function pathHandshaked(path: ConnectionPath, collectors: CollectorRecord[]): boolean {
+  if (!path.sink.connected) return false
+  if (path.observer_kind === 'primary' || path.observer_id === 'primary') return true
+  const row = collectors.find(item => item.id === path.observer_id)
+  return Boolean(row && collectorStatus(row) === 'online')
+}
+
 function serverLocated(server: ServerRecord): { point: GeoPoint; country: string } | null {
   return resolveServerGeo(server)
 }
@@ -195,7 +202,8 @@ export function buildTopology(input: TopologyInput): TopologyGraph {
     const covered = locatedServers.filter(item => collectorCovers(collector, item.server, input.paths)).map(item => item.point)
     const point = spread(parsed || sphericalMean(covered) || anchor, taken, !parsed, 'collector')
     const assigned = input.paths.filter(path => path.observer_id === collector.id)
-    const connected = assigned.filter(path => path.sink.connected)
+    const connected = assigned.filter(path => pathHandshaked(path, input.collectors))
+    const online = collectorStatus(collector) === 'online'
     return {
       id: collector.id,
       kind: 'collector' as const,
@@ -206,7 +214,7 @@ export function buildTopology(input: TopologyInput): TopologyGraph {
       status: collectorStatus(collector),
       href: `/connections?observer_id=${encodeURIComponent(collector.id)}`,
       coverage: `${connected.length}/${assigned.length}`,
-      rttMs: collector.heartbeat_rtt_ms,
+      rttMs: online ? collector.heartbeat_rtt_ms : undefined,
       count: 1,
       names: [collector.name],
       onlines: [collectorStatus(collector) === 'online'],
@@ -221,7 +229,7 @@ export function buildTopology(input: TopologyInput): TopologyGraph {
       toId: 'primary',
       connected: collector.status === 'online',
       kind: 'replication',
-      rttMs: source?.heartbeat_rtt_ms,
+      rttMs: collector.status === 'online' ? source?.heartbeat_rtt_ms : undefined,
     })
   }
   for (const path of input.paths) {
@@ -229,17 +237,18 @@ export function buildTopology(input: TopologyInput): TopologyGraph {
     if (!fromId) continue
     const toId = path.observer_kind === 'primary' ? 'primary' : path.observer_id
     if (toId !== 'primary' && !collectors.some(item => item.id === toId)) continue
+    const live = pathHandshaked(path, input.collectors)
     links.push({
       fromId,
       toId,
-      connected: path.sink.connected,
+      connected: live,
       kind: 'path',
-      rttMs: path.sink.last_rtt_ms,
+      rttMs: live ? path.sink.last_rtt_ms : undefined,
     })
   }
 
   const assigned = input.paths.length
-  const connected = input.paths.filter(path => path.sink.connected).length
+  const connected = input.paths.filter(path => pathHandshaked(path, input.collectors)).length
   primary.coverage = `${connected}/${assigned}`
 
   return {

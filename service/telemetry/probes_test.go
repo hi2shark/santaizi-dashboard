@@ -24,6 +24,13 @@ func probeTestDB(t *testing.T) *gorm.DB {
 	return db
 }
 
+func probeServer(id uint64, name, secret string) model.Server {
+	return model.Server{
+		Common: model.Common{ID: id}, Name: name, Secret: secret,
+		ProbeEnableICMP: model.BoolPtr(true), ProbeEnableTCP: model.BoolPtr(true), ProbeEnableMTR: model.BoolPtr(true),
+	}
+}
+
 func TestResolveProbeTargetOverrideAndNone(t *testing.T) {
 	db := probeTestDB(t)
 	override := ResolveProbeTarget(db, model.Server{Common: model.Common{ID: 1}, ProbeTarget: "origin.example"})
@@ -98,10 +105,13 @@ func TestLoadProbePathsFiltersAndEmptyTrace(t *testing.T) {
 	if err := db.Create(&model.CollectorScope{CollectorUUID: "probe-d", ScopeType: "all"}).Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Create(&model.Server{Common: model.Common{ID: 4}, Name: "alpha", Secret: "secret-4", ProbeTarget: "1.1.1.1"}).Error; err != nil {
+	alpha := probeServer(4, "alpha", "secret-4")
+	alpha.ProbeTarget = "1.1.1.1"
+	if err := db.Create(&alpha).Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Create(&model.Server{Common: model.Common{ID: 5}, Name: "beta", Secret: "secret-5"}).Error; err != nil {
+	beta := probeServer(5, "beta", "secret-5")
+	if err := db.Create(&beta).Error; err != nil {
 		t.Fatal(err)
 	}
 	paths, err := LoadProbePaths(db, ProbePathFilter{CollectorID: "probe-c", ServerID: 4})
@@ -124,5 +134,164 @@ func TestLoadProbePathsFiltersAndEmptyTrace(t *testing.T) {
 	}
 	if trace != nil {
 		t.Fatalf("expected empty trace, got %+v", trace)
+	}
+}
+
+func TestLoadProbePathsHidesLatestWhenCollectorOffline(t *testing.T) {
+	db := probeTestDB(t)
+	now := time.Unix(1_700_000_090, 0)
+	probe := model.Collector{CollectorUUID: "probe-e", Name: "FRA", Kind: model.CollectorKindProbe, TokenHash: bytes.Repeat([]byte{5}, 32), RegistrationToken: "token-e"}
+	if err := db.Create(&probe).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.CollectorScope{CollectorUUID: "probe-e", ScopeType: "all"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	gamma := probeServer(6, "gamma", "secret-6")
+	gamma.ProbeTarget = "1.1.1.1"
+	if err := db.Create(&gamma).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.CollectorRuntime{CollectorUUID: "probe-e", Status: "online", LastSeen: now.Add(-2 * time.Minute).UnixNano()}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.ProbeLatest{
+		CollectorUUID: "probe-e", ServerID: 6, Reachable: true, DisplayRttMs: 21.5, SampledAt: now.UnixNano(), ICMPOk: true, ICMPRttMs: 21.5,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	offline, err := loadProbePaths(db, ProbePathFilter{CollectorID: "probe-e"}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(offline) != 1 || offline[0].Reachable || offline[0].DisplayRttMs != 0 || offline[0].SampledAt != 0 {
+		t.Fatalf("offline collector should hide latest RTT: %+v", offline)
+	}
+	if err := db.Model(&model.CollectorRuntime{}).Where("collector_uuid = ?", "probe-e").Update("last_seen", now.Add(-10*time.Second).UnixNano()).Error; err != nil {
+		t.Fatal(err)
+	}
+	online, err := loadProbePaths(db, ProbePathFilter{CollectorID: "probe-e"}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(online) != 1 || !online[0].Reachable || online[0].DisplayRttMs != 21.5 {
+		t.Fatalf("online collector should keep latest RTT: %+v", online)
+	}
+}
+
+func TestBuildProbeTargetsPortsTypesAndFamilies(t *testing.T) {
+	db := probeTestDB(t)
+	collector := model.Collector{
+		CollectorUUID: "probe-ports", Name: "HK", Kind: model.CollectorKindProbe,
+		TokenHash: bytes.Repeat([]byte{6}, 32), RegistrationToken: "token-ports",
+		TCPPorts: "22,443", EnableICMP: true, EnableTCP: true, EnableMTR: true, EnableIPv4: model.BoolPtr(true), EnableIPv6: model.BoolPtr(true),
+	}
+	if err := db.Create(&collector).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.CollectorScope{CollectorUUID: "probe-ports", ScopeType: "all"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	custom := probeServer(11, "custom", "secret-11")
+	custom.ProbeTarget = "1.1.1.1"
+	custom.ProbeTCPPorts = "2222"
+	fallback := probeServer(12, "fallback", "secret-12")
+	fallback.ProbeTarget = "8.8.8.8"
+	disabledTCP := probeServer(13, "notcp", "secret-13")
+	disabledTCP.ProbeTarget = "9.9.9.9"
+	disabledTCP.ProbeEnableTCP = model.BoolPtr(false)
+	allOff := probeServer(14, "off", "secret-14")
+	allOff.ProbeTarget = "4.4.4.4"
+	allOff.ProbeEnableICMP, allOff.ProbeEnableTCP, allOff.ProbeEnableMTR = model.BoolPtr(false), model.BoolPtr(false), model.BoolPtr(false)
+	for _, server := range []model.Server{custom, fallback, disabledTCP, allOff} {
+		if err := db.Create(&server).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	targets, err := BuildProbeTargets(db, &collector)
+	if err != nil {
+		t.Fatal(err)
+	}
+	byID := map[uint64]*pb.ProbeTarget{}
+	for _, target := range targets {
+		byID[target.GetServerId()] = target
+	}
+	if got := byID[11]; got == nil || len(got.GetTcpPorts()) != 1 || got.GetTcpPorts()[0] != 2222 {
+		t.Fatalf("custom ports: %+v", got)
+	}
+	if got := byID[12]; got == nil || len(got.GetTcpPorts()) != 2 || got.GetTcpPorts()[0] != 22 || got.GetTcpPorts()[1] != 443 {
+		t.Fatalf("fallback ports: %+v", got)
+	}
+	if got := byID[13]; got == nil || got.GetEnableTcp() || !got.GetEnableIcmp() {
+		t.Fatalf("host tcp off: %+v", got)
+	}
+	if _, exists := byID[14]; exists {
+		t.Fatal("all-off host should be omitted")
+	}
+
+	collector.EnableICMP = false
+	if err := db.Save(&collector).Error; err != nil {
+		t.Fatal(err)
+	}
+	targets, err = BuildProbeTargets(db, &collector)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, target := range targets {
+		if target.GetEnableIcmp() {
+			t.Fatalf("collector icmp off should win: %+v", target)
+		}
+	}
+
+	paths, err := LoadProbePaths(db, ProbePathFilter{CollectorID: "probe-ports", ServerID: 14})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(paths) != 1 || paths[0].TargetSource != "none" {
+		t.Fatalf("all-off path: %+v", paths)
+	}
+}
+
+func TestBuildProbeTargetsFiltersIPFamily(t *testing.T) {
+	db := probeTestDB(t)
+	collector := model.Collector{
+		CollectorUUID: "probe-v6", Name: "JP", Kind: model.CollectorKindProbe,
+		TokenHash: bytes.Repeat([]byte{7}, 32), RegistrationToken: "token-v6",
+		EnableICMP: true, EnableTCP: true, EnableMTR: true, EnableIPv4: model.BoolPtr(false), EnableIPv6: model.BoolPtr(true),
+	}
+	if err := db.Create(&collector).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.CollectorScope{CollectorUUID: "probe-v6", ScopeType: "all"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	dual := probeServer(21, "dual", "secret-21")
+	if err := db.Create(&model.ServerRuntime{ServerID: 21, LastIP: "192.0.2.10/2001:db8::10"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	v4only := probeServer(22, "v4", "secret-22")
+	if err := db.Create(&model.ServerRuntime{ServerID: 22, LastIP: "192.0.2.20"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&dual).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&v4only).Error; err != nil {
+		t.Fatal(err)
+	}
+	targets, err := BuildProbeTargets(db, &collector)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(targets) != 1 || targets[0].GetServerId() != 21 || targets[0].GetIpv4() != "" || targets[0].GetIpv6() != "2001:db8::10" {
+		t.Fatalf("%+v", targets)
+	}
+	empty := ProbeConfigFromCollector(&model.Collector{Kind: model.CollectorKindProbe, EnableIPv4: model.BoolPtr(true), EnableIPv6: model.BoolPtr(true)})
+	if len(empty.GetIpFamilies()) != 0 {
+		t.Fatalf("both families should encode as empty: %+v", empty.GetIpFamilies())
+	}
+	v4, v6 := ProbeConfigIPFamilies(&pb.ProbeConfig{})
+	if !v4 || !v6 {
+		t.Fatal("empty ip_families means both")
 	}
 }

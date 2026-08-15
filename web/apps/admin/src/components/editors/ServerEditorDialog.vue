@@ -22,7 +22,7 @@ const ddnsProfiles = ref<DDNSProfileRecord[]>([])
 const notificationGroups = ref<string[]>(['default'])
 const serverGroups = ref<string[]>([])
 const policies = ref<TrafficPolicyRecord[]>([])
-const form = reactive({ id: 0, name: '', tag: '', note: '', public_note: '', monitoring_options: {} as Record<string, boolean>, display_index: 0, hide_for_guest: false, enable_ddns: false, ddns_profiles: [] as number[], probe_target: '' })
+const form = reactive({ id: 0, name: '', tag: '', note: '', public_note: '', monitoring_options: {} as Record<string, boolean>, display_index: 0, hide_for_guest: false, enable_ddns: false, ddns_profiles: [] as number[], probe_target: '', probe_tcp_ports: '', probe_enable_icmp: true, probe_enable_tcp: true, probe_enable_mtr: true })
 const reported = reactive({ ipv4: '', ipv6: '' })
 const snapshotValue = computed(() => ({ form, policies: policies.value }))
 const { dirty, capture } = useEditorSnapshot(snapshotValue, computed(() => props.modelValue))
@@ -39,6 +39,10 @@ async function reset(value?: ServerRecord) {
     display_index: value?.display_index || 0, hide_for_guest: value?.hide_for_guest ?? false,
     enable_ddns: value?.enable_ddns ?? false, ddns_profiles: [...(value?.ddns_profiles || [])],
     probe_target: value?.probe_target || '',
+    probe_tcp_ports: value?.probe_tcp_ports || '',
+    probe_enable_icmp: value?.probe_enable_icmp ?? true,
+    probe_enable_tcp: value?.probe_enable_tcp ?? true,
+    probe_enable_mtr: value?.probe_enable_mtr ?? true,
   })
   Object.assign(reported, hostAddresses(value?.host))
   activeTab.value = 'basic'; loading.value = true
@@ -91,7 +95,15 @@ watch(() => props.modelValue, value => { if (value) void reset(props.value) })
                 <el-form-item :label="t('ipv4')"><el-input :model-value="reported.ipv4 || '—'" disabled /></el-form-item>
                 <el-form-item :label="t('ipv6')"><el-input :model-value="reported.ipv6 || '—'" disabled /></el-form-item>
               </template>
-              <el-form-item class="span-2" :label="t('probeTarget')"><el-input v-model="form.probe_target" /></el-form-item>
+              <el-form-item :label="t('probeTarget')"><el-input v-model="form.probe_target" /></el-form-item>
+              <el-form-item :label="t('tcpPorts')"><el-input v-model="form.probe_tcp_ports" :disabled="!form.probe_enable_tcp" /></el-form-item>
+              <el-form-item class="span-2">
+                <div class="switch-grid">
+                  <label><span>{{ t('enableICMP') }}</span><el-switch v-model="form.probe_enable_icmp" /></label>
+                  <label><span>{{ t('enableTCP') }}</span><el-switch v-model="form.probe_enable_tcp" /></label>
+                  <label><span>{{ t('enableMTR') }}</span><el-switch v-model="form.probe_enable_mtr" /></label>
+                </div>
+              </el-form-item>
               <el-form-item class="span-2" :label="t('note')"><el-input v-model="form.note" type="textarea" :rows="10" maxlength="4000" show-word-limit /></el-form-item>
             </div>
           </el-tab-pane>

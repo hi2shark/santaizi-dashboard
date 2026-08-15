@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -161,25 +162,31 @@ func DetectOfflineServers() {
 		return
 	}
 
+	var batch []offlineNotice
 	for i := range runtimes {
 		rt := &runtimes[i]
 		if rt.LastSeenAt == nil || rt.CurrentOfflineID != 0 {
 			continue
 		}
-		createOfflineHistory(rt, now, threshold)
+		if history := createOfflineHistory(rt, now, threshold); history != nil {
+			batch = append(batch, offlineNotice{serverID: rt.ServerID, history: history})
+		}
+	}
+	if Conf.EnableOfflineNotification {
+		notifyOfflineBatch(batch)
 	}
 }
 
-func createOfflineHistory(rt *model.ServerRuntime, now time.Time, threshold time.Duration) {
+type offlineNotice struct {
+	serverID uint64
+	history  *model.ServerOfflineHistory
+}
+
+func createOfflineHistory(rt *model.ServerRuntime, now time.Time, threshold time.Duration) *model.ServerOfflineHistory {
 	serverRuntimeMu.Lock()
 	history := createOfflineHistoryTx(rt, now, threshold)
 	serverRuntimeMu.Unlock()
-	if history == nil {
-		return
-	}
-	if Conf.EnableOfflineNotification {
-		sendOfflineNotification(rt.ServerID, history)
-	}
+	return history
 }
 
 // createOfflineHistoryTx 在 serverRuntimeMu 保护下，于单个事务内创建离线记录并把运行态置为离线。
@@ -732,7 +739,35 @@ func sendOfflineNotification(serverID uint64, history *model.ServerOfflineHistor
 	detected := history.DetectedAt.In(Loc).Format("01/02/2006 15:04:05")
 	msg := fmt.Sprintf("[离线] %s\n最后上报：%s\n判定离线：%s\n离线阈值：%d 秒\nIP：%s",
 		serverCopy.Name, lastSeen, detected, history.ThresholdSeconds, IPDesensitize(history.LastIP))
-	SendNotification("default", msg, nil, &serverCopy)
+	SendNotification("default", msg, NotificationMuteLabel.ServerOffline(serverID), &serverCopy)
+}
+
+func notifyOfflineBatch(batch []offlineNotice) {
+	if len(batch) == 0 {
+		return
+	}
+	if len(batch) == 1 {
+		sendOfflineNotification(batch[0].serverID, batch[0].history)
+		return
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "[离线] %d 台主机", len(batch))
+	for _, item := range batch {
+		name := offlineServerName(item.serverID)
+		lastSeen := item.history.LastSeenAt.In(Loc).Format("01/02/2006 15:04:05")
+		fmt.Fprintf(&b, "\n%s  最后上报 %s", name, lastSeen)
+	}
+	SendNotification("default", b.String(), nil)
+}
+
+func offlineServerName(serverID uint64) string {
+	ServerLock.RLock()
+	server := ServerList[serverID]
+	ServerLock.RUnlock()
+	if server != nil && server.Name != "" {
+		return server.Name
+	}
+	return fmt.Sprintf("Server-%d", serverID)
 }
 
 func sendRecoveryNotification(serverID uint64, history *model.ServerOfflineHistory) {
@@ -777,5 +812,5 @@ func sendRecoveryNotification(serverID uint64, history *model.ServerOfflineHisto
 	}
 	msg := fmt.Sprintf("[恢复] %s\n恢复时间：%s\n离线时长：%s\n原因：%s\n离线前 IP：%s\n恢复后 IP：%s",
 		serverCopy.Name, recovered, duration, reasonText, IPDesensitize(history.LastIP), IPDesensitize(history.RecoveredIP))
-	SendNotification("default", msg, nil, &serverCopy)
+	SendNotification("default", msg, NotificationMuteLabel.ServerRecovery(serverID), &serverCopy)
 }

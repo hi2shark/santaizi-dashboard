@@ -40,6 +40,10 @@ export interface Collector {
   enable_icmp?: boolean;
   enable_tcp?: boolean;
   enable_mtr?: boolean;
+  /** 探测 IPv4。与 enable_ipv6 至少开一项。 */
+  enable_ipv4?: boolean;
+  /** 探测 IPv6。与 enable_ipv4 至少开一项。 */
+  enable_ipv6?: boolean;
   notify?: boolean;
   notification_tag?: string;
   latency_notify?: boolean;

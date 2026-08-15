@@ -203,6 +203,8 @@ type collectorRequest struct {
 	EnableICMP           *bool                   `json:"enable_icmp"`
 	EnableTCP            *bool                   `json:"enable_tcp"`
 	EnableMTR            *bool                   `json:"enable_mtr"`
+	EnableIPv4           *bool                   `json:"enable_ipv4"`
+	EnableIPv6           *bool                   `json:"enable_ipv6"`
 	Notify               bool                    `json:"notify"`
 	NotificationTag      string                  `json:"notification_tag"`
 	LatencyNotify        bool                    `json:"latency_notify"`
@@ -265,7 +267,10 @@ func createCollector(c *gin.Context) {
 		Generation:        1, ConfigVersion: singleton.CurrentTelemetryConfigVersion() + 1, TLS: request.TLS, InsecureTLS: request.InsecureTLS,
 		Location: strings.TrimSpace(request.Location), Kind: kind,
 	}
-	applyCollectorProbeRequest(&collector, request, true)
+	if err := applyCollectorProbeRequest(&collector, request, true); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	collector.ApplyProbeDefaults()
 	if err := singleton.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&collector).Error; err != nil {

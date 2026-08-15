@@ -156,11 +156,22 @@ func migrate(db *gorm.DB) error {
 		current = 3
 	}
 	if current < 4 {
-		return db.Transaction(func(tx *gorm.DB) error {
+		if err := db.Transaction(func(tx *gorm.DB) error {
 			if err := tx.AutoMigrate(&model.CollectorAuthorizationCache{}, &model.CollectorCachedProbeTarget{}); err != nil {
 				return err
 			}
 			return tx.Create(&model.CollectorSchemaMigration{Version: 4, AppliedAt: time.Now().UTC()}).Error
+		}); err != nil {
+			return err
+		}
+		current = 4
+	}
+	if current < 5 {
+		return db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.AutoMigrate(&model.CollectorCachedProbeTarget{}); err != nil {
+				return err
+			}
+			return tx.Create(&model.CollectorSchemaMigration{Version: 5, AppliedAt: time.Now().UTC()}).Error
 		})
 	}
 	return nil
@@ -501,6 +512,7 @@ func (s *Store) SaveAuthorization(ctx context.Context, collectorUUID string, con
 		if err := tx.Where("1 = 1").Delete(&model.CollectorCachedProbeTarget{}).Error; err != nil {
 			return err
 		}
+		enable4, enable6 := telemetry.ProbeConfigIPFamilies(config.GetProbe())
 		for _, target := range config.GetTargets() {
 			ports := make([]string, 0, len(target.GetTcpPorts()))
 			for _, port := range target.GetTcpPorts() {
@@ -509,8 +521,8 @@ func (s *Store) SaveAuthorization(ctx context.Context, collectorUUID string, con
 			if err := tx.Create(&model.CollectorCachedProbeTarget{
 				ServerID: target.GetServerId(), ServerName: target.GetServerName(), IPv4: target.GetIpv4(), IPv6: target.GetIpv6(),
 				Hostname: target.GetHostname(), TCPPorts: strings.Join(ports, ","), EnableICMP: target.GetEnableIcmp(),
-				EnableTCP: target.GetEnableTcp(), EnableMTR: target.GetEnableMtr(), IntervalSec: uint(target.GetIntervalSeconds()),
-				MTRIntervalSec: uint(target.GetMtrIntervalSeconds()),
+				EnableTCP: target.GetEnableTcp(), EnableMTR: target.GetEnableMtr(), EnableIPv4: enable4, EnableIPv6: enable6,
+				IntervalSec: uint(target.GetIntervalSeconds()), MTRIntervalSec: uint(target.GetMtrIntervalSeconds()),
 			}).Error; err != nil {
 				return err
 			}

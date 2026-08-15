@@ -16,7 +16,7 @@ func startTrafficPolicyEvaluator() {
 			ServerLock.RLock()
 			server := ServerList[serverID]
 			ServerLock.RUnlock()
-			SendNotification(tag, message, nil, server)
+			SendNotification(tag, message, NotificationMuteLabel.TrafficWarning(serverID), server)
 		}); err != nil {
 			log.Printf("SANTAIZI>> traffic policy evaluation failed: %v", err)
 		}

@@ -139,7 +139,7 @@ func LoadConnectionSummary(db *gorm.DB, now time.Time) (ConnectionSummary, error
 			}
 		}
 	}
-	paths, err := LoadConnectionPaths(db, PathFilter{})
+	paths, err := loadConnectionPaths(db, PathFilter{}, now)
 	if err != nil {
 		return summary, err
 	}
@@ -156,6 +156,10 @@ func LoadConnectionSummary(db *gorm.DB, now time.Time) (ConnectionSummary, error
 }
 
 func LoadConnectionPaths(db *gorm.DB, filter PathFilter) ([]ConnectionPath, error) {
+	return loadConnectionPaths(db, filter, time.Now())
+}
+
+func loadConnectionPaths(db *gorm.DB, filter PathFilter, now time.Time) ([]ConnectionPath, error) {
 	query := db.Where("valid_to = ?", 0)
 	if filter.ServerID > 0 {
 		var binding model.ServerNodeBinding
@@ -221,18 +225,65 @@ func LoadConnectionPaths(db *gorm.DB, filter PathFilter) ([]ConnectionPath, erro
 		}
 	}
 
+	observerLastSeen, err := collectorLastSeenByID(db, observerIDs)
+	if err != nil {
+		return nil, err
+	}
+
 	paths := make([]ConnectionPath, 0, len(assignments))
 	for _, assignment := range assignments {
 		serverID, serverName := idx.host(assignment.NodeUUID)
 		kind, name := idx.observer(assignment.ObserverID)
+		sink := sinks[pathKey(assignment.NodeUUID, assignment.ObserverID)]
+		if !sinkHandshaked(assignment.ObserverID, sink, observerLastSeen, now) {
+			clearUnhandshakedSink(&sink)
+		}
 		paths = append(paths, ConnectionPath{
 			ServerID: serverID, ServerName: serverName, NodeUUID: hex.EncodeToString(assignment.NodeUUID),
 			ObserverID: assignment.ObserverID, ObserverKind: kind, ObserverName: name, Assigned: true,
 			LastSeen: lastSeen[pathKey(assignment.NodeUUID, assignment.ObserverID)],
-			Sink:     sinks[pathKey(assignment.NodeUUID, assignment.ObserverID)],
+			Sink:     sink,
 		})
 	}
 	return paths, nil
+}
+
+func collectorLastSeenByID(db *gorm.DB, ids []string) (map[string]int64, error) {
+	out := map[string]int64{}
+	filtered := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if id == "" || id == PrimaryObserverID {
+			continue
+		}
+		filtered = append(filtered, id)
+	}
+	if len(filtered) == 0 {
+		return out, nil
+	}
+	var runtimes []model.CollectorRuntime
+	if err := db.Where("collector_uuid IN ?", filtered).Find(&runtimes).Error; err != nil {
+		return nil, err
+	}
+	for _, runtime := range runtimes {
+		out[runtime.CollectorUUID] = runtime.LastSeen
+	}
+	return out, nil
+}
+
+func sinkHandshaked(observerID string, sink PathSink, lastSeen map[string]int64, now time.Time) bool {
+	if !sink.Connected {
+		return false
+	}
+	if observerID == PrimaryObserverID {
+		return true
+	}
+	return CollectorStatus(lastSeen[observerID], now) == CollectorStatusOnline
+}
+
+func clearUnhandshakedSink(sink *PathSink) {
+	sink.Connected = false
+	sink.LastRttMs = 0
+	sink.RttSampledAt = 0
 }
 
 func pathKey(nodeUUID []byte, observerID string) string {

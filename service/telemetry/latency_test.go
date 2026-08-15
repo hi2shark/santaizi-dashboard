@@ -45,7 +45,7 @@ func TestRecordAgentSinkLatencyWritesPathBucket(t *testing.T) {
 	node := bytes.Repeat([]byte{0x22}, 16)
 	sampled := time.Unix(1_700_000_000, 0).UnixNano()
 	if err := RecordAgentSinkLatency(db, node, &pb.AgentRuntime{Sinks: []*pb.SinkRuntime{
-		{EndpointId: PrimaryObserverID, LastRttMs: 7.5, RttSampledAtUnixNano: sampled},
+		{EndpointId: PrimaryObserverID, Connected: true, LastRttMs: 7.5, RttSampledAtUnixNano: sampled},
 	}}); err != nil {
 		t.Fatal(err)
 	}
@@ -55,6 +55,30 @@ func TestRecordAgentSinkLatencyWritesPathBucket(t *testing.T) {
 	}
 	if total != 1 || rows[0].AvgMs != 7.5 || rows[0].ObserverID != PrimaryObserverID {
 		t.Fatalf("rows=%#v total=%d", rows, total)
+	}
+}
+
+func TestRecordAgentSinkLatencySkipsUnhandshaked(t *testing.T) {
+	db := newConnectionDB(t)
+	now := time.Unix(1_700_000_090, 0)
+	node := bytes.Repeat([]byte{0x33}, 16)
+	sampled := now.UnixNano()
+	createCollector(t, db, "collector-stale", "Stale")
+	if err := db.Create(&model.CollectorRuntime{CollectorUUID: "collector-stale", Status: "online", LastSeen: now.Add(-2 * time.Minute).UnixNano()}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := recordAgentSinkLatency(db, node, &pb.AgentRuntime{Sinks: []*pb.SinkRuntime{
+		{EndpointId: PrimaryObserverID, Connected: false, LastRttMs: 7.5, RttSampledAtUnixNano: sampled},
+		{EndpointId: "collector-stale", Connected: true, LastRttMs: 40, RttSampledAtUnixNano: sampled},
+	}}, now); err != nil {
+		t.Fatal(err)
+	}
+	_, total, err := ListConnectionLatency(db, LatencyFilter{Kind: LatencyKindPath}, 0, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 0 {
+		t.Fatalf("unhandshaked sinks should not write buckets, total=%d", total)
 	}
 }
 

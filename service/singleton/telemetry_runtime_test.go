@@ -524,6 +524,7 @@ func setupV2OfflineRuntime(t *testing.T, serverID uint64) (node, session []byte,
 		serverID: {Common: model.Common{ID: serverID}, Name: "edge-offline", State: &model.HostState{}, Host: &model.Host{}},
 	}
 	t.Cleanup(func() {
+		resetNotificationAggregates()
 		DB, Conf, ServerList, Loc = previousDB, previousConf, previousServers, previousLoc
 		NotificationList, NotificationIDToTag = previousNotifications, previousIDToTag
 		_ = CloseDB(db)

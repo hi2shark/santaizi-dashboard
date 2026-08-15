@@ -24,6 +24,7 @@ const zhCN = {
   domains: '域名', ipv4: 'IPv4', ipv6: 'IPv6', maxRetries: '最大重试', server: '服务器', localService: '本地服务', bindDomain: '绑定域名',
   collector: '从端', collectors: '从端', collectorKind: '类型', collectorKindObserver: '观测', collectorKindProbe: '探测',
   probeTarget: '探测地址', probeInterval: '探测间隔（秒）', mtrInterval: 'MTR 间隔（秒）', tcpPorts: 'TCP 端口',
+  defaultTcpPorts: '默认 TCP 端口', probeIPFamilies: '地址族', invalidProbeIPFamily: '请至少选择 IPv4 或 IPv6',
   enableICMP: 'ICMP', enableTCP: 'TCP', enableMTR: 'MTR', failThreshold: '连续失败次数', probeTimeout: '超时', probeTrace: 'MTR', hop: '跳', loss: '丢包', icmp: 'ICMP', tcp: 'TCP',
   observerAssignments: '观测分配', agentDelivery: '探针投递', incidents: '事件', incidentRevisions: '事件修订', dataLoss: '数据丢失',
   alerts: '探测告警', address: '地址', listenPort: '监听端口', accessPort: '访问端口', tls: 'TLS', insecureTLS: '忽略证书校验', generation: '代次', configVersion: '配置版本', collectorVersion: '从端版本',
@@ -111,7 +112,7 @@ const zhCN = {
     requestFailed: '请求失败，请稍后重试', loading: '加载中…', noData: '暂无数据', refresh: '刷新',
     cycleStatus: { ok: '充足', warning: '注意', critical: '告警', exceeded: '超限' },
   },
-  errors: { authentication_required: '登录已过期，请重新登录', csrf_invalid: '安全校验失败，请刷新页面后重试', invalid_request: '提交内容格式不正确', invalid_server: '服务器信息不完整或无效', invalid_collector: '从端信息不完整或无效', invalid_settings: '设置内容无效', invalid_offline_settings: '离线与保留策略超出允许范围', unsafe_asset_url: '站点资产地址不安全', unsafe_custom_css: '自定义 CSS 包含被禁止的规则', server_not_found: '服务器不存在', collector_not_found: '从端不存在', database_error: '读取数据失败', session_not_found: '会话不存在或已过期', server_offline: '服务器离线，暂时无法执行该操作', view_password_required: '需要先验证公开站查看密码', invalid_display_index: '排序权重无效', display_index_update_failed: '更新排序失败', group_not_found: '分组不存在或没有服务器', group_rename_failed: '重命名分组失败', invalid_group_rename: '分组重命名参数无效', invalid_traffic_policy: '流量策略无效：请检查名称、配额、预警比例与周期设置', traffic_policy_not_found: '流量策略不存在', traffic_policy_save_failed: '保存流量策略失败' },
+  errors: { authentication_required: '登录已过期，请重新登录', csrf_invalid: '安全校验失败，请刷新页面后重试', invalid_request: '提交内容格式不正确', invalid_server: '服务器信息不完整或无效', invalid_collector: '从端信息不完整或无效', invalid_probe_ip_family: '请至少选择 IPv4 或 IPv6', invalid_settings: '设置内容无效', invalid_offline_settings: '离线与保留策略超出允许范围', unsafe_asset_url: '站点资产地址不安全', unsafe_custom_css: '自定义 CSS 包含被禁止的规则', server_not_found: '服务器不存在', collector_not_found: '从端不存在', database_error: '读取数据失败', session_not_found: '会话不存在或已过期', server_offline: '服务器离线，暂时无法执行该操作', view_password_required: '需要先验证公开站查看密码', invalid_display_index: '排序权重无效', display_index_update_failed: '更新排序失败', group_not_found: '分组不存在或没有服务器', group_rename_failed: '重命名分组失败', invalid_group_rename: '分组重命名参数无效', invalid_traffic_policy: '流量策略无效：请检查名称、配额、预警比例与周期设置', traffic_policy_not_found: '流量策略不存在', traffic_policy_save_failed: '保存流量策略失败' },
 }
 
 const zhTW = {
@@ -218,7 +219,7 @@ const zhTW = {
   requestFailed: '請求失敗', requestFailedWithCode: '請求失敗（錯誤碼：{code}）',
   messageCenter: '訊息中心', markAllRead: '全部已讀', clearMessages: '清空訊息', clearMessagesConfirm: '確定清空全部訊息嗎？', errorDetail: '錯誤詳情', errorCode: '錯誤碼',
   traceId: '追蹤 ID', httpStatus: 'HTTP 狀態', noMessages: '暫無報錯訊息', unread: '未讀', readStatus: '已讀', fieldErrors: '欄位錯誤', errorRoute: '頁面路徑',
-  errors: { ...zhCN.errors, authentication_required: '登入已過期，請重新登入', csrf_invalid: '安全驗證失敗，請重新整理頁面後再試', invalid_request: '提交內容格式不正確', invalid_server: '伺服器資訊不完整或無效', invalid_collector: '從端資訊不完整或無效', invalid_settings: '設定內容無效', server_not_found: '伺服器不存在', collector_not_found: '從端不存在', database_error: '讀取資料失敗', session_not_found: '工作階段不存在或已過期', server_offline: '伺服器離線，暫時無法執行此操作' },
+  errors: { ...zhCN.errors, authentication_required: '登入已過期，請重新登入', csrf_invalid: '安全驗證失敗，請重新整理頁面後再試', invalid_request: '提交內容格式不正確', invalid_server: '伺服器資訊不完整或無效', invalid_collector: '從端資訊不完整或無效', invalid_probe_ip_family: '請至少選擇 IPv4 或 IPv6', invalid_settings: '設定內容無效', server_not_found: '伺服器不存在', collector_not_found: '從端不存在', database_error: '讀取資料失敗', session_not_found: '工作階段不存在或已過期', server_offline: '伺服器離線，暫時無法執行此操作' },
 }
 
 const enUS = {
@@ -247,6 +248,7 @@ const enUS = {
   provider: 'Provider', domains: 'Domains', maxRetries: 'Max retries', server: 'Server', localService: 'Local service', bindDomain: 'Bind domain', collector: 'Collector', collectors: 'Collectors',
   collectorKind: 'Type', collectorKindObserver: 'Observer', collectorKindProbe: 'Probe',
   probeTarget: 'Probe address', probeInterval: 'Probe interval (seconds)', mtrInterval: 'MTR interval (seconds)', tcpPorts: 'TCP ports',
+  defaultTcpPorts: 'Default TCP ports', probeIPFamilies: 'IP family', invalidProbeIPFamily: 'Select IPv4 or IPv6',
   enableICMP: 'ICMP', enableTCP: 'TCP', enableMTR: 'MTR', failThreshold: 'Failure threshold', probeTimeout: 'Timeout', probeTrace: 'MTR', hop: 'Hop', loss: 'Loss', icmp: 'ICMP', tcp: 'TCP',
   observerAssignments: 'Observer assignments', agentDelivery: 'Agent delivery', incidents: 'Incidents', incidentRevisions: 'Incident revisions', dataLoss: 'Data loss', alerts: 'Probe alerts', address: 'Address', listenPort: 'Listen port', accessPort: 'Access port',
   insecureTLS: 'Skip certificate verification', generation: 'Generation', configVersion: 'Config version', collectorVersion: 'Collector version', lastSeen: 'Last seen', lastSync: 'Last replicate', lastPrimarySeen: 'Collector last saw Primary', spoolSize: 'Spool size', pendingRecords: 'Pending records',
@@ -333,7 +335,7 @@ const enUS = {
     requestFailed: 'Request failed. Try again later.', loading: 'Loading…', noData: 'No data', refresh: 'Refresh',
     cycleStatus: { ok: 'OK', warning: 'Warning', critical: 'Critical', exceeded: 'Exceeded' },
   },
-  errors: { authentication_required: 'Your session expired. Sign in again.', csrf_invalid: 'Security validation failed. Refresh the page and try again.', invalid_request: 'The submitted data is invalid.', invalid_server: 'The server configuration is incomplete or invalid.', invalid_collector: 'The collector configuration is incomplete or invalid.', invalid_settings: 'The settings are invalid.', invalid_offline_settings: 'The offline or retention policy is outside the allowed range.', unsafe_asset_url: 'The site asset URL is not allowed.', unsafe_custom_css: 'The custom CSS contains a prohibited rule.', server_not_found: 'The server does not exist.', collector_not_found: 'The collector does not exist.', database_error: 'The data could not be loaded.', session_not_found: 'The session does not exist or has expired.', server_offline: 'The server is offline, so this action is unavailable.', view_password_required: 'Verify the public view password first.', invalid_display_index: 'The display order is invalid.', display_index_update_failed: 'Failed to update display order.', group_not_found: 'The group does not exist or has no servers.', group_rename_failed: 'Failed to rename the group.', invalid_group_rename: 'The group rename request is invalid.', invalid_traffic_policy: 'The traffic policy is invalid. Check its name, quota, warning threshold and cycle settings.', traffic_policy_not_found: 'The traffic policy does not exist.', traffic_policy_save_failed: 'Failed to save the traffic policy.' },
+  errors: { authentication_required: 'Your session expired. Sign in again.', csrf_invalid: 'Security validation failed. Refresh the page and try again.', invalid_request: 'The submitted data is invalid.', invalid_server: 'The server configuration is incomplete or invalid.', invalid_collector: 'The collector configuration is incomplete or invalid.', invalid_probe_ip_family: 'Select IPv4 or IPv6.', invalid_settings: 'The settings are invalid.', invalid_offline_settings: 'The offline or retention policy is outside the allowed range.', unsafe_asset_url: 'The site asset URL is not allowed.', unsafe_custom_css: 'The custom CSS contains a prohibited rule.', server_not_found: 'The server does not exist.', collector_not_found: 'The collector does not exist.', database_error: 'The data could not be loaded.', session_not_found: 'The session does not exist or has expired.', server_offline: 'The server is offline, so this action is unavailable.', view_password_required: 'Verify the public view password first.', invalid_display_index: 'The display order is invalid.', display_index_update_failed: 'Failed to update display order.', group_not_found: 'The group does not exist or has no servers.', group_rename_failed: 'Failed to rename the group.', invalid_group_rename: 'The group rename request is invalid.', invalid_traffic_policy: 'The traffic policy is invalid. Check its name, quota, warning threshold and cycle settings.', traffic_policy_not_found: 'The traffic policy does not exist.', traffic_policy_save_failed: 'Failed to save the traffic policy.' },
 }
 
 const esES = {
@@ -385,7 +387,7 @@ const esES = {
   viewPasswordTitle: 'Página protegida', password: 'Contraseña', verify: 'Verificar', requestFailed: 'La solicitud falló', requestFailedWithCode: 'La solicitud falló (código: {code})',
   messageCenter: 'Centro de mensajes', markAllRead: 'Marcar todo como leído', clearMessages: 'Vaciar mensajes', clearMessagesConfirm: '¿Vaciar todos los mensajes?', errorDetail: 'Detalle del error', errorCode: 'Código de error',
   traceId: 'ID de seguimiento', httpStatus: 'Estado HTTP', noMessages: 'No hay mensajes de error', unread: 'No leído', readStatus: 'Leído', fieldErrors: 'Errores de campo', errorRoute: 'Ruta de la página',
-  errors: { ...enUS.errors, authentication_required: 'La sesión ha caducado. Inicia sesión de nuevo.', csrf_invalid: 'Falló la validación de seguridad. Actualiza la página e inténtalo de nuevo.', invalid_request: 'Los datos enviados no son válidos.', invalid_server: 'La configuración del servidor está incompleta o no es válida.', invalid_collector: 'La configuración del recolector está incompleta o no es válida.', invalid_settings: 'La configuración no es válida.', server_not_found: 'El servidor no existe.', collector_not_found: 'El recolector no existe.', database_error: 'No se pudieron cargar los datos.', session_not_found: 'La sesión no existe o ha caducado.', server_offline: 'El servidor está fuera de línea y la acción no está disponible.' },
+  errors: { ...enUS.errors, authentication_required: 'La sesión ha caducado. Inicia sesión de nuevo.', csrf_invalid: 'Falló la validación de seguridad. Actualiza la página e inténtalo de nuevo.', invalid_request: 'Los datos enviados no son válidos.', invalid_server: 'La configuración del servidor está incompleta o no es válida.', invalid_collector: 'La configuración del recolector está incompleta o no es válida.', invalid_probe_ip_family: 'Selecciona IPv4 o IPv6.', invalid_settings: 'La configuración no es válida.', server_not_found: 'El servidor no existe.', collector_not_found: 'El recolector no existe.', database_error: 'No se pudieron cargar los datos.', session_not_found: 'La sesión no existe o ha caducado.', server_offline: 'El servidor está fuera de línea y la acción no está disponible.' },
 }
 
 const editorZhCN = {
@@ -530,6 +532,7 @@ const commonZhTW = {
   connections: '連接觀察', collectorLinks: '主從連接', nodeLinks: '節點連接', nodeCollectorLinks: '從端節點', linkStatus: '鏈路', lastObservation: '最近觀測', observerKindPrimary: '主面板', observerKindCollector: '從端',
   collectorKind: '類型', collectorKindObserver: '觀測', collectorKindProbe: '探測',
   probeTarget: '探測位址', probeInterval: '探測間隔（秒）', mtrInterval: 'MTR 間隔（秒）', tcpPorts: 'TCP 連接埠',
+  defaultTcpPorts: '預設 TCP 連接埠', probeIPFamilies: '位址族', invalidProbeIPFamily: '請至少選擇 IPv4 或 IPv6',
   enableICMP: 'ICMP', enableTCP: 'TCP', enableMTR: 'MTR', failThreshold: '連續失敗次數', probeTimeout: '逾時', probeTrace: 'MTR', hop: '跳', loss: '丟包', icmp: 'ICMP', tcp: 'TCP',
   heartbeatLatency: '心跳延遲', replicationLatency: '複製延遲', latency: '延遲', minMs: '最小', avgMs: '平均', maxMs: '最大',
   collector_heartbeat: '心跳', collector_replication: '複製',
@@ -567,6 +570,7 @@ const commonEsES = {
   connections: 'Conexiones', collectorLinks: 'Primary ↔ recolectores', nodeLinks: 'Nodos ↔ observadores', nodeCollectorLinks: 'Nodos ↔ recolectores', linkStatus: 'Enlace', lastObservation: 'Última observación', observerKindPrimary: 'Primary', observerKindCollector: 'Recolector',
   collectorKind: 'Tipo', collectorKindObserver: 'Observador', collectorKindProbe: 'Sonda',
   probeTarget: 'Dirección de sonda', probeInterval: 'Intervalo de sonda (s)', mtrInterval: 'Intervalo MTR (s)', tcpPorts: 'Puertos TCP',
+  defaultTcpPorts: 'Puertos TCP predeterminados', probeIPFamilies: 'Familia IP', invalidProbeIPFamily: 'Selecciona IPv4 o IPv6',
   enableICMP: 'ICMP', enableTCP: 'TCP', enableMTR: 'MTR', failThreshold: 'Fallos consecutivos', probeTimeout: 'Tiempo agotado', probeTrace: 'MTR', hop: 'Salto', loss: 'Pérdida', icmp: 'ICMP', tcp: 'TCP',
   heartbeatLatency: 'Latencia de latido', replicationLatency: 'Latencia de réplica', latency: 'Latencia', minMs: 'Mín', avgMs: 'Media', maxMs: 'Máx',
   collector_heartbeat: 'Latido', collector_replication: 'Réplica',

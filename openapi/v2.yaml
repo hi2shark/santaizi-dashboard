@@ -2463,6 +2463,19 @@ components:
           type: string
           maxLength: 255
           description: 可选探测地址（域名或 IP）。空则用探针上报的公网 IP。
+        probe_tcp_ports:
+          type: string
+          maxLength: 64
+          description: 可选探测 TCP 端口，逗号分隔。空则用各探测从端默认端口。
+        probe_enable_icmp:
+          type: boolean
+          default: true
+        probe_enable_tcp:
+          type: boolean
+          default: true
+        probe_enable_mtr:
+          type: boolean
+          default: true
     ServerWrite:
       type: object
       required:
@@ -2502,6 +2515,19 @@ components:
           type: string
           maxLength: 255
           description: 可选探测地址（域名或 IP）。空则用探针上报的公网 IP。
+        probe_tcp_ports:
+          type: string
+          maxLength: 64
+          description: 可选探测 TCP 端口，逗号分隔。空则用各探测从端默认端口。
+        probe_enable_icmp:
+          type: boolean
+          default: true
+        probe_enable_tcp:
+          type: boolean
+          default: true
+        probe_enable_mtr:
+          type: boolean
+          default: true
     MonitorScope:
       type: object
       required:
@@ -3408,6 +3434,14 @@ components:
           type: boolean
         enable_mtr:
           type: boolean
+        enable_ipv4:
+          type: boolean
+          default: true
+          description: 探测 IPv4。与 enable_ipv6 至少开一项。
+        enable_ipv6:
+          type: boolean
+          default: true
+          description: 探测 IPv6。与 enable_ipv4 至少开一项。
         notify:
           type: boolean
         notification_tag:
@@ -4161,6 +4195,14 @@ components:
           type: boolean
         enable_mtr:
           type: boolean
+        enable_ipv4:
+          type: boolean
+          default: true
+          description: 探测 IPv4。与 enable_ipv6 至少开一项。
+        enable_ipv6:
+          type: boolean
+          default: true
+          description: 探测 IPv6。与 enable_ipv4 至少开一项。
         notify:
           type: boolean
         notification_tag:

@@ -59,8 +59,8 @@ type ProbePath struct {
 }
 
 type ProbePathFilter struct {
-	ServerID     uint64
-	CollectorID  string
+	ServerID    uint64
+	CollectorID string
 }
 
 type ProbeSampleFilter struct {
@@ -128,7 +128,7 @@ func LoadProbeSummary(db *gorm.DB, now time.Time) (ProbeSummary, error) {
 			}
 		}
 	}
-	paths, err := LoadProbePaths(db, ProbePathFilter{})
+	paths, err := loadProbePaths(db, ProbePathFilter{}, now)
 	if err != nil {
 		return summary, err
 	}
@@ -151,6 +151,10 @@ func LoadProbeSummary(db *gorm.DB, now time.Time) (ProbeSummary, error) {
 }
 
 func LoadProbePaths(db *gorm.DB, filter ProbePathFilter) ([]ProbePath, error) {
+	return loadProbePaths(db, filter, time.Now())
+}
+
+func loadProbePaths(db *gorm.DB, filter ProbePathFilter, now time.Time) ([]ProbePath, error) {
 	var collectors []model.Collector
 	query := db.Where("deleted = ? AND revoked = ? AND kind = ?", false, false, model.CollectorKindProbe)
 	if filter.CollectorID != "" {
@@ -190,8 +194,13 @@ func LoadProbePaths(db *gorm.DB, filter ProbePathFilter) ([]ProbePath, error) {
 	for _, scope := range scopes {
 		scopesByCollector[scope.CollectorUUID] = append(scopesByCollector[scope.CollectorUUID], scope)
 	}
+	lastSeen, err := collectorLastSeenByID(db, ids)
+	if err != nil {
+		return nil, err
+	}
 	var paths []ProbePath
 	for _, collector := range collectors {
+		online := CollectorStatus(lastSeen[collector.CollectorUUID], now) == CollectorStatusOnline
 		for _, server := range servers {
 			if filter.ServerID != 0 && server.ID != filter.ServerID {
 				continue
@@ -204,7 +213,19 @@ func LoadProbePaths(db *gorm.DB, filter ProbePathFilter) ([]ProbePath, error) {
 				ServerID: server.ID, ServerName: server.Name, CollectorID: collector.CollectorUUID, CollectorName: collector.Name,
 				TargetSource: target.Source, Hostname: target.Hostname, IPv4: target.IPv4, IPv6: target.IPv6,
 			}
-			if latest, ok := latestByKey[collector.CollectorUUID+"/"+fmt.Sprintf("%d", server.ID)]; ok {
+			v4, v6 := CollectorIPFamilies(&collector)
+			target = ApplyProbeIPFamilies(target, v4, v6)
+			path.TargetSource = target.Source
+			path.Hostname = target.Hostname
+			path.IPv4 = target.IPv4
+			path.IPv6 = target.IPv6
+			if !HasActiveProbe(server, &collector, target) {
+				path.TargetSource = "none"
+				path.Hostname, path.IPv4, path.IPv6 = "", "", ""
+				paths = append(paths, path)
+				continue
+			}
+			if latest, ok := latestByKey[collector.CollectorUUID+"/"+fmt.Sprintf("%d", server.ID)]; ok && online {
 				path.Reachable = latest.Reachable
 				path.DisplayRttMs = latest.DisplayRttMs
 				path.SampledAt = latest.SampledAt
@@ -333,7 +354,11 @@ func ingestProbeSample(db *gorm.DB, collector *model.Collector, sample *pb.Probe
 			return err
 		}
 	}
+	hasConnectivity := icmp != nil || len(tcpViews) > 0
 	reachable := icmpOK || anyTCP
+	if !hasConnectivity {
+		reachable = true
+	}
 	display := 0.0
 	if icmpOK {
 		display = icmpRtt
@@ -377,7 +402,7 @@ func ingestProbeSample(db *gorm.DB, collector *model.Collector, sample *pb.Probe
 			return err
 		}
 	}
-	return evaluateProbeAlert(db, collector, sample.GetServerId(), reachable, display, sample.GetLastError(), now)
+	return evaluateProbeAlert(db, collector, sample.GetServerId(), reachable, hasConnectivity, display, sample.GetLastError(), now)
 }
 
 func upsertProbeBucket(db *gorm.DB, collectorUUID string, serverID uint64, kind string, port uint, sampledAt int64, ok bool, rttMs, loss float64) error {
@@ -408,14 +433,16 @@ func upsertProbeBucket(db *gorm.DB, collectorUUID string, serverID uint64, kind 
 	return db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&row).Error
 }
 
-func evaluateProbeAlert(db *gorm.DB, collector *model.Collector, serverID uint64, reachable bool, rttMs float64, lastError string, now time.Time) error {
+func evaluateProbeAlert(db *gorm.DB, collector *model.Collector, serverID uint64, reachable, hasConnectivity bool, rttMs float64, lastError string, now time.Time) error {
 	if !collector.IsProbe() || !collector.ProbeNotify {
 		return nil
 	}
 	var server model.Server
 	_ = db.First(&server, serverID).Error
 	target := ResolveProbeTarget(db, server)
-	if target.Source == "none" {
+	v4, v6 := CollectorIPFamilies(collector)
+	target = ApplyProbeIPFamilies(target, v4, v6)
+	if target.Source == "none" || !hasConnectivity || !HasActiveProbe(server, collector, target) {
 		return nil
 	}
 	var state model.ProbeAlertState
@@ -432,7 +459,7 @@ func evaluateProbeAlert(db *gorm.DB, collector *model.Collector, serverID uint64
 	}
 	if reachable {
 		if state.DownNotified {
-			singleton.SendNotification(tag, fmt.Sprintf("[ProbeUp] %s → %s", collector.Name, server.Name), nil, &server)
+			singleton.SendNotification(tag, fmt.Sprintf("[ProbeUp] %s → %s", collector.Name, server.Name), singleton.NotificationMuteLabel.ProbeUp(collector.CollectorUUID, serverID), &server)
 		}
 		state.ConsecutiveFails = 0
 		state.DownNotified = false
@@ -443,14 +470,14 @@ func evaluateProbeAlert(db *gorm.DB, collector *model.Collector, serverID uint64
 			if errText == "" {
 				errText = "unreachable"
 			}
-			singleton.SendNotification(tag, fmt.Sprintf("[ProbeDown] %s → %s %s", collector.Name, server.Name, errText), nil, &server)
+			singleton.SendNotification(tag, fmt.Sprintf("[ProbeDown] %s → %s %s", collector.Name, server.Name, errText), singleton.NotificationMuteLabel.ProbeDown(collector.CollectorUUID, serverID), &server)
 			state.DownNotified = true
 		}
 	}
 	if collector.LatencyNotify && reachable && rttMs > 0 {
 		over := (collector.MaxLatencyMs > 0 && rttMs > collector.MaxLatencyMs) || (collector.MinLatencyMs > 0 && rttMs < collector.MinLatencyMs)
 		if over && !state.LatencyAlert {
-			singleton.SendNotification(tag, fmt.Sprintf("[ProbeLatency] %s → %s %.0fms", collector.Name, server.Name, rttMs), nil, &server)
+			singleton.SendNotification(tag, fmt.Sprintf("[ProbeLatency] %s → %s %.0fms", collector.Name, server.Name, rttMs), singleton.NotificationMuteLabel.ProbeLatency(collector.CollectorUUID, serverID), &server)
 			state.LatencyAlert = true
 		}
 		if !over {
@@ -503,10 +530,92 @@ func ResolveProbeTarget(db *gorm.DB, server model.Server) ResolvedProbeTarget {
 	return ResolvedProbeTarget{Source: "host_ip", IPv4: ipv4, IPv6: ipv6}
 }
 
+func ResolveProbeTCPPorts(server model.Server, collector *model.Collector) []uint32 {
+	ports := netprobe.ParsePorts(strings.TrimSpace(server.ProbeTCPPorts))
+	if len(ports) == 0 && collector != nil {
+		ports = netprobe.ParsePorts(collector.TCPPorts)
+	}
+	out := make([]uint32, 0, len(ports))
+	for _, port := range ports {
+		out = append(out, uint32(port))
+	}
+	return out
+}
+
+func EffectiveProbeTypes(server model.Server, collector *model.Collector) (icmp, tcp, mtr bool) {
+	if collector == nil {
+		return model.BoolOrTrue(server.ProbeEnableICMP), model.BoolOrTrue(server.ProbeEnableTCP), model.BoolOrTrue(server.ProbeEnableMTR)
+	}
+	return collector.EnableICMP && model.BoolOrTrue(server.ProbeEnableICMP), collector.EnableTCP && model.BoolOrTrue(server.ProbeEnableTCP), collector.EnableMTR && model.BoolOrTrue(server.ProbeEnableMTR)
+}
+
+func CollectorIPFamilies(collector *model.Collector) (v4, v6 bool) {
+	if collector == nil {
+		return true, true
+	}
+	collector.ApplyProbeDefaults()
+	return model.BoolOrTrue(collector.EnableIPv4), model.BoolOrTrue(collector.EnableIPv6)
+}
+
+func ProbeConfigIPFamilies(cfg *pb.ProbeConfig) (v4, v6 bool) {
+	if cfg == nil || len(cfg.GetIpFamilies()) == 0 {
+		return true, true
+	}
+	for _, family := range cfg.GetIpFamilies() {
+		switch family {
+		case pb.ProbeIPFamily_PROBE_IP_FAMILY_IPV4:
+			v4 = true
+		case pb.ProbeIPFamily_PROBE_IP_FAMILY_IPV6:
+			v6 = true
+		}
+	}
+	if !v4 && !v6 {
+		return true, true
+	}
+	return v4, v6
+}
+
+func IPFamiliesProto(collector *model.Collector) []pb.ProbeIPFamily {
+	v4, v6 := CollectorIPFamilies(collector)
+	if v4 && v6 {
+		return nil
+	}
+	var families []pb.ProbeIPFamily
+	if v4 {
+		families = append(families, pb.ProbeIPFamily_PROBE_IP_FAMILY_IPV4)
+	}
+	if v6 {
+		families = append(families, pb.ProbeIPFamily_PROBE_IP_FAMILY_IPV6)
+	}
+	return families
+}
+
+func ApplyProbeIPFamilies(resolved ResolvedProbeTarget, v4, v6 bool) ResolvedProbeTarget {
+	if !v4 {
+		resolved.IPv4 = ""
+	}
+	if !v6 {
+		resolved.IPv6 = ""
+	}
+	if resolved.IPv4 == "" && resolved.IPv6 == "" && resolved.Hostname == "" {
+		resolved.Source = "none"
+	}
+	return resolved
+}
+
+func HasActiveProbe(server model.Server, collector *model.Collector, resolved ResolvedProbeTarget) bool {
+	icmp, tcp, mtr := EffectiveProbeTypes(server, collector)
+	if !icmp && !tcp && !mtr {
+		return false
+	}
+	return resolved.Source != "none"
+}
+
 func BuildProbeTargets(db *gorm.DB, collector *model.Collector) ([]*pb.ProbeTarget, error) {
 	if collector == nil || !collector.IsProbe() {
 		return nil, nil
 	}
+	collector.ApplyProbeDefaults()
 	var scopes []model.CollectorScope
 	if err := db.Where("collector_uuid = ?", collector.CollectorUUID).Find(&scopes).Error; err != nil {
 		return nil, err
@@ -515,23 +624,20 @@ func BuildProbeTargets(db *gorm.DB, collector *model.Collector) ([]*pb.ProbeTarg
 	if err := db.Find(&servers).Error; err != nil {
 		return nil, err
 	}
-	ports := netprobe.ParsePorts(collector.TCPPorts)
-	pbPorts := make([]uint32, 0, len(ports))
-	for _, port := range ports {
-		pbPorts = append(pbPorts, uint32(port))
-	}
+	v4, v6 := CollectorIPFamilies(collector)
 	var targets []*pb.ProbeTarget
 	for _, server := range servers {
 		if !singleton.CollectorScopesIncludeServer(scopes, server) {
 			continue
 		}
-		resolved := ResolveProbeTarget(db, server)
-		if resolved.Source == "none" {
+		resolved := ApplyProbeIPFamilies(ResolveProbeTarget(db, server), v4, v6)
+		icmp, tcp, mtr := EffectiveProbeTypes(server, collector)
+		if !HasActiveProbe(server, collector, resolved) {
 			continue
 		}
 		targets = append(targets, &pb.ProbeTarget{
 			ServerId: server.ID, ServerName: server.Name, Ipv4: resolved.IPv4, Ipv6: resolved.IPv6, Hostname: resolved.Hostname,
-			TcpPorts: pbPorts, EnableIcmp: collector.EnableICMP, EnableTcp: collector.EnableTCP, EnableMtr: collector.EnableMTR,
+			TcpPorts: ResolveProbeTCPPorts(server, collector), EnableIcmp: icmp, EnableTcp: tcp, EnableMtr: mtr,
 			IntervalSeconds: uint32(collector.ProbeIntervalSec), MtrIntervalSeconds: uint32(collector.MTRIntervalSec),
 		})
 	}
@@ -542,6 +648,7 @@ func ProbeConfigFromCollector(collector *model.Collector) *pb.ProbeConfig {
 	if collector == nil {
 		return nil
 	}
+	collector.ApplyProbeDefaults()
 	kind := pb.CollectorKind_COLLECTOR_KIND_OBSERVER
 	if collector.IsProbe() {
 		kind = pb.CollectorKind_COLLECTOR_KIND_PROBE
@@ -556,6 +663,7 @@ func ProbeConfigFromCollector(collector *model.Collector) *pb.ProbeConfig {
 		TcpPorts: pbPorts, EnableIcmp: collector.EnableICMP, EnableTcp: collector.EnableTCP, EnableMtr: collector.EnableMTR,
 		Notify: collector.ProbeNotify, NotificationTag: collector.NotificationTag, LatencyNotify: collector.LatencyNotify,
 		MinLatencyMs: collector.MinLatencyMs, MaxLatencyMs: collector.MaxLatencyMs, FailThreshold: uint32(collector.FailThreshold),
+		IpFamilies: IPFamiliesProto(collector),
 	}
 }
 
@@ -565,4 +673,3 @@ func ProtoCollectorKind(kind string) pb.CollectorKind {
 	}
 	return pb.CollectorKind_COLLECTOR_KIND_OBSERVER
 }
-

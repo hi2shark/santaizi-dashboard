@@ -66,10 +66,27 @@ func RecordCollectorLatency(db *gorm.DB, row model.CollectorRuntime) error {
 }
 
 func RecordAgentSinkLatency(db *gorm.DB, nodeUUID []byte, runtime *pb.AgentRuntime) error {
+	return recordAgentSinkLatency(db, nodeUUID, runtime, time.Now())
+}
+
+func recordAgentSinkLatency(db *gorm.DB, nodeUUID []byte, runtime *pb.AgentRuntime, now time.Time) error {
 	if runtime == nil {
 		return nil
 	}
+	ids := make([]string, 0, len(runtime.GetSinks()))
 	for _, sink := range runtime.GetSinks() {
+		ids = append(ids, sink.GetEndpointId())
+	}
+	lastSeen, err := collectorLastSeenByID(db, ids)
+	if err != nil {
+		return err
+	}
+	for _, sink := range runtime.GetSinks() {
+		if !sinkHandshaked(sink.GetEndpointId(), PathSink{
+			Connected: sink.GetConnected(), LastRttMs: sink.GetLastRttMs(), RttSampledAt: sink.GetRttSampledAtUnixNano(),
+		}, lastSeen, now) {
+			continue
+		}
 		if err := RecordLatencySample(db, LatencySample{
 			Kind: LatencyKindPath, NodeUUID: nodeUUID, ObserverID: sink.GetEndpointId(),
 			RttMs: sink.GetLastRttMs(), SampledAt: sink.GetRttSampledAtUnixNano(),

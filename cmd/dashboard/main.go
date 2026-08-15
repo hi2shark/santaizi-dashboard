@@ -56,13 +56,21 @@ func initSystem() {
 	})
 	go rollupWorker.Run(context.Background())
 	telemetryAlerts := telemetryservice.NewAlertWorker(singleton.DB, telemetryservice.AlertPolicy{
-		NotifyHostOffline:      singleton.Conf.EnableOfflineNotification,
-		NotifyConnectivity:     singleton.Conf.Telemetry.EnableConnectivityNotification,
-		NotifyCorrection:       singleton.Conf.Telemetry.EnableCorrectionNotification,
-		NotifyCollectorOffline: singleton.Conf.Telemetry.EnableCollectorOfflineNotification,
-		NotifyDataLoss:         singleton.Conf.Telemetry.EnableDataLossNotification,
-		CollectorTimeout:       telemetryservice.CollectorTimeout,
-	}, func(message string) { singleton.SendNotification("default", message, nil) })
+		NotifyHostOffline:         singleton.Conf.EnableOfflineNotification,
+		NotifyConnectivity:        singleton.Conf.Telemetry.EnableConnectivityNotification,
+		NotifyCorrection:          singleton.Conf.Telemetry.EnableCorrectionNotification,
+		NotifyCollectorOffline:    singleton.Conf.Telemetry.EnableCollectorOfflineNotification,
+		NotifyDataLoss:            singleton.Conf.Telemetry.EnableDataLossNotification,
+		SuppressHostOfflineNotify: singleton.Conf.EnableOfflineHistory && singleton.Conf.EnableOfflineNotification,
+		CollectorTimeout:          telemetryservice.CollectorTimeout,
+		AvailabilityBucket:        time.Duration(singleton.Conf.Telemetry.AvailabilityBucketSeconds) * time.Second,
+	}, func(message, muteKey string) {
+		var mute *string
+		if muteKey != "" {
+			mute = &muteKey
+		}
+		singleton.SendNotification("default", message, mute)
+	})
 	go telemetryAlerts.Run(context.Background())
 
 	// 每天的3:30 对 监控记录 和 流量记录 进行清理

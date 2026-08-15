@@ -477,6 +477,10 @@ type serverV2Write struct {
 	DDNSProfiles      []uint64                  `json:"ddns_profiles"`
 	TrafficPolicies   *[]trafficPolicyUpsertDTO `json:"traffic_policies"`
 	ProbeTarget       string                    `json:"probe_target"`
+	ProbeTCPPorts     string                    `json:"probe_tcp_ports"`
+	ProbeEnableICMP   *bool                     `json:"probe_enable_icmp"`
+	ProbeEnableTCP    *bool                     `json:"probe_enable_tcp"`
+	ProbeEnableMTR    *bool                     `json:"probe_enable_mtr"`
 }
 
 type trafficPolicyUpsertDTO struct {
@@ -517,7 +521,7 @@ func hostAdminDTO(host *model.Host) any {
 func serverAdminDTO(server model.Server, reveal bool) gin.H {
 	monitoringOptions := map[string]bool{}
 	_ = json.Unmarshal([]byte(server.MonitoringOptionsRaw), &monitoringOptions)
-	result := gin.H{"id": server.ID, "name": server.Name, "tag": server.Tag, "note": server.Note, "public_note": decodePublicNote(server.PublicNote), "monitoring_options": monitoringOptions, "display_index": server.DisplayIndex, "hide_for_guest": server.HideForGuest, "enable_ddns": server.EnableDDNS, "ddns_profiles": server.DDNSProfiles, "probe_target": server.ProbeTarget, "last_active": formatOptionalTime(server.LastActive), "host": hostAdminDTO(server.Host), "state": server.State}
+	result := gin.H{"id": server.ID, "name": server.Name, "tag": server.Tag, "note": server.Note, "public_note": decodePublicNote(server.PublicNote), "monitoring_options": monitoringOptions, "display_index": server.DisplayIndex, "hide_for_guest": server.HideForGuest, "enable_ddns": server.EnableDDNS, "ddns_profiles": server.DDNSProfiles, "probe_target": server.ProbeTarget, "probe_tcp_ports": server.ProbeTCPPorts, "probe_enable_icmp": model.BoolOrTrue(server.ProbeEnableICMP), "probe_enable_tcp": model.BoolOrTrue(server.ProbeEnableTCP), "probe_enable_mtr": model.BoolOrTrue(server.ProbeEnableMTR), "last_active": formatOptionalTime(server.LastActive), "host": hostAdminDTO(server.Host), "state": server.State}
 	if reveal {
 		result["secret"] = server.Secret
 	}
@@ -618,6 +622,10 @@ func v2SaveServer(c *gin.Context, id uint64) {
 	server.MonitoringOptionsRaw = string(monitoringOptions)
 	server.DisplayIndex, server.HideForGuest, server.EnableDDNS = request.DisplayIndex, request.HideForGuest, request.EnableDDNS
 	server.ProbeTarget = strings.TrimSpace(request.ProbeTarget)
+	server.ProbeTCPPorts = strings.TrimSpace(request.ProbeTCPPorts)
+	server.ProbeEnableICMP = model.BoolPtr(boolOrKeep(request.ProbeEnableICMP, created, model.BoolOrTrue(server.ProbeEnableICMP), true))
+	server.ProbeEnableTCP = model.BoolPtr(boolOrKeep(request.ProbeEnableTCP, created, model.BoolOrTrue(server.ProbeEnableTCP), true))
+	server.ProbeEnableMTR = model.BoolPtr(boolOrKeep(request.ProbeEnableMTR, created, model.BoolOrTrue(server.ProbeEnableMTR), true))
 	server.DDNSProfiles = append([]uint64(nil), request.DDNSProfiles...)
 	raw, _ := utils.Json.Marshal(server.DDNSProfiles)
 	server.DDNSProfilesRaw = string(raw)
@@ -1880,8 +1888,19 @@ func v2CleanupOfflineHistory(c *gin.Context) {
 }
 
 var errObserverAddressRequired = errors.New("address is required for observer collectors")
+var errProbeIPFamilyRequired = errors.New("enable_ipv4 or enable_ipv6 is required")
 
-func applyCollectorProbeRequest(collector *model.Collector, request collectorRequest, created bool) {
+func boolOrKeep(value *bool, created bool, current, fallback bool) bool {
+	if value != nil {
+		return *value
+	}
+	if created {
+		return fallback
+	}
+	return current
+}
+
+func applyCollectorProbeRequest(collector *model.Collector, request collectorRequest, created bool) error {
 	if request.ProbeIntervalSeconds > 0 {
 		collector.ProbeIntervalSec = request.ProbeIntervalSeconds
 	}
@@ -1906,6 +1925,19 @@ func applyCollectorProbeRequest(collector *model.Collector, request collectorReq
 	} else if created {
 		collector.EnableMTR = true
 	}
+	if request.EnableIPv4 != nil {
+		collector.EnableIPv4 = request.EnableIPv4
+	} else if created {
+		collector.EnableIPv4 = model.BoolPtr(true)
+	}
+	if request.EnableIPv6 != nil {
+		collector.EnableIPv6 = request.EnableIPv6
+	} else if created {
+		collector.EnableIPv6 = model.BoolPtr(true)
+	}
+	if !model.BoolOrTrue(collector.EnableIPv4) && !model.BoolOrTrue(collector.EnableIPv6) {
+		return errProbeIPFamilyRequired
+	}
 	collector.ProbeNotify = request.Notify
 	collector.NotificationTag = strings.TrimSpace(request.NotificationTag)
 	collector.LatencyNotify = request.LatencyNotify
@@ -1914,6 +1946,7 @@ func applyCollectorProbeRequest(collector *model.Collector, request collectorReq
 	if request.FailThreshold > 0 {
 		collector.FailThreshold = request.FailThreshold
 	}
+	return nil
 }
 
 func collectorDTO(collector model.Collector) gin.H {
@@ -1930,6 +1963,7 @@ func collectorDTO(collector model.Collector) gin.H {
 		"insecure_tls": collector.InsecureTLS, "location": collector.Location, "kind": model.NormalizeCollectorKind(collector.Kind),
 		"probe_interval_seconds": collector.ProbeIntervalSec, "mtr_interval_seconds": collector.MTRIntervalSec, "tcp_ports": collector.TCPPorts,
 		"enable_icmp": collector.EnableICMP, "enable_tcp": collector.EnableTCP, "enable_mtr": collector.EnableMTR,
+		"enable_ipv4": model.BoolOrTrue(collector.EnableIPv4), "enable_ipv6": model.BoolOrTrue(collector.EnableIPv6),
 		"notify": collector.ProbeNotify, "notification_tag": collector.NotificationTag, "latency_notify": collector.LatencyNotify,
 		"min_latency_ms": collector.MinLatencyMs, "max_latency_ms": collector.MaxLatencyMs, "fail_threshold": collector.FailThreshold,
 		"generation": collector.Generation, "config_version": collector.ConfigVersion,
@@ -1996,7 +2030,10 @@ func v2CreateCollector(c *gin.Context) {
 		return
 	}
 	collector := model.Collector{CollectorUUID: id, Name: request.Name, Address: request.Address, ListenPort: listenPort, TokenHash: hash, RegistrationToken: plain, Generation: 1, ConfigVersion: singleton.CurrentTelemetryConfigVersion() + 1, TLS: request.TLS, InsecureTLS: request.InsecureTLS, Location: strings.TrimSpace(request.Location), Kind: kind}
-	applyCollectorProbeRequest(&collector, request, true)
+	if err := applyCollectorProbeRequest(&collector, request, true); err != nil {
+		writeV2Problem(c, 400, "invalid_probe_ip_family", err.Error())
+		return
+	}
 	collector.ApplyProbeDefaults()
 	if err := singleton.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&collector).Error; err != nil {
@@ -2030,7 +2067,9 @@ func v2UpdateCollector(c *gin.Context) {
 			return errObserverAddressRequired
 		}
 		collector.Name, collector.Address, collector.ListenPort, collector.TLS, collector.InsecureTLS, collector.Location = request.Name, request.Address, listenPort, request.TLS, request.InsecureTLS, strings.TrimSpace(request.Location)
-		applyCollectorProbeRequest(&collector, request, false)
+		if err := applyCollectorProbeRequest(&collector, request, false); err != nil {
+			return err
+		}
 		collector.ApplyProbeDefaults()
 		collector.ConfigVersion++
 		if err := tx.Save(&collector).Error; err != nil {
@@ -2041,6 +2080,10 @@ func v2UpdateCollector(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, errObserverAddressRequired) {
 			writeV2Problem(c, 400, "invalid_collector", err.Error())
+			return
+		}
+		if errors.Is(err, errProbeIPFamilyRequired) {
+			writeV2Problem(c, 400, "invalid_probe_ip_family", err.Error())
 			return
 		}
 		writeV2Problem(c, 404, "collector_update_failed", err.Error())

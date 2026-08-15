@@ -18,6 +18,29 @@ func TestFormatHostPrefersOverrideThenIPv4(t *testing.T) {
 	}
 }
 
+func TestDestinationsAndMerge(t *testing.T) {
+	dests := Destinations("1.1.1.1", "2001:db8::1", "", true, true)
+	if len(dests) != 2 || dests[0].TCPNet != "tcp4" || dests[1].TCPNet != "tcp6" {
+		t.Fatalf("%+v", dests)
+	}
+	v6 := Destinations("1.1.1.1", "2001:db8::1", "", false, true)
+	if len(v6) != 1 || v6[0].Host != "2001:db8::1" {
+		t.Fatalf("%+v", v6)
+	}
+	hostOnly := Destinations("", "", "origin.example", true, false)
+	if len(hostOnly) != 1 || hostOnly[0].Host != "origin.example" || hostOnly[0].ICMPNet != "ip4" {
+		t.Fatalf("%+v", hostOnly)
+	}
+	merged := MergeICMP([]ICMPResult{{OK: false, Error: "timeout"}, {OK: true, RTT: 2}})
+	if !merged.OK {
+		t.Fatalf("%+v", merged)
+	}
+	tcp := MergeTCPByPort([]TCPResult{{Port: 22, OK: false}, {Port: 22, OK: true, RTT: 3}, {Port: 443, OK: true}})
+	if len(tcp) != 2 || !tcp[0].OK || tcp[0].Port != 22 || tcp[1].Port != 443 {
+		t.Fatalf("%+v", tcp)
+	}
+}
+
 func TestDisplayErrorWhenAnyTCPSucceeds(t *testing.T) {
 	if err := DisplayError(ICMPResult{OK: false, Error: "timeout"}, []TCPResult{{Port: 443, OK: true}}); err != "" {
 		t.Fatal(err)

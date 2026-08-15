@@ -405,6 +405,24 @@ test('admin sidebar shows panel version', async ({ page }) => {
   await expect(page.locator('.sidebar-version')).toHaveText('v1.2.3')
 })
 
+test('admin topbar collapses the sidebar', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await page.goto('/admin/')
+  const toggle = page.locator('.admin-topbar .collapse-button')
+  await expect(toggle).toBeVisible()
+  await expect(page.locator('.admin-sidebar .collapse-button')).toHaveCount(0)
+  await expect(page.locator('.admin-layout')).not.toHaveClass(/collapsed/)
+  await toggle.click()
+  await expect(page.locator('.admin-layout')).toHaveClass(/collapsed/)
+  await expect(toggle).toHaveAttribute('aria-label', '展开导航')
+  await toggle.click()
+  await expect(page.locator('.admin-layout')).not.toHaveClass(/collapsed/)
+
+  await page.setViewportSize({ width: 390, height: 667 })
+  await expect(toggle).toBeHidden()
+  await expect(page.locator('.mobile-menu')).toBeVisible()
+})
+
 test('switches locale without a page navigation', async ({ page }) => {
   await page.route('**/api/v2/admin/summary', route => fulfillJSON(route, item({})))
   await page.goto('/admin/')
@@ -648,6 +666,49 @@ test('connection observation shows node paths as a server-observer matrix', asyn
   expect(Math.abs(widths[0] - widths[1])).toBeLessThan(2)
   const chipWidths = await matrix.locator('.path-matrix__cell').evaluateAll(nodes => nodes.map(node => Math.round(node.getBoundingClientRect().width)))
   expect(new Set(chipWidths).size).toBe(1)
+})
+
+test('connection observation hides stale RTT when collector is offline', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === 'admin-mobile', 'matrix is desktop-only')
+  const observer = {
+    id: 'collector-1', name: 'Frankfurt edge', address: 'collector.example.com:5555', tls: true, insecure_tls: false,
+    generation: 1, config_version: 1, status: 'offline', revoked: false, kind: 'observer', connected_agents: 0, pending_records: 0,
+    last_seen: '2026-08-13T05:00:00Z', last_sync: '2026-08-13T05:00:00Z', heartbeat_rtt_ms: 18.5,
+    heartbeat_rtt_sampled_at: '2026-08-13T05:00:00Z', scopes: [{ type: 'all', value: '' }],
+  }
+  const probe = {
+    id: 'collector-2', name: 'SLC probe', address: 'probe.example.com:5555', tls: true, insecure_tls: false,
+    generation: 1, config_version: 1, status: 'offline', revoked: false, kind: 'probe', connected_agents: 0, pending_records: 0,
+    last_seen: '2026-08-13T05:00:00Z', last_sync: '2026-08-13T05:00:00Z', heartbeat_rtt_ms: 9,
+    heartbeat_rtt_sampled_at: '2026-08-13T05:00:00Z', scopes: [{ type: 'all', value: '' }],
+  }
+  await page.route('**/api/v2/admin/telemetry/collectors**', route => fulfillJSON(route, list([observer, probe])))
+  await page.route('**/api/v2/admin/probes/paths**', route => fulfillJSON(route, list([{
+    server_id: 7, server_name: 'edge-a', collector_id: 'collector-2', collector_name: 'SLC probe',
+    target: { source: 'host', ipv4: '192.0.2.10' }, reachable: true, display_rtt_ms: 21.5, sampled_at: '2026-08-13T06:00:00Z',
+  }])))
+  await page.route('**/api/v2/admin/connections/paths**', route => fulfillJSON(route, list([
+    {
+      server_id: 7, server_name: 'edge-a', node_uuid: '09090909090909090909090909090909', observer_id: 'primary',
+      observer_kind: 'primary', observer_name: '', assigned: true, last_seen: '2026-08-13T06:00:00Z',
+      sink: { connected: true, pending_events: 0, last_error: '', ack_through: 11, last_rtt_ms: 12.5, rtt_sampled_at: '2026-08-13T06:00:00Z' },
+    },
+    {
+      server_id: 7, server_name: 'edge-a', node_uuid: '09090909090909090909090909090909', observer_id: 'collector-1',
+      observer_kind: 'collector', observer_name: 'Frankfurt edge', assigned: true, last_seen: '2026-08-13T06:00:00Z',
+      sink: { connected: true, pending_events: 0, last_error: '', ack_through: 8, last_rtt_ms: 99.9, rtt_sampled_at: '2026-08-13T06:00:00Z' },
+    },
+  ])))
+  await page.goto('/admin/connections')
+  const collectorGrid = page.locator('.collector-grid').filter({ visible: true })
+  await expect(collectorGrid.getByText('离线').filter({ visible: true })).toHaveCount(2)
+  await expect(collectorGrid).not.toContainText('18.5 ms')
+  await expect(collectorGrid).not.toContainText('9 ms')
+  const matrix = page.locator('.path-matrix').filter({ visible: true })
+  await expect(matrix.getByRole('button', { name: /12\.5 ms/ })).toBeVisible()
+  await expect(matrix.getByRole('button', { name: '未连接' })).toHaveCount(2)
+  await expect(matrix).not.toContainText('99.9 ms')
+  await expect(matrix).not.toContainText('21.5 ms')
 })
 
 test('connection observation refreshes matrix latency on poll', async ({ page }, testInfo) => {

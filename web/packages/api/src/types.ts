@@ -79,6 +79,10 @@ export interface ServerRecord extends ResourceRecord {
   online?: boolean
   telemetry?: ServerTelemetryPresentation
   probe_target?: string
+  probe_tcp_ports?: string
+  probe_enable_icmp?: boolean
+  probe_enable_tcp?: boolean
+  probe_enable_mtr?: boolean
 }
 
 export interface CollectorRecord {
@@ -96,6 +100,8 @@ export interface CollectorRecord {
   enable_icmp?: boolean
   enable_tcp?: boolean
   enable_mtr?: boolean
+  enable_ipv4?: boolean
+  enable_ipv6?: boolean
   notify?: boolean
   notification_tag?: string
   latency_notify?: boolean

@@ -1513,10 +1513,16 @@ type BootstrapTheme string
 // Collector defines model for Collector.
 type Collector struct {
 	// Address 探针访问地址（host:访问端口）
-	Address               string     `json:"address"`
-	ConfigVersion         int64      `json:"config_version"`
-	ConnectedAgents       *int64     `json:"connected_agents,omitempty"`
-	EnableIcmp            *bool      `json:"enable_icmp,omitempty"`
+	Address         string `json:"address"`
+	ConfigVersion   int64  `json:"config_version"`
+	ConnectedAgents *int64 `json:"connected_agents,omitempty"`
+	EnableIcmp      *bool  `json:"enable_icmp,omitempty"`
+
+	// EnableIpv4 探测 IPv4。与 enable_ipv6 至少开一项。
+	EnableIpv4 *bool `json:"enable_ipv4,omitempty"`
+
+	// EnableIpv6 探测 IPv6。与 enable_ipv4 至少开一项。
+	EnableIpv6            *bool      `json:"enable_ipv6,omitempty"`
 	EnableMtr             *bool      `json:"enable_mtr,omitempty"`
 	EnableTcp             *bool      `json:"enable_tcp,omitempty"`
 	FailThreshold         *int       `json:"fail_threshold,omitempty"`
@@ -1617,12 +1623,18 @@ type CollectorToken struct {
 // CollectorWrite defines model for CollectorWrite.
 type CollectorWrite struct {
 	// Address 探针访问地址（host:访问端口）。探测型可空。
-	Address       *string `json:"address,omitempty"`
-	EnableIcmp    *bool   `json:"enable_icmp,omitempty"`
-	EnableMtr     *bool   `json:"enable_mtr,omitempty"`
-	EnableTcp     *bool   `json:"enable_tcp,omitempty"`
-	FailThreshold *int    `json:"fail_threshold,omitempty"`
-	InsecureTls   *bool   `json:"insecure_tls,omitempty"`
+	Address    *string `json:"address,omitempty"`
+	EnableIcmp *bool   `json:"enable_icmp,omitempty"`
+
+	// EnableIpv4 探测 IPv4。与 enable_ipv6 至少开一项。
+	EnableIpv4 *bool `json:"enable_ipv4,omitempty"`
+
+	// EnableIpv6 探测 IPv6。与 enable_ipv4 至少开一项。
+	EnableIpv6    *bool `json:"enable_ipv6,omitempty"`
+	EnableMtr     *bool `json:"enable_mtr,omitempty"`
+	EnableTcp     *bool `json:"enable_tcp,omitempty"`
+	FailThreshold *int  `json:"fail_threshold,omitempty"`
+	InsecureTls   *bool `json:"insecure_tls,omitempty"`
 
 	// Kind 仅创建时生效；更新忽略。
 	Kind          *CollectorWriteKind `json:"kind,omitempty"`
@@ -2285,11 +2297,17 @@ type Server struct {
 	Name              string             `json:"name"`
 	Note              *string            `json:"note,omitempty"`
 	Online            *bool              `json:"online,omitempty"`
+	ProbeEnableIcmp   *bool              `json:"probe_enable_icmp,omitempty"`
+	ProbeEnableMtr    *bool              `json:"probe_enable_mtr,omitempty"`
+	ProbeEnableTcp    *bool              `json:"probe_enable_tcp,omitempty"`
 
 	// ProbeTarget 可选探测地址（域名或 IP）。空则用探针上报的公网 IP。
-	ProbeTarget *string     `json:"probe_target,omitempty"`
-	PublicNote  *PublicNote `json:"public_note,omitempty"`
-	Secret      *string     `json:"secret,omitempty"`
+	ProbeTarget *string `json:"probe_target,omitempty"`
+
+	// ProbeTcpPorts 可选探测 TCP 端口，逗号分隔。空则用各探测从端默认端口。
+	ProbeTcpPorts *string     `json:"probe_tcp_ports,omitempty"`
+	PublicNote    *PublicNote `json:"public_note,omitempty"`
+	Secret        *string     `json:"secret,omitempty"`
 
 	// State 探针运行态快照（PascalCase，与上游 HostState JSON 一致）。
 	// 用量字段在此；对应总量在 ServerHost。字段集合与 model.HostState 完全对应，不接受额外字段。
@@ -2401,11 +2419,17 @@ type ServerWrite struct {
 	MonitoringOptions *MonitoringOptions `json:"monitoring_options,omitempty"`
 	Name              string             `json:"name"`
 	Note              *string            `json:"note,omitempty"`
+	ProbeEnableIcmp   *bool              `json:"probe_enable_icmp,omitempty"`
+	ProbeEnableMtr    *bool              `json:"probe_enable_mtr,omitempty"`
+	ProbeEnableTcp    *bool              `json:"probe_enable_tcp,omitempty"`
 
 	// ProbeTarget 可选探测地址（域名或 IP）。空则用探针上报的公网 IP。
-	ProbeTarget *string     `json:"probe_target,omitempty"`
-	PublicNote  *PublicNote `json:"public_note,omitempty"`
-	Tag         *string     `json:"tag,omitempty"`
+	ProbeTarget *string `json:"probe_target,omitempty"`
+
+	// ProbeTcpPorts 可选探测 TCP 端口，逗号分隔。空则用各探测从端默认端口。
+	ProbeTcpPorts *string     `json:"probe_tcp_ports,omitempty"`
+	PublicNote    *PublicNote `json:"public_note,omitempty"`
+	Tag           *string     `json:"tag,omitempty"`
 
 	// TrafficPolicies 缺省不动既有策略；传数组则以这份为准（含空数组清空）。
 	TrafficPolicies *[]TrafficPolicyUpsert `json:"traffic_policies,omitempty"`

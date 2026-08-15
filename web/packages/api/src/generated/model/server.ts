@@ -38,4 +38,12 @@ export interface Server {
      * @maxLength 255
      */
   probe_target?: string;
+  /**
+     * 可选探测 TCP 端口，逗号分隔。空则用各探测从端默认端口。
+     * @maxLength 64
+     */
+  probe_tcp_ports?: string;
+  probe_enable_icmp?: boolean;
+  probe_enable_tcp?: boolean;
+  probe_enable_mtr?: boolean;
 }

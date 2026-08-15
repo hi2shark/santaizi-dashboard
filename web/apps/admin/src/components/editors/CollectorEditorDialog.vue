@@ -37,6 +37,7 @@ const form = reactive({
   enable_icmp: true,
   enable_tcp: true,
   enable_mtr: true,
+  ip_families: ['ipv4', 'ipv6'] as Array<'ipv4' | 'ipv6'>,
   notify: false,
   notification_tag: 'default',
   latency_notify: false,
@@ -144,6 +145,10 @@ async function reset(value?: CollectorRecord) {
     enable_icmp: value?.enable_icmp ?? true,
     enable_tcp: value?.enable_tcp ?? true,
     enable_mtr: value?.enable_mtr ?? true,
+    ip_families: [
+      ...(value?.enable_ipv4 === false ? [] : ['ipv4' as const]),
+      ...(value?.enable_ipv6 === false ? [] : ['ipv6' as const]),
+    ],
     notify: value?.notify ?? false,
     notification_tag: value?.notification_tag || 'default',
     latency_notify: value?.latency_notify ?? false,
@@ -164,6 +169,10 @@ async function reset(value?: CollectorRecord) {
 
 async function submit() {
   await formRef.value?.validate()
+  if (isProbe.value && !form.ip_families.length) {
+    ElMessage.warning(t('invalidProbeIPFamily'))
+    return
+  }
   const scopes = buildScopesForSubmit()
   const hasAll = scopes.some(scope => scope.type === 'all')
   const incomplete = scopes.some(scope => scope.type !== 'all' && !scope.value.trim())
@@ -178,6 +187,8 @@ async function submit() {
     enable_icmp: form.enable_icmp,
     enable_tcp: form.enable_tcp,
     enable_mtr: form.enable_mtr,
+    enable_ipv4: form.ip_families.includes('ipv4'),
+    enable_ipv6: form.ip_families.includes('ipv6'),
     notify: form.notify,
     notification_tag: form.notification_tag,
     latency_notify: form.latency_notify,
@@ -256,7 +267,13 @@ watch(() => props.modelValue, value => { if (value) void reset(props.value) })
         <template v-if="isProbe">
           <el-form-item :label="t('probeInterval')"><el-input v-model.number="form.probe_interval_seconds" inputmode="numeric" /></el-form-item>
           <el-form-item :label="t('mtrInterval')"><el-input v-model.number="form.mtr_interval_seconds" inputmode="numeric" /></el-form-item>
-          <el-form-item :label="t('tcpPorts')"><el-input v-model="form.tcp_ports" /></el-form-item>
+          <el-form-item :label="t('defaultTcpPorts')"><el-input v-model="form.tcp_ports" /></el-form-item>
+          <el-form-item :label="t('probeIPFamilies')" prop="ip_families" :rules="[{ required: true, type: 'array', min: 1, message: t('invalidProbeIPFamily') }]">
+            <el-select v-model="form.ip_families" multiple>
+              <el-option label="IPv4" value="ipv4" />
+              <el-option label="IPv6" value="ipv6" />
+            </el-select>
+          </el-form-item>
           <el-form-item :label="t('failThreshold')"><el-input v-model.number="form.fail_threshold" inputmode="numeric" /></el-form-item>
           <el-form-item :label="t('notificationGroup')">
             <el-select v-model="form.notification_tag" filterable allow-create>

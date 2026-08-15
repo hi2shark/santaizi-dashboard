@@ -94,16 +94,16 @@ const observerOptions = computed(() => {
 
 const filteredPaths = computed(() => paths.value.filter((path) => {
   if (observerFilter.value && path.observer_id !== observerFilter.value) return false
-  if (linkFilter.value === 'connected' && !path.sink.connected) return false
-  if (linkFilter.value === 'disconnected' && path.sink.connected) return false
+  if (linkFilter.value === 'connected' && !pathLive(path)) return false
+  if (linkFilter.value === 'disconnected' && pathLive(path)) return false
   return true
 }))
 
 const filteredProbePaths = computed(() => probePaths.value.filter((path) => {
   if (observerFilter.value && path.collector_id !== observerFilter.value) return false
   if (path.target?.source === 'none') return !linkFilter.value
-  if (linkFilter.value === 'connected' && !path.reachable) return false
-  if (linkFilter.value === 'disconnected' && path.reachable) return false
+  if (linkFilter.value === 'connected' && !probeLive(path)) return false
+  if (linkFilter.value === 'disconnected' && probeLive(path)) return false
   return true
 }))
 
@@ -172,6 +172,22 @@ function collectorStatus(row: CollectorRecord) {
   return row.revoked ? 'offline' : (row.status || 'unknown')
 }
 
+function collectorOnline(id: string) {
+  const row = collectors.value.find(item => item.id === id)
+  return Boolean(row && collectorStatus(row) === 'online')
+}
+
+function pathLive(path: ConnectionPath) {
+  if (!path.sink.connected) return false
+  if (path.observer_kind === 'primary' || path.observer_id === 'primary') return true
+  return collectorOnline(path.observer_id)
+}
+
+function probeLive(path: ProbePath) {
+  if (!collectorOnline(path.collector_id)) return false
+  return Boolean(path.reachable && path.sampled_at)
+}
+
 function collectorRttTone(row: CollectorRecord) {
   return collectorStatus(row) === 'online' ? 'is-connected' : 'is-disconnected'
 }
@@ -223,6 +239,7 @@ function hasMatrixCell(row: PathMatrixRow, observer: MatrixObserver) {
 
 function probeChipText(path: ProbePath) {
   if (path.target?.source === 'none') return '—'
+  if (!collectorOnline(path.collector_id)) return t('disconnected')
   if (path.reachable && path.sampled_at) return latencyText(path.display_rtt_ms, path.sampled_at)
   return t('probeTimeout')
 }
@@ -232,28 +249,30 @@ function matrixCells(row: PathMatrixRow, observer: MatrixObserver): MatrixCell[]
     const path = row.probeCells[observer.id]
     if (!path) return []
     const noTarget = path.target?.source === 'none'
+    const live = probeLive(path)
     return [{
       kind: 'probe',
       probe: path,
-      connected: path.reachable,
-      hasError: Boolean(path.last_error),
-      title: path.last_error ? lastErrorText(path.last_error) : sampledTitle(path.sampled_at),
+      connected: live,
+      hasError: Boolean(path.last_error) && collectorOnline(path.collector_id),
+      title: live ? sampledTitle(path.sampled_at) : (path.last_error && collectorOnline(path.collector_id) ? lastErrorText(path.last_error) : undefined),
       text: probeChipText(path),
-      sampled: noTarget ? '' : sampledClock(path.sampled_at),
+      sampled: live && !noTarget ? sampledClock(path.sampled_at) : '',
     }]
   }
   const path = row.cells[observer.id]
   if (!path) return []
+  const live = pathLive(path)
   return [{
     kind: 'observer',
     path,
-    connected: path.sink.connected,
+    connected: live,
     hasError: Boolean(path.sink.last_error),
-    title: path.sink.last_error ? lastErrorText(path.sink.last_error) : (path.sink.connected ? sampledTitle(path.sink.rtt_sampled_at) : undefined),
-    text: path.sink.connected
+    title: path.sink.last_error ? lastErrorText(path.sink.last_error) : (live ? sampledTitle(path.sink.rtt_sampled_at) : undefined),
+    text: live
       ? latencyText(path.sink.last_rtt_ms, path.sink.rtt_sampled_at)
       : t('disconnected'),
-    sampled: path.sink.connected ? sampledClock(path.sink.rtt_sampled_at) : '',
+    sampled: live ? sampledClock(path.sink.rtt_sampled_at) : '',
   }]
 }
 
@@ -514,13 +533,13 @@ onUnmounted(() => {
         <div v-else class="mobile-card-list">
           <article v-for="row in filteredPaths" :key="pathRowKey(row)" class="mobile-card" @click="openPath(row)">
             <div class="mobile-card-head">
-              <span class="mobile-card-status"><span class="status-dot" :class="row.sink.connected ? 'online' : 'offline'"></span></span>
+              <span class="mobile-card-status"><span class="status-dot" :class="pathLive(row) ? 'online' : 'offline'"></span></span>
               <div class="mobile-card-title"><strong>{{ row.server_name || '—' }}</strong><small>{{ observerLabel(row) }}</small></div>
             </div>
             <dl class="mobile-card-meta">
-              <div><dt>{{ t('linkStatus') }}</dt><dd>{{ t(row.sink.connected ? 'connected' : 'disconnected') }}</dd></div>
+              <div><dt>{{ t('linkStatus') }}</dt><dd>{{ t(pathLive(row) ? 'connected' : 'disconnected') }}</dd></div>
               <div><dt>{{ t('lastObservation') }}</dt><dd>{{ pretty(row.last_seen, 'last_seen') }}</dd></div>
-              <div><dt>{{ t('latency') }}</dt><dd>{{ latencyText(row.sink.last_rtt_ms, row.sink.rtt_sampled_at) }}</dd></div>
+              <div><dt>{{ t('latency') }}</dt><dd>{{ pathLive(row) ? latencyText(row.sink.last_rtt_ms, row.sink.rtt_sampled_at) : t('disconnected') }}</dd></div>
               <div><dt>{{ t('pendingEvents') }}</dt><dd>{{ pretty(row.sink.pending_events, 'pending_events') }}</dd></div>
               <div>
                 <dt>{{ t('lastError') }}</dt>
@@ -530,7 +549,7 @@ onUnmounted(() => {
           </article>
           <article v-for="row in filteredProbePaths" :key="probeRowKey(row)" class="mobile-card" @click="openProbe(row)">
             <div class="mobile-card-head">
-              <span class="mobile-card-status"><span class="status-dot" :class="row.reachable ? 'online' : 'offline'"></span></span>
+              <span class="mobile-card-status"><span class="status-dot" :class="probeLive(row) ? 'online' : 'offline'"></span></span>
               <div class="mobile-card-title"><strong>{{ row.server_name || '—' }}</strong><small>{{ row.collector_name }}</small></div>
             </div>
             <dl class="mobile-card-meta">
@@ -556,8 +575,8 @@ onUnmounted(() => {
       <div><dt>{{ t('lastSeen') }}</dt><dd>{{ pretty(activeCollector.last_seen, 'last_seen') }}</dd></div>
       <div v-if="!isProbeCollector(activeCollector)"><dt>{{ t('lastSync') }}</dt><dd>{{ pretty(activeCollector.last_sync, 'last_sync') }}</dd></div>
       <div><dt>{{ t('lastPrimarySeen') }}</dt><dd>{{ pretty(activeCollector.last_primary_seen, 'last_primary_seen') }}</dd></div>
-      <div><dt>{{ t('heartbeatLatency') }}</dt><dd>{{ latencyText(activeCollector.heartbeat_rtt_ms, activeCollector.heartbeat_rtt_sampled_at) }}</dd></div>
-      <div v-if="!isProbeCollector(activeCollector)"><dt>{{ t('replicationLatency') }}</dt><dd>{{ latencyText(activeCollector.replication_rtt_ms, activeCollector.replication_rtt_sampled_at) }}</dd></div>
+      <div><dt>{{ t('heartbeatLatency') }}</dt><dd>{{ collectorStatus(activeCollector) === 'online' ? latencyText(activeCollector.heartbeat_rtt_ms, activeCollector.heartbeat_rtt_sampled_at) : t('offline') }}</dd></div>
+      <div v-if="!isProbeCollector(activeCollector)"><dt>{{ t('replicationLatency') }}</dt><dd>{{ collectorStatus(activeCollector) === 'online' ? latencyText(activeCollector.replication_rtt_ms, activeCollector.replication_rtt_sampled_at) : t('offline') }}</dd></div>
       <div v-if="!isProbeCollector(activeCollector)"><dt>{{ t('connectedAgents') }}</dt><dd>{{ pretty(activeCollector.connected_agents, 'connected_agents') }}</dd></div>
       <div v-if="!isProbeCollector(activeCollector)"><dt>{{ t('pendingRecords') }}</dt><dd>{{ pretty(activeCollector.pending_records, 'pending_records') }}</dd></div>
       <div v-if="!isProbeCollector(activeCollector)"><dt>{{ t('oldestPending') }}</dt><dd>{{ pretty(activeCollector.oldest_pending, 'oldest_pending') }}</dd></div>
@@ -583,9 +602,9 @@ onUnmounted(() => {
     <div class="page-stack">
     <dl v-if="activePath" class="mobile-card-meta">
       <div><dt>{{ t('observer') }}</dt><dd>{{ observerLabel(activePath) }}</dd></div>
-      <div><dt>{{ t('linkStatus') }}</dt><dd>{{ t(activePath.sink.connected ? 'connected' : 'disconnected') }}</dd></div>
+      <div><dt>{{ t('linkStatus') }}</dt><dd>{{ t(pathLive(activePath) ? 'connected' : 'disconnected') }}</dd></div>
       <div><dt>{{ t('lastObservation') }}</dt><dd>{{ pretty(activePath.last_seen, 'last_seen') }}</dd></div>
-      <div><dt>{{ t('latency') }}</dt><dd>{{ latencyText(activePath.sink.last_rtt_ms, activePath.sink.rtt_sampled_at) }}</dd></div>
+      <div><dt>{{ t('latency') }}</dt><dd>{{ pathLive(activePath) ? latencyText(activePath.sink.last_rtt_ms, activePath.sink.rtt_sampled_at) : t('disconnected') }}</dd></div>
       <div><dt>{{ t('pendingEvents') }}</dt><dd>{{ pretty(activePath.sink.pending_events, 'pending_events') }}</dd></div>
       <div><dt>{{ t('ackThrough') }}</dt><dd>{{ pretty(activePath.sink.ack_through, 'ack_through') }}</dd></div>
       <div><dt>{{ t('lastError') }}</dt><dd><CopyableId :value="activePath.sink.last_error" :compact="false" /></dd></div>

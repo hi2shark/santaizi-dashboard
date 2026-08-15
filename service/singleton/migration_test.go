@@ -44,6 +44,12 @@ func TestOpenDBFromPathCreatesVersionedSchema(t *testing.T) {
 	if !db.Migrator().HasColumn(&model.CollectorRuntime{}, "software_version") {
 		t.Fatal("collector_runtimes software_version column was not created")
 	}
+	if !db.Migrator().HasColumn(&model.Server{}, "probe_tcp_ports") || !db.Migrator().HasColumn(&model.Server{}, "probe_enable_icmp") {
+		t.Fatal("server probe override columns were not created")
+	}
+	if !db.Migrator().HasColumn(&model.Collector{}, "enable_ipv4") || !db.Migrator().HasColumn(&model.Collector{}, "enable_ipv6") {
+		t.Fatal("collector ip family columns were not created")
+	}
 }
 
 func TestOpenDBFromPathRejectsUnversionedDatabase(t *testing.T) {
@@ -109,10 +115,61 @@ func TestMigrateV12AddsCollectorRuntimeSoftwareVersion(t *testing.T) {
 	if err := db.Model(&model.SchemaMigration{}).Select("COALESCE(MAX(version), 0)").Scan(&current).Error; err != nil {
 		t.Fatal(err)
 	}
-	if current != 12 {
+	if current != 13 {
 		t.Fatalf("version = %d", current)
 	}
 	if err := db.Create(&model.CollectorRuntime{CollectorUUID: "c1", Status: "online", SoftwareVersion: "1.2.3"}).Error; err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestMigrateV13AddsServerProbeOverrides(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "v12.db")
+	db, err := gorm.Open(sqlite.Open(path), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := CloseDB(db); err != nil {
+			t.Errorf("close db: %v", err)
+		}
+	})
+	if err := db.AutoMigrate(&model.SchemaMigration{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec(`CREATE TABLE servers (
+		id INTEGER PRIMARY KEY,
+		name TEXT,
+		secret_ciphertext BLOB NOT NULL,
+		probe_target TEXT
+	)`).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec(`CREATE TABLE collectors (
+		collector_uuid TEXT PRIMARY KEY,
+		name TEXT NOT NULL,
+		address TEXT NOT NULL,
+		token_ciphertext BLOB NOT NULL
+	)`).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.SchemaMigration{Version: 12, AppliedAt: time.Now().UTC()}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if db.Migrator().HasColumn(&model.Server{}, "probe_tcp_ports") {
+		t.Fatal("fixture should omit probe_tcp_ports")
+	}
+	if err := migrateDatabase(db); err != nil {
+		t.Fatal(err)
+	}
+	if !db.Migrator().HasColumn(&model.Server{}, "probe_tcp_ports") || !db.Migrator().HasColumn(&model.Collector{}, "enable_ipv4") {
+		t.Fatal("v13 should add probe override columns")
+	}
+	var current uint64
+	if err := db.Model(&model.SchemaMigration{}).Select("COALESCE(MAX(version), 0)").Scan(&current).Error; err != nil {
+		t.Fatal(err)
+	}
+	if current != 13 {
+		t.Fatalf("version = %d", current)
 	}
 }

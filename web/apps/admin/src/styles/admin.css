@@ -6,9 +6,8 @@
 .brand { min-height: 48px; display: flex; align-items: center; gap: var(--icon-text-gap); padding: 4px 10px 18px; color: var(--sz-text); font-size: 16px; font-weight: 700; text-decoration: none; white-space: nowrap; line-height: 1; }
 .brand img { width: 34px; height: 34px; object-fit: contain; flex: 0 0 auto; display: block; }
 .admin-sidebar nav { display: grid; gap: 5px; }
-.nav-item, .collapse-button { min-height: 44px; display: flex; align-items: center; gap: var(--icon-text-gap); padding: 0 13px; border: 0; border-radius: 10px; color: var(--sz-sidebar-text); background: transparent; text-decoration: none; cursor: pointer; white-space: nowrap; line-height: 1; transition: background .18s ease,color .18s ease; }
-.admin-sidebar nav i,
-.collapse-button i {
+.nav-item { min-height: 44px; display: flex; align-items: center; gap: var(--icon-text-gap); padding: 0 13px; border: 0; border-radius: 10px; color: var(--sz-sidebar-text); background: transparent; text-decoration: none; cursor: pointer; white-space: nowrap; line-height: 1; transition: background .18s ease,color .18s ease; }
+.admin-sidebar nav i {
   width: 22px;
   height: 22px;
   font-size: 20px;
@@ -120,8 +119,6 @@
   white-space: nowrap;
 }
 .admin-layout.collapsed .sidebar-version { padding: 0; text-align: center; }
-.collapse-button { width: 100%; }
-.collapse-button:hover { background: var(--sz-sidebar-hover); }
 .addon-toggle.el-button { width: 100%; min-height: 44px; justify-content: flex-start; padding: 0 13px; color: var(--sz-sidebar-text); border-radius: 10px; }
 .addon-toggle.el-button:hover,.addon-toggle.el-button.active { color: var(--sz-sidebar-active-text); background: var(--sz-sidebar-active); }
 .addon-toggle.el-button > span { width: 100%; justify-content: flex-start; gap: var(--icon-text-gap); }
@@ -135,7 +132,7 @@
   flex-direction: column;
   overflow: hidden;
 }
-.admin-topbar { position: sticky; z-index: 30; top: 0; min-height: 68px; display: flex; align-items: center; gap: 10px; padding: 0 28px; border-bottom: 0; background: var(--sz-sidebar); }
+.admin-topbar { position: sticky; z-index: 30; top: 0; min-height: 68px; display: flex; align-items: center; gap: 10px; padding: 0 28px 0 16px; border-bottom: 0; background: var(--sz-sidebar); }
 .topbar-spacer { flex: 1; }
 .topbar-icon, .mobile-menu {
   width: var(--control-height);

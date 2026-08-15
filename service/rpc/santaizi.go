@@ -157,7 +157,7 @@ func (s *SantaiziHandler) ReportSystemInfo(c context.Context, r *pb.Host) (*pb.R
 				serverName, singleton.IPDesensitize(oldHostIP),
 				singleton.IPDesensitize(host.IP),
 			),
-			nil)
+			singleton.NotificationMuteLabel.IPChanged(clientID))
 	}
 
 	// 更新持久化运行态与离线历史，必须在释放 ServerLock 后再执行

@@ -42,6 +42,10 @@ type TraceResult struct {
 }
 
 func ICMP(ctx context.Context, host string, count int, timeout time.Duration) ICMPResult {
+	return ICMPOn(ctx, host, "", count, timeout)
+}
+
+func ICMPOn(ctx context.Context, host, network string, count int, timeout time.Duration) ICMPResult {
 	if count <= 0 {
 		count = 5
 	}
@@ -57,6 +61,9 @@ func ICMP(ctx context.Context, host string, count int, timeout time.Duration) IC
 	if err != nil {
 		result.Error = err.Error()
 		return result
+	}
+	if network != "" {
+		pinger.SetNetwork(network)
 	}
 	pinger.SetPrivileged(true)
 	pinger.Count = count
@@ -99,6 +106,10 @@ func ICMP(ctx context.Context, host string, count int, timeout time.Duration) IC
 }
 
 func TCP(ctx context.Context, host string, port uint, timeout time.Duration) TCPResult {
+	return TCPOn(ctx, host, "tcp", port, timeout)
+}
+
+func TCPOn(ctx context.Context, host, network string, port uint, timeout time.Duration) TCPResult {
 	result := TCPResult{Port: port}
 	if strings.TrimSpace(host) == "" || port == 0 || port > 65535 {
 		result.Error = "invalid tcp target"
@@ -107,9 +118,12 @@ func TCP(ctx context.Context, host string, port uint, timeout time.Duration) TCP
 	if timeout <= 0 {
 		timeout = 3 * time.Second
 	}
+	if network == "" {
+		network = "tcp"
+	}
 	dialer := net.Dialer{Timeout: timeout}
 	started := time.Now()
-	conn, err := dialer.DialContext(ctx, "tcp", net.JoinHostPort(host, strconv.FormatUint(uint64(port), 10)))
+	conn, err := dialer.DialContext(ctx, network, net.JoinHostPort(host, strconv.FormatUint(uint64(port), 10)))
 	result.RTT = time.Since(started)
 	if err != nil {
 		result.Error = err.Error()
@@ -121,6 +135,10 @@ func TCP(ctx context.Context, host string, port uint, timeout time.Duration) TCP
 }
 
 func MTR(ctx context.Context, host string, maxTTL, probesPerHop int, timeout time.Duration) TraceResult {
+	return MTROn(ctx, host, "", maxTTL, probesPerHop, timeout)
+}
+
+func MTROn(ctx context.Context, host, family string, maxTTL, probesPerHop int, timeout time.Duration) TraceResult {
 	if maxTTL <= 0 {
 		maxTTL = 30
 	}
@@ -135,7 +153,10 @@ func MTR(ctx context.Context, host string, maxTTL, probesPerHop int, timeout tim
 	if err != nil || len(ips) == 0 {
 		return trace
 	}
-	dest := ips[0].IP
+	dest := pickIP(ips, family)
+	if dest == nil {
+		return trace
+	}
 	trace.Destination = dest.String()
 	network := "ip4:icmp"
 	if dest.To4() == nil {
@@ -256,6 +277,95 @@ func checksum(data []byte) uint16 {
 		sum = (sum >> 16) + (sum & 0xffff)
 	}
 	return ^uint16(sum)
+}
+
+type Destination struct {
+	Host    string
+	ICMPNet string
+	TCPNet  string
+}
+
+func Destinations(ipv4, ipv6, hostname string, enable4, enable6 bool) []Destination {
+	if !enable4 && !enable6 {
+		enable4, enable6 = true, true
+	}
+	var dests []Destination
+	if enable4 {
+		host := strings.TrimSpace(ipv4)
+		if host == "" {
+			host = strings.TrimSpace(hostname)
+		}
+		if host != "" {
+			dests = append(dests, Destination{Host: host, ICMPNet: "ip4", TCPNet: "tcp4"})
+		}
+	}
+	if enable6 {
+		host := strings.TrimSpace(ipv6)
+		if host == "" {
+			host = strings.TrimSpace(hostname)
+		}
+		if host != "" {
+			dests = append(dests, Destination{Host: host, ICMPNet: "ip6", TCPNet: "tcp6"})
+		}
+	}
+	return dests
+}
+
+func MergeICMP(results []ICMPResult) ICMPResult {
+	var best ICMPResult
+	for i, item := range results {
+		if i == 0 {
+			best = item
+			continue
+		}
+		if item.OK && (!best.OK || (item.RTT > 0 && (best.RTT == 0 || item.RTT < best.RTT))) {
+			best = item
+		}
+	}
+	return best
+}
+
+func MergeTCPByPort(results []TCPResult) []TCPResult {
+	order := make([]uint, 0, len(results))
+	byPort := map[uint]TCPResult{}
+	for _, item := range results {
+		prev, ok := byPort[item.Port]
+		if !ok {
+			order = append(order, item.Port)
+			byPort[item.Port] = item
+			continue
+		}
+		if item.OK && (!prev.OK || (item.RTT > 0 && (prev.RTT == 0 || item.RTT < prev.RTT))) {
+			byPort[item.Port] = item
+		}
+	}
+	out := make([]TCPResult, 0, len(order))
+	for _, port := range order {
+		out = append(out, byPort[port])
+	}
+	return out
+}
+
+func pickIP(ips []net.IPAddr, family string) net.IP {
+	for _, item := range ips {
+		if item.IP == nil {
+			continue
+		}
+		is4 := item.IP.To4() != nil
+		switch family {
+		case "ip4":
+			if is4 {
+				return item.IP
+			}
+		case "ip6":
+			if !is4 {
+				return item.IP
+			}
+		default:
+			return item.IP
+		}
+	}
+	return nil
 }
 
 func FormatHost(ipv4, ipv6, hostname string) string {

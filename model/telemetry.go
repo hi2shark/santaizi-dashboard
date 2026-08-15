@@ -112,6 +112,8 @@ type Collector struct {
 	EnableICMP        bool   `gorm:"not null;default:1"`
 	EnableTCP         bool   `gorm:"not null;default:1"`
 	EnableMTR         bool   `gorm:"not null;default:1"`
+	EnableIPv4        *bool  `gorm:"not null;default:1"`
+	EnableIPv6        *bool  `gorm:"not null;default:1"`
 	ProbeNotify       bool
 	NotificationTag   string `gorm:"size:64"`
 	LatencyNotify     bool
@@ -160,6 +162,18 @@ func (c *Collector) ApplyProbeDefaults() {
 	if c.NotificationTag == "" {
 		c.NotificationTag = "default"
 	}
+	if !BoolOrTrue(c.EnableIPv4) && !BoolOrTrue(c.EnableIPv6) {
+		c.EnableIPv4 = BoolPtr(true)
+		c.EnableIPv6 = BoolPtr(true)
+	}
+}
+
+func BoolOrTrue(value *bool) bool {
+	return value == nil || *value
+}
+
+func BoolPtr(value bool) *bool {
+	return &value
 }
 
 func (c *Collector) BeforeSave(_ *gorm.DB) error {

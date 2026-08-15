@@ -72,14 +72,18 @@ func (r *Runtime) probeLoop() {
 }
 
 func (r *Runtime) runProbeTarget(ctx context.Context, target model.CollectorCachedProbeTarget, state *probeState, now time.Time) *pb.ProbeSample {
-	host := netprobe.FormatHost(target.IPv4, target.IPv6, target.Hostname)
-	if host == "" {
+	dests := netprobe.Destinations(target.IPv4, target.IPv6, target.Hostname, target.EnableIPv4, target.EnableIPv6)
+	if len(dests) == 0 {
 		return nil
 	}
 	sample := &pb.ProbeSample{ServerId: target.ServerID, SampledAtUnixNano: now.UnixNano()}
 	var icmp netprobe.ICMPResult
 	if target.EnableICMP {
-		icmp = netprobe.ICMP(ctx, host, 5, 2*time.Second)
+		var results []netprobe.ICMPResult
+		for _, dest := range dests {
+			results = append(results, netprobe.ICMPOn(ctx, dest.Host, dest.ICMPNet, 5, 2*time.Second))
+		}
+		icmp = netprobe.MergeICMP(results)
 		sample.Icmp = &pb.ProbeICMPSample{
 			Ok: icmp.OK, RttMs: durationMilliseconds(icmp.RTT), Loss: icmp.Loss,
 			PacketsSent: uint32(icmp.Sent), PacketsReceived: uint32(icmp.Received), Error: icmp.Error,
@@ -87,22 +91,34 @@ func (r *Runtime) runProbeTarget(ctx context.Context, target model.CollectorCach
 	}
 	var tcpResults []netprobe.TCPResult
 	if target.EnableTCP {
-		for _, port := range netprobe.ParsePorts(target.TCPPorts) {
-			result := netprobe.TCP(ctx, host, port, 3*time.Second)
-			tcpResults = append(tcpResults, result)
+		for _, dest := range dests {
+			for _, port := range netprobe.ParsePorts(target.TCPPorts) {
+				tcpResults = append(tcpResults, netprobe.TCPOn(ctx, dest.Host, dest.TCPNet, port, 3*time.Second))
+			}
+		}
+		tcpResults = netprobe.MergeTCPByPort(tcpResults)
+		for _, result := range tcpResults {
 			sample.Tcp = append(sample.Tcp, &pb.ProbeTCPSample{
 				Port: uint32(result.Port), Ok: result.OK, RttMs: durationMilliseconds(result.RTT), Error: result.Error,
 			})
 		}
 	}
-	reachable := icmp.OK
+	hasConnectivity := target.EnableICMP || target.EnableTCP
+	reachable := false
+	if target.EnableICMP {
+		reachable = icmp.OK
+	}
 	for _, item := range tcpResults {
 		if item.OK {
 			reachable = true
 			break
 		}
 	}
-	sample.LastError = netprobe.DisplayError(icmp, tcpResults)
+	if !hasConnectivity {
+		reachable = true
+	} else {
+		sample.LastError = netprobe.DisplayError(icmp, tcpResults)
+	}
 	flipped := state.lastReachable != nil && *state.lastReachable != reachable
 	state.lastReachable = &reachable
 	mtrEvery := time.Duration(target.MTRIntervalSec) * time.Second
@@ -110,7 +126,14 @@ func (r *Runtime) runProbeTarget(ctx context.Context, target model.CollectorCach
 		mtrEvery = 5 * time.Minute
 	}
 	if target.EnableMTR && (flipped || state.lastMTR.IsZero() || now.Sub(state.lastMTR) >= mtrEvery) {
-		trace := netprobe.MTR(ctx, host, 30, 3, time.Second)
+		mtrHost, mtrFamily := dests[0].Host, dests[0].ICMPNet
+		for _, dest := range dests {
+			if dest.ICMPNet == "ip4" {
+				mtrHost, mtrFamily = dest.Host, dest.ICMPNet
+				break
+			}
+		}
+		trace := netprobe.MTROn(ctx, mtrHost, mtrFamily, 30, 3, time.Second)
 		state.lastMTR = now
 		pbTrace := &pb.ProbeMTRTrace{SampledAtUnixNano: now.UnixNano(), Destination: trace.Destination}
 		for _, hop := range trace.Hops {

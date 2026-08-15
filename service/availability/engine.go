@@ -201,52 +201,116 @@ func classify(healthy, seen, minimum uint32) (string, string) {
 	return host, connectivity
 }
 
-func reviseIncident(tx *gorm.DB, bucket model.AvailabilityBucket, bucketSize int64, recalculatedAt time.Time) error {
-	classification := ""
+func incidentClassification(bucket model.AvailabilityBucket) string {
 	switch {
 	case bucket.HostState == model.HostStateOffline:
-		classification = "HOST_OFFLINE"
+		return "HOST_OFFLINE"
 	case bucket.ConnectivityState == model.ConnectivityPartial:
-		classification = "CONNECTIVITY_DEGRADED"
+		return "CONNECTIVITY_DEGRADED"
 	case bucket.HostState == model.HostStateUnknown:
-		classification = "EVIDENCE_UNKNOWN"
+		return "EVIDENCE_UNKNOWN"
 	default:
-		classification = "HEALTHY"
+		return "HEALTHY"
 	}
-	var incident model.AvailabilityIncident
-	err := tx.Where("node_uuid = ? AND started_at = ?", bucket.NodeUUID, bucket.BucketStart).First(&incident).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		if classification == "HEALTHY" {
-			return nil
-		}
-		incident = model.AvailabilityIncident{
-			NodeUUID: bucket.NodeUUID, InitialClassification: classification, CurrentClassification: classification,
-			Revision: 1, StartedAt: bucket.BucketStart, EndedAt: bucket.BucketStart + bucketSize,
-			RecalculatedAt: recalculatedAt.UnixNano(), Reason: "availability evidence", ObserverEvidence: bucket.ObserverSummary,
-		}
-		if err := tx.Create(&incident).Error; err != nil {
-			return err
-		}
-		return tx.Create(&model.IncidentRevision{
-			IncidentID: incident.ID, Revision: 1, Classification: classification, Reason: incident.Reason,
-			Evidence: bucket.ObserverSummary, RecalculatedAt: recalculatedAt.UnixNano(),
-		}).Error
-	}
+}
+
+func reviseIncident(tx *gorm.DB, bucket model.AvailabilityBucket, bucketSize int64, recalculatedAt time.Time) error {
+	classification := incidentClassification(bucket)
+	bucketEnd := bucket.BucketStart + bucketSize
+	incident, found, err := lookupIncident(tx, bucket.NodeUUID, bucket.BucketStart, bucketEnd)
 	if err != nil {
 		return err
 	}
-	if incident.CurrentClassification == classification && bytes.Equal(incident.ObserverEvidence, bucket.ObserverSummary) {
+	if classification == "HEALTHY" {
+		if !found {
+			return nil
+		}
+		if incident.StartedAt == bucket.BucketStart {
+			return applyIncidentUpdate(tx, incident, classification, bucket, bucketEnd, recalculatedAt)
+		}
+		if incident.EndedAt == 0 || incident.EndedAt > bucket.BucketStart {
+			incident.EndedAt = bucket.BucketStart
+			incident.RecalculatedAt = recalculatedAt.UnixNano()
+			return tx.Save(&incident).Error
+		}
 		return nil
+	}
+	if !found {
+		incident, found, err = lookupExtendableIncident(tx, bucket.NodeUUID, bucket.BucketStart)
+		if err != nil {
+			return err
+		}
+	}
+	if !found {
+		return createIncident(tx, bucket, classification, recalculatedAt)
+	}
+	return applyIncidentUpdate(tx, incident, classification, bucket, 0, recalculatedAt)
+}
+
+func lookupIncident(tx *gorm.DB, nodeUUID []byte, bucketStart, bucketEnd int64) (model.AvailabilityIncident, bool, error) {
+	incident, err := findIncident(tx, "node_uuid = ? AND started_at = ?", nodeUUID, bucketStart)
+	if err != nil || incident.ID != 0 {
+		return incident, incident.ID != 0, err
+	}
+	incident, err = findIncident(tx, "node_uuid = ? AND started_at < ? AND (ended_at = 0 OR ended_at >= ?)", nodeUUID, bucketStart, bucketEnd)
+	return incident, incident.ID != 0, err
+}
+
+func lookupExtendableIncident(tx *gorm.DB, nodeUUID []byte, bucketStart int64) (model.AvailabilityIncident, bool, error) {
+	incident, err := findIncident(tx, "node_uuid = ? AND ended_at = 0", nodeUUID)
+	if err != nil || incident.ID != 0 {
+		return incident, incident.ID != 0, err
+	}
+	incident, err = findIncident(tx, "node_uuid = ? AND ended_at = ? AND current_classification != ?", nodeUUID, bucketStart, "HEALTHY")
+	return incident, incident.ID != 0, err
+}
+
+func findIncident(tx *gorm.DB, query string, args ...any) (model.AvailabilityIncident, error) {
+	var incident model.AvailabilityIncident
+	err := tx.Where(query, args...).Order("started_at DESC").Limit(1).Find(&incident).Error
+	return incident, err
+}
+
+func createIncident(tx *gorm.DB, bucket model.AvailabilityBucket, classification string, recalculatedAt time.Time) error {
+	incident := model.AvailabilityIncident{
+		NodeUUID: bucket.NodeUUID, InitialClassification: classification, CurrentClassification: classification,
+		Revision: 1, StartedAt: bucket.BucketStart, EndedAt: 0,
+		RecalculatedAt: recalculatedAt.UnixNano(), Reason: "availability evidence", ObserverEvidence: bucket.ObserverSummary,
+	}
+	if err := tx.Create(&incident).Error; err != nil {
+		return err
+	}
+	return tx.Create(&model.IncidentRevision{
+		IncidentID: incident.ID, Revision: 1, Classification: classification, Reason: incident.Reason,
+		Evidence: bucket.ObserverSummary, RecalculatedAt: recalculatedAt.UnixNano(),
+	}).Error
+}
+
+func applyIncidentUpdate(tx *gorm.DB, incident model.AvailabilityIncident, classification string, bucket model.AvailabilityBucket, endedAt int64, recalculatedAt time.Time) error {
+	sameClass := incident.CurrentClassification == classification
+	sameEvidence := bytes.Equal(incident.ObserverEvidence, bucket.ObserverSummary)
+	if sameClass && sameEvidence && incident.EndedAt == endedAt {
+		return nil
+	}
+	if sameClass && sameEvidence {
+		incident.EndedAt = endedAt
+		incident.RecalculatedAt = recalculatedAt.UnixNano()
+		return tx.Save(&incident).Error
 	}
 	incident.Revision++
 	incident.CurrentClassification = classification
+	incident.EndedAt = endedAt
 	incident.RecalculatedAt = recalculatedAt.UnixNano()
 	incident.ObserverEvidence = bucket.ObserverSummary
 	if err := tx.Save(&incident).Error; err != nil {
 		return err
 	}
+	reason := "late evidence correction"
+	if sameClass {
+		reason = "availability evidence"
+	}
 	return tx.Create(&model.IncidentRevision{
 		IncidentID: incident.ID, Revision: incident.Revision, Classification: classification,
-		Reason: "late evidence correction", Evidence: bucket.ObserverSummary, RecalculatedAt: recalculatedAt.UnixNano(),
+		Reason: reason, Evidence: bucket.ObserverSummary, RecalculatedAt: recalculatedAt.UnixNano(),
 	}).Error
 }

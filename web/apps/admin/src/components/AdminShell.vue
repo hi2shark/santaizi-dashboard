@@ -57,14 +57,14 @@ function openItem(row: AdminMessage) { messages.openDetail(row.id) }
       </nav>
       <div class="sidebar-footer">
         <span v-if="panelVersion" class="sidebar-version" :title="panelVersion">{{ panelVersion }}</span>
-        <el-button text class="collapse-button" @click="toggle" :aria-label="collapsed ? t('expand') : t('collapse')">
-          <i :class="collapsed ? 'ri-arrow-right-double-line' : 'ri-arrow-left-double-line'"></i><span v-if="!collapsed">{{ t('collapse') }}</span>
-        </el-button>
       </div>
     </aside>
     <div class="admin-body">
       <header class="admin-topbar">
         <el-button class="mobile-menu" @click="mobileOpen=!mobileOpen" :aria-label="t('openNavigation')"><i class="ri-menu-line"></i></el-button>
+        <el-button class="topbar-icon collapse-button" @click="toggle" :aria-expanded="!collapsed" :aria-label="collapsed ? t('expand') : t('collapse')">
+          <i :class="collapsed ? 'ri-arrow-right-double-line' : 'ri-arrow-left-double-line'"></i>
+        </el-button>
         <div class="topbar-spacer"></div>
         <el-button class="topbar-icon" :aria-label="t('scriptCommands')" @click="scriptsOpen = true"><i class="ri-terminal-box-line"></i></el-button>
         <el-badge :value="messages.unreadCount" :hidden="!messages.unreadCount" :max="99" class="topbar-badge">

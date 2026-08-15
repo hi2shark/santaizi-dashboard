@@ -105,6 +105,19 @@ describe('buildTopology', () => {
     expect(graph.links).toEqual([])
   })
 
+  it('does not count path RTT when the collector is offline', () => {
+    const graph = buildTopology({
+      servers: [server(1, 'a', { country: 'SG' })],
+      collectors: [collector('c1', 'sin', { status: 'offline', heartbeat_rtt_ms: 18 })],
+      paths: [path(1, 'c1', 'collector', true)],
+      primaryLocation: 'CN',
+    })
+    const link = graph.links.find(item => item.kind === 'path' && item.toId === 'c1')
+    expect(link).toMatchObject({ connected: false, rttMs: undefined })
+    expect(graph.pathsConnected).toBe(0)
+    expect(graph.collectors[0]?.rttMs).toBeUndefined()
+  })
+
   it('builds path and replication links', () => {
     const graph = buildTopology({
       servers: [server(1, 'a', { country: 'SG' })],

@@ -123,6 +123,62 @@ func TestLoadConnectionPathsJoinsAssignmentPathAndSink(t *testing.T) {
 	}
 }
 
+func TestLoadConnectionPathsClearsOfflineCollectorRTT(t *testing.T) {
+	db := newConnectionDB(t)
+	now := time.Unix(1_700_000_090, 0)
+	node := bytes.Repeat([]byte{9}, 16)
+	server := model.Server{Name: "edge-a", Secret: "secret"}
+	if err := db.Create(&server).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.ServerNodeBinding{ServerID: server.ID, NodeUUID: node, Current: true, Reason: "test", ValidFrom: now.UnixNano()}).Error; err != nil {
+		t.Fatal(err)
+	}
+	createCollector(t, db, "collector-live", "Live")
+	createCollector(t, db, "collector-stale", "Stale")
+	if err := db.Create(&model.CollectorRuntime{CollectorUUID: "collector-live", Status: "online", LastSeen: now.Add(-10 * time.Second).UnixNano()}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.CollectorRuntime{CollectorUUID: "collector-stale", Status: "online", LastSeen: now.Add(-2 * time.Minute).UnixNano()}).Error; err != nil {
+		t.Fatal(err)
+	}
+	for _, observer := range []string{PrimaryObserverID, "collector-live", "collector-stale"} {
+		if err := db.Create(&model.ObserverAssignment{NodeUUID: node, ObserverID: observer, ValidFrom: now.UnixNano(), ConfigVersion: 1, Generation: 1}).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	runtime, err := proto.Marshal(&pb.AgentRuntime{Sinks: []*pb.SinkRuntime{
+		{EndpointId: PrimaryObserverID, Connected: true, LastRttMs: 12.5, RttSampledAtUnixNano: now.UnixNano()},
+		{EndpointId: "collector-live", Connected: true, LastRttMs: 33, RttSampledAtUnixNano: now.UnixNano()},
+		{EndpointId: "collector-stale", Connected: true, LastRttMs: 99, RttSampledAtUnixNano: now.UnixNano(), LastError: "old"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.AgentTelemetryRuntime{NodeUUID: node, SinkCursors: runtime}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	paths, err := loadConnectionPaths(db, PathFilter{}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	byObserver := map[string]ConnectionPath{}
+	for _, path := range paths {
+		byObserver[path.ObserverID] = path
+	}
+	if !byObserver[PrimaryObserverID].Sink.Connected || byObserver[PrimaryObserverID].Sink.LastRttMs != 12.5 {
+		t.Fatalf("primary=%#v", byObserver[PrimaryObserverID])
+	}
+	if !byObserver["collector-live"].Sink.Connected || byObserver["collector-live"].Sink.LastRttMs != 33 {
+		t.Fatalf("live=%#v", byObserver["collector-live"])
+	}
+	stale := byObserver["collector-stale"]
+	if stale.Sink.Connected || stale.Sink.LastRttMs != 0 || stale.Sink.RttSampledAt != 0 || stale.Sink.LastError != "old" {
+		t.Fatalf("stale should drop RTT and stay disconnected: %#v", stale)
+	}
+}
+
 func TestUpsertCollectorRuntimePreservesLastSyncOnHeartbeat(t *testing.T) {
 	db := newConnectionDB(t)
 	now := time.Unix(1_700_000_000, 0)

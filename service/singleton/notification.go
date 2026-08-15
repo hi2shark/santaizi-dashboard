@@ -107,7 +107,7 @@ func UnMuteNotification(notificationTag string, muteLabel *string) {
 
 // SendNotification 向指定的通知方式组的所有通知方式发送通知
 func SendNotification(notificationTag string, desc string, muteLabel *string, ext ...*model.Server) {
-	if muteLabel != nil {
+	if muteLabel != nil && Cache != nil {
 		// 将通知方式组名称加入静音标志
 		muteLabel := *NotificationMuteLabel.AppendNotificationTag(muteLabel, notificationTag)
 		// 通知防骚扰策略
@@ -141,7 +141,18 @@ func SendNotification(notificationTag string, desc string, muteLabel *string, ex
 			return
 		}
 	}
-	// 向该通知方式组的所有通知方式发出通知
+	if kind, names, ok := classifyNotification(desc); ok {
+		enqueueNotificationAggregate(notificationTag, kind, names, desc)
+		return
+	}
+	var server *model.Server
+	if len(ext) > 0 {
+		server = ext[0]
+	}
+	notificationDeliver(notificationTag, desc, server)
+}
+
+func deliverNotification(notificationTag, desc string, server *model.Server) {
 	notificationsLock.RLock()
 	defer notificationsLock.RUnlock()
 	for _, n := range NotificationList[notificationTag] {
@@ -150,11 +161,8 @@ func SendNotification(notificationTag string, desc string, muteLabel *string, ex
 	for _, n := range NotificationList[notificationTag] {
 		ns := model.NotificationServerBundle{
 			Notification: n,
-			Server:       nil,
+			Server:       server,
 			Loc:          Loc,
-		}
-		if len(ext) > 0 {
-			ns.Server = ext[0]
 		}
 		if err := ns.Send(desc); err != nil {
 			log.Println("SANTAIZI>> 向 ", n.Name, " 发送通知失败：", err)
@@ -205,5 +213,40 @@ func (_NotificationMuteLabel) ServiceStateChanged(serviceId uint64) *string {
 
 func (_NotificationMuteLabel) ServiceSSL(serviceId uint64, extraInfo string) *string {
 	label := fmt.Sprintf("bf::sssl-%d-%s", serviceId, extraInfo)
+	return &label
+}
+
+func (_NotificationMuteLabel) ServerOffline(serverId uint64) *string {
+	label := fmt.Sprintf("bf::soff-%d", serverId)
+	return &label
+}
+
+func (_NotificationMuteLabel) ServerRecovery(serverId uint64) *string {
+	label := fmt.Sprintf("bf::srec-%d", serverId)
+	return &label
+}
+
+func (_NotificationMuteLabel) ProbeDown(collectorUUID string, serverId uint64) *string {
+	label := fmt.Sprintf("bf::pd-%s-%d", collectorUUID, serverId)
+	return &label
+}
+
+func (_NotificationMuteLabel) ProbeUp(collectorUUID string, serverId uint64) *string {
+	label := fmt.Sprintf("bf::pu-%s-%d", collectorUUID, serverId)
+	return &label
+}
+
+func (_NotificationMuteLabel) ProbeLatency(collectorUUID string, serverId uint64) *string {
+	label := fmt.Sprintf("bf::pl-%s-%d", collectorUUID, serverId)
+	return &label
+}
+
+func (_NotificationMuteLabel) TrafficWarning(policyId uint64) *string {
+	label := fmt.Sprintf("bf::tw-%d", policyId)
+	return &label
+}
+
+func (_NotificationMuteLabel) TrafficExceeded(policyId uint64) *string {
+	label := fmt.Sprintf("bf::te-%d", policyId)
 	return &label
 }
