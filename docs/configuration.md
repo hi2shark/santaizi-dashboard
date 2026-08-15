@@ -81,7 +81,7 @@ grpc_tls:
   require_collector_mtls: false
 ```
 
-迁移：先升面板、两开关保持 false → 配置 Server 证并打开 `grpc_tls.enabled` → 升探针完成 Enroll → 升从端 Register+CSR → 确认两边已走 mTLS → 再分别打开 `require_agent_mtls` / `require_collector_mtls`。注册 Token 与 `client_secret` 变为 bootstrap；`--insecure` 仅测试。
+迁移：先升面板、两开关保持 false → 配置 Server 证并打开 `grpc_tls.enabled` → 升探针完成 Enroll → 升从端 Register+CSR → 确认两边已走 mTLS → 再分别打开 `require_agent_mtls` / `require_collector_mtls`。注册 Token 与 `client_secret` 变为 bootstrap；`--insecure` 仅测试。卸载重装会换 identity；旧探针已下线时同一密钥允许 Enroll 换绑。
 
 > 离线历史相关配置在后台设置页面保存后立即生效，无需重启 Dashboard。
 

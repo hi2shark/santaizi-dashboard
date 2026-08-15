@@ -336,8 +336,9 @@ func ServerIDFromNodeUUID(nodeUUID []byte) (uint64, error) {
 	return binding.ServerID, nil
 }
 
-// EnsureServerNodeAvailableForEnroll rejects Enroll when the server is already
-// bound to a different node UUID.
+// EnsureServerNodeAvailableForEnroll reports whether the server is currently
+// bound to a different node UUID. Enroll still allows rebind when no Control
+// session is online (uninstall/reinstall); a live session keeps the conflict.
 func EnsureServerNodeAvailableForEnroll(serverID uint64, nodeUUID []byte) error {
 	if len(nodeUUID) != 16 {
 		return errors.New("node UUID must be 16 bytes")

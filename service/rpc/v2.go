@@ -169,6 +169,8 @@ func (h *V2Handler) Control(stream grpc.BidiStreamingServer[pb.AgentControlReque
 		return status.Error(codes.Internal, err.Error())
 	}
 	session := newControlSession(serverID, hello, stream)
+	registerControlSession(session)
+	defer unregisterControlSession(session)
 	configVersion := singleton.CurrentTelemetryConfigVersion()
 	credential, err := h.signer.Sign(
 		hello.GetNodeUuid(), configVersion, time.Now(),
@@ -187,8 +189,6 @@ func (h *V2Handler) Control(stream grpc.BidiStreamingServer[pb.AgentControlReque
 	if err := session.send(&pb.PrimaryControlResponse{Body: &pb.PrimaryControlResponse_Assignment{Assignment: assignment}}); err != nil {
 		return err
 	}
-	registerControlSession(session)
-	defer unregisterControlSession(session)
 
 	requests := make(chan *pb.AgentControlRequest)
 	recvErr := make(chan error, 1)

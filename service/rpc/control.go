@@ -19,6 +19,7 @@ import (
 
 type controlSession struct {
 	serverID     uint64
+	nodeUUID     []byte
 	stream       grpc.BidiStreamingServer[pb.AgentControlRequest, pb.PrimaryControlResponse]
 	capabilities map[pb.AgentCapability]bool
 	sendMu       sync.Mutex
@@ -31,7 +32,12 @@ func newControlSession(serverID uint64, hello *pb.AgentControlHello, stream grpc
 			capabilities[capability] = true
 		}
 	}
-	return &controlSession{serverID: serverID, stream: stream, capabilities: capabilities}
+	return &controlSession{
+		serverID:     serverID,
+		nodeUUID:     append([]byte(nil), hello.GetNodeUuid()...),
+		stream:       stream,
+		capabilities: capabilities,
+	}
 }
 
 func (s *controlSession) send(response *pb.PrimaryControlResponse) error {

@@ -208,33 +208,84 @@ func TestEnrollmentWrongSecret(t *testing.T) {
 	}
 }
 
-func TestEnrollmentConflictBinding(t *testing.T) {
-	f := setupPrimaryGRPC(t, false)
+func (f *primaryFixture) enrollNode(t *testing.T, node []byte) *tls.Certificate {
+	t.Helper()
 	key, err := pki.GenerateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
-	csr, err := pki.CreateCSR(key, pki.EncodeAgentURI(f.node))
+	csr, err := pki.CreateCSR(key, pki.EncodeAgentURI(node))
 	if err != nil {
 		t.Fatal(err)
 	}
 	conn := f.dial(t, nil, nil, &EnrollmentCredential{ClientSecret: f.secret})
-	client := pb.NewSantaiziEnrollmentServiceClient(conn)
-	if _, err := client.Enroll(context.Background(), &pb.AgentEnrollRequest{NodeUuid: f.node, CsrDer: csr}); err != nil {
+	enroll, err := pb.NewSantaiziEnrollmentServiceClient(conn).Enroll(context.Background(), &pb.AgentEnrollRequest{
+		NodeUuid: node, CsrDer: csr,
+	})
+	if err != nil {
 		t.Fatal(err)
 	}
+	keyPEM, err := pki.MarshalPrivateKeyPEM(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cert, err := tls.X509KeyPair([]byte(enroll.GetCertificatePem()), keyPEM)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &cert
+}
+
+func (f *primaryFixture) holdControl(t *testing.T, node []byte, cert *tls.Certificate) {
+	t.Helper()
+	conn := f.dial(t, cert, nil, nil)
+	control, err := pb.NewSantaiziControlServiceClient(conn).Control(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := control.Send(&pb.AgentControlRequest{Body: &pb.AgentControlRequest_Hello{Hello: &pb.AgentControlHello{
+		NodeUuid: node, SessionId: bytes.Repeat([]byte{0x31}, 16), AgentVersion: "test",
+	}}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := control.Recv(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := control.Recv(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestEnrollmentConflictWhenOnline(t *testing.T) {
+	f := setupPrimaryGRPC(t, false)
+	cert := f.enrollNode(t, f.node)
+	f.holdControl(t, f.node, cert)
 	other := bytes.Repeat([]byte{0x22}, 16)
-	key2, err := pki.GenerateKey()
+	key, err := pki.GenerateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
-	csr2, err := pki.CreateCSR(key2, pki.EncodeAgentURI(other))
+	csr, err := pki.CreateCSR(key, pki.EncodeAgentURI(other))
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = client.Enroll(context.Background(), &pb.AgentEnrollRequest{NodeUuid: other, CsrDer: csr2})
+	conn := f.dial(t, nil, nil, &EnrollmentCredential{ClientSecret: f.secret})
+	_, err = pb.NewSantaiziEnrollmentServiceClient(conn).Enroll(context.Background(), &pb.AgentEnrollRequest{
+		NodeUuid: other, CsrDer: csr,
+	})
 	if status.Code(err) != codes.FailedPrecondition {
-		t.Fatalf("conflict: %v", err)
+		t.Fatalf("online conflict: %v", err)
+	}
+}
+
+func TestEnrollmentRebindWhenOffline(t *testing.T) {
+	f := setupPrimaryGRPC(t, false)
+	_ = f.enrollNode(t, f.node)
+	other := bytes.Repeat([]byte{0x22}, 16)
+	_ = f.enrollNode(t, other)
+	got, err := singleton.ServerIDFromNodeUUID(other)
+	if err != nil || got != f.serverID {
+		t.Fatalf("rebind serverID=%d err=%v", got, err)
 	}
 }
 

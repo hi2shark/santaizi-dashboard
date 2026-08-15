@@ -60,10 +60,13 @@ func (h *EnrollmentHandler) issueAgentCertificate(ctx context.Context, serverID 
 	}
 	if bind {
 		if err := singleton.EnsureServerNodeAvailableForEnroll(serverID, nodeUUID); err != nil {
-			if singleton.IsServerBoundToOtherNode(err) {
+			if !singleton.IsServerBoundToOtherNode(err) {
+				return nil, status.Error(codes.Internal, err.Error())
+			}
+			live := controlSessionForServer(serverID)
+			if live != nil && !bytes.Equal(live.nodeUUID, nodeUUID) {
 				return nil, status.Error(codes.FailedPrecondition, err.Error())
 			}
-			return nil, status.Error(codes.Internal, err.Error())
 		}
 		if _, err := singleton.BindServerNodeForProtocol(serverID, nodeUUID, time.Now(), pb.SourceProtocol_SOURCE_PROTOCOL_SANTAIZI_V2); err != nil {
 			return nil, status.Error(codes.Internal, err.Error())

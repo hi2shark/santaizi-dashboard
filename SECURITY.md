@@ -45,7 +45,7 @@ grpc_tls:
 
 1. 升级主面板，两开关保持 false
 2. 配置 Server 证书后打开 `grpc_tls.enabled`
-3. 升级探针，让其 Enroll 拿到 Agent 证
+3. 升级探针，让其 Enroll 拿到 Agent 证。卸载重装会换新 identity；旧探针已下线时，同一密钥允许换绑。仍在线的另一台探针继续拒绝。
 4. 升级从端，Register+CSR 拿到 Collector 证与 Agent CA
 5. 确认 Control / Ingest / Sync / Replicate 已走 mTLS
 6. 再分别打开 `require_agent_mtls` 与 `require_collector_mtls`
