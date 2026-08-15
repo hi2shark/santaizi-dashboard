@@ -70,8 +70,9 @@ async function copyCommand() {
 
 watch(() => props.modelValue, value => { if (value) void open() })
 watch(snapshotValue, () => {
+  if (!props.modelValue || loading.value) return
   command.value = ''
-  if (props.modelValue && !loading.value) void refreshPreview().catch(error => notifyAPIError(error, t as never, te))
+  void refreshPreview().catch(error => notifyAPIError(error, t as never, te))
 }, { deep: true })
 </script>
 

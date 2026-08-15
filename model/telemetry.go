@@ -138,6 +138,7 @@ type CollectorRuntime struct {
 	ReplicationCursor       uint64
 	ConnectedAgents         uint64
 	ProtocolVersion         string
+	SoftwareVersion         string
 	HeartbeatRttMs          float64
 	HeartbeatRttSampledAt   int64
 	ReplicationRttMs        float64

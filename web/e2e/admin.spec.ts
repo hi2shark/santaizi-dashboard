@@ -26,7 +26,7 @@ test.beforeEach(async ({ page }) => {
     const method = route.request().method()
     if (path.endsWith('/auth/session')) {
       return fulfillJSON(route, item({
-        authenticated: true, csrf_token: 'test-csrf', login_url: '/oauth2/login',
+        authenticated: true, csrf_token: 'test-csrf', login_url: '/oauth2/login', version: '1.2.3',
         capabilities: ['*'], user: { id: 1, login: 'admin', name: 'Admin', super_admin: true },
       }))
     }
@@ -362,11 +362,11 @@ test('dirty editor blocks escape and confirms cancellation', async ({ page }) =>
 })
 
 test('collector and API token credentials can be viewed again by stable identifier', async ({ page }) => {
-  const collector = { id: 'collector-1', name: 'Shanghai edge', address: 'collector.example.com:5555', listen_port: 5556, tls: true, insecure_tls: false, generation: 1, config_version: 1, status: 'online', revoked: false, connected_agents: 3, pending_records: 1, scopes: [{ type: 'all', value: '' }] }
+  const collector = { id: 'collector-1', name: 'Shanghai edge', address: 'collector.example.com:5555', listen_port: 5556, tls: true, insecure_tls: false, generation: 1, config_version: 1, software_version: '1.4.0', status: 'online', revoked: false, connected_agents: 3, pending_records: 1, scopes: [{ type: 'all', value: '' }] }
   await page.route('**/api/v2/admin/telemetry/collectors**', route => {
     const path = new URL(route.request().url()).pathname
     if (path.endsWith('/token')) return fulfillJSON(route, item({ collector_id: 'collector-1', registration_token: 'collector-token', revoked: false }))
-    if (path.endsWith('/install-preview')) return fulfillJSON(route, item({ command: "curl -fsSL 'https://example.invalid/install_collector.sh' | bash -s -- --primary-endpoint '127.0.0.1:5555' --token 'collector-token' --grpc-port 5556", primary_endpoint: '127.0.0.1:5555', grpc_port: 5556, primary_tls: true, primary_insecure_tls: false }))
+    if (path.endsWith('/install-preview')) return fulfillJSON(route, item({ command: "curl -fsSL 'https://example.invalid/install_collector.sh' | bash -s -- --primary-endpoint '127.0.0.1:5555' --token 'collector-token' --grpc-port 5556 --primary-tls true --primary-insecure-tls false", primary_endpoint: '127.0.0.1:5555', grpc_port: 5556, primary_tls: true, primary_insecure_tls: false }))
     return fulfillJSON(route, list([collector]))
   })
   await page.goto('/admin/telemetry')
@@ -376,6 +376,16 @@ test('collector and API token credentials can be viewed again by stable identifi
   await expect(page.getByText('监听端口').filter({ visible: true })).toBeVisible()
   await expect(page.getByText('5555', { exact: true }).filter({ visible: true })).toBeVisible()
   await expect(page.getByText('5556', { exact: true }).filter({ visible: true })).toBeVisible()
+  await expect(page.getByText('从端版本').filter({ visible: true }).first()).toBeVisible()
+  await expect(page.getByText('v1.4.0').filter({ visible: true }).first()).toBeVisible()
+  await clickVisibleRowAction(page, '安装从端')
+  const install = page.getByRole('dialog', { name: /安装从端/ })
+  await expect(install.locator('textarea')).toHaveValue(/install_collector\.sh/)
+  await expect(install.locator('textarea')).toHaveValue(/--primary-tls true/)
+  await expect(install.locator('textarea')).toHaveValue(/--primary-insecure-tls false/)
+  await expect(install.getByRole('button', { name: '复制安装命令' })).toBeEnabled()
+  await install.getByRole('button', { name: '关闭', exact: true }).click()
+  await expect(install).toBeHidden()
   await clickVisibleRowAction(page, '查看 Token')
   await expect(page.getByRole('dialog', { name: '注册 Token' }).locator('input')).toHaveValue('collector-token')
 
@@ -388,6 +398,11 @@ test('collector and API token credentials can be viewed again by stable identifi
   await page.goto('/admin/api-tokens')
   await clickVisibleRowAction(page, '查看 Token')
   await expect(page.getByRole('dialog', { name: 'Token' }).locator('input')).toHaveValue('reusable-api-token')
+})
+
+test('admin sidebar shows panel version', async ({ page }) => {
+  await page.goto('/admin/')
+  await expect(page.locator('.sidebar-version')).toHaveText('v1.2.3')
 })
 
 test('switches locale without a page navigation', async ({ page }) => {
@@ -511,7 +526,7 @@ test('connection observation shows collector links and node paths', async ({ pag
   const collector = {
     id: 'collector-1', name: 'Shanghai edge', address: 'collector.example.com:5555', tls: true, insecure_tls: false,
     generation: 1, config_version: 1, status: 'online', revoked: false, connected_agents: 3, pending_records: 1,
-    last_seen: '2026-08-13T06:00:00Z', last_sync: '2026-08-13T05:59:00Z', heartbeat_rtt_ms: 18.5, heartbeat_rtt_sampled_at: '2026-08-13T06:00:00Z', scopes: [{ type: 'all', value: '' }],
+    last_seen: '2026-08-13T06:00:00Z', last_sync: '2026-08-13T05:59:00Z', software_version: '1.4.0', heartbeat_rtt_ms: 18.5, heartbeat_rtt_sampled_at: '2026-08-13T06:00:00Z', scopes: [{ type: 'all', value: '' }],
   }
   const path = {
     server_id: 7, server_name: 'edge-a', node_uuid: '09090909090909090909090909090909', observer_id: 'primary',
@@ -531,6 +546,7 @@ test('connection observation shows collector links and node paths', async ({ pag
   await expect(page.getByText('复制中').filter({ visible: true })).toBeVisible()
   await expect(page.locator('.collector-grid')).not.toContainText('待同步记录')
   await expect(page.getByText('18.5 ms').filter({ visible: true }).first()).toBeVisible()
+  await expect(page.locator('.collector-grid .rtt-sampled').filter({ visible: true }).first()).toHaveText(/\d{1,2}:\d{2}:\d{2}/)
   await expect(page.getByText('节点连接').filter({ visible: true })).toBeVisible()
   const pathFilters = page.locator('.connections-page .toolbar-filters')
   if (testInfo.project.name === 'admin-mobile') {
@@ -541,8 +557,13 @@ test('connection observation shows collector links and node paths', async ({ pag
   }
   await expect(page.getByText('edge-a').filter({ visible: true })).toBeVisible()
   await expect(page.getByText('12.5 ms').filter({ visible: true }).first()).toBeVisible()
+  if (testInfo.project.name !== 'admin-mobile') {
+    await expect(page.locator('.path-matrix__cell .rtt-sampled').filter({ visible: true }).first()).toHaveText(/\d{1,2}:\d{2}:\d{2}/)
+  }
   await page.getByText('Shanghai edge').filter({ visible: true }).first().click()
   const drawer = page.locator('.el-drawer').filter({ visible: true })
+  await expect(drawer.getByText('从端版本').filter({ visible: true })).toBeVisible()
+  await expect(drawer.getByText('v1.4.0').filter({ visible: true })).toBeVisible()
   await expect(drawer.getByText('心跳', { exact: true })).toBeVisible()
   await expect(drawer.getByText('待同步记录').filter({ visible: true })).toBeVisible()
   await expect(drawer.getByText('16 ms', { exact: true })).toBeVisible()
@@ -612,8 +633,9 @@ test('connection observation shows node paths as a server-observer matrix', asyn
   await expect(matrix.getByRole('columnheader', { name: 'Shanghai edge' })).toBeVisible()
   await expect(matrix.getByText('edge-a', { exact: true })).toBeVisible()
   await expect(matrix.getByText('edge-b', { exact: true })).toBeVisible()
-  await expect(matrix.getByRole('button', { name: '12.5 ms' })).toBeVisible()
-  await expect(matrix.getByRole('button', { name: '40 ms' })).toBeVisible()
+  await expect(matrix.getByRole('button', { name: /12\.5 ms/ })).toBeVisible()
+  await expect(matrix.getByRole('button', { name: /40 ms/ })).toBeVisible()
+  await expect(matrix.locator('.rtt-sampled')).toHaveCount(2)
   await expect(matrix.getByRole('button', { name: '未连接' })).toHaveCount(2)
   const observerHeads = matrix.locator('[role=columnheader].col-observer')
   await expect(observerHeads).toHaveCount(2)
@@ -642,9 +664,9 @@ test('connection observation refreshes matrix latency on poll', async ({ page },
   })
   await page.goto('/admin/connections')
   const matrix = page.locator('.path-matrix').filter({ visible: true })
-  await expect(matrix.getByRole('button', { name: '12.5 ms' })).toBeVisible()
+  await expect(matrix.getByRole('button', { name: /12\.5 ms/ })).toBeVisible()
   await page.clock.fastForward(5000)
-  await expect(matrix.getByRole('button', { name: '88 ms' })).toBeVisible()
+  await expect(matrix.getByRole('button', { name: /88 ms/ })).toBeVisible()
 })
 
 test('servers list shows reported agent version', async ({ page }) => {

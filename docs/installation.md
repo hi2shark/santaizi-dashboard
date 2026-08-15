@@ -86,8 +86,11 @@ curl -fsSL https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/
   --primary-endpoint primary.example.com:5555 \
   --token <registration_token> \
   --grpc-port 5556 \
-  --primary-tls
+  --primary-tls true \
+  --primary-insecure-tls false
 ```
+
+生成的 `dashboard.yaml` 已带 `collector.primary_tls` / `primary_insecure_tls` 与默认关闭的 `grpc_tls`。连接 Primary 改命令里的 true/false；从端对外 gRPC 要开 TLS 时，把证书放到 `data/pki/server.{crt,key}` 并把 `grpc_tls.enabled` 改为 true。
 
 已安装的从端可重跑该脚本（不必再传 token）以拉取新镜像并重建容器，配置与数据目录保留。也可使用专用升级脚本，见下文「更新 / 从端」。
 

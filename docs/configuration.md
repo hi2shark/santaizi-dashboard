@@ -329,7 +329,13 @@ collector:
   spool_max_bytes: 5368709120
   spool_max_age_days: 30
   status_authorization: "本地运维鉴权值"
+grpc_tls:
+  enabled: false
+  cert_file: /var/lib/santaizi-dashboard/pki/server.crt
+  key_file: /var/lib/santaizi-dashboard/pki/server.key
 ```
+
+一键安装脚本会写出 `primary_tls` / `primary_insecure_tls` 与默认关闭的 `grpc_tls`。从端对外 gRPC 要开 TLS 时放入证书并把 `enabled` 改为 true。
 
 ## `rollup` 与 `retention`
 

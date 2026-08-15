@@ -472,6 +472,7 @@ func touchV2Runtime(nodeUUID, sessionID []byte, sequence uint64, collectedAt int
 	}
 
 	var mergedHost *pb.Host
+	var closed *model.ServerOfflineHistory
 	serverRuntimeMu.Lock()
 	applied := false
 	err = DB.Transaction(func(tx *gorm.DB) error {
@@ -487,6 +488,17 @@ func touchV2Runtime(nodeUUID, sessionID []byte, sequence uint64, collectedAt int
 			(runtime.LastCollectedAt == collectedAt && bytes.Equal(runtime.CurrentSessionID, sessionID) && runtime.CurrentSequence >= sequence) {
 			return nil
 		}
+		if host != nil {
+			mergedHost = enrichPBHost(host, runtime.LastIP, previousHostCountry(runtime.HostPayload))
+		}
+		// 必须在覆盖 LastBootTime / LastUptime / LastIP 之前关闭：离线原因比较的是
+		// 「离线前」运行态与「本次恢复」上报。V2 以前只把 status 改回 online，
+		// 离线记录留给 Reconcile 静默关掉，恢复通知永远发不出来。
+		h, closeErr := closeV2OfflineHistory(tx, &runtime, state, mergedHost, receivedAt)
+		if closeErr != nil {
+			return closeErr
+		}
+		closed = h
 		runtime.Status = model.ServerRuntimeStatusOnline
 		runtime.HostState = model.HostStateOnline
 		runtime.ConnectivityState = model.ConnectivityFull
@@ -505,7 +517,6 @@ func touchV2Runtime(nodeUUID, sessionID []byte, sequence uint64, collectedAt int
 			}
 		}
 		if len(hostPayload) > 0 {
-			mergedHost = enrichPBHost(host, runtime.LastIP, previousHostCountry(runtime.HostPayload))
 			if mergedHost != host {
 				var marshalErr error
 				hostPayload, marshalErr = proto.Marshal(mergedHost)
@@ -531,6 +542,9 @@ func touchV2Runtime(nodeUUID, sessionID []byte, sequence uint64, collectedAt int
 	serverRuntimeMu.Unlock()
 	if err != nil {
 		return err
+	}
+	if closed != nil {
+		afterOfflineHistoryClosed(binding.ServerID, closed)
 	}
 	if !applied {
 		return nil
@@ -558,6 +572,23 @@ func touchV2Runtime(nodeUUID, sessionID []byte, sequence uint64, collectedAt int
 		server.Host = &converted
 	}
 	return nil
+}
+
+func closeV2OfflineHistory(tx *gorm.DB, runtime *model.ServerRuntime, state *pb.State, host *pb.Host, now time.Time) (*model.ServerOfflineHistory, error) {
+	if Conf == nil || !Conf.EnableOfflineHistory || runtime == nil || runtime.CurrentOfflineID == 0 {
+		return nil, nil
+	}
+	var hostState *model.HostState
+	var hostModel *model.Host
+	if state != nil {
+		converted := model.PB2State(state)
+		hostState = &converted
+	}
+	if host != nil {
+		converted := model.PB2Host(host)
+		hostModel = &converted
+	}
+	return closeOfflineHistoryTx(tx, runtime, hostState, hostModel, now)
 }
 
 func loadTelemetryRuntimeSnapshots() {

@@ -212,7 +212,7 @@ func publicHostView(c *gin.Context, host *model.Host) any {
 }
 
 func v2Session(c *gin.Context) {
-	state := gin.H{"authenticated": false, "csrf_token": mygin.CSRFToken(c), "login_url": "/oauth2/login", "capabilities": []string{}}
+	state := gin.H{"authenticated": false, "csrf_token": mygin.CSRFToken(c), "login_url": "/oauth2/login", "capabilities": []string{}, "version": singleton.Version}
 	if value, ok := c.Get(model.CtxKeyAuthorizedUser); ok {
 		user := value.(*model.User)
 		state["authenticated"] = true
@@ -1885,7 +1885,8 @@ func collectorDTO(collector model.Collector) gin.H {
 		"last_primary_seen": optionalRFC3339Nano(runtime.LastPrimarySeen), "spool_size": runtime.SpoolSize,
 		"pending_records": runtime.PendingRecords, "oldest_pending": optionalRFC3339Nano(runtime.OldestPending),
 		"replication_cursor": runtime.ReplicationCursor, "connected_agents": runtime.ConnectedAgents,
-		"protocol_version": runtime.ProtocolVersion, "heartbeat_rtt_ms": optionalFloat(runtime.HeartbeatRttSampledAt, runtime.HeartbeatRttMs),
+		"protocol_version": runtime.ProtocolVersion, "software_version": runtime.SoftwareVersion,
+		"heartbeat_rtt_ms": optionalFloat(runtime.HeartbeatRttSampledAt, runtime.HeartbeatRttMs),
 		"heartbeat_rtt_sampled_at":   optionalRFC3339Nano(runtime.HeartbeatRttSampledAt),
 		"replication_rtt_ms":         optionalFloat(runtime.ReplicationRttSampledAt, runtime.ReplicationRttMs),
 		"replication_rtt_sampled_at": optionalRFC3339Nano(runtime.ReplicationRttSampledAt), "scopes": scopeItems,

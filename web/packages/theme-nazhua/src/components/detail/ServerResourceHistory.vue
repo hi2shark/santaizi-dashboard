@@ -11,8 +11,11 @@ const COLORS = {
   cpu: '#4e90ff',
   memory: '#27c975',
   disk: '#22d3ee',
+  process: '#f5b199',
   netIn: '#f5b199',
   netOut: '#89c3eb',
+  tcp: '#89c3eb',
+  udp: '#4e90ff',
 }
 
 type HistoryCard = {
@@ -83,6 +86,13 @@ const cards = computed<HistoryCard[]>(() => {
       ))],
     },
     {
+      key: 'process',
+      title: t('nazhua.historyProcess'),
+      unit: 'count',
+      summary: String(Math.round(current.processCount)),
+      series: [seriesOf(rows, t('nazhua.processCount'), COLORS.process, row => Number(row.process_count || 0))],
+    },
+    {
       key: 'net',
       title: t('nazhua.historyNet'),
       unit: 'speed',
@@ -93,6 +103,19 @@ const cards = computed<HistoryCard[]>(() => {
       series: [
         seriesOf(rows, t('nazhua.download'), COLORS.netIn, row => Number(row.net_in_speed || 0)),
         seriesOf(rows, t('nazhua.upload'), COLORS.netOut, row => Number(row.net_out_speed || 0)),
+      ],
+    },
+    {
+      key: 'conn',
+      title: t('nazhua.historyConn'),
+      unit: 'count',
+      metrics: [
+        { key: 'tcp', label: t('nazhua.tcpConn'), value: String(Math.round(current.tcpConnCount)), color: COLORS.tcp },
+        { key: 'udp', label: t('nazhua.udpConn'), value: String(Math.round(current.udpConnCount)), color: COLORS.udp },
+      ],
+      series: [
+        seriesOf(rows, t('nazhua.tcpConn'), COLORS.tcp, row => Number(row.tcp_conn_count || 0)),
+        seriesOf(rows, t('nazhua.udpConn'), COLORS.udp, row => Number(row.udp_conn_count || 0)),
       ],
     },
   ]

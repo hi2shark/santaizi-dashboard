@@ -10,7 +10,7 @@ Go 服务接口与 TypeScript Axios SDK 均从 `openapi/v2.yaml` 生成。接口
 
 ## 认证
 
-管理后台使用 OAuth Session Cookie。`GET /api/v2/auth/session` 返回当前用户、能力和 CSRF Token；所有写操作须携带 `X-CSRF-Token`。
+管理后台使用 OAuth Session Cookie。`GET /api/v2/auth/session` 返回当前用户、能力、面板版本与 CSRF Token；所有写操作须携带 `X-CSRF-Token`。
 
 自动化客户端使用：
 

@@ -10,7 +10,7 @@ const servers = [
   {
     id: 1, name: 'HKG-EDGE', tag: 'HKG', display_index: 30, hide_for_guest: false, enable_ddns: false, online: true,
     host: { Platform: 'debian', CountryCode: 'HK', CPU: ['AMD EPYC 2 Physical Core'], Arch: 'amd64', Version: '6.8', MemTotal: 2_147_483_648, DiskTotal: 21_474_836_480 },
-    state: { CPU: 8.2, MemUsed: 767_557_632, DiskUsed: 6_442_450_944, Uptime: 2_074_200, NetInSpeed: 5_800, NetOutSpeed: 5_100, NetInTransfer: 98_320_000_000, NetOutTransfer: 63_740_000_000, Load1: 0.21, Load5: 0.4, Load15: 0.5 },
+    state: { CPU: 8.2, MemUsed: 767_557_632, DiskUsed: 6_442_450_944, Uptime: 2_074_200, NetInSpeed: 5_800, NetOutSpeed: 5_100, NetInTransfer: 98_320_000_000, NetOutTransfer: 63_740_000_000, Load1: 0.21, Load5: 0.4, Load15: 0.5, ProcessCount: 92, TcpConnCount: 16, UdpConnCount: 5 },
     public_note: { customData: { location: 'HKG', slogan: 'Hong Kong Premium', flag: 'hk' }, billingDataMod: { amount: '109.00CNY', cycle: '月' }, planDataMod: { networkRoute: 'IEPL,电信专线', IPv4: '1', IPv6: '1', trafficType: '2' } },
     telemetry: { host: 'online', connectivity: 'healthy', available: true, coverage: '1/1' },
   },
@@ -121,8 +121,8 @@ test.beforeEach(async ({ page }) => {
     ]))
   })
   await page.route('**/api/v2/public/metrics/*', route => fulfillJSON(route, list([
-    { window_start: '2026-08-13T08:00:00Z', cpu: 12, mem_used: 700_000_000, disk_used: 6_000_000_000, net_in_speed: 1000, net_out_speed: 800 },
-    { window_start: '2026-08-13T08:01:00Z', cpu: 18, mem_used: 720_000_000, disk_used: 6_100_000_000, net_in_speed: 1200, net_out_speed: 900 },
+    { window_start: '2026-08-13T08:00:00Z', cpu: 12, mem_used: 700_000_000, disk_used: 6_000_000_000, net_in_speed: 1000, net_out_speed: 800, process_count: 88, tcp_conn_count: 12, udp_conn_count: 4 },
+    { window_start: '2026-08-13T08:01:00Z', cpu: 18, mem_used: 720_000_000, disk_used: 6_100_000_000, net_in_speed: 1200, net_out_speed: 900, process_count: 92, tcp_conn_count: 16, udp_conn_count: 5 },
   ])))
   await page.route('**/api/v2/public/servers/*/availability**', route => fulfillJSON(route, item({
     server_id: 1, days: 30, offline_count: 0, total_offline_seconds: 0, longest_offline_seconds: 0, availability_percent: 99.9,
@@ -586,9 +586,9 @@ test('captures accepted Nazhua table and resource history baselines', async ({ p
 
     await page.goto(`/server/1?visual-mode=${mode}`)
     // 资源历史用固定时间戳，可作稳定基线；网络监控 mock 走当前时钟，不入基线。
-    await expect(page.locator('.nazhua-history__card')).toHaveCount(4)
+    await expect(page.locator('.nazhua-history__card')).toHaveCount(6)
     await expect(page.locator('.nazhua-history .el-button-group')).toHaveCount(0)
-    await expect(page.locator('.nazhua-history__chart canvas')).toHaveCount(4)
+    await expect(page.locator('.nazhua-history__chart canvas')).toHaveCount(6)
     await expect(page.locator('.nazhua-history')).toHaveScreenshot(`nazhua-history-${mode}-1440.png`, { animations: 'disabled', maxDiffPixelRatio: .01 })
   }
 })

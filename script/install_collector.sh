@@ -64,8 +64,8 @@ Options:
   --primary-endpoint   Primary gRPC 地址（首次安装必填，如 primary.example.com:5555）
   --token              从端注册 Token（首次安装必填；升级请省略）
   --grpc-port          本机监听 gRPC 端口（默认 5556）
-  --primary-tls        连接 Primary 时启用 TLS
-  --primary-insecure-tls  跳过 Primary 证书校验（仅受控测试）
+  --primary-tls [true|false]        连接 Primary 时启用 TLS（可省略值，等同 true）
+  --primary-insecure-tls [true|false]  跳过 Primary 证书校验（仅受控测试；可省略值，等同 true）
   --dir                安装目录（默认 /opt/santaizi/collector）
   --version            镜像标签（如 v1.0.1，默认 latest）
   -h, --help           显示帮助
@@ -88,12 +88,22 @@ parse_args() {
                 shift 2
                 ;;
             --primary-tls)
-                PRIMARY_TLS="true"
-                shift
+                PRIMARY_TLS=$(parse_bool_flag "$2")
+                if [ "$PRIMARY_TLS" = "true" ] || [ "$PRIMARY_TLS" = "false" ]; then
+                    shift 2
+                else
+                    PRIMARY_TLS="true"
+                    shift
+                fi
                 ;;
             --primary-insecure-tls)
-                PRIMARY_INSECURE_TLS="true"
-                shift
+                PRIMARY_INSECURE_TLS=$(parse_bool_flag "$2")
+                if [ "$PRIMARY_INSECURE_TLS" = "true" ] || [ "$PRIMARY_INSECURE_TLS" = "false" ]; then
+                    shift 2
+                else
+                    PRIMARY_INSECURE_TLS="true"
+                    shift
+                fi
                 ;;
             --dir)
                 WORK_DIR=$2
@@ -114,6 +124,13 @@ parse_args() {
                 ;;
         esac
     done
+}
+
+parse_bool_flag() {
+    case "$1" in
+        true|false) printf "%s\n" "$1" ;;
+        *) printf "\n" ;;
+    esac
 }
 
 validate_port() {
@@ -385,7 +402,7 @@ EOF
 }
 
 write_config() {
-    mkdir -p "$1/data" "$1/config"
+    mkdir -p "$1/data/pki" "$1/config"
     endpoint=$(yaml_escape "$PRIMARY_ENDPOINT")
     token=$(yaml_escape "$REGISTRATION_TOKEN")
     cat > "$1/config/dashboard.yaml" <<EOF
@@ -401,6 +418,13 @@ collector:
   primary_insecure_tls: ${PRIMARY_INSECURE_TLS}
   registration_token: '${token}'
   database_path: /var/lib/santaizi-dashboard/collector.db
+grpc_tls:
+  enabled: false
+  cert_file: /var/lib/santaizi-dashboard/pki/server.crt
+  key_file: /var/lib/santaizi-dashboard/pki/server.key
+  client_ca_file: ""
+  require_agent_mtls: false
+  require_collector_mtls: false
 EOF
     chmod 600 "$1/config/dashboard.yaml"
 }

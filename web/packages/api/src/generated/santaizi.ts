@@ -237,7 +237,7 @@ const getPublicServerAvailability = (
     }
 
 /**
- * 从 StateRollup 读取该服务器当前节点的 CPU / 内存 / 磁盘 / 网速平均值序列。
+ * 从 StateRollup 读取该服务器当前节点的 CPU / 内存 / 磁盘 / 网速 / 进程数 / TCP / UDP 平均值序列。
  * 无节点绑定或无数据时返回空列表，不返回 404。`hours` 按保留期夹取。
  * @summary 公开资源历史
  */

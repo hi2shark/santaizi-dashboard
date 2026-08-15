@@ -18,6 +18,7 @@ import (
 	"github.com/hi2shark/santaizi-dashboard/model"
 	pb "github.com/hi2shark/santaizi-dashboard/proto"
 	"github.com/hi2shark/santaizi-dashboard/service/pki"
+	"github.com/hi2shark/santaizi-dashboard/service/singleton"
 	"github.com/hi2shark/santaizi-dashboard/service/telemetry"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -516,7 +517,7 @@ func (r *Runtime) runtimeSnapshot() *pb.CollectorRuntime {
 	runtime := &pb.CollectorRuntime{
 		CollectorUuid: collectorUUID, SampledAtUnixNano: time.Now().UnixNano(), SpoolSize: stats.SpoolBytes,
 		PendingRecords: stats.Pending, OldestPendingUnixNano: stats.OldestPending, ReplicationCursor: replicationCursor,
-		ConnectedAgents: r.connectedAgents.Load(), ProtocolVersion: collectorProtocolVersion,
+		ConnectedAgents: r.connectedAgents.Load(), ProtocolVersion: collectorProtocolVersion, SoftwareVersion: singleton.Version,
 		HeartbeatRttMs: heartbeatRttMs, HeartbeatRttSampledAtUnixNano: heartbeatRttAt,
 		ReplicationRttMs: replicationRttMs, ReplicationRttSampledAtUnixNano: replicationRttAt,
 	}

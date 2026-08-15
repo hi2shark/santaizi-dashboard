@@ -106,7 +106,21 @@
 .script-command .el-textarea__inner { font-family: inherit; font-size: 12px; }
 .nav-item:hover { color: var(--sz-text); background: var(--sz-sidebar-hover); }
 .nav-item.router-link-active { color: var(--sz-sidebar-active-text); background: var(--sz-sidebar-active); font-weight: 650; }
-.collapse-button { margin-top: auto; width: 100%; }
+.sidebar-footer { margin-top: auto; display: grid; gap: 8px; }
+.sidebar-version {
+  display: block;
+  min-width: 0;
+  padding: 0 13px;
+  overflow: hidden;
+  color: var(--sz-text-muted);
+  font-size: var(--font-size-caption);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-layout.collapsed .sidebar-version { padding: 0; text-align: center; }
+.collapse-button { width: 100%; }
 .collapse-button:hover { background: var(--sz-sidebar-hover); }
 .addon-toggle.el-button { width: 100%; min-height: 44px; justify-content: flex-start; padding: 0 13px; color: var(--sz-sidebar-text); border-radius: 10px; }
 .addon-toggle.el-button:hover,.addon-toggle.el-button.active { color: var(--sz-sidebar-active-text); background: var(--sz-sidebar-active); }
@@ -717,9 +731,10 @@ html.dark .topology-globe__canvas { filter: none; }
   padding: 0;
 }
 .path-matrix__row {
-  min-height: 36px;
+  min-height: 0;
   padding: 0;
   border-radius: var(--radius-sm);
+  align-items: stretch;
 }
 .path-matrix__row:hover { background: var(--sz-primary-soft); }
 .path-matrix .col-server,
@@ -731,6 +746,8 @@ html.dark .topology-globe__canvas { filter: none; }
   line-height: 1;
 }
 .path-matrix .col-server {
+  display: flex;
+  align-items: center;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -750,6 +767,7 @@ html.dark .topology-globe__canvas { filter: none; }
   justify-content: center;
   text-align: center;
 }
+.path-matrix__row .col-observer { align-items: stretch; }
 .path-matrix__head .col-observer {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -763,19 +781,20 @@ html.dark .topology-globe__canvas { filter: none; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 36px;
   min-height: 36px;
+  height: auto;
   margin: 0;
   border-radius: var(--radius-sm);
 }
 .path-matrix__cell,
 .rtt-chip {
   flex: 0 0 auto;
-  gap: var(--icon-text-gap);
+  flex-direction: column;
+  gap: 2px;
   width: auto;
   max-width: 100%;
   min-width: 0;
-  padding: 0 12px;
+  padding: 6px 12px;
   border: 0;
   appearance: none;
   background: transparent;
@@ -791,16 +810,39 @@ html.dark .topology-globe__canvas { filter: none; }
 .path-matrix__cell,
 .path-matrix__empty {
   flex: 0 0 var(--chip-width);
+  align-self: stretch;
   width: var(--chip-width);
   max-width: var(--chip-width);
-  padding: 0 8px;
+  padding: 6px 8px;
 }
 .path-matrix__cell { cursor: pointer; }
-.path-matrix__cell span {
+.rtt-main {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--icon-text-gap);
+  min-width: 0;
+  line-height: 1;
+}
+.rtt-value {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1;
+}
+.rtt-sampled {
+  display: block;
+  overflow: hidden;
+  color: var(--sz-text-muted);
+  font-size: var(--font-size-caption);
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1;
+  text-overflow: ellipsis;
+}
+.path-matrix__cell.is-connected .rtt-sampled,
+.rtt-chip.is-connected .rtt-sampled {
+  color: color-mix(in srgb, var(--sz-success) 72%, var(--sz-text-muted));
 }
 .path-matrix__cell i {
   flex: 0 0 auto;

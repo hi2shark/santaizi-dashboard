@@ -153,6 +153,37 @@ func TestUpsertCollectorRuntimePreservesLastSyncOnHeartbeat(t *testing.T) {
 	}
 }
 
+func TestUpsertCollectorRuntimePreservesSoftwareVersionOnEmpty(t *testing.T) {
+	db := newConnectionDB(t)
+	now := time.Unix(1_700_000_000, 0)
+	first := &pb.CollectorRuntime{SoftwareVersion: "1.2.3", ConnectedAgents: 1}
+	if err := UpsertCollectorRuntime(db, CollectorRuntimeFromProto("c1", first, now, true), true); err != nil {
+		t.Fatal(err)
+	}
+	later := now.Add(15 * time.Second)
+	empty := &pb.CollectorRuntime{ConnectedAgents: 2}
+	if err := UpsertCollectorRuntime(db, CollectorRuntimeFromProto("c1", empty, later, false), false); err != nil {
+		t.Fatal(err)
+	}
+	var row model.CollectorRuntime
+	if err := db.First(&row, "collector_uuid = ?", "c1").Error; err != nil {
+		t.Fatal(err)
+	}
+	if row.SoftwareVersion != "1.2.3" || row.ConnectedAgents != 2 {
+		t.Fatalf("empty update should keep software version, row=%#v", row)
+	}
+	upgrade := &pb.CollectorRuntime{SoftwareVersion: "1.2.4", ConnectedAgents: 3}
+	if err := UpsertCollectorRuntime(db, CollectorRuntimeFromProto("c1", upgrade, later.Add(time.Second), false), false); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.First(&row, "collector_uuid = ?", "c1").Error; err != nil {
+		t.Fatal(err)
+	}
+	if row.SoftwareVersion != "1.2.4" {
+		t.Fatalf("non-empty update should replace software version, row=%#v", row)
+	}
+}
+
 func createCollector(t *testing.T, db *gorm.DB, id, name string) {
 	t.Helper()
 	if err := db.Create(&model.Collector{

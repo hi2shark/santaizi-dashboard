@@ -494,3 +494,125 @@ func TestServerIDFromNodeUUIDUsesBindingAndLock(t *testing.T) {
 		t.Fatalf("conflict err=%v", err)
 	}
 }
+
+func setupV2OfflineRuntime(t *testing.T, serverID uint64) (node, session []byte, historyID uint64, now time.Time) {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(
+		&model.Server{}, &model.ServerNodeBinding{}, &model.ObserverAssignment{}, &model.Collector{}, &model.CollectorScope{},
+		&model.ServerRuntime{}, &model.ServerOfflineHistory{},
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.Server{Common: model.Common{ID: serverID}, Name: "edge-offline", Secret: "secret-offline"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	previousDB, previousConf, previousServers, previousLoc := DB, Conf, ServerList, Loc
+	previousNotifications, previousIDToTag := NotificationList, NotificationIDToTag
+	DB = db
+	Loc = time.UTC
+	InitNotification()
+	Conf = &model.Config{
+		EnableOfflineHistory:       true,
+		EnableRecoveryNotification: true,
+		Telemetry:                  model.TelemetryConfig{OfflineThresholdSeconds: 30},
+	}
+	ServerList = map[uint64]*model.Server{
+		serverID: {Common: model.Common{ID: serverID}, Name: "edge-offline", State: &model.HostState{}, Host: &model.Host{}},
+	}
+	t.Cleanup(func() {
+		DB, Conf, ServerList, Loc = previousDB, previousConf, previousServers, previousLoc
+		NotificationList, NotificationIDToTag = previousNotifications, previousIDToTag
+		_ = CloseDB(db)
+	})
+
+	node = bytes.Repeat([]byte{0x71}, 16)
+	session = bytes.Repeat([]byte{0x72}, 16)
+	now = time.Now()
+	if _, err := BindServerNode(serverID, node, now.Add(-time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	lastSeen := now.Add(-time.Hour)
+	rt := model.ServerRuntime{
+		ServerID:     serverID,
+		Status:       model.ServerRuntimeStatusOffline,
+		LastSeenAt:   &lastSeen,
+		LastBootTime: 100,
+		LastUptime:   50,
+		LastIP:       "203.0.113.10",
+		Protocol:     "v2",
+	}
+	if err := db.Create(&rt).Error; err != nil {
+		t.Fatal(err)
+	}
+	open := model.ServerOfflineHistory{
+		ServerID:     serverID,
+		StartedAt:    lastSeen.Add(30 * time.Second),
+		DetectedAt:   lastSeen.Add(40 * time.Second),
+		Status:       model.OfflineHistoryStatusOpen,
+		Reason:       model.OfflineReasonUnknown,
+		LastSeenAt:   lastSeen,
+		LastBootTime: 100,
+		LastUptime:   50,
+		LastIP:       "203.0.113.10",
+	}
+	if err := db.Create(&open).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Model(&rt).Update("current_offline_id", open.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	return node, session, open.ID, now
+}
+
+func assertV2OfflineHistoryClosed(t *testing.T, serverID, historyID uint64, wantReason string) {
+	t.Helper()
+	var gotRt model.ServerRuntime
+	if err := DB.Where("server_id = ?", serverID).First(&gotRt).Error; err != nil {
+		t.Fatal(err)
+	}
+	if gotRt.Status != model.ServerRuntimeStatusOnline {
+		t.Errorf("status=%q", gotRt.Status)
+	}
+	if gotRt.CurrentOfflineID != 0 {
+		t.Errorf("CurrentOfflineID=%d", gotRt.CurrentOfflineID)
+	}
+	var gotH model.ServerOfflineHistory
+	if err := DB.First(&gotH, historyID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if gotH.Status != model.OfflineHistoryStatusClosed || gotH.EndedAt == nil || gotH.RecoveredAt == nil {
+		t.Fatalf("history status=%q ended=%v recovered=%v", gotH.Status, gotH.EndedAt, gotH.RecoveredAt)
+	}
+	if wantReason != "" && gotH.Reason != wantReason {
+		t.Errorf("reason=%q want %q", gotH.Reason, wantReason)
+	}
+}
+
+func TestV2StateReportClosesOpenOfflineHistory(t *testing.T) {
+	const serverID = uint64(21)
+	node, session, historyID, now := setupV2OfflineRuntime(t, serverID)
+	if err := ApplyV2Event(&pb.TelemetryEvent{
+		EventId: bytes.Repeat([]byte{0x81}, 16), NodeUuid: node, SessionId: session, Sequence: 8,
+		CollectedAtUnixNano: now.UnixNano(),
+		Payload:             &pb.TelemetryEvent_State{State: &pb.State{Uptime: 60}},
+	}, now); err != nil {
+		t.Fatal(err)
+	}
+	assertV2OfflineHistoryClosed(t, serverID, historyID, model.OfflineReasonNetworkDisconnect)
+}
+
+func TestV2HeartbeatClosesOpenOfflineHistory(t *testing.T) {
+	const serverID = uint64(22)
+	node, session, historyID, now := setupV2OfflineRuntime(t, serverID)
+	if err := ApplyV2Event(&pb.TelemetryEvent{
+		EventId: bytes.Repeat([]byte{0x82}, 16), NodeUuid: node, SessionId: session, Sequence: 9,
+		CollectedAtUnixNano: now.UnixNano(),
+	}, now); err != nil {
+		t.Fatal(err)
+	}
+	assertV2OfflineHistoryClosed(t, serverID, historyID, model.OfflineReasonNetworkDisconnect)
+}

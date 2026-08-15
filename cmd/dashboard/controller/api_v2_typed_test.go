@@ -129,8 +129,12 @@ func TestBuildCollectorInstallCommand(t *testing.T) {
 	if !strings.Contains(command, "--token 'tok'\\''en'") {
 		t.Fatalf("token quoting: %s", command)
 	}
-	if !strings.Contains(command, "--grpc-port 5556") || !strings.Contains(command, "--primary-tls") || !strings.Contains(command, "--primary-insecure-tls") {
+	if !strings.Contains(command, "--grpc-port 5556") || !strings.Contains(command, "--primary-tls true") || !strings.Contains(command, "--primary-insecure-tls true") {
 		t.Fatalf("flags: %s", command)
+	}
+	off := buildCollectorInstallCommand("https://example.invalid/install_collector.sh", "primary.example.invalid:5555", "token", 5556, true, false)
+	if !strings.Contains(off, "--primary-tls true") || !strings.Contains(off, "--primary-insecure-tls false") {
+		t.Fatalf("default tls flags: %s", off)
 	}
 }
 

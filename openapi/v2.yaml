@@ -206,7 +206,7 @@ paths:
       - Public
       summary: 公开资源历史
       description: |
-        从 StateRollup 读取该服务器当前节点的 CPU / 内存 / 磁盘 / 网速平均值序列。
+        从 StateRollup 读取该服务器当前节点的 CPU / 内存 / 磁盘 / 网速 / 进程数 / TCP / UDP 平均值序列。
         无节点绑定或无数据时返回空列表，不返回 404。`hours` 按保留期夹取。
       operationId: getPublicMetrics
       security: []
@@ -1834,6 +1834,7 @@ components:
       - csrf_token
       - login_url
       - capabilities
+      - version
       properties:
         authenticated:
           type: boolean
@@ -1841,6 +1842,9 @@ components:
           type: string
         login_url:
           type: string
+        version:
+          type: string
+          description: 当前面板二进制版本，与公开 Bootstrap.version 同义
         capabilities:
           type: array
           items:
@@ -2291,6 +2295,15 @@ components:
           type: integer
           format: int64
         net_out_total:
+          type: integer
+          format: int64
+        process_count:
+          type: integer
+          format: int64
+        tcp_conn_count:
+          type: integer
+          format: int64
+        udp_conn_count:
           type: integer
           format: int64
     Server:
@@ -3305,6 +3318,9 @@ components:
           format: int64
         protocol_version:
           type: string
+        software_version:
+          type: string
+          description: 从端二进制版本
         heartbeat_rtt_ms:
           type: number
           format: double

@@ -33,6 +33,7 @@ export interface SessionState {
   csrf_token: string
   login_url: string
   capabilities: string[]
+  version: string
 }
 
 export interface SiteBootstrap {
@@ -104,6 +105,7 @@ export interface CollectorRecord {
   replication_cursor?: number
   connected_agents?: number
   protocol_version?: string
+  software_version?: string
   scopes?: Array<{ type: string; value: string }>
 }
 

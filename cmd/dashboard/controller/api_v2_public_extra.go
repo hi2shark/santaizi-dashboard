@@ -158,14 +158,17 @@ func decodePublicMetricPoints(rows []model.StateRollup) []gin.H {
 		}
 		windowSec := publicMetricWindowSeconds(row)
 		items = append(items, gin.H{
-			"window_start":  time.Unix(0, row.WindowStart).UTC().Format(time.RFC3339),
-			"cpu":           avg.GetCpu(),
-			"mem_used":      avg.GetMemUsed(),
-			"disk_used":     avg.GetDiskUsed(),
-			"net_in_speed":  publicMetricSpeed(avg.GetNetInSpeed(), payload.GetNetInTotal(), windowSec),
-			"net_out_speed": publicMetricSpeed(avg.GetNetOutSpeed(), payload.GetNetOutTotal(), windowSec),
-			"net_in_total":  payload.GetNetInTotal(),
-			"net_out_total": payload.GetNetOutTotal(),
+			"window_start":    time.Unix(0, row.WindowStart).UTC().Format(time.RFC3339),
+			"cpu":             avg.GetCpu(),
+			"mem_used":        avg.GetMemUsed(),
+			"disk_used":       avg.GetDiskUsed(),
+			"net_in_speed":    publicMetricSpeed(avg.GetNetInSpeed(), payload.GetNetInTotal(), windowSec),
+			"net_out_speed":   publicMetricSpeed(avg.GetNetOutSpeed(), payload.GetNetOutTotal(), windowSec),
+			"net_in_total":    payload.GetNetInTotal(),
+			"net_out_total":   payload.GetNetOutTotal(),
+			"process_count":   avg.GetProcessCount(),
+			"tcp_conn_count":  avg.GetTcpConnCount(),
+			"udp_conn_count":  avg.GetUdpConnCount(),
 		})
 	}
 	return items

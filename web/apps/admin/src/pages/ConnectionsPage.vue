@@ -6,7 +6,7 @@ import { AppDrawer, AppEmpty } from '@santaizi/ui'
 import type { ConnectionLatencyBucket, ConnectionPath } from '@santaizi/api'
 import { listCollectors, listConnectionLatency, listConnectionPaths, type CollectorRecord } from '@/api/adminApi'
 import CopyableId from '@/components/CopyableId.vue'
-import { formatAdminValue } from '@/composables/format'
+import { formatAdminValue, formatClockTime, formatDateTime, formatProductVersion } from '@/composables/format'
 import { notifyAPIError } from '@/composables/notify'
 
 const { t, te, locale } = useI18n()
@@ -91,6 +91,20 @@ function latencyText(ms?: number | null, sampled?: string | null) {
   return pretty(ms, 'last_rtt_ms')
 }
 
+function sampledClock(sampled?: string | null) {
+  return formatClockTime(sampled, locale.value)
+}
+
+function sampledTitle(sampled?: string | null) {
+  if (!sampled) return undefined
+  const text = formatDateTime(sampled, locale.value)
+  return text === '—' ? undefined : text
+}
+
+function collectorVersionText(row: CollectorRecord) {
+  return formatProductVersion(row.software_version) || '—'
+}
+
 function collectorStatus(row: CollectorRecord) {
   return row.revoked ? 'offline' : (row.status || 'unknown')
 }
@@ -102,6 +116,16 @@ function collectorRttTone(row: CollectorRecord) {
 function collectorRttText(row: CollectorRecord) {
   if (collectorStatus(row) !== 'online') return t('offline')
   return latencyText(row.heartbeat_rtt_ms, row.heartbeat_rtt_sampled_at)
+}
+
+function collectorRttSampled(row: CollectorRecord) {
+  if (collectorStatus(row) !== 'online') return ''
+  return sampledClock(row.heartbeat_rtt_sampled_at)
+}
+
+function collectorRttTitle(row: CollectorRecord) {
+  if (collectorStatus(row) !== 'online') return undefined
+  return sampledTitle(row.heartbeat_rtt_sampled_at)
 }
 
 function collectorReplicationText(row: CollectorRecord) {
@@ -133,10 +157,11 @@ function matrixCells(row: PathMatrixRow, observerId: string) {
     path,
     connected: path.sink.connected,
     hasError: Boolean(path.sink.last_error),
-    title: path.sink.last_error ? lastErrorText(path.sink.last_error) : undefined,
+    title: path.sink.last_error ? lastErrorText(path.sink.last_error) : (path.sink.connected ? sampledTitle(path.sink.rtt_sampled_at) : undefined),
     text: path.sink.connected
       ? latencyText(path.sink.last_rtt_ms, path.sink.rtt_sampled_at)
       : t('disconnected'),
+    sampled: path.sink.connected ? sampledClock(path.sink.rtt_sampled_at) : '',
   }]
 }
 
@@ -251,7 +276,10 @@ onUnmounted(() => {
             <strong>{{ row.name }}</strong>
             <CopyableId :value="row.id" />
           </div>
-          <span class="rtt-chip" :class="collectorRttTone(row)">{{ collectorRttText(row) }}</span>
+          <span class="rtt-chip" :class="collectorRttTone(row)" :title="collectorRttTitle(row)">
+            <span class="rtt-value">{{ collectorRttText(row) }}</span>
+            <span v-if="collectorRttSampled(row)" class="rtt-sampled">{{ collectorRttSampled(row) }}</span>
+          </span>
           <div class="collector-tile__metrics">
             <span>{{ pretty(row.connected_agents, 'connected_agents') }} {{ t('connectedAgents') }}</span>
             <span>{{ collectorReplicationText(row) }}</span>
@@ -315,8 +343,11 @@ onUnmounted(() => {
                 :title="cell.title"
                 @click="openPath(cell.path)"
               >
-                <i v-if="cell.hasError" class="ri-error-warning-line" aria-hidden="true"></i>
-                <span>{{ cell.text }}</span>
+                <span class="rtt-main">
+                  <i v-if="cell.hasError" class="ri-error-warning-line" aria-hidden="true"></i>
+                  <span class="rtt-value">{{ cell.text }}</span>
+                </span>
+                <span v-if="cell.sampled" class="rtt-sampled">{{ cell.sampled }}</span>
               </button>
               <span v-if="!row.cells[obs.id]" class="path-matrix__empty" aria-hidden="true"></span>
             </div>
@@ -362,6 +393,7 @@ onUnmounted(() => {
       <div><dt>{{ t('oldestPending') }}</dt><dd>{{ pretty(activeCollector.oldest_pending, 'oldest_pending') }}</dd></div>
       <div><dt>{{ t('replicationCursor') }}</dt><dd>{{ pretty(activeCollector.replication_cursor, 'replication_cursor') }}</dd></div>
       <div><dt>{{ t('protocolVersion') }}</dt><dd>{{ pretty(activeCollector.protocol_version, 'protocol_version') }}</dd></div>
+      <div><dt>{{ t('collectorVersion') }}</dt><dd>{{ collectorVersionText(activeCollector) }}</dd></div>
     </dl>
     <el-table v-loading="latencyLoading" :data="collectorLatency" class="dataset-table">
       <el-table-column :label="t('bucketStart')" min-width="180"><template #default="{row}">{{ pretty(row.bucket_start, 'bucket_start') }}</template></el-table-column>

@@ -1387,12 +1387,8 @@ func buildCollectorInstallCommand(script, endpoint, token string, grpcPort int, 
 		"--primary-endpoint", shellQuote(endpoint),
 		"--token", shellQuote(token),
 		"--grpc-port", strconv.Itoa(grpcPort),
-	}
-	if primaryTLS {
-		parts = append(parts, "--primary-tls")
-	}
-	if primaryInsecureTLS {
-		parts = append(parts, "--primary-insecure-tls")
+		"--primary-tls", strconv.FormatBool(primaryTLS),
+		"--primary-insecure-tls", strconv.FormatBool(primaryInsecureTLS),
 	}
 	return strings.Join(parts, " ")
 }

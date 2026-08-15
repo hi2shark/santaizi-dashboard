@@ -13,6 +13,8 @@ export interface Session {
   authenticated: boolean;
   csrf_token: string;
   login_url: string;
+  /** 当前面板二进制版本，与公开 Bootstrap.version 同义 */
+  version: string;
   capabilities: string[];
   user?: User;
 }

@@ -1446,9 +1446,12 @@ type Collector struct {
 	ReplicationRttSampledAt *time.Time        `json:"replication_rtt_sampled_at,omitempty"`
 	Revoked                 bool              `json:"revoked"`
 	Scopes                  *[]CollectorScope `json:"scopes,omitempty"`
-	SpoolSize               *int64            `json:"spool_size,omitempty"`
-	Status                  *CollectorStatus  `json:"status,omitempty"`
-	Tls                     bool              `json:"tls"`
+
+	// SoftwareVersion 从端二进制版本
+	SoftwareVersion *string          `json:"software_version,omitempty"`
+	SpoolSize       *int64           `json:"spool_size,omitempty"`
+	Status          *CollectorStatus `json:"status,omitempty"`
+	Tls             bool             `json:"tls"`
 }
 
 // CollectorStatus defines model for Collector.Status.
@@ -1942,14 +1945,17 @@ type PublicAvailability struct {
 
 // PublicMetricPoint defines model for PublicMetricPoint.
 type PublicMetricPoint struct {
-	Cpu         *float64   `json:"cpu,omitempty"`
-	DiskUsed    *int64     `json:"disk_used,omitempty"`
-	MemUsed     *int64     `json:"mem_used,omitempty"`
-	NetInSpeed  *int64     `json:"net_in_speed,omitempty"`
-	NetInTotal  *int64     `json:"net_in_total,omitempty"`
-	NetOutSpeed *int64     `json:"net_out_speed,omitempty"`
-	NetOutTotal *int64     `json:"net_out_total,omitempty"`
-	WindowStart *time.Time `json:"window_start,omitempty"`
+	Cpu          *float64   `json:"cpu,omitempty"`
+	DiskUsed     *int64     `json:"disk_used,omitempty"`
+	MemUsed      *int64     `json:"mem_used,omitempty"`
+	NetInSpeed   *int64     `json:"net_in_speed,omitempty"`
+	NetInTotal   *int64     `json:"net_in_total,omitempty"`
+	NetOutSpeed  *int64     `json:"net_out_speed,omitempty"`
+	NetOutTotal  *int64     `json:"net_out_total,omitempty"`
+	ProcessCount *int64     `json:"process_count,omitempty"`
+	TcpConnCount *int64     `json:"tcp_conn_count,omitempty"`
+	UdpConnCount *int64     `json:"udp_conn_count,omitempty"`
+	WindowStart  *time.Time `json:"window_start,omitempty"`
 }
 
 // PublicNote defines model for PublicNote.
@@ -2182,6 +2188,9 @@ type Session struct {
 	CsrfToken     string   `json:"csrf_token"`
 	LoginUrl      string   `json:"login_url"`
 	User          *User    `json:"user,omitempty"`
+
+	// Version 当前面板二进制版本，与公开 Bootstrap.version 同义
+	Version string `json:"version"`
 }
 
 // TelemetryAlertRecord defines model for TelemetryAlertRecord.

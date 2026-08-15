@@ -50,6 +50,21 @@ func TestServeWebRegistersSPAAndV2Routes(t *testing.T) {
 	}
 }
 
+func TestV2SessionIncludesVersion(t *testing.T) {
+	original := singleton.Conf
+	defer func() { singleton.Conf = original }()
+	singleton.Conf = &model.Config{Site: model.SiteConfig{CookieName: "santaizi"}, Web: model.WebConfig{Delivery: "embedded"}}
+	request := httptest.NewRequest(http.MethodGet, "/api/v2/auth/session", nil)
+	response := httptest.NewRecorder()
+	ServeWeb(0).Handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("unexpected status %d: %s", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"version":"`+singleton.Version+`"`) {
+		t.Fatalf("session missing version %q: %s", singleton.Version, response.Body.String())
+	}
+}
+
 func TestV2UnauthorizedUsesProblemDetails(t *testing.T) {
 	original := singleton.Conf
 	defer func() { singleton.Conf = original }()

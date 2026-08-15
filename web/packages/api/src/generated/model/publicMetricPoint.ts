@@ -17,4 +17,7 @@ export interface PublicMetricPoint {
   net_out_speed?: number;
   net_in_total?: number;
   net_out_total?: number;
+  process_count?: number;
+  tcp_conn_count?: number;
+  udp_conn_count?: number;
 }

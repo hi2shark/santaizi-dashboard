@@ -40,7 +40,8 @@ func CollectorRuntimeFromProto(collectorUUID string, runtime *pb.CollectorRuntim
 		CollectorUUID: collectorUUID, Status: CollectorStatusOnline, LastSeen: receivedAt.UnixNano(),
 		SpoolSize: runtime.GetSpoolSize(), PendingRecords: runtime.GetPendingRecords(), OldestPending: runtime.GetOldestPendingUnixNano(),
 		ReplicationCursor: runtime.GetReplicationCursor(), ConnectedAgents: runtime.GetConnectedAgents(),
-		ProtocolVersion: runtime.GetProtocolVersion(), LastPrimarySeen: runtime.GetLastPrimarySeenUnixNano(),
+		ProtocolVersion: runtime.GetProtocolVersion(), SoftwareVersion: runtime.GetSoftwareVersion(),
+		LastPrimarySeen: runtime.GetLastPrimarySeenUnixNano(),
 		HeartbeatRttMs: runtime.GetHeartbeatRttMs(), HeartbeatRttSampledAt: runtime.GetHeartbeatRttSampledAtUnixNano(),
 		ReplicationRttMs: runtime.GetReplicationRttMs(), ReplicationRttSampledAt: runtime.GetReplicationRttSampledAtUnixNano(),
 	}
@@ -58,6 +59,9 @@ func UpsertCollectorRuntime(db *gorm.DB, row model.CollectorRuntime, includeLast
 	}
 	if includeLastSync {
 		columns = append(columns, "last_sync")
+	}
+	if strings.TrimSpace(row.SoftwareVersion) != "" {
+		columns = append(columns, "software_version")
 	}
 	if err := db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "collector_uuid"}},

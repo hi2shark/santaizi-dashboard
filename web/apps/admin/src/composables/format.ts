@@ -40,6 +40,21 @@ function asDate(value: unknown): Date | null {
   return Number.isNaN(date.valueOf()) ? null : date
 }
 
+export function formatProductVersion(raw?: string) {
+  const value = (raw || '').trim()
+  if (!value) return ''
+  if (/^v/i.test(value)) return value
+  if (/^\d/.test(value)) return `v${value}`
+  return value
+}
+
+export function formatClockTime(value: unknown, locale: string) {
+  if (value === null || value === undefined || value === '') return ''
+  const date = asDate(value)
+  if (!date || date.getUTCFullYear() <= 1) return ''
+  return new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(date)
+}
+
 export function formatDateTime(value: unknown, locale: string) {
   if (value === null || value === undefined || value === '') return '—'
   const date = asDate(value)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatAdminValue, formatAPIError, formatBytes, formatDateTime, formatLatencyMs } from './format'
+import { formatAdminValue, formatAPIError, formatBytes, formatClockTime, formatDateTime, formatLatencyMs, formatProductVersion } from './format'
 
 const values: Record<string, string> = {
   yes: '是', no: '否', healthy: '健康', loadFailed: '加载失败', requestFailedWithCode: '请求失败（错误码：x）',
@@ -23,6 +23,12 @@ describe('localized value formatting', () => {
     expect(formatAdminValue(18.5, 'heartbeat_rtt_ms', 'en-US', t, te)).toBe('18.5 ms')
     expect(formatAdminValue('2026-08-13T06:00:00.000Z', 'bucket_start', 'en-US', t, te)).not.toBe('2026-08-13T06:00:00.000Z')
     expect(formatAdminValue('CONNECTIVITY_DEGRADED', 'current_classification', 'zh-CN', t, te)).toBe('连通性降级')
+    expect(formatProductVersion('1.2.3')).toBe('v1.2.3')
+    expect(formatProductVersion('v2.0.0')).toBe('v2.0.0')
+    expect(formatProductVersion('dev-08015')).toBe('dev-08015')
+    expect(formatClockTime('2026-08-13T06:00:00.000Z', 'en-US')).toBe(
+      new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date('2026-08-13T06:00:00.000Z')),
+    )
   })
 
   it('uses stable problem codes for localized API errors', () => {

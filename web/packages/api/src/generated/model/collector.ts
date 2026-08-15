@@ -41,6 +41,8 @@ export interface Collector {
   replication_cursor?: number;
   connected_agents?: number;
   protocol_version?: string;
+  /** 从端二进制版本 */
+  software_version?: string;
   heartbeat_rtt_ms?: number;
   heartbeat_rtt_sampled_at?: string;
   replication_rtt_ms?: number;

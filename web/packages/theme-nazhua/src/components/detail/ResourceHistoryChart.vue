@@ -2,7 +2,7 @@
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as echarts from 'echarts/core'
 import { LineChart } from 'echarts/charts'
-import { GridComponent, TooltipComponent } from 'echarts/components'
+import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import { formatSpeed, formatTransfer } from '@santaizi/theme-server-status'
 import {
@@ -12,9 +12,9 @@ import {
   useChartThemeWatcher,
 } from '../../composables/useChartTheme'
 
-echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
+echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer])
 
-export type HistoryUnit = 'percent' | 'bytes' | 'speed'
+export type HistoryUnit = 'percent' | 'bytes' | 'speed' | 'count'
 
 export type HistorySeries = {
   name: string
@@ -34,12 +34,14 @@ let resizeObserver: ResizeObserver | undefined
 function formatValue(value: number) {
   if (props.unit === 'percent') return `${Number(value).toFixed(1)}%`
   if (props.unit === 'speed') return formatSpeed(value)
+  if (props.unit === 'count') return `${Math.round(Number(value || 0))}`
   return formatTransfer(value)
 }
 
 function yName() {
   if (props.unit === 'percent') return '%'
   if (props.unit === 'speed') return 'B/s'
+  if (props.unit === 'count') return ''
   return 'B'
 }
 

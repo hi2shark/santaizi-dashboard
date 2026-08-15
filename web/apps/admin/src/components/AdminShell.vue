@@ -7,7 +7,7 @@ import { AppDrawer, AppEmpty } from '@santaizi/ui'
 import { useSessionStore } from '@/stores/session'
 import { useMessageStore, type AdminMessage } from '@/stores/messages'
 import { useTheme } from '@/composables/theme'
-import { formatDateTime } from '@/composables/format'
+import { formatDateTime, formatProductVersion } from '@/composables/format'
 import ScriptCommandsDrawer from '@/components/ScriptCommandsDrawer.vue'
 
 const { t, locale } = useI18n()
@@ -27,6 +27,7 @@ const nav = computed(() => [
   ['settings', '/settings', 'ri-settings-3-line', t('settings')], ['api-tokens', '/api-tokens', 'ri-key-2-line', t('apiTokens')],
 ])
 const addonNav = computed(() => [['ddns', '/ddns', 'ri-global-line', t('ddns')], ['nat', '/nat', 'ri-route-line', t('nat')]])
+const panelVersion = computed(() => formatProductVersion(session.state.version))
 const activeMessage = computed(() => messages.activeMessage)
 const fieldEntries = computed(() => Object.entries(activeMessage.value?.fields || {}))
 const drawerTitle = computed(() => activeMessage.value ? t('errorDetail') : t('messageCenter'))
@@ -54,9 +55,12 @@ function openItem(row: AdminMessage) { messages.openDetail(row.id) }
         <el-button text class="addon-toggle" :class="{ active: addonNav.some(item => router.currentRoute.value.path === item[1]) }" :aria-expanded="addonsOpen" @click="toggleAddons"><i class="ri-apps-2-line"></i><span v-if="!collapsed">{{ t('additionalFeatures') }}</span><i v-if="!collapsed" :class="addonsOpen ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'"></i></el-button>
         <div v-if="addonsOpen && !collapsed" class="addon-nav"><RouterLink v-for="item in addonNav" :key="item[0]" :to="String(item[1])" class="nav-item" @click="mobileOpen=false"><i :class="item[2]"></i><span>{{ item[3] }}</span></RouterLink></div>
       </nav>
-      <el-button text class="collapse-button" @click="toggle" :aria-label="collapsed ? t('expand') : t('collapse')">
-        <i :class="collapsed ? 'ri-arrow-right-double-line' : 'ri-arrow-left-double-line'"></i><span v-if="!collapsed">{{ t('collapse') }}</span>
-      </el-button>
+      <div class="sidebar-footer">
+        <span v-if="panelVersion" class="sidebar-version" :title="panelVersion">{{ panelVersion }}</span>
+        <el-button text class="collapse-button" @click="toggle" :aria-label="collapsed ? t('expand') : t('collapse')">
+          <i :class="collapsed ? 'ri-arrow-right-double-line' : 'ri-arrow-left-double-line'"></i><span v-if="!collapsed">{{ t('collapse') }}</span>
+        </el-button>
+      </div>
     </aside>
     <div class="admin-body">
       <header class="admin-topbar">

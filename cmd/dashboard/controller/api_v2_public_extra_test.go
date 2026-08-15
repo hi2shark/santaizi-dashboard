@@ -119,7 +119,7 @@ func TestDecodePublicMetricPoints(t *testing.T) {
 	t.Parallel()
 	start := time.Date(2026, 8, 13, 10, 0, 0, 0, time.UTC)
 	payload, err := proto.Marshal(&pb.StateRollupPayload{
-		Average:    &pb.State{Cpu: 12.5, MemUsed: 1024, DiskUsed: 2048, NetInSpeed: 10, NetOutSpeed: 20},
+		Average:    &pb.State{Cpu: 12.5, MemUsed: 1024, DiskUsed: 2048, NetInSpeed: 10, NetOutSpeed: 20, ProcessCount: 88, TcpConnCount: 12, UdpConnCount: 4},
 		NetInTotal: 100, NetOutTotal: 200,
 	})
 	if err != nil {
@@ -141,6 +141,9 @@ func TestDecodePublicMetricPoints(t *testing.T) {
 	}
 	if items[0]["net_in_speed"] != uint64(10) || items[0]["net_out_speed"] != uint64(20) {
 		t.Fatalf("speed=%#v", items[0])
+	}
+	if items[0]["process_count"] != uint64(88) || items[0]["tcp_conn_count"] != uint64(12) || items[0]["udp_conn_count"] != uint64(4) {
+		t.Fatalf("counts=%#v", items[0])
 	}
 }
 

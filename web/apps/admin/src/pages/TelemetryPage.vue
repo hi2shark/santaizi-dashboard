@@ -9,7 +9,7 @@ import type {
 } from '@santaizi/api'
 import { deleteCollector, getCollectorToken, listCollectors, revokeCollector, rotateCollectorToken, telemetryList, type CollectorRecord } from '@/api/adminApi'
 import { AppDialog, AppDrawer, AppEmpty } from '@santaizi/ui'
-import { formatAdminValue } from '@/composables/format'
+import { formatAdminValue, formatProductVersion } from '@/composables/format'
 import { notifyAPIError } from '@/composables/notify'
 import CollectorEditorDialog from '@/components/editors/CollectorEditorDialog.vue'
 import InstallCollectorDialog from '@/components/InstallCollectorDialog.vue'
@@ -123,6 +123,10 @@ function pretty(value: unknown, key = '') {
   return formatAdminValue(value, key, locale.value, t as never, te)
 }
 
+function collectorVersionText(row: CollectorRecord) {
+  return formatProductVersion(row.software_version) || '—'
+}
+
 function formatEnd(value: unknown, key: string) {
   if (value === null || value === undefined || value === '') return t('ongoing')
   return pretty(value, key)
@@ -205,6 +209,9 @@ onMounted(async () => {
         </el-table-column>
         <el-table-column prop="generation" :label="t('generation')" width="100" />
         <el-table-column prop="config_version" :label="t('configVersion')" width="120" />
+        <el-table-column :label="t('collectorVersion')" width="120">
+          <template #default="{row}">{{ collectorVersionText(row) }}</template>
+        </el-table-column>
         <el-table-column prop="last_seen" :label="t('lastSeen')" width="190">
           <template #default="{row}">{{ pretty(row.last_seen, 'last_seen') }}</template>
         </el-table-column>
@@ -268,6 +275,7 @@ onMounted(async () => {
               <div><dt>{{ t('listenPort') }}</dt><dd>{{ collectorListenPort(row) ?? '—' }}</dd></div>
               <div><dt>{{ t('generation') }}</dt><dd>{{ row.generation }}</dd></div>
               <div><dt>{{ t('configVersion') }}</dt><dd>{{ row.config_version }}</dd></div>
+              <div><dt>{{ t('collectorVersion') }}</dt><dd>{{ collectorVersionText(row) }}</dd></div>
               <div><dt>{{ t('lastSeen') }}</dt><dd>{{ pretty(row.last_seen, 'last_seen') }}</dd></div>
               <div><dt>{{ t('connectedAgents') }}</dt><dd>{{ pretty(row.connected_agents, 'connected_agents') }}</dd></div>
               <div><dt>{{ t('pendingRecords') }}</dt><dd>{{ pretty(row.pending_records, 'pending_records') }}</dd></div>
