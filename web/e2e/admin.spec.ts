@@ -543,9 +543,10 @@ test('connection observation shows collector links and node paths', async ({ pag
   await page.goto('/admin/connections')
   await expect(page.getByRole('heading', { name: '连接观察' })).toBeVisible()
   await expect(page.getByText('主从连接').filter({ visible: true })).toBeVisible()
-  await expect(page.getByText('Shanghai edge').filter({ visible: true })).toBeVisible()
+  const collectorGrid = page.locator('.collector-grid').filter({ visible: true })
+  await expect(collectorGrid.getByText('Shanghai edge')).toBeVisible()
   await expect(page.getByText('复制中').filter({ visible: true })).toBeVisible()
-  await expect(page.locator('.collector-grid')).not.toContainText('待同步记录')
+  await expect(collectorGrid).not.toContainText('待同步记录')
   await expect(page.getByText('18.5 ms').filter({ visible: true }).first()).toBeVisible()
   await expect(page.locator('.collector-grid .rtt-sampled').filter({ visible: true }).first()).toHaveText(/\d{1,2}:\d{2}:\d{2}/)
   await expect(page.getByText('节点连接').filter({ visible: true })).toBeVisible()
@@ -555,13 +556,14 @@ test('connection observation shows collector links and node paths', async ({ pag
     await expect(pathFilters.getByRole('combobox')).toHaveCount(2)
   } else {
     await expect(pathFilters).toBeHidden()
+    await expect(page.locator('.path-matrix').getByRole('columnheader', { name: 'Shanghai edge' })).toBeVisible()
   }
   await expect(page.getByText('edge-a').filter({ visible: true })).toBeVisible()
   await expect(page.getByText('12.5 ms').filter({ visible: true }).first()).toBeVisible()
   if (testInfo.project.name !== 'admin-mobile') {
     await expect(page.locator('.path-matrix__cell .rtt-sampled').filter({ visible: true }).first()).toHaveText(/\d{1,2}:\d{2}:\d{2}/)
   }
-  await page.getByText('Shanghai edge').filter({ visible: true }).first().click()
+  await collectorGrid.getByText('Shanghai edge').click()
   const drawer = page.locator('.el-drawer').filter({ visible: true })
   await expect(drawer.getByText('从端版本').filter({ visible: true })).toBeVisible()
   await expect(drawer.getByText('v1.4.0').filter({ visible: true })).toBeVisible()
