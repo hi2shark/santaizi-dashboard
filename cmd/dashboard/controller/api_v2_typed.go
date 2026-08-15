@@ -1406,6 +1406,9 @@ func normalizeCollectorListenPort(listenPort uint, address string) (uint, error)
 	if listenPort != 0 {
 		return listenPort, nil
 	}
+	if strings.TrimSpace(address) == "" {
+		return 0, nil
+	}
 	parsed, err := parseCollectorListenPort(address)
 	if err != nil {
 		return 0, err

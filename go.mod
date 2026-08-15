@@ -9,7 +9,6 @@ require (
 	github.com/gin-gonic/gin v1.10.1
 	github.com/google/go-github/v47 v47.1.0
 	github.com/gorilla/websocket v1.5.1
-	github.com/hashicorp/go-uuid v1.0.3
 	github.com/jinzhu/copier v0.4.0
 	github.com/json-iterator/go v1.1.12
 	github.com/knadh/koanf/parsers/yaml v0.1.0
@@ -25,6 +24,7 @@ require (
 	github.com/ory/graceful v0.1.3
 	github.com/oschwald/maxminddb-golang v1.13.1
 	github.com/patrickmn/go-cache v2.1.0+incompatible
+	github.com/prometheus-community/pro-bing v0.4.1
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/spf13/pflag v1.0.5
 	github.com/tidwall/gjson v1.18.0

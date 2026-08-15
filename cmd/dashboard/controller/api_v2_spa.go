@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -71,6 +72,10 @@ func registerSPAAPIV2(root gin.IRouter) {
 	admin.GET("/connections/summary", v2ConnectionSummary)
 	admin.GET("/connections/paths", v2ConnectionPaths)
 	admin.GET("/connections/latency", v2ConnectionLatency)
+	admin.GET("/probes/summary", v2ProbeSummary)
+	admin.GET("/probes/paths", v2ProbePaths)
+	admin.GET("/probes/samples", v2ProbeSamples)
+	admin.GET("/probes/trace", v2ProbeTrace)
 	admin.GET("/servers", v2AdminServers)
 	admin.POST("/servers", v2CreateServer)
 	admin.GET("/servers/:id", v2AdminServer)
@@ -471,6 +476,7 @@ type serverV2Write struct {
 	EnableDDNS        bool                      `json:"enable_ddns"`
 	DDNSProfiles      []uint64                  `json:"ddns_profiles"`
 	TrafficPolicies   *[]trafficPolicyUpsertDTO `json:"traffic_policies"`
+	ProbeTarget       string                    `json:"probe_target"`
 }
 
 type trafficPolicyUpsertDTO struct {
@@ -511,7 +517,7 @@ func hostAdminDTO(host *model.Host) any {
 func serverAdminDTO(server model.Server, reveal bool) gin.H {
 	monitoringOptions := map[string]bool{}
 	_ = json.Unmarshal([]byte(server.MonitoringOptionsRaw), &monitoringOptions)
-	result := gin.H{"id": server.ID, "name": server.Name, "tag": server.Tag, "note": server.Note, "public_note": decodePublicNote(server.PublicNote), "monitoring_options": monitoringOptions, "display_index": server.DisplayIndex, "hide_for_guest": server.HideForGuest, "enable_ddns": server.EnableDDNS, "ddns_profiles": server.DDNSProfiles, "last_active": formatOptionalTime(server.LastActive), "host": hostAdminDTO(server.Host), "state": server.State}
+	result := gin.H{"id": server.ID, "name": server.Name, "tag": server.Tag, "note": server.Note, "public_note": decodePublicNote(server.PublicNote), "monitoring_options": monitoringOptions, "display_index": server.DisplayIndex, "hide_for_guest": server.HideForGuest, "enable_ddns": server.EnableDDNS, "ddns_profiles": server.DDNSProfiles, "probe_target": server.ProbeTarget, "last_active": formatOptionalTime(server.LastActive), "host": hostAdminDTO(server.Host), "state": server.State}
 	if reveal {
 		result["secret"] = server.Secret
 	}
@@ -611,6 +617,7 @@ func v2SaveServer(c *gin.Context, id uint64) {
 	}
 	server.MonitoringOptionsRaw = string(monitoringOptions)
 	server.DisplayIndex, server.HideForGuest, server.EnableDDNS = request.DisplayIndex, request.HideForGuest, request.EnableDDNS
+	server.ProbeTarget = strings.TrimSpace(request.ProbeTarget)
 	server.DDNSProfiles = append([]uint64(nil), request.DDNSProfiles...)
 	raw, _ := utils.Json.Marshal(server.DDNSProfiles)
 	server.DDNSProfilesRaw = string(raw)
@@ -663,6 +670,10 @@ func v2SaveServer(c *gin.Context, id uint64) {
 		singleton.ServerLock.Unlock()
 	} else {
 		if err := singleton.RefreshObserverAssignmentsForServer(server.ID, time.Now()); err != nil {
+			writeV2Problem(c, 500, "assignment_refresh_failed", err.Error())
+			return
+		}
+		if err := singleton.RefreshProbeCollectorConfigsForServer(server.ID); err != nil {
 			writeV2Problem(c, 500, "assignment_refresh_failed", err.Error())
 			return
 		}
@@ -1868,6 +1879,43 @@ func v2CleanupOfflineHistory(c *gin.Context) {
 	writeV2Data(c, 200, gin.H{"deleted": result.RowsAffected})
 }
 
+var errObserverAddressRequired = errors.New("address is required for observer collectors")
+
+func applyCollectorProbeRequest(collector *model.Collector, request collectorRequest, created bool) {
+	if request.ProbeIntervalSeconds > 0 {
+		collector.ProbeIntervalSec = request.ProbeIntervalSeconds
+	}
+	if request.MTRIntervalSeconds > 0 {
+		collector.MTRIntervalSec = request.MTRIntervalSeconds
+	}
+	if strings.TrimSpace(request.TCPPorts) != "" {
+		collector.TCPPorts = strings.TrimSpace(request.TCPPorts)
+	}
+	if request.EnableICMP != nil {
+		collector.EnableICMP = *request.EnableICMP
+	} else if created {
+		collector.EnableICMP = true
+	}
+	if request.EnableTCP != nil {
+		collector.EnableTCP = *request.EnableTCP
+	} else if created {
+		collector.EnableTCP = true
+	}
+	if request.EnableMTR != nil {
+		collector.EnableMTR = *request.EnableMTR
+	} else if created {
+		collector.EnableMTR = true
+	}
+	collector.ProbeNotify = request.Notify
+	collector.NotificationTag = strings.TrimSpace(request.NotificationTag)
+	collector.LatencyNotify = request.LatencyNotify
+	collector.MinLatencyMs = request.MinLatencyMs
+	collector.MaxLatencyMs = request.MaxLatencyMs
+	if request.FailThreshold > 0 {
+		collector.FailThreshold = request.FailThreshold
+	}
+}
+
 func collectorDTO(collector model.Collector) gin.H {
 	var scopes []model.CollectorScope
 	_ = singleton.DB.Where("collector_uuid = ?", collector.CollectorUUID).Find(&scopes).Error
@@ -1879,7 +1927,12 @@ func collectorDTO(collector model.Collector) gin.H {
 	}
 	return gin.H{
 		"id": collector.CollectorUUID, "name": collector.Name, "address": collector.Address, "listen_port": collector.ListenPort, "tls": collector.TLS,
-		"insecure_tls": collector.InsecureTLS, "location": collector.Location, "generation": collector.Generation, "config_version": collector.ConfigVersion,
+		"insecure_tls": collector.InsecureTLS, "location": collector.Location, "kind": model.NormalizeCollectorKind(collector.Kind),
+		"probe_interval_seconds": collector.ProbeIntervalSec, "mtr_interval_seconds": collector.MTRIntervalSec, "tcp_ports": collector.TCPPorts,
+		"enable_icmp": collector.EnableICMP, "enable_tcp": collector.EnableTCP, "enable_mtr": collector.EnableMTR,
+		"notify": collector.ProbeNotify, "notification_tag": collector.NotificationTag, "latency_notify": collector.LatencyNotify,
+		"min_latency_ms": collector.MinLatencyMs, "max_latency_ms": collector.MaxLatencyMs, "fail_threshold": collector.FailThreshold,
+		"generation": collector.Generation, "config_version": collector.ConfigVersion,
 		"revoked": collector.Revoked, "status": telemetry.CollectorStatus(runtime.LastSeen, time.Now()),
 		"last_seen": optionalRFC3339Nano(runtime.LastSeen), "last_sync": optionalRFC3339Nano(runtime.LastSync),
 		"last_primary_seen": optionalRFC3339Nano(runtime.LastPrimarySeen), "spool_size": runtime.SpoolSize,
@@ -1918,6 +1971,15 @@ func v2CreateCollector(c *gin.Context) {
 		writeV2Problem(c, 400, "invalid_collector", err.Error())
 		return
 	}
+	kind := model.NormalizeCollectorKind(request.Kind)
+	if kind == "" {
+		writeV2Problem(c, 400, "invalid_collector", "kind must be observer or probe")
+		return
+	}
+	if kind == model.CollectorKindObserver && strings.TrimSpace(request.Address) == "" {
+		writeV2Problem(c, 400, "invalid_collector", "address is required for observer collectors")
+		return
+	}
 	listenPort, err := normalizeCollectorListenPort(request.ListenPort, request.Address)
 	if err != nil {
 		writeV2Problem(c, 400, "invalid_collector", err.Error())
@@ -1933,7 +1995,9 @@ func v2CreateCollector(c *gin.Context) {
 		writeV2Problem(c, 500, "token_generation_failed", err.Error())
 		return
 	}
-	collector := model.Collector{CollectorUUID: id, Name: request.Name, Address: request.Address, ListenPort: listenPort, TokenHash: hash, RegistrationToken: plain, Generation: 1, ConfigVersion: singleton.CurrentTelemetryConfigVersion() + 1, TLS: request.TLS, InsecureTLS: request.InsecureTLS, Location: strings.TrimSpace(request.Location)}
+	collector := model.Collector{CollectorUUID: id, Name: request.Name, Address: request.Address, ListenPort: listenPort, TokenHash: hash, RegistrationToken: plain, Generation: 1, ConfigVersion: singleton.CurrentTelemetryConfigVersion() + 1, TLS: request.TLS, InsecureTLS: request.InsecureTLS, Location: strings.TrimSpace(request.Location), Kind: kind}
+	applyCollectorProbeRequest(&collector, request, true)
+	collector.ApplyProbeDefaults()
 	if err := singleton.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&collector).Error; err != nil {
 			return err
@@ -1962,7 +2026,12 @@ func v2UpdateCollector(c *gin.Context) {
 		if err := tx.First(&collector, "collector_uuid = ? AND deleted = ?", c.Param("id"), false).Error; err != nil {
 			return err
 		}
+		if model.NormalizeCollectorKind(collector.Kind) == model.CollectorKindObserver && strings.TrimSpace(request.Address) == "" {
+			return errObserverAddressRequired
+		}
 		collector.Name, collector.Address, collector.ListenPort, collector.TLS, collector.InsecureTLS, collector.Location = request.Name, request.Address, listenPort, request.TLS, request.InsecureTLS, strings.TrimSpace(request.Location)
+		applyCollectorProbeRequest(&collector, request, false)
+		collector.ApplyProbeDefaults()
 		collector.ConfigVersion++
 		if err := tx.Save(&collector).Error; err != nil {
 			return err
@@ -1970,6 +2039,10 @@ func v2UpdateCollector(c *gin.Context) {
 		return replaceCollectorScopes(tx, &collector, request.Scopes, time.Now())
 	})
 	if err != nil {
+		if errors.Is(err, errObserverAddressRequired) {
+			writeV2Problem(c, 400, "invalid_collector", err.Error())
+			return
+		}
 		writeV2Problem(c, 404, "collector_update_failed", err.Error())
 		return
 	}
@@ -2043,6 +2116,9 @@ func v2CollectorInstallPreview(c *gin.Context) {
 	if err != nil {
 		writeV2Problem(c, 400, "invalid_collector", err.Error())
 		return
+	}
+	if grpcPort == 0 {
+		grpcPort = 5556
 	}
 	if grpcPort < 1 || grpcPort > 65535 {
 		writeV2Problem(c, 400, "invalid_install_preview", "grpc_port must be between 1 and 65535")
@@ -2186,6 +2262,134 @@ func v2ConnectionLatency(c *gin.Context) {
 		})
 	}
 	writeV2List(c, items, v2Meta{Page: page, PageSize: size, Total: total})
+}
+
+func v2ProbeSummary(c *gin.Context) {
+	summary, err := telemetry.LoadProbeSummary(singleton.DB, time.Now())
+	if err != nil {
+		writeV2Problem(c, http.StatusInternalServerError, "database_error", err.Error())
+		return
+	}
+	writeV2Data(c, http.StatusOK, gin.H{
+		"collectors_total": summary.CollectorsTotal, "collectors_online": summary.CollectorsOnline,
+		"collectors_offline": summary.CollectorsOffline, "collectors_unknown": summary.CollectorsUnknown,
+		"paths_assigned": summary.PathsAssigned, "paths_reachable": summary.PathsReachable,
+		"paths_down": summary.PathsDown, "paths_no_target": summary.PathsNoTarget,
+	})
+}
+
+func v2ProbePaths(c *gin.Context) {
+	var filter telemetry.ProbePathFilter
+	filter.CollectorID = strings.TrimSpace(c.Query("collector_id"))
+	if raw := strings.TrimSpace(c.Query("server_id")); raw != "" {
+		id, err := strconv.ParseUint(raw, 10, 64)
+		if err != nil || id == 0 {
+			writeV2Problem(c, http.StatusBadRequest, "invalid_server_id", "server_id 无效")
+			return
+		}
+		filter.ServerID = id
+	}
+	paths, err := telemetry.LoadProbePaths(singleton.DB, filter)
+	if err != nil {
+		writeV2Problem(c, http.StatusInternalServerError, "database_error", err.Error())
+		return
+	}
+	items := make([]gin.H, 0, len(paths))
+	for _, path := range paths {
+		tcp := make([]gin.H, 0, len(path.TCP))
+		for _, item := range path.TCP {
+			tcp = append(tcp, gin.H{"port": item.Port, "ok": item.OK, "rtt_ms": item.RttMs, "error": item.Error})
+		}
+		item := gin.H{
+			"server_id": path.ServerID, "server_name": path.ServerName, "collector_id": path.CollectorID, "collector_name": path.CollectorName,
+			"target": gin.H{"source": path.TargetSource, "hostname": path.Hostname, "ipv4": path.IPv4, "ipv6": path.IPv6},
+			"reachable": path.Reachable, "has_trace": path.HasTrace, "last_error": path.LastError,
+			"icmp": gin.H{"ok": path.ICMPOk, "rtt_ms": path.ICMPRttMs, "loss": path.ICMPLoss, "packets_sent": path.ICMPSent, "packets_received": path.ICMPRecv},
+			"tcp": tcp,
+		}
+		if path.SampledAt > 0 {
+			item["sampled_at"] = optionalRFC3339Nano(path.SampledAt)
+			item["display_rtt_ms"] = optionalFloat(path.SampledAt, path.DisplayRttMs)
+		}
+		items = append(items, item)
+	}
+	writeV2List(c, items, v2Meta{Page: 1, PageSize: len(items), Total: int64(len(items))})
+}
+
+func v2ProbeSamples(c *gin.Context) {
+	var filter telemetry.ProbeSampleFilter
+	filter.CollectorID = strings.TrimSpace(c.Query("collector_id"))
+	filter.Kind = strings.TrimSpace(c.Query("kind"))
+	if raw := strings.TrimSpace(c.Query("server_id")); raw != "" {
+		id, err := strconv.ParseUint(raw, 10, 64)
+		if err != nil || id == 0 {
+			writeV2Problem(c, http.StatusBadRequest, "invalid_server_id", "server_id 无效")
+			return
+		}
+		filter.ServerID = id
+	}
+	if raw := strings.TrimSpace(c.Query("port")); raw != "" {
+		port, err := strconv.ParseUint(raw, 10, 16)
+		if err != nil {
+			writeV2Problem(c, http.StatusBadRequest, "invalid_port", "port 无效")
+			return
+		}
+		filter.Port = uint(port)
+	}
+	page, size := parsePage(c)
+	rows, total, err := telemetry.ListProbeSamples(singleton.DB, filter, (page-1)*size, size)
+	if err != nil {
+		writeV2Problem(c, http.StatusInternalServerError, "database_error", err.Error())
+		return
+	}
+	items := make([]gin.H, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, gin.H{
+			"collector_id": row.CollectorID, "server_id": row.ServerID, "server_name": row.ServerName,
+			"kind": row.Kind, "port": row.Port, "bucket_start": optionalRFC3339Nano(row.BucketStart),
+			"min_ms": row.MinMs, "avg_ms": row.AvgMs, "max_ms": row.MaxMs, "loss": row.Loss,
+			"success_count": row.SuccessCount, "fail_count": row.FailCount,
+		})
+	}
+	writeV2List(c, items, v2Meta{Page: page, PageSize: size, Total: total})
+}
+
+func v2ProbeTrace(c *gin.Context) {
+	collectorID := strings.TrimSpace(c.Query("collector_id"))
+	raw := strings.TrimSpace(c.Query("server_id"))
+	if collectorID == "" || raw == "" {
+		writeV2Problem(c, http.StatusBadRequest, "invalid_probe_trace", "collector_id 与 server_id 必填")
+		return
+	}
+	serverID, err := strconv.ParseUint(raw, 10, 64)
+	if err != nil || serverID == 0 {
+		writeV2Problem(c, http.StatusBadRequest, "invalid_server_id", "server_id 无效")
+		return
+	}
+	trace, err := telemetry.GetProbeTrace(singleton.DB, collectorID, serverID)
+	if err != nil {
+		writeV2Problem(c, http.StatusInternalServerError, "database_error", err.Error())
+		return
+	}
+	if trace == nil {
+		writeV2Data(c, http.StatusOK, nil)
+		return
+	}
+	hops := make([]gin.H, 0, len(trace.Hops))
+	for _, hop := range trace.Hops {
+		hops = append(hops, gin.H{
+			"ttl": hop.TTL, "address": hop.Address, "loss": hop.Loss,
+			"avg_ms": durationMilliseconds(hop.Avg), "sent": hop.Sent,
+		})
+	}
+	writeV2Data(c, http.StatusOK, gin.H{
+		"collector_id": trace.CollectorID, "server_id": trace.ServerID,
+		"sampled_at": optionalRFC3339Nano(trace.SampledAt), "destination": trace.Destination, "hops": hops,
+	})
+}
+
+func durationMilliseconds(value time.Duration) float64 {
+	return float64(value) / float64(time.Millisecond)
 }
 
 func v2TelemetryDataset(c *gin.Context) {

@@ -7,6 +7,7 @@
  *
  * OpenAPI spec version: 2.0.0
  */
+import type { CollectorKind } from './collectorKind';
 import type { CollectorScope } from './collectorScope';
 import type { CollectorStatus } from './collectorStatus';
 
@@ -28,6 +29,24 @@ export interface Collector {
      * @maxLength 64
      */
   location?: string;
+  /** 从端类型。创建后不可改。缺省 observer。 */
+  kind?: CollectorKind;
+  /** @minimum 1 */
+  probe_interval_seconds?: number;
+  /** @minimum 1 */
+  mtr_interval_seconds?: number;
+  /** 逗号分隔 TCP 端口，如 22,443 */
+  tcp_ports?: string;
+  enable_icmp?: boolean;
+  enable_tcp?: boolean;
+  enable_mtr?: boolean;
+  notify?: boolean;
+  notification_tag?: string;
+  latency_notify?: boolean;
+  min_latency_ms?: number;
+  max_latency_ms?: number;
+  /** @minimum 1 */
+  fail_threshold?: number;
   generation: number;
   config_version: number;
   revoked: boolean;

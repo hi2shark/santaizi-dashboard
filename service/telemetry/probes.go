@@ -1,0 +1,568 @@
+package telemetry
+
+import (
+	"encoding/json"
+	"fmt"
+	"net"
+	"strings"
+	"time"
+
+	"github.com/hi2shark/santaizi-dashboard/model"
+	"github.com/hi2shark/santaizi-dashboard/pkg/netprobe"
+	"github.com/hi2shark/santaizi-dashboard/pkg/utils"
+	pb "github.com/hi2shark/santaizi-dashboard/proto"
+	"github.com/hi2shark/santaizi-dashboard/service/singleton"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+)
+
+const ProbeSampleRetention = 24 * time.Hour
+
+type ProbeSummary struct {
+	CollectorsTotal   int64
+	CollectorsOnline  int64
+	CollectorsOffline int64
+	CollectorsUnknown int64
+	PathsAssigned     int64
+	PathsReachable    int64
+	PathsDown         int64
+	PathsNoTarget     int64
+}
+
+type ProbeTCPView struct {
+	Port  uint    `json:"port"`
+	OK    bool    `json:"ok"`
+	RttMs float64 `json:"rtt_ms,omitempty"`
+	Error string  `json:"error,omitempty"`
+}
+
+type ProbePath struct {
+	ServerID      uint64
+	ServerName    string
+	CollectorID   string
+	CollectorName string
+	TargetSource  string
+	Hostname      string
+	IPv4          string
+	IPv6          string
+	Reachable     bool
+	DisplayRttMs  float64
+	SampledAt     int64
+	LastError     string
+	ICMPOk        bool
+	ICMPRttMs     float64
+	ICMPLoss      float64
+	ICMPSent      uint32
+	ICMPRecv      uint32
+	TCP           []ProbeTCPView
+	HasTrace      bool
+}
+
+type ProbePathFilter struct {
+	ServerID     uint64
+	CollectorID  string
+}
+
+type ProbeSampleFilter struct {
+	CollectorID string
+	ServerID    uint64
+	Kind        string
+	Port        uint
+}
+
+type ProbeSampleRow struct {
+	CollectorID  string
+	ServerID     uint64
+	ServerName   string
+	Kind         string
+	Port         uint
+	BucketStart  int64
+	MinMs        float64
+	AvgMs        float64
+	MaxMs        float64
+	Loss         float64
+	SuccessCount uint32
+	FailCount    uint32
+}
+
+type ProbeTraceView struct {
+	CollectorID string
+	ServerID    uint64
+	SampledAt   int64
+	Destination string
+	Hops        []netprobe.Hop
+}
+
+func CollectorKind(kind string) string {
+	return model.NormalizeCollectorKind(kind)
+}
+
+func LoadProbeSummary(db *gorm.DB, now time.Time) (ProbeSummary, error) {
+	var summary ProbeSummary
+	var collectors []model.Collector
+	if err := db.Where("deleted = ? AND revoked = ? AND kind = ?", false, false, model.CollectorKindProbe).Find(&collectors).Error; err != nil {
+		return summary, err
+	}
+	summary.CollectorsTotal = int64(len(collectors))
+	if len(collectors) > 0 {
+		ids := make([]string, 0, len(collectors))
+		for _, collector := range collectors {
+			ids = append(ids, collector.CollectorUUID)
+		}
+		var runtimes []model.CollectorRuntime
+		if err := db.Where("collector_uuid IN ?", ids).Find(&runtimes).Error; err != nil {
+			return summary, err
+		}
+		byID := map[string]int64{}
+		for _, runtime := range runtimes {
+			byID[runtime.CollectorUUID] = runtime.LastSeen
+		}
+		for _, collector := range collectors {
+			switch CollectorStatus(byID[collector.CollectorUUID], now) {
+			case CollectorStatusOnline:
+				summary.CollectorsOnline++
+			case CollectorStatusOffline:
+				summary.CollectorsOffline++
+			default:
+				summary.CollectorsUnknown++
+			}
+		}
+	}
+	paths, err := LoadProbePaths(db, ProbePathFilter{})
+	if err != nil {
+		return summary, err
+	}
+	summary.PathsAssigned = int64(len(paths))
+	for _, path := range paths {
+		if path.TargetSource == "none" {
+			summary.PathsNoTarget++
+			continue
+		}
+		if path.SampledAt == 0 {
+			continue
+		}
+		if path.Reachable {
+			summary.PathsReachable++
+		} else {
+			summary.PathsDown++
+		}
+	}
+	return summary, nil
+}
+
+func LoadProbePaths(db *gorm.DB, filter ProbePathFilter) ([]ProbePath, error) {
+	var collectors []model.Collector
+	query := db.Where("deleted = ? AND revoked = ? AND kind = ?", false, false, model.CollectorKindProbe)
+	if filter.CollectorID != "" {
+		query = query.Where("collector_uuid = ?", filter.CollectorID)
+	}
+	if err := query.Find(&collectors).Error; err != nil {
+		return nil, err
+	}
+	if len(collectors) == 0 {
+		return []ProbePath{}, nil
+	}
+	var servers []model.Server
+	if err := db.Find(&servers).Error; err != nil {
+		return nil, err
+	}
+	serverByID := map[uint64]model.Server{}
+	for _, server := range servers {
+		serverByID[server.ID] = server
+	}
+	ids := make([]string, 0, len(collectors))
+	for _, collector := range collectors {
+		ids = append(ids, collector.CollectorUUID)
+	}
+	var latests []model.ProbeLatest
+	if err := db.Where("collector_uuid IN ?", ids).Find(&latests).Error; err != nil {
+		return nil, err
+	}
+	latestByKey := map[string]model.ProbeLatest{}
+	for _, row := range latests {
+		latestByKey[row.CollectorUUID+"/"+fmt.Sprintf("%d", row.ServerID)] = row
+	}
+	var scopes []model.CollectorScope
+	if err := db.Where("collector_uuid IN ?", ids).Find(&scopes).Error; err != nil {
+		return nil, err
+	}
+	scopesByCollector := map[string][]model.CollectorScope{}
+	for _, scope := range scopes {
+		scopesByCollector[scope.CollectorUUID] = append(scopesByCollector[scope.CollectorUUID], scope)
+	}
+	var paths []ProbePath
+	for _, collector := range collectors {
+		for _, server := range servers {
+			if filter.ServerID != 0 && server.ID != filter.ServerID {
+				continue
+			}
+			if !singleton.CollectorScopesIncludeServer(scopesByCollector[collector.CollectorUUID], server) {
+				continue
+			}
+			target := ResolveProbeTarget(db, server)
+			path := ProbePath{
+				ServerID: server.ID, ServerName: server.Name, CollectorID: collector.CollectorUUID, CollectorName: collector.Name,
+				TargetSource: target.Source, Hostname: target.Hostname, IPv4: target.IPv4, IPv6: target.IPv6,
+			}
+			if latest, ok := latestByKey[collector.CollectorUUID+"/"+fmt.Sprintf("%d", server.ID)]; ok {
+				path.Reachable = latest.Reachable
+				path.DisplayRttMs = latest.DisplayRttMs
+				path.SampledAt = latest.SampledAt
+				path.LastError = latest.LastError
+				path.ICMPOk = latest.ICMPOk
+				path.ICMPRttMs = latest.ICMPRttMs
+				path.ICMPLoss = latest.ICMPLoss
+				path.ICMPSent = latest.ICMPSent
+				path.ICMPRecv = latest.ICMPRecv
+				path.HasTrace = latest.HasTrace
+				if len(latest.TCPJSON) > 0 {
+					_ = json.Unmarshal(latest.TCPJSON, &path.TCP)
+				}
+			}
+			paths = append(paths, path)
+		}
+	}
+	return paths, nil
+}
+
+func ListProbeSamples(db *gorm.DB, filter ProbeSampleFilter, offset, limit int) ([]ProbeSampleRow, int64, error) {
+	query := db.Model(&model.ProbeSampleBucket{})
+	if filter.CollectorID != "" {
+		query = query.Where("collector_uuid = ?", filter.CollectorID)
+	}
+	if filter.ServerID != 0 {
+		query = query.Where("server_id = ?", filter.ServerID)
+	}
+	if filter.Kind != "" {
+		query = query.Where("kind = ?", filter.Kind)
+	}
+	if filter.Port != 0 {
+		query = query.Where("port = ?", filter.Port)
+	}
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var rows []model.ProbeSampleBucket
+	if err := query.Order("bucket_start DESC").Offset(offset).Limit(limit).Find(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+	names := map[uint64]string{}
+	out := make([]ProbeSampleRow, 0, len(rows))
+	for _, row := range rows {
+		name := names[row.ServerID]
+		if name == "" {
+			var server model.Server
+			if err := db.Select("id", "name").First(&server, row.ServerID).Error; err == nil {
+				name = server.Name
+				names[row.ServerID] = name
+			}
+		}
+		avg := 0.0
+		if row.Count > 0 {
+			avg = row.SumMs / float64(row.Count)
+		}
+		loss := 0.0
+		if row.Count > 0 {
+			loss = row.LossSum / float64(row.Count)
+		}
+		out = append(out, ProbeSampleRow{
+			CollectorID: row.CollectorUUID, ServerID: row.ServerID, ServerName: name, Kind: row.Kind, Port: row.Port,
+			BucketStart: row.BucketStart, MinMs: row.MinMs, AvgMs: avg, MaxMs: row.MaxMs, Loss: loss,
+			SuccessCount: row.SuccessCount, FailCount: row.FailCount,
+		})
+	}
+	return out, total, nil
+}
+
+func GetProbeTrace(db *gorm.DB, collectorID string, serverID uint64) (*ProbeTraceView, error) {
+	var row model.ProbeTrace
+	if err := db.Where("collector_uuid = ? AND server_id = ?", collectorID, serverID).First(&row).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	view := &ProbeTraceView{CollectorID: row.CollectorUUID, ServerID: row.ServerID, SampledAt: row.SampledAt, Destination: row.Destination}
+	if len(row.HopsJSON) > 0 {
+		_ = json.Unmarshal(row.HopsJSON, &view.Hops)
+	}
+	return view, nil
+}
+
+func IngestProbeSamples(db *gorm.DB, collector *model.Collector, batch *pb.ProbeSampleBatch, now time.Time) error {
+	if collector == nil || batch == nil {
+		return nil
+	}
+	for _, sample := range batch.GetSamples() {
+		if err := ingestProbeSample(db, collector, sample, now); err != nil {
+			return err
+		}
+	}
+	return db.Where("bucket_start < ?", now.Add(-ProbeSampleRetention).UnixNano()).Delete(&model.ProbeSampleBucket{}).Error
+}
+
+func ingestProbeSample(db *gorm.DB, collector *model.Collector, sample *pb.ProbeSample, now time.Time) error {
+	if sample == nil || sample.GetServerId() == 0 {
+		return nil
+	}
+	sampledAt := sample.GetSampledAtUnixNano()
+	if sampledAt == 0 {
+		sampledAt = now.UnixNano()
+	}
+	icmp := sample.GetIcmp()
+	tcpViews := make([]ProbeTCPView, 0, len(sample.GetTcp()))
+	anyTCP := false
+	for _, item := range sample.GetTcp() {
+		view := ProbeTCPView{Port: uint(item.GetPort()), OK: item.GetOk(), RttMs: item.GetRttMs(), Error: item.GetError()}
+		tcpViews = append(tcpViews, view)
+		if view.OK {
+			anyTCP = true
+		}
+		if err := upsertProbeBucket(db, collector.CollectorUUID, sample.GetServerId(), "tcp", view.Port, sampledAt, view.OK, view.RttMs, 0); err != nil {
+			return err
+		}
+	}
+	icmpOK := icmp != nil && icmp.GetOk()
+	icmpRtt := 0.0
+	icmpLoss := 0.0
+	if icmp != nil {
+		icmpRtt = icmp.GetRttMs()
+		icmpLoss = icmp.GetLoss()
+		if err := upsertProbeBucket(db, collector.CollectorUUID, sample.GetServerId(), "icmp", 0, sampledAt, icmpOK, icmpRtt, icmpLoss); err != nil {
+			return err
+		}
+	}
+	reachable := icmpOK || anyTCP
+	display := 0.0
+	if icmpOK {
+		display = icmpRtt
+	} else {
+		for _, item := range tcpViews {
+			if item.OK {
+				display = item.RttMs
+				break
+			}
+		}
+	}
+	tcpJSON, _ := json.Marshal(tcpViews)
+	hasTrace := sample.GetMtr() != nil && len(sample.GetMtr().GetHops()) > 0
+	latest := model.ProbeLatest{
+		CollectorUUID: collector.CollectorUUID, ServerID: sample.GetServerId(), SampledAt: sampledAt,
+		Reachable: reachable, DisplayRttMs: display, LastError: sample.GetLastError(),
+		ICMPOk: icmpOK, ICMPRttMs: icmpRtt, ICMPLoss: icmpLoss,
+		TCPJSON: tcpJSON, HasTrace: hasTrace, UpdatedAt: now,
+	}
+	if icmp != nil {
+		latest.ICMPSent = icmp.GetPacketsSent()
+		latest.ICMPRecv = icmp.GetPacketsReceived()
+	}
+	if err := db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&latest).Error; err != nil {
+		return err
+	}
+	if hasTrace {
+		hops := make([]netprobe.Hop, 0, len(sample.GetMtr().GetHops()))
+		for _, hop := range sample.GetMtr().GetHops() {
+			hops = append(hops, netprobe.Hop{
+				TTL: uint(hop.GetTtl()), Address: hop.GetAddress(), Loss: hop.GetLoss(),
+				Avg: time.Duration(hop.GetAvgMs() * float64(time.Millisecond)), Sent: int(hop.GetSent()),
+			})
+		}
+		hopsJSON, _ := json.Marshal(hops)
+		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&model.ProbeTrace{
+			CollectorUUID: collector.CollectorUUID, ServerID: sample.GetServerId(),
+			SampledAt: sample.GetMtr().GetSampledAtUnixNano(), Destination: sample.GetMtr().GetDestination(),
+			HopsJSON: hopsJSON, UpdatedAt: now,
+		}).Error; err != nil {
+			return err
+		}
+	}
+	return evaluateProbeAlert(db, collector, sample.GetServerId(), reachable, display, sample.GetLastError(), now)
+}
+
+func upsertProbeBucket(db *gorm.DB, collectorUUID string, serverID uint64, kind string, port uint, sampledAt int64, ok bool, rttMs, loss float64) error {
+	bucket := sampledAt - sampledAt%int64(time.Minute)
+	var row model.ProbeSampleBucket
+	err := db.Where("collector_uuid = ? AND server_id = ? AND kind = ? AND port = ? AND bucket_start = ?",
+		collectorUUID, serverID, kind, port, bucket).First(&row).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return err
+	}
+	if err == gorm.ErrRecordNotFound {
+		row = model.ProbeSampleBucket{CollectorUUID: collectorUUID, ServerID: serverID, Kind: kind, Port: port, BucketStart: bucket}
+	}
+	row.Count++
+	row.LossSum += loss
+	if ok {
+		row.SuccessCount++
+		if row.Count == 1 || rttMs < row.MinMs || row.MinMs == 0 {
+			row.MinMs = rttMs
+		}
+		if rttMs > row.MaxMs {
+			row.MaxMs = rttMs
+		}
+		row.SumMs += rttMs
+	} else {
+		row.FailCount++
+	}
+	return db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&row).Error
+}
+
+func evaluateProbeAlert(db *gorm.DB, collector *model.Collector, serverID uint64, reachable bool, rttMs float64, lastError string, now time.Time) error {
+	if !collector.IsProbe() || !collector.ProbeNotify {
+		return nil
+	}
+	var server model.Server
+	_ = db.First(&server, serverID).Error
+	target := ResolveProbeTarget(db, server)
+	if target.Source == "none" {
+		return nil
+	}
+	var state model.ProbeAlertState
+	if err := db.Where("collector_uuid = ? AND server_id = ?", collector.CollectorUUID, serverID).First(&state).Error; err != nil && err != gorm.ErrRecordNotFound {
+		return err
+	}
+	threshold := collector.FailThreshold
+	if threshold == 0 {
+		threshold = model.DefaultProbeFailThreshold
+	}
+	tag := collector.NotificationTag
+	if tag == "" {
+		tag = "default"
+	}
+	if reachable {
+		if state.DownNotified {
+			singleton.SendNotification(tag, fmt.Sprintf("[ProbeUp] %s → %s", collector.Name, server.Name), nil, &server)
+		}
+		state.ConsecutiveFails = 0
+		state.DownNotified = false
+	} else {
+		state.ConsecutiveFails++
+		if !state.DownNotified && state.ConsecutiveFails >= threshold {
+			errText := lastError
+			if errText == "" {
+				errText = "unreachable"
+			}
+			singleton.SendNotification(tag, fmt.Sprintf("[ProbeDown] %s → %s %s", collector.Name, server.Name, errText), nil, &server)
+			state.DownNotified = true
+		}
+	}
+	if collector.LatencyNotify && reachable && rttMs > 0 {
+		over := (collector.MaxLatencyMs > 0 && rttMs > collector.MaxLatencyMs) || (collector.MinLatencyMs > 0 && rttMs < collector.MinLatencyMs)
+		if over && !state.LatencyAlert {
+			singleton.SendNotification(tag, fmt.Sprintf("[ProbeLatency] %s → %s %.0fms", collector.Name, server.Name, rttMs), nil, &server)
+			state.LatencyAlert = true
+		}
+		if !over {
+			state.LatencyAlert = false
+		}
+	}
+	state.CollectorUUID = collector.CollectorUUID
+	state.ServerID = serverID
+	state.UpdatedAt = now
+	return db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&state).Error
+}
+
+type ResolvedProbeTarget struct {
+	Source   string
+	Hostname string
+	IPv4     string
+	IPv6     string
+}
+
+func ResolveProbeTarget(db *gorm.DB, server model.Server) ResolvedProbeTarget {
+	override := strings.TrimSpace(server.ProbeTarget)
+	if override != "" {
+		if ip := net.ParseIP(override); ip != nil {
+			if ip.To4() != nil {
+				return ResolvedProbeTarget{Source: "override", IPv4: ip.String()}
+			}
+			return ResolvedProbeTarget{Source: "override", IPv6: ip.String()}
+		}
+		return ResolvedProbeTarget{Source: "override", Hostname: override}
+	}
+	ip := ""
+	singleton.ServerLock.RLock()
+	if running := singleton.ServerList[server.ID]; running != nil && running.Host != nil {
+		ip = strings.TrimSpace(running.Host.IP)
+	}
+	singleton.ServerLock.RUnlock()
+	if ip == "" && db != nil {
+		var runtime model.ServerRuntime
+		if err := db.Select("last_ip").First(&runtime, "server_id = ?", server.ID).Error; err == nil {
+			ip = strings.TrimSpace(runtime.LastIP)
+		}
+	}
+	if ip == "" {
+		return ResolvedProbeTarget{Source: "none"}
+	}
+	ipv4, ipv6, _ := utils.SplitIPAddr(ip)
+	if ipv4 == "" && ipv6 == "" {
+		return ResolvedProbeTarget{Source: "none"}
+	}
+	return ResolvedProbeTarget{Source: "host_ip", IPv4: ipv4, IPv6: ipv6}
+}
+
+func BuildProbeTargets(db *gorm.DB, collector *model.Collector) ([]*pb.ProbeTarget, error) {
+	if collector == nil || !collector.IsProbe() {
+		return nil, nil
+	}
+	var scopes []model.CollectorScope
+	if err := db.Where("collector_uuid = ?", collector.CollectorUUID).Find(&scopes).Error; err != nil {
+		return nil, err
+	}
+	var servers []model.Server
+	if err := db.Find(&servers).Error; err != nil {
+		return nil, err
+	}
+	ports := netprobe.ParsePorts(collector.TCPPorts)
+	pbPorts := make([]uint32, 0, len(ports))
+	for _, port := range ports {
+		pbPorts = append(pbPorts, uint32(port))
+	}
+	var targets []*pb.ProbeTarget
+	for _, server := range servers {
+		if !singleton.CollectorScopesIncludeServer(scopes, server) {
+			continue
+		}
+		resolved := ResolveProbeTarget(db, server)
+		if resolved.Source == "none" {
+			continue
+		}
+		targets = append(targets, &pb.ProbeTarget{
+			ServerId: server.ID, ServerName: server.Name, Ipv4: resolved.IPv4, Ipv6: resolved.IPv6, Hostname: resolved.Hostname,
+			TcpPorts: pbPorts, EnableIcmp: collector.EnableICMP, EnableTcp: collector.EnableTCP, EnableMtr: collector.EnableMTR,
+			IntervalSeconds: uint32(collector.ProbeIntervalSec), MtrIntervalSeconds: uint32(collector.MTRIntervalSec),
+		})
+	}
+	return targets, nil
+}
+
+func ProbeConfigFromCollector(collector *model.Collector) *pb.ProbeConfig {
+	if collector == nil {
+		return nil
+	}
+	kind := pb.CollectorKind_COLLECTOR_KIND_OBSERVER
+	if collector.IsProbe() {
+		kind = pb.CollectorKind_COLLECTOR_KIND_PROBE
+	}
+	ports := netprobe.ParsePorts(collector.TCPPorts)
+	pbPorts := make([]uint32, 0, len(ports))
+	for _, port := range ports {
+		pbPorts = append(pbPorts, uint32(port))
+	}
+	return &pb.ProbeConfig{
+		Kind: kind, IntervalSeconds: uint32(collector.ProbeIntervalSec), MtrIntervalSeconds: uint32(collector.MTRIntervalSec),
+		TcpPorts: pbPorts, EnableIcmp: collector.EnableICMP, EnableTcp: collector.EnableTCP, EnableMtr: collector.EnableMTR,
+		Notify: collector.ProbeNotify, NotificationTag: collector.NotificationTag, LatencyNotify: collector.LatencyNotify,
+		MinLatencyMs: collector.MinLatencyMs, MaxLatencyMs: collector.MaxLatencyMs, FailThreshold: uint32(collector.FailThreshold),
+	}
+}
+
+func ProtoCollectorKind(kind string) pb.CollectorKind {
+	if model.NormalizeCollectorKind(kind) == model.CollectorKindProbe {
+		return pb.CollectorKind_COLLECTOR_KIND_PROBE
+	}
+	return pb.CollectorKind_COLLECTOR_KIND_OBSERVER
+}
+

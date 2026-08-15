@@ -78,6 +78,7 @@ export interface ServerRecord extends ResourceRecord {
   last_active?: string
   online?: boolean
   telemetry?: ServerTelemetryPresentation
+  probe_target?: string
 }
 
 export interface CollectorRecord {
@@ -88,6 +89,19 @@ export interface CollectorRecord {
   tls: boolean
   insecure_tls: boolean
   location?: string
+  kind?: 'observer' | 'probe'
+  probe_interval_seconds?: number
+  mtr_interval_seconds?: number
+  tcp_ports?: string
+  enable_icmp?: boolean
+  enable_tcp?: boolean
+  enable_mtr?: boolean
+  notify?: boolean
+  notification_tag?: string
+  latency_notify?: boolean
+  min_latency_ms?: number
+  max_latency_ms?: number
+  fail_threshold?: number
   generation: number
   config_version: number
   revoked: boolean

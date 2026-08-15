@@ -774,6 +774,17 @@ html.dark .topology-globe__canvas { filter: none; }
   white-space: nowrap;
   display: block;
 }
+.path-matrix__head .col-observer.is-probe {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--icon-text-gap);
+  line-height: 1;
+}
+.path-matrix__head .col-observer.is-probe > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .path-matrix__cell,
 .path-matrix__empty,
 .rtt-chip {

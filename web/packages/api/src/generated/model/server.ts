@@ -33,4 +33,9 @@ export interface Server {
   telemetry?: TelemetryPresentation;
   /** 仅创建/更新响应填充；列表接口不带。 */
   traffic_policies?: TrafficPolicy[];
+  /**
+     * 可选探测地址（域名或 IP）。空则用探针上报的公网 IP。
+     * @maxLength 255
+     */
+  probe_target?: string;
 }

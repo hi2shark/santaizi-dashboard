@@ -154,11 +154,14 @@ func syncCollectorAssignmentsForServer(tx *gorm.DB, serverID uint64, nodeUUID []
 	}
 	desired := make(map[string]model.Collector)
 	for _, collector := range collectors {
+		if collector.IsProbe() {
+			continue
+		}
 		var scopes []model.CollectorScope
 		if err := tx.Where("collector_uuid = ?", collector.CollectorUUID).Find(&scopes).Error; err != nil {
 			return err
 		}
-		if collectorScopesIncludeServer(scopes, server) {
+		if CollectorScopesIncludeServer(scopes, server) {
 			desired[collector.CollectorUUID] = collector
 		}
 	}
@@ -199,6 +202,39 @@ func syncCollectorAssignmentsForServer(tx *gorm.DB, serverID uint64, nodeUUID []
 	return nil
 }
 
+func RefreshProbeCollectorConfigsForServer(serverID uint64) error {
+	if DB == nil || serverID == 0 {
+		return nil
+	}
+	return DB.Transaction(func(tx *gorm.DB) error {
+		return bumpProbeCollectorsForServer(tx, serverID)
+	})
+}
+
+func bumpProbeCollectorsForServer(tx *gorm.DB, serverID uint64) error {
+	var server model.Server
+	if err := tx.First(&server, serverID).Error; err != nil {
+		return err
+	}
+	var collectors []model.Collector
+	if err := tx.Where("deleted = ? AND revoked = ? AND kind = ?", false, false, model.CollectorKindProbe).Find(&collectors).Error; err != nil {
+		return err
+	}
+	for _, collector := range collectors {
+		var scopes []model.CollectorScope
+		if err := tx.Where("collector_uuid = ?", collector.CollectorUUID).Find(&scopes).Error; err != nil {
+			return err
+		}
+		if !CollectorScopesIncludeServer(scopes, server) {
+			continue
+		}
+		if _, err := bumpCollectorConfigVersion(tx, collector.CollectorUUID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func bumpCollectorConfigVersion(tx *gorm.DB, collectorUUID string) (uint64, error) {
 	var collector model.Collector
 	if err := tx.First(&collector, "collector_uuid = ?", collectorUUID).Error; err != nil {
@@ -211,7 +247,7 @@ func bumpCollectorConfigVersion(tx *gorm.DB, collectorUUID string) (uint64, erro
 	return collector.ConfigVersion, nil
 }
 
-func collectorScopesIncludeServer(scopes []model.CollectorScope, server model.Server) bool {
+func CollectorScopesIncludeServer(scopes []model.CollectorScope, server model.Server) bool {
 	for _, scope := range scopes {
 		switch scope.ScopeType {
 		case "all":
@@ -308,6 +344,9 @@ func EndpointAssignmentForNode(nodeUUID, sessionID []byte, activationSequence ui
 				continue
 			}
 			return nil, err
+		}
+		if collector.IsProbe() {
+			continue
 		}
 		assignment.Endpoints = append(assignment.Endpoints, &pb.TelemetryEndpoint{
 			EndpointId: collector.CollectorUUID, Kind: pb.EndpointKind_ENDPOINT_KIND_COLLECTOR,
@@ -473,6 +512,7 @@ func touchV2Runtime(nodeUUID, sessionID []byte, sequence uint64, collectedAt int
 
 	var mergedHost *pb.Host
 	var closed *model.ServerOfflineHistory
+	ipChanged := false
 	serverRuntimeMu.Lock()
 	applied := false
 	err = DB.Transaction(func(tx *gorm.DB) error {
@@ -528,6 +568,9 @@ func touchV2Runtime(nodeUUID, sessionID []byte, sequence uint64, collectedAt int
 			if mergedHost != nil {
 				runtime.LastBootTime = mergedHost.GetBootTime()
 				if ip := strings.TrimSpace(mergedHost.GetIp()); ip != "" {
+					if runtime.LastIP != ip {
+						ipChanged = true
+					}
 					runtime.LastIP = ip
 				}
 				runtime.LastAgentVersion = mergedHost.GetVersion()
@@ -548,6 +591,9 @@ func touchV2Runtime(nodeUUID, sessionID []byte, sequence uint64, collectedAt int
 	}
 	if !applied {
 		return nil
+	}
+	if ipChanged {
+		_ = RefreshProbeCollectorConfigsForServer(binding.ServerID)
 	}
 
 	ServerLock.Lock()

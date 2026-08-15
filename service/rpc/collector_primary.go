@@ -125,6 +125,15 @@ func (h *PrimaryCollectorHandler) Sync(stream grpc.BidiStreamingServer[pb.Collec
 		if err != nil {
 			return err
 		}
+		if samples := request.GetProbeSamples(); samples != nil {
+			if err := telemetryservice.IngestProbeSamples(singleton.DB.WithContext(stream.Context()), collector, samples, time.Now()); err != nil {
+				return err
+			}
+			if err := stream.Send(&pb.CollectorSyncResponse{Body: &pb.CollectorSyncResponse_Accepted{Accepted: true}}); err != nil {
+				return err
+			}
+			continue
+		}
 		if runtime := request.GetRuntime(); runtime != nil {
 			if err := saveCollectorRuntime(stream.Context(), collector.CollectorUUID, runtime, time.Now()); err != nil {
 				return err
@@ -152,15 +161,24 @@ func (h *PrimaryCollectorHandler) sendCollectorConfig(stream grpc.BidiStreamingS
 	}
 	config := &pb.CollectorAuthorizationConfig{
 		ConfigVersion: collector.ConfigVersion, PrimaryPublicKey: h.signer.PublicKey(), KeyId: h.signer.KeyID(),
+		Kind: telemetryservice.ProtoCollectorKind(collector.Kind), Probe: telemetryservice.ProbeConfigFromCollector(collector),
 	}
 	if h.agentCA != nil {
 		config.AgentCaCertificatePem = string(h.agentCA.CertPEM)
 	}
-	for _, row := range rows {
-		config.Assignments = append(config.Assignments, &pb.NodeAssignment{
-			NodeUuid: row.NodeUUID, ObserverId: row.ObserverID, ValidFromUnixNano: row.ValidFrom,
-			ValidToUnixNano: row.ValidTo, Generation: row.Generation, ConfigVersion: row.ConfigVersion,
-		})
+	if collector.IsProbe() {
+		targets, err := telemetryservice.BuildProbeTargets(singleton.DB.WithContext(stream.Context()), collector)
+		if err != nil {
+			return err
+		}
+		config.Targets = targets
+	} else {
+		for _, row := range rows {
+			config.Assignments = append(config.Assignments, &pb.NodeAssignment{
+				NodeUuid: row.NodeUUID, ObserverId: row.ObserverID, ValidFromUnixNano: row.ValidFrom,
+				ValidToUnixNano: row.ValidTo, Generation: row.Generation, ConfigVersion: row.ConfigVersion,
+			})
+		}
 	}
 	return stream.Send(&pb.CollectorSyncResponse{Body: &pb.CollectorSyncResponse_Config{Config: config}})
 }

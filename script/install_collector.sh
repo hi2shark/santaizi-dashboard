@@ -398,6 +398,8 @@ services:
       - ./config/dashboard.yaml:/etc/santaizi/dashboard.yaml:ro
     environment:
       - TZ=Asia/Shanghai
+    cap_add:
+      - NET_RAW
 EOF
 }
 

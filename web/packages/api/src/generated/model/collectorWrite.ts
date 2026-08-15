@@ -8,6 +8,7 @@
  * OpenAPI spec version: 2.0.0
  */
 import type { CollectorScope } from './collectorScope';
+import type { CollectorWriteKind } from './collectorWriteKind';
 
 export interface CollectorWrite {
   /**
@@ -15,12 +16,13 @@ export interface CollectorWrite {
      * @maxLength 100
      */
   name: string;
+  /** 仅创建时生效；更新忽略。 */
+  kind?: CollectorWriteKind;
   /**
-     * 探针访问地址（host:访问端口）
-     * @minLength 1
+     * 探针访问地址（host:访问端口）。探测型可空。
      * @maxLength 255
      */
-  address: string;
+  address?: string;
   /**
      * 从端进程监听端口。0 表示与 address 中的访问端口相同。
      * @minimum 0
@@ -31,6 +33,21 @@ export interface CollectorWrite {
   insecure_tls?: boolean;
   /** @maxLength 64 */
   location?: string;
+  /** @minimum 1 */
+  probe_interval_seconds?: number;
+  /** @minimum 1 */
+  mtr_interval_seconds?: number;
+  tcp_ports?: string;
+  enable_icmp?: boolean;
+  enable_tcp?: boolean;
+  enable_mtr?: boolean;
+  notify?: boolean;
+  notification_tag?: string;
+  latency_notify?: boolean;
+  min_latency_ms?: number;
+  max_latency_ms?: number;
+  /** @minimum 1 */
+  fail_threshold?: number;
   /** @minItems 1 */
   scopes: CollectorScope[];
 }

@@ -616,3 +616,54 @@ func TestV2HeartbeatClosesOpenOfflineHistory(t *testing.T) {
 	}
 	assertV2OfflineHistoryClosed(t, serverID, historyID, model.OfflineReasonNetworkDisconnect)
 }
+
+func TestProbeCollectorSkippedFromAssignments(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.Server{}, &model.ServerNodeBinding{}, &model.ObserverAssignment{}, &model.Collector{}, &model.CollectorScope{}); err != nil {
+		t.Fatal(err)
+	}
+	previous, previousConf := DB, Conf
+	DB = db
+	Conf = &model.Config{GRPCPort: 5555, Telemetry: model.TelemetryConfig{PrimaryEndpoint: "primary.example:5555"}}
+	t.Cleanup(func() { DB = previous; Conf = previousConf; _ = CloseDB(db) })
+	if err := db.Create(&model.Server{Common: model.Common{ID: 4}, Name: "n4", Secret: "secret-4"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.Collector{CollectorUUID: "probe-x", Name: "probe", Kind: model.CollectorKindProbe, Address: "", TokenHash: bytes.Repeat([]byte{7}, 32), RegistrationToken: "token-probe", Generation: 1, ConfigVersion: 1}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.CollectorScope{CollectorUUID: "probe-x", ScopeType: "all"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.Collector{CollectorUUID: "obs-x", Name: "obs", Kind: model.CollectorKindObserver, Address: "obs.example:5556", TokenHash: bytes.Repeat([]byte{8}, 32), RegistrationToken: "token-obs", Generation: 1, ConfigVersion: 1}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.CollectorScope{CollectorUUID: "obs-x", ScopeType: "all"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	node := bytes.Repeat([]byte{0x44}, 16)
+	if _, err := BindServerNodeForProtocol(4, node, time.Unix(1_800_000_000, 0), pb.SourceProtocol_SOURCE_PROTOCOL_SANTAIZI_V2); err != nil {
+		t.Fatal(err)
+	}
+	var rows []model.ObserverAssignment
+	if err := db.Where("valid_to = 0").Find(&rows).Error; err != nil {
+		t.Fatal(err)
+	}
+	for _, row := range rows {
+		if row.ObserverID == "probe-x" {
+			t.Fatal("probe collector must not receive observer assignment")
+		}
+	}
+	assignment, err := EndpointAssignmentForNode(node, bytes.Repeat([]byte{0x55}, 16), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, endpoint := range assignment.Endpoints {
+		if endpoint.GetEndpointId() == "probe-x" {
+			t.Fatal("probe collector must not appear in agent endpoint assignment")
+		}
+	}
+}

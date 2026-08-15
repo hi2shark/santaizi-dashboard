@@ -23,6 +23,7 @@ type Server struct {
 
 	DDNSProfilesRaw      string `gorm:"default:'[]';column:ddns_profiles_raw" json:"-"`
 	MonitoringOptionsRaw string `gorm:"default:'{}';column:monitoring_options_raw" json:"-"`
+	ProbeTarget          string `gorm:"size:255"`
 
 	Host       *Host                  `gorm:"-"`
 	State      *HostState             `gorm:"-"`

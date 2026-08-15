@@ -27,6 +27,8 @@ tags:
   description: 站点设置
 - name: Telemetry
   description: Collector、Observer 和可靠性
+- name: Probes
+  description: 探测型从端主动探测结果
 security:
 - cookieAuth: []
 - bearerAuth: []
@@ -1415,6 +1417,105 @@ paths:
           $ref: '#/components/responses/ConnectionLatencyListResponse'
         default:
           $ref: '#/components/responses/Problem'
+  /api/v2/admin/probes/summary:
+    get:
+      tags:
+      - Probes
+      summary: 探测从端摘要
+      operationId: getProbeSummary
+      x-ui-route: /admin/connections
+      responses:
+        '200':
+          $ref: '#/components/responses/ProbeSummaryResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/v2/admin/probes/paths:
+    get:
+      tags:
+      - Probes
+      summary: 探测路径
+      operationId: listProbePaths
+      x-ui-route: /admin/connections
+      parameters:
+      - name: server_id
+        in: query
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      - name: collector_id
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/ProbePathListResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/v2/admin/probes/samples:
+    get:
+      tags:
+      - Probes
+      summary: 探测样本历史
+      operationId: listProbeSamples
+      x-ui-route: /admin/connections
+      parameters:
+      - name: collector_id
+        in: query
+        schema:
+          type: string
+      - name: server_id
+        in: query
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      - name: kind
+        in: query
+        schema:
+          type: string
+          enum:
+          - icmp
+          - tcp
+      - name: port
+        in: query
+        schema:
+          type: integer
+          minimum: 0
+          maximum: 65535
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProbeSampleListResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/v2/admin/probes/trace:
+    get:
+      tags:
+      - Probes
+      summary: 最近一次 MTR
+      operationId: getProbeTrace
+      x-ui-route: /admin/connections
+      parameters:
+      - name: collector_id
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - name: server_id
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      responses:
+        '200':
+          $ref: '#/components/responses/ProbeTraceResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/telemetry/collectors:
     get:
       tags:
@@ -2358,6 +2459,10 @@ components:
           items:
             $ref: '#/components/schemas/TrafficPolicy'
           description: 仅创建/更新响应填充；列表接口不带。
+        probe_target:
+          type: string
+          maxLength: 255
+          description: 可选探测地址（域名或 IP）。空则用探针上报的公网 IP。
     ServerWrite:
       type: object
       required:
@@ -2393,6 +2498,10 @@ components:
           items:
             $ref: '#/components/schemas/TrafficPolicyUpsert'
           description: 缺省不动既有策略；传数组则以这份为准（含空数组清空）。
+        probe_target:
+          type: string
+          maxLength: 255
+          description: 可选探测地址（域名或 IP）。空则用探针上报的公网 IP。
     MonitorScope:
       type: object
       required:
@@ -3278,6 +3387,42 @@ components:
           type: string
           maxLength: 64
           description: 从端在地球上的位置，ISO 国家/地区码或 `lat,lon`
+        kind:
+          type: string
+          enum:
+          - observer
+          - probe
+          description: 从端类型。创建后不可改。缺省 observer。
+        probe_interval_seconds:
+          type: integer
+          minimum: 1
+        mtr_interval_seconds:
+          type: integer
+          minimum: 1
+        tcp_ports:
+          type: string
+          description: 逗号分隔 TCP 端口，如 22,443
+        enable_icmp:
+          type: boolean
+        enable_tcp:
+          type: boolean
+        enable_mtr:
+          type: boolean
+        notify:
+          type: boolean
+        notification_tag:
+          type: string
+        latency_notify:
+          type: boolean
+        min_latency_ms:
+          type: number
+          format: double
+        max_latency_ms:
+          type: number
+          format: double
+        fail_threshold:
+          type: integer
+          minimum: 1
         generation:
           type: integer
           format: int64
@@ -3487,6 +3632,218 @@ components:
         count:
           type: integer
           format: int64
+    ProbeSummary:
+      type: object
+      required:
+      - collectors_total
+      - collectors_online
+      - collectors_offline
+      - collectors_unknown
+      - paths_assigned
+      - paths_reachable
+      - paths_down
+      - paths_no_target
+      properties:
+        collectors_total:
+          type: integer
+          format: int64
+        collectors_online:
+          type: integer
+          format: int64
+        collectors_offline:
+          type: integer
+          format: int64
+        collectors_unknown:
+          type: integer
+          format: int64
+        paths_assigned:
+          type: integer
+          format: int64
+        paths_reachable:
+          type: integer
+          format: int64
+        paths_down:
+          type: integer
+          format: int64
+        paths_no_target:
+          type: integer
+          format: int64
+    ProbeTarget:
+      type: object
+      required:
+      - source
+      properties:
+        source:
+          type: string
+          enum:
+          - host_ip
+          - override
+          - none
+        hostname:
+          type: string
+        ipv4:
+          type: string
+        ipv6:
+          type: string
+    ProbeICMP:
+      type: object
+      required:
+      - ok
+      properties:
+        ok:
+          type: boolean
+        rtt_ms:
+          type: number
+          format: double
+        loss:
+          type: number
+          format: double
+        packets_sent:
+          type: integer
+        packets_received:
+          type: integer
+    ProbeTCP:
+      type: object
+      required:
+      - port
+      - ok
+      properties:
+        port:
+          type: integer
+        ok:
+          type: boolean
+        rtt_ms:
+          type: number
+          format: double
+        error:
+          type: string
+    ProbePath:
+      type: object
+      required:
+      - server_id
+      - server_name
+      - collector_id
+      - collector_name
+      - target
+      - reachable
+      - has_trace
+      properties:
+        server_id:
+          type: integer
+          format: int64
+        server_name:
+          type: string
+        collector_id:
+          type: string
+        collector_name:
+          type: string
+        target:
+          $ref: '#/components/schemas/ProbeTarget'
+        reachable:
+          type: boolean
+        display_rtt_ms:
+          type: number
+          format: double
+        sampled_at:
+          type: string
+          format: date-time
+        last_error:
+          type: string
+        icmp:
+          $ref: '#/components/schemas/ProbeICMP'
+        tcp:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProbeTCP'
+        has_trace:
+          type: boolean
+    ProbeSampleBucket:
+      type: object
+      required:
+      - collector_id
+      - server_id
+      - kind
+      - port
+      - bucket_start
+      - min_ms
+      - avg_ms
+      - max_ms
+      - loss
+      - success_count
+      - fail_count
+      properties:
+        collector_id:
+          type: string
+        server_id:
+          type: integer
+          format: int64
+        server_name:
+          type: string
+        kind:
+          type: string
+          enum:
+          - icmp
+          - tcp
+        port:
+          type: integer
+        bucket_start:
+          type: string
+          format: date-time
+        min_ms:
+          type: number
+          format: double
+        avg_ms:
+          type: number
+          format: double
+        max_ms:
+          type: number
+          format: double
+        loss:
+          type: number
+          format: double
+        success_count:
+          type: integer
+        fail_count:
+          type: integer
+    ProbeMTRHop:
+      type: object
+      required:
+      - ttl
+      properties:
+        ttl:
+          type: integer
+        address:
+          type: string
+        loss:
+          type: number
+          format: double
+        avg_ms:
+          type: number
+          format: double
+        sent:
+          type: integer
+    ProbeTrace:
+      type: object
+      required:
+      - collector_id
+      - server_id
+      - sampled_at
+      - hops
+      properties:
+        collector_id:
+          type: string
+        server_id:
+          type: integer
+          format: int64
+        sampled_at:
+          type: string
+          format: date-time
+        destination:
+          type: string
+        hops:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProbeMTRHop'
     ObserverEvidenceItem:
       type: object
       required:
@@ -3762,18 +4119,22 @@ components:
       type: object
       required:
       - name
-      - address
       - scopes
       properties:
         name:
           type: string
           minLength: 1
           maxLength: 100
+        kind:
+          type: string
+          enum:
+          - observer
+          - probe
+          description: 仅创建时生效；更新忽略。
         address:
           type: string
-          minLength: 1
           maxLength: 255
-          description: 探针访问地址（host:访问端口）
+          description: 探针访问地址（host:访问端口）。探测型可空。
         listen_port:
           type: integer
           minimum: 0
@@ -3786,6 +4147,35 @@ components:
         location:
           type: string
           maxLength: 64
+        probe_interval_seconds:
+          type: integer
+          minimum: 1
+        mtr_interval_seconds:
+          type: integer
+          minimum: 1
+        tcp_ports:
+          type: string
+        enable_icmp:
+          type: boolean
+        enable_tcp:
+          type: boolean
+        enable_mtr:
+          type: boolean
+        notify:
+          type: boolean
+        notification_tag:
+          type: string
+        latency_notify:
+          type: boolean
+        min_latency_ms:
+          type: number
+          format: double
+        max_latency_ms:
+          type: number
+          format: double
+        fail_threshold:
+          type: integer
+          minimum: 1
         scopes:
           type: array
           minItems: 1
@@ -4466,6 +4856,62 @@ components:
                   $ref: '#/components/schemas/ConnectionLatencyBucket'
               meta:
                 $ref: '#/components/schemas/Meta'
+    ProbeSummaryResponse:
+      description: Probe collector summary
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - data
+            properties:
+              data:
+                $ref: '#/components/schemas/ProbeSummary'
+    ProbePathListResponse:
+      description: Probe paths
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - data
+            - meta
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProbePath'
+              meta:
+                $ref: '#/components/schemas/Meta'
+    ProbeSampleListResponse:
+      description: Probe sample history
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - data
+            - meta
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProbeSampleBucket'
+              meta:
+                $ref: '#/components/schemas/Meta'
+    ProbeTraceResponse:
+      description: Latest MTR trace; data is null when none exists
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - data
+            properties:
+              data:
+                nullable: true
+                allOf:
+                - $ref: '#/components/schemas/ProbeTrace'
     ObserverAssignmentListResponse:
       description: Observer assignments
       content:

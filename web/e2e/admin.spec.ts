@@ -535,6 +535,7 @@ test('connection observation shows collector links and node paths', async ({ pag
   }
   await page.route('**/api/v2/admin/telemetry/collectors**', route => fulfillJSON(route, list([collector])))
   await page.route('**/api/v2/admin/connections/paths**', route => fulfillJSON(route, list([path])))
+  await page.route('**/api/v2/admin/probes/paths**', route => fulfillJSON(route, list()))
   await page.route('**/api/v2/admin/connections/latency**', route => fulfillJSON(route, list([{
     kind: 'collector_heartbeat', collector_id: 'collector-1', server_id: 0, server_name: '', node_uuid: '', observer_id: '',
     bucket_start: '2026-08-13T06:00:00Z', min_ms: 16, avg_ms: 18.5, max_ms: 21, count: 4,
@@ -583,6 +584,7 @@ test('connection observation truncates long path errors until the drawer opens',
     observer_kind: 'primary', observer_name: '', assigned: true, last_seen: '2026-08-13T06:00:00Z',
     sink: { connected: false, pending_events: 0, last_error: lastError, ack_through: 0 },
   }])))
+  await page.route('**/api/v2/admin/probes/paths**', route => fulfillJSON(route, list()))
   await page.route('**/api/v2/admin/connections/latency**', route => fulfillJSON(route, list()))
   await page.goto('/admin/connections')
   const collectorList = page.locator('.collector-grid').filter({ visible: true })
@@ -620,6 +622,7 @@ test('connection observation shows node paths as a server-observer matrix', asyn
     far: { connected: true, pending_events: 0, last_error: '', ack_through: 8, last_rtt_ms: 40, rtt_sampled_at: '2026-08-13T06:00:00Z' },
   }
   await page.route('**/api/v2/admin/telemetry/collectors**', route => fulfillJSON(route, list([collector])))
+  await page.route('**/api/v2/admin/probes/paths**', route => fulfillJSON(route, list()))
   await page.route('**/api/v2/admin/connections/paths**', route => fulfillJSON(route, list([
     { server_id: 7, server_name: 'edge-a', node_uuid: '09090909090909090909090909090909', observer_id: 'primary', observer_kind: 'primary', observer_name: '', assigned: true, last_seen: '2026-08-13T06:00:00Z', sink: sinks.up },
     { server_id: 7, server_name: 'edge-a', node_uuid: '09090909090909090909090909090909', observer_id: 'collector-1', observer_kind: 'collector', observer_name: 'Shanghai edge', assigned: true, last_seen: '2026-08-13T06:00:00Z', sink: sinks.down },
@@ -655,6 +658,7 @@ test('connection observation refreshes matrix latency on poll', async ({ page },
   }
   let hits = 0
   await page.route('**/api/v2/admin/telemetry/collectors**', route => fulfillJSON(route, list()))
+  await page.route('**/api/v2/admin/probes/paths**', route => fulfillJSON(route, list()))
   await page.route('**/api/v2/admin/connections/paths**', route => {
     hits += 1
     return fulfillJSON(route, list([{

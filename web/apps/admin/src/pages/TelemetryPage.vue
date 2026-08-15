@@ -194,6 +194,7 @@ onMounted(async () => {
           <template #default="{row}">
             <div class="server-name">
               <strong>{{ row.name }}</strong>
+              <small>{{ t(row.kind === 'probe' ? 'collectorKindProbe' : 'collectorKindObserver') }}</small>
               <CopyableId :value="row.id" />
             </div>
           </template>
@@ -251,6 +252,7 @@ onMounted(async () => {
               <span class="mobile-card-status"><span class="status-dot" :class="row.revoked?'offline':row.status||'unknown'"></span></span>
               <div class="mobile-card-title">
                 <strong>{{ row.name }}</strong>
+                <small>{{ t(row.kind === 'probe' ? 'collectorKindProbe' : 'collectorKindObserver') }}</small>
                 <CopyableId :value="row.id" />
               </div>
               <div class="mobile-card-actions">

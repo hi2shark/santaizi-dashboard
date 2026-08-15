@@ -3,9 +3,9 @@ import { getSantaiziHTTPAPI } from './generated/santaizi'
 import type {
   AlertRule, AlertRuleWriteBody,   APIToken, APITokenPatchBody, APITokenWriteBody, AgentReliabilityRecord, CollectorCreated,
   CollectorInstallPreview, CollectorInstallPreviewWriteBody, CollectorScopeWriteBody, CollectorToken, CollectorWriteBody, ConnectionLatencyBucket, ConnectionPath, ConnectionSummary, DDNSProfile, DDNSProfileWriteBody, DDNSProvider,
-  IncidentRecord, IncidentRevisionRecord, InstallPreview, InstallPreviewWriteBody, ListConnectionLatencyParams, Monitor, MonitorWriteBody, NATTunnel,
+  GetProbeTraceParams, IncidentRecord, IncidentRevisionRecord, InstallPreview, InstallPreviewWriteBody, ListConnectionLatencyParams, ListProbePathsParams, ListProbeSamplesParams, Monitor, MonitorWriteBody, NATTunnel,
   NATTunnelWriteBody, NotificationChannel, NotificationChannelWriteBody, ObserverAssignmentRecord,
-  ProbeCapabilities, ServerCredential, ServerDisplayIndexWriteBody, ServerGroup,
+  ProbeCapabilities, ProbePath, ProbeSampleBucket, ProbeSummary, ProbeTrace, ServerCredential, ServerDisplayIndexWriteBody, ServerGroup,
   ServerGroupRenameWriteBody, ServerWriteBody, ScriptCommands, TelemetryAlertRecord, TelemetryDataLossRecord, TrafficPolicy,
   TrafficPolicyWriteBody, TrafficUsage, UpgradePreview, UpgradePreviewWriteBody,
   CycleTransfer, GetPublicMetricsParams, GetPublicServerAvailabilityParams, MonitorHistory, PublicAvailability, PublicMetricPoint,
@@ -102,6 +102,10 @@ export const listCollectors = () => api.listCollectors().then(value => list<Coll
 export const getConnectionSummary = () => api.getConnectionSummary().then(value => data<ConnectionSummary>(value))
 export const listConnectionPaths = (params: { server_id?: number; observer_id?: string } = {}) => api.listConnectionPaths(params).then(value => list<ConnectionPath>(value))
 export const listConnectionLatency = (params: ListConnectionLatencyParams = {}) => api.listConnectionLatency(params).then(value => list<ConnectionLatencyBucket>(value))
+export const getProbeSummary = () => api.getProbeSummary().then(value => data<ProbeSummary>(value))
+export const listProbePaths = (params: ListProbePathsParams = {}) => api.listProbePaths(params).then(value => list<ProbePath>(value))
+export const listProbeSamples = (params: ListProbeSamplesParams = {}) => api.listProbeSamples(params).then(value => list<ProbeSampleBucket>(value))
+export const getProbeTrace = (params: GetProbeTraceParams) => api.getProbeTrace(params).then(value => data<ProbeTrace | null>(value))
 export const createCollector = (body: CollectorWriteBody) => api.createCollector(body).then(value => data<CollectorCreated>(value))
 export const updateCollector = (id: string, body: CollectorWriteBody) => api.updateCollector(id, body).then(value => data<CollectorRecord>(value))
 export const updateCollectorScope = (id: string, body: CollectorScopeWriteBody) => api.updateCollectorScope(id, body).then(value => data<CollectorRecord>(value))

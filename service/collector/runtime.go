@@ -67,6 +67,9 @@ type Runtime struct {
 	renewBackoff       time.Duration
 	nextRenew          time.Time
 	legacyPrimary      bool
+	kind               string
+	probeMu            sync.Mutex
+	pendingSamples     []*pb.ProbeSample
 }
 
 func NewRuntime(parent context.Context, store *Store, config model.CollectorModeConfig, grace time.Duration) (*Runtime, error) {
@@ -96,6 +99,7 @@ func NewRuntime(parent context.Context, store *Store, config model.CollectorMode
 	runtime.clientStore = clientStore
 	if cache, err := store.Authorization(ctx); err == nil {
 		runtime.collectorUUID = cache.CollectorUUID
+		runtime.kind = model.NormalizeCollectorKind(cache.Kind)
 		if pem := cache.AgentCACertificatePEM; pem != "" {
 			_ = clientStore.SaveAgentCA([]byte(pem))
 		}
@@ -125,10 +129,11 @@ func (r *Runtime) AgentCAPool() *x509.CertPool {
 }
 
 func (r *Runtime) Start() {
-	r.wg.Add(3)
+	r.wg.Add(4)
 	go r.syncLoop()
 	go r.replicationLoop()
 	go r.healthLoop()
+	go r.probeLoop()
 }
 
 func (r *Runtime) Close() {
@@ -223,6 +228,11 @@ func (r *Runtime) syncOnce() error {
 				if err := r.store.SaveAuthorization(r.ctx, collectorUUID, config, time.Now()); err != nil {
 					return err
 				}
+				if config.GetKind() == pb.CollectorKind_COLLECTOR_KIND_PROBE {
+					r.setKind(model.CollectorKindProbe)
+				} else {
+					r.setKind(model.CollectorKindObserver)
+				}
 				if pem := config.GetAgentCaCertificatePem(); pem != "" {
 					_ = r.clientStore.SaveAgentCA([]byte(pem))
 				}
@@ -237,6 +247,11 @@ func (r *Runtime) syncOnce() error {
 				return err
 			}
 			r.markSyncSent(sent)
+			if samples := r.takeProbeSamples(); samples != nil {
+				if err := stream.Send(&pb.CollectorSyncRequest{Body: &pb.CollectorSyncRequest_ProbeSamples{ProbeSamples: samples}}); err != nil {
+					return err
+				}
+			}
 		}
 	}
 }
@@ -247,6 +262,14 @@ func (r *Runtime) replicationLoop() {
 	for {
 		if r.ctx.Err() != nil {
 			return
+		}
+		if r.isProbe() {
+			select {
+			case <-r.ctx.Done():
+				return
+			case <-time.After(15 * time.Second):
+			}
+			continue
 		}
 		err := r.replicationOnce()
 		if err != nil && !errors.Is(err, context.Canceled) {
@@ -423,6 +446,9 @@ func (r *Runtime) healthLoop() {
 }
 
 func (r *Runtime) Ingest(stream grpc.BidiStreamingServer[pb.TelemetryRequest, pb.TelemetryResponse]) error {
+	if r.isProbe() {
+		return status.Error(codes.FailedPrecondition, "probe collector does not accept agent ingest")
+	}
 	first, err := stream.Recv()
 	if err != nil {
 		return err

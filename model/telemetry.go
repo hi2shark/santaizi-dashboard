@@ -1,6 +1,7 @@
 package model
 
 import (
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -81,6 +82,16 @@ type TelemetryIngestCursor struct {
 	UpdatedAt  time.Time
 }
 
+const (
+	CollectorKindObserver = "observer"
+	CollectorKindProbe    = "probe"
+
+	DefaultProbeIntervalSec = 30
+	DefaultMTRIntervalSec   = 300
+	DefaultProbeTCPPorts    = "22,443"
+	DefaultProbeFailThreshold = 3
+)
+
 type Collector struct {
 	CollectorUUID     string `gorm:"primaryKey;size:64"`
 	Name              string `gorm:"not null"`
@@ -94,10 +105,61 @@ type Collector struct {
 	TLS               bool
 	InsecureTLS       bool
 	Location          string `gorm:"size:64"`
-	Revoked           bool   `gorm:"not null;index"`
-	Deleted           bool   `gorm:"not null;index"`
+	Kind              string `gorm:"size:16;not null;default:observer;index"`
+	ProbeIntervalSec  uint   `gorm:"not null;default:30"`
+	MTRIntervalSec    uint   `gorm:"not null;default:300"`
+	TCPPorts          string `gorm:"size:64;not null;default:'22,443'"`
+	EnableICMP        bool   `gorm:"not null;default:1"`
+	EnableTCP         bool   `gorm:"not null;default:1"`
+	EnableMTR         bool   `gorm:"not null;default:1"`
+	ProbeNotify       bool
+	NotificationTag   string `gorm:"size:64"`
+	LatencyNotify     bool
+	MinLatencyMs      float64
+	MaxLatencyMs      float64
+	FailThreshold     uint `gorm:"not null;default:3"`
+	Revoked           bool `gorm:"not null;index"`
+	Deleted           bool `gorm:"not null;index"`
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
+}
+
+func NormalizeCollectorKind(kind string) string {
+	switch strings.ToLower(strings.TrimSpace(kind)) {
+	case "", CollectorKindObserver:
+		return CollectorKindObserver
+	case CollectorKindProbe:
+		return CollectorKindProbe
+	default:
+		return ""
+	}
+}
+
+func (c Collector) IsProbe() bool {
+	return NormalizeCollectorKind(c.Kind) == CollectorKindProbe
+}
+
+func (c *Collector) ApplyProbeDefaults() {
+	if NormalizeCollectorKind(c.Kind) == "" {
+		c.Kind = CollectorKindObserver
+	} else {
+		c.Kind = NormalizeCollectorKind(c.Kind)
+	}
+	if c.ProbeIntervalSec == 0 {
+		c.ProbeIntervalSec = DefaultProbeIntervalSec
+	}
+	if c.MTRIntervalSec == 0 {
+		c.MTRIntervalSec = DefaultMTRIntervalSec
+	}
+	if c.TCPPorts == "" {
+		c.TCPPorts = DefaultProbeTCPPorts
+	}
+	if c.FailThreshold == 0 {
+		c.FailThreshold = DefaultProbeFailThreshold
+	}
+	if c.NotificationTag == "" {
+		c.NotificationTag = "default"
+	}
 }
 
 func (c *Collector) BeforeSave(_ *gorm.DB) error {
@@ -303,4 +365,55 @@ type ConnectionLatencyCursor struct {
 	ObserverID    string `gorm:"primaryKey;size:64"`
 	LastSampledAt int64  `gorm:"not null"`
 	UpdatedAt     time.Time
+}
+
+type ProbeSampleBucket struct {
+	CollectorUUID string `gorm:"primaryKey;size:64"`
+	ServerID      uint64 `gorm:"primaryKey"`
+	Kind          string `gorm:"primaryKey;size:16"`
+	Port          uint   `gorm:"primaryKey"`
+	BucketStart   int64  `gorm:"primaryKey"`
+	MinMs         float64
+	MaxMs         float64
+	SumMs         float64
+	Count         uint32 `gorm:"not null"`
+	LossSum       float64
+	SuccessCount  uint32
+	FailCount     uint32
+	UpdatedAt     time.Time
+}
+
+type ProbeLatest struct {
+	CollectorUUID string `gorm:"primaryKey;size:64"`
+	ServerID      uint64 `gorm:"primaryKey"`
+	SampledAt     int64
+	Reachable     bool
+	DisplayRttMs  float64
+	LastError     string
+	ICMPOk        bool
+	ICMPRttMs     float64
+	ICMPLoss      float64
+	ICMPSent      uint32
+	ICMPRecv      uint32
+	TCPJSON       []byte `gorm:"type:BLOB"`
+	HasTrace      bool
+	UpdatedAt     time.Time
+}
+
+type ProbeTrace struct {
+	CollectorUUID string `gorm:"primaryKey;size:64"`
+	ServerID      uint64 `gorm:"primaryKey"`
+	SampledAt     int64
+	Destination   string
+	HopsJSON      []byte `gorm:"type:BLOB"`
+	UpdatedAt     time.Time
+}
+
+type ProbeAlertState struct {
+	CollectorUUID    string `gorm:"primaryKey;size:64"`
+	ServerID         uint64 `gorm:"primaryKey"`
+	ConsecutiveFails uint
+	DownNotified     bool
+	LatencyAlert     bool
+	UpdatedAt        time.Time
 }

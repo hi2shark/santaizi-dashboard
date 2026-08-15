@@ -76,7 +76,24 @@ type CollectorAuthorizationCache struct {
 	ConfigVersion         uint64 `gorm:"not null"`
 	LastPrimarySeenNano   int64  `gorm:"not null"`
 	AgentCACertificatePEM string `gorm:"type:TEXT"`
+	Kind                  string `gorm:"size:16"`
+	ProbeConfigJSON       []byte `gorm:"type:BLOB"`
 	UpdatedAt             time.Time
+}
+
+type CollectorCachedProbeTarget struct {
+	ServerID       uint64 `gorm:"primaryKey"`
+	ServerName     string
+	IPv4           string
+	IPv6           string
+	Hostname       string
+	TCPPorts       string
+	EnableICMP     bool
+	EnableTCP      bool
+	EnableMTR      bool
+	IntervalSec    uint
+	MTRIntervalSec uint
+	UpdatedAt      time.Time
 }
 
 type CollectorCachedAssignment struct {

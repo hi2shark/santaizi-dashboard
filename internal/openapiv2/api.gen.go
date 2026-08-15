@@ -235,6 +235,24 @@ func (e BootstrapTheme) Valid() bool {
 	}
 }
 
+// Defines values for CollectorKind.
+const (
+	CollectorKindObserver CollectorKind = "observer"
+	CollectorKindProbe    CollectorKind = "probe"
+)
+
+// Valid indicates whether the value is a known member of the CollectorKind enum.
+func (e CollectorKind) Valid() bool {
+	switch e {
+	case CollectorKindObserver:
+		return true
+	case CollectorKindProbe:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CollectorStatus.
 const (
 	CollectorStatusOffline CollectorStatus = "offline"
@@ -274,6 +292,24 @@ func (e CollectorScopeType) Valid() bool {
 	case CollectorScopeTypeServer:
 		return true
 	case CollectorScopeTypeTag:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CollectorWriteKind.
+const (
+	CollectorWriteKindObserver CollectorWriteKind = "observer"
+	CollectorWriteKindProbe    CollectorWriteKind = "probe"
+)
+
+// Valid indicates whether the value is a known member of the CollectorWriteKind enum.
+func (e CollectorWriteKind) Valid() bool {
+	switch e {
+	case CollectorWriteKindObserver:
+		return true
+	case CollectorWriteKindProbe:
 		return true
 	default:
 		return false
@@ -598,6 +634,45 @@ func (e ObserverEvidenceItemObserverKind) Valid() bool {
 	case ObserverEvidenceItemObserverKindCollector:
 		return true
 	case ObserverEvidenceItemObserverKindPrimary:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProbeSampleBucketKind.
+const (
+	ProbeSampleBucketKindIcmp ProbeSampleBucketKind = "icmp"
+	ProbeSampleBucketKindTcp  ProbeSampleBucketKind = "tcp"
+)
+
+// Valid indicates whether the value is a known member of the ProbeSampleBucketKind enum.
+func (e ProbeSampleBucketKind) Valid() bool {
+	switch e {
+	case ProbeSampleBucketKindIcmp:
+		return true
+	case ProbeSampleBucketKindTcp:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProbeTargetSource.
+const (
+	HostIp   ProbeTargetSource = "host_ip"
+	None     ProbeTargetSource = "none"
+	Override ProbeTargetSource = "override"
+)
+
+// Valid indicates whether the value is a known member of the ProbeTargetSource enum.
+func (e ProbeTargetSource) Valid() bool {
+	switch e {
+	case HostIp:
+		return true
+	case None:
+		return true
+	case Override:
 		return true
 	default:
 		return false
@@ -1240,6 +1315,24 @@ func (e ListNotificationsParamsOrder) Valid() bool {
 	}
 }
 
+// Defines values for ListProbeSamplesParamsKind.
+const (
+	ListProbeSamplesParamsKindIcmp ListProbeSamplesParamsKind = "icmp"
+	ListProbeSamplesParamsKindTcp  ListProbeSamplesParamsKind = "tcp"
+)
+
+// Valid indicates whether the value is a known member of the ListProbeSamplesParamsKind enum.
+func (e ListProbeSamplesParamsKind) Valid() bool {
+	switch e {
+	case ListProbeSamplesParamsKindIcmp:
+		return true
+	case ListProbeSamplesParamsKindTcp:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListServersParamsOrder.
 const (
 	ListServersParamsOrderAsc  ListServersParamsOrder = "asc"
@@ -1423,23 +1516,37 @@ type Collector struct {
 	Address               string     `json:"address"`
 	ConfigVersion         int64      `json:"config_version"`
 	ConnectedAgents       *int64     `json:"connected_agents,omitempty"`
+	EnableIcmp            *bool      `json:"enable_icmp,omitempty"`
+	EnableMtr             *bool      `json:"enable_mtr,omitempty"`
+	EnableTcp             *bool      `json:"enable_tcp,omitempty"`
+	FailThreshold         *int       `json:"fail_threshold,omitempty"`
 	Generation            int64      `json:"generation"`
 	HeartbeatRttMs        *float64   `json:"heartbeat_rtt_ms,omitempty"`
 	HeartbeatRttSampledAt *time.Time `json:"heartbeat_rtt_sampled_at,omitempty"`
 	Id                    string     `json:"id"`
 	InsecureTls           bool       `json:"insecure_tls"`
-	LastPrimarySeen       *time.Time `json:"last_primary_seen,omitempty"`
-	LastSeen              *time.Time `json:"last_seen,omitempty"`
-	LastSync              *time.Time `json:"last_sync,omitempty"`
+
+	// Kind 从端类型。创建后不可改。缺省 observer。
+	Kind            *CollectorKind `json:"kind,omitempty"`
+	LastPrimarySeen *time.Time     `json:"last_primary_seen,omitempty"`
+	LastSeen        *time.Time     `json:"last_seen,omitempty"`
+	LastSync        *time.Time     `json:"last_sync,omitempty"`
+	LatencyNotify   *bool          `json:"latency_notify,omitempty"`
 
 	// ListenPort 从端进程监听端口。0 表示与 address 中的访问端口相同。
 	ListenPort *int `json:"listen_port,omitempty"`
 
 	// Location 从端在地球上的位置，ISO 国家/地区码或 `lat,lon`
 	Location                *string           `json:"location,omitempty"`
+	MaxLatencyMs            *float64          `json:"max_latency_ms,omitempty"`
+	MinLatencyMs            *float64          `json:"min_latency_ms,omitempty"`
+	MtrIntervalSeconds      *int              `json:"mtr_interval_seconds,omitempty"`
 	Name                    string            `json:"name"`
+	NotificationTag         *string           `json:"notification_tag,omitempty"`
+	Notify                  *bool             `json:"notify,omitempty"`
 	OldestPending           *time.Time        `json:"oldest_pending,omitempty"`
 	PendingRecords          *int64            `json:"pending_records,omitempty"`
+	ProbeIntervalSeconds    *int              `json:"probe_interval_seconds,omitempty"`
 	ProtocolVersion         *string           `json:"protocol_version,omitempty"`
 	ReplicationCursor       *int64            `json:"replication_cursor,omitempty"`
 	ReplicationRttMs        *float64          `json:"replication_rtt_ms,omitempty"`
@@ -1451,8 +1558,14 @@ type Collector struct {
 	SoftwareVersion *string          `json:"software_version,omitempty"`
 	SpoolSize       *int64           `json:"spool_size,omitempty"`
 	Status          *CollectorStatus `json:"status,omitempty"`
-	Tls             bool             `json:"tls"`
+
+	// TcpPorts 逗号分隔 TCP 端口，如 22,443
+	TcpPorts *string `json:"tcp_ports,omitempty"`
+	Tls      bool    `json:"tls"`
 }
+
+// CollectorKind 从端类型。创建后不可改。缺省 observer。
+type CollectorKind string
 
 // CollectorStatus defines model for Collector.Status.
 type CollectorStatus string
@@ -1503,17 +1616,35 @@ type CollectorToken struct {
 
 // CollectorWrite defines model for CollectorWrite.
 type CollectorWrite struct {
-	// Address 探针访问地址（host:访问端口）
-	Address     string `json:"address"`
-	InsecureTls *bool  `json:"insecure_tls,omitempty"`
+	// Address 探针访问地址（host:访问端口）。探测型可空。
+	Address       *string `json:"address,omitempty"`
+	EnableIcmp    *bool   `json:"enable_icmp,omitempty"`
+	EnableMtr     *bool   `json:"enable_mtr,omitempty"`
+	EnableTcp     *bool   `json:"enable_tcp,omitempty"`
+	FailThreshold *int    `json:"fail_threshold,omitempty"`
+	InsecureTls   *bool   `json:"insecure_tls,omitempty"`
+
+	// Kind 仅创建时生效；更新忽略。
+	Kind          *CollectorWriteKind `json:"kind,omitempty"`
+	LatencyNotify *bool               `json:"latency_notify,omitempty"`
 
 	// ListenPort 从端进程监听端口。0 表示与 address 中的访问端口相同。
-	ListenPort *int             `json:"listen_port,omitempty"`
-	Location   *string          `json:"location,omitempty"`
-	Name       string           `json:"name"`
-	Scopes     []CollectorScope `json:"scopes"`
-	Tls        *bool            `json:"tls,omitempty"`
+	ListenPort           *int             `json:"listen_port,omitempty"`
+	Location             *string          `json:"location,omitempty"`
+	MaxLatencyMs         *float64         `json:"max_latency_ms,omitempty"`
+	MinLatencyMs         *float64         `json:"min_latency_ms,omitempty"`
+	MtrIntervalSeconds   *int             `json:"mtr_interval_seconds,omitempty"`
+	Name                 string           `json:"name"`
+	NotificationTag      *string          `json:"notification_tag,omitempty"`
+	Notify               *bool            `json:"notify,omitempty"`
+	ProbeIntervalSeconds *int             `json:"probe_interval_seconds,omitempty"`
+	Scopes               []CollectorScope `json:"scopes"`
+	TcpPorts             *string          `json:"tcp_ports,omitempty"`
+	Tls                  *bool            `json:"tls,omitempty"`
 }
+
+// CollectorWriteKind 仅创建时生效；更新忽略。
+type CollectorWriteKind string
 
 // ConnectionLatencyBucket defines model for ConnectionLatencyBucket.
 type ConnectionLatencyBucket struct {
@@ -1922,6 +2053,99 @@ type ProbeCapability struct {
 	Id          string  `json:"id"`
 }
 
+// ProbeICMP defines model for ProbeICMP.
+type ProbeICMP struct {
+	Loss            *float64 `json:"loss,omitempty"`
+	Ok              bool     `json:"ok"`
+	PacketsReceived *int     `json:"packets_received,omitempty"`
+	PacketsSent     *int     `json:"packets_sent,omitempty"`
+	RttMs           *float64 `json:"rtt_ms,omitempty"`
+}
+
+// ProbeMTRHop defines model for ProbeMTRHop.
+type ProbeMTRHop struct {
+	Address *string  `json:"address,omitempty"`
+	AvgMs   *float64 `json:"avg_ms,omitempty"`
+	Loss    *float64 `json:"loss,omitempty"`
+	Sent    *int     `json:"sent,omitempty"`
+	Ttl     int      `json:"ttl"`
+}
+
+// ProbePath defines model for ProbePath.
+type ProbePath struct {
+	CollectorId   string      `json:"collector_id"`
+	CollectorName string      `json:"collector_name"`
+	DisplayRttMs  *float64    `json:"display_rtt_ms,omitempty"`
+	HasTrace      bool        `json:"has_trace"`
+	Icmp          *ProbeICMP  `json:"icmp,omitempty"`
+	LastError     *string     `json:"last_error,omitempty"`
+	Reachable     bool        `json:"reachable"`
+	SampledAt     *time.Time  `json:"sampled_at,omitempty"`
+	ServerId      int64       `json:"server_id"`
+	ServerName    string      `json:"server_name"`
+	Target        ProbeTarget `json:"target"`
+	Tcp           *[]ProbeTCP `json:"tcp,omitempty"`
+}
+
+// ProbeSampleBucket defines model for ProbeSampleBucket.
+type ProbeSampleBucket struct {
+	AvgMs        float64               `json:"avg_ms"`
+	BucketStart  time.Time             `json:"bucket_start"`
+	CollectorId  string                `json:"collector_id"`
+	FailCount    int                   `json:"fail_count"`
+	Kind         ProbeSampleBucketKind `json:"kind"`
+	Loss         float64               `json:"loss"`
+	MaxMs        float64               `json:"max_ms"`
+	MinMs        float64               `json:"min_ms"`
+	Port         int                   `json:"port"`
+	ServerId     int64                 `json:"server_id"`
+	ServerName   *string               `json:"server_name,omitempty"`
+	SuccessCount int                   `json:"success_count"`
+}
+
+// ProbeSampleBucketKind defines model for ProbeSampleBucket.Kind.
+type ProbeSampleBucketKind string
+
+// ProbeSummary defines model for ProbeSummary.
+type ProbeSummary struct {
+	CollectorsOffline int64 `json:"collectors_offline"`
+	CollectorsOnline  int64 `json:"collectors_online"`
+	CollectorsTotal   int64 `json:"collectors_total"`
+	CollectorsUnknown int64 `json:"collectors_unknown"`
+	PathsAssigned     int64 `json:"paths_assigned"`
+	PathsDown         int64 `json:"paths_down"`
+	PathsNoTarget     int64 `json:"paths_no_target"`
+	PathsReachable    int64 `json:"paths_reachable"`
+}
+
+// ProbeTCP defines model for ProbeTCP.
+type ProbeTCP struct {
+	Error *string  `json:"error,omitempty"`
+	Ok    bool     `json:"ok"`
+	Port  int      `json:"port"`
+	RttMs *float64 `json:"rtt_ms,omitempty"`
+}
+
+// ProbeTarget defines model for ProbeTarget.
+type ProbeTarget struct {
+	Hostname *string           `json:"hostname,omitempty"`
+	Ipv4     *string           `json:"ipv4,omitempty"`
+	Ipv6     *string           `json:"ipv6,omitempty"`
+	Source   ProbeTargetSource `json:"source"`
+}
+
+// ProbeTargetSource defines model for ProbeTarget.Source.
+type ProbeTargetSource string
+
+// ProbeTrace defines model for ProbeTrace.
+type ProbeTrace struct {
+	CollectorId string        `json:"collector_id"`
+	Destination *string       `json:"destination,omitempty"`
+	Hops        []ProbeMTRHop `json:"hops"`
+	SampledAt   time.Time     `json:"sampled_at"`
+	ServerId    int64         `json:"server_id"`
+}
+
 // Problem defines model for Problem.
 type Problem struct {
 	Code    string               `json:"code"`
@@ -2061,8 +2285,11 @@ type Server struct {
 	Name              string             `json:"name"`
 	Note              *string            `json:"note,omitempty"`
 	Online            *bool              `json:"online,omitempty"`
-	PublicNote        *PublicNote        `json:"public_note,omitempty"`
-	Secret            *string            `json:"secret,omitempty"`
+
+	// ProbeTarget 可选探测地址（域名或 IP）。空则用探针上报的公网 IP。
+	ProbeTarget *string     `json:"probe_target,omitempty"`
+	PublicNote  *PublicNote `json:"public_note,omitempty"`
+	Secret      *string     `json:"secret,omitempty"`
 
 	// State 探针运行态快照（PascalCase，与上游 HostState JSON 一致）。
 	// 用量字段在此；对应总量在 ServerHost。字段集合与 model.HostState 完全对应，不接受额外字段。
@@ -2174,8 +2401,11 @@ type ServerWrite struct {
 	MonitoringOptions *MonitoringOptions `json:"monitoring_options,omitempty"`
 	Name              string             `json:"name"`
 	Note              *string            `json:"note,omitempty"`
-	PublicNote        *PublicNote        `json:"public_note,omitempty"`
-	Tag               *string            `json:"tag,omitempty"`
+
+	// ProbeTarget 可选探测地址（域名或 IP）。空则用探针上报的公网 IP。
+	ProbeTarget *string     `json:"probe_target,omitempty"`
+	PublicNote  *PublicNote `json:"public_note,omitempty"`
+	Tag         *string     `json:"tag,omitempty"`
 
 	// TrafficPolicies 缺省不动既有策略；传数组则以这份为准（含空数组清空）。
 	TrafficPolicies *[]TrafficPolicyUpsert `json:"traffic_policies,omitempty"`
@@ -2578,6 +2808,28 @@ type ProbeCapabilitiesResponse struct {
 	Data ProbeCapabilities `json:"data"`
 }
 
+// ProbePathListResponse defines model for ProbePathListResponse.
+type ProbePathListResponse struct {
+	Data []ProbePath `json:"data"`
+	Meta Meta        `json:"meta"`
+}
+
+// ProbeSampleListResponse defines model for ProbeSampleListResponse.
+type ProbeSampleListResponse struct {
+	Data []ProbeSampleBucket `json:"data"`
+	Meta Meta                `json:"meta"`
+}
+
+// ProbeSummaryResponse defines model for ProbeSummaryResponse.
+type ProbeSummaryResponse struct {
+	Data ProbeSummary `json:"data"`
+}
+
+// ProbeTraceResponse defines model for ProbeTraceResponse.
+type ProbeTraceResponse struct {
+	Data *ProbeTrace `json:"data"`
+}
+
 // PublicAvailabilityResponse defines model for PublicAvailabilityResponse.
 type PublicAvailabilityResponse struct {
 	Data PublicAvailability `json:"data"`
@@ -2877,6 +3129,31 @@ type CleanupOfflineHistoryParams struct {
 type DeleteOfflineHistoryParams struct {
 	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
 	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// ListProbePathsParams defines parameters for ListProbePaths.
+type ListProbePathsParams struct {
+	ServerId    *int64  `form:"server_id,omitempty" json:"server_id,omitempty"`
+	CollectorId *string `form:"collector_id,omitempty" json:"collector_id,omitempty"`
+}
+
+// ListProbeSamplesParams defines parameters for ListProbeSamples.
+type ListProbeSamplesParams struct {
+	CollectorId *string                     `form:"collector_id,omitempty" json:"collector_id,omitempty"`
+	ServerId    *int64                      `form:"server_id,omitempty" json:"server_id,omitempty"`
+	Kind        *ListProbeSamplesParamsKind `form:"kind,omitempty" json:"kind,omitempty"`
+	Port        *int                        `form:"port,omitempty" json:"port,omitempty"`
+	Page        *Page                       `form:"page,omitempty" json:"page,omitempty"`
+	PageSize    *PageSize                   `form:"page_size,omitempty" json:"page_size,omitempty"`
+}
+
+// ListProbeSamplesParamsKind defines parameters for ListProbeSamples.
+type ListProbeSamplesParamsKind string
+
+// GetProbeTraceParams defines parameters for GetProbeTrace.
+type GetProbeTraceParams struct {
+	CollectorId string `form:"collector_id" json:"collector_id"`
+	ServerId    int64  `form:"server_id" json:"server_id"`
 }
 
 // RenameServerGroupParams defines parameters for RenameServerGroup.
@@ -3893,6 +4170,18 @@ type ServerInterface interface {
 	// GetProbeCapabilities 探针能力清单
 	// (GET /api/v2/admin/probe-capabilities)
 	GetProbeCapabilities(c *gin.Context)
+	// ListProbePaths 探测路径
+	// (GET /api/v2/admin/probes/paths)
+	ListProbePaths(c *gin.Context, params ListProbePathsParams)
+	// ListProbeSamples 探测样本历史
+	// (GET /api/v2/admin/probes/samples)
+	ListProbeSamples(c *gin.Context, params ListProbeSamplesParams)
+	// GetProbeSummary 探测从端摘要
+	// (GET /api/v2/admin/probes/summary)
+	GetProbeSummary(c *gin.Context)
+	// GetProbeTrace 最近一次 MTR
+	// (GET /api/v2/admin/probes/trace)
+	GetProbeTrace(c *gin.Context, params GetProbeTraceParams)
 	// ListScriptCommands 列出可复制的无参脚本命令
 	// (GET /api/v2/admin/script-commands)
 	ListScriptCommands(c *gin.Context)
@@ -5732,6 +6021,156 @@ func (siw *ServerInterfaceWrapper) GetProbeCapabilities(c *gin.Context) {
 	}
 
 	siw.Handler.GetProbeCapabilities(c)
+}
+
+// ListProbePaths operation middleware
+func (siw *ServerInterfaceWrapper) ListProbePaths(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListProbePathsParams
+
+	// ------------- Optional query parameter "server_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "server_id", c.Request.URL.Query(), &params.ServerId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter server_id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "collector_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "collector_id", c.Request.URL.Query(), &params.CollectorId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter collector_id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListProbePaths(c, params)
+}
+
+// ListProbeSamples operation middleware
+func (siw *ServerInterfaceWrapper) ListProbeSamples(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListProbeSamplesParams
+
+	// ------------- Optional query parameter "collector_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "collector_id", c.Request.URL.Query(), &params.CollectorId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter collector_id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "server_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "server_id", c.Request.URL.Query(), &params.ServerId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter server_id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "kind" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "kind", c.Request.URL.Query(), &params.Kind, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter kind: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "port" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "port", c.Request.URL.Query(), &params.Port, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter port: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", c.Request.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter page: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", c.Request.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter page_size: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListProbeSamples(c, params)
+}
+
+// GetProbeSummary operation middleware
+func (siw *ServerInterfaceWrapper) GetProbeSummary(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetProbeSummary(c)
+}
+
+// GetProbeTrace operation middleware
+func (siw *ServerInterfaceWrapper) GetProbeTrace(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetProbeTraceParams
+
+	// ------------- Required query parameter "collector_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "collector_id", c.Request.URL.Query(), &params.CollectorId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter collector_id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Required query parameter "server_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "server_id", c.Request.URL.Query(), &params.ServerId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter server_id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetProbeTrace(c, params)
 }
 
 // ListScriptCommands operation middleware
@@ -7743,6 +8182,10 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/api/v2/admin/connections/summary", wrapper.GetConnectionSummary)
 	router.GET(options.BaseURL+"/api/v2/admin/connections/paths", wrapper.ListConnectionPaths)
 	router.GET(options.BaseURL+"/api/v2/admin/connections/latency", wrapper.ListConnectionLatency)
+	router.GET(options.BaseURL+"/api/v2/admin/probes/summary", wrapper.GetProbeSummary)
+	router.GET(options.BaseURL+"/api/v2/admin/probes/paths", wrapper.ListProbePaths)
+	router.GET(options.BaseURL+"/api/v2/admin/probes/samples", wrapper.ListProbeSamples)
+	router.GET(options.BaseURL+"/api/v2/admin/probes/trace", wrapper.GetProbeTrace)
 	router.GET(options.BaseURL+"/api/v2/admin/telemetry/collectors", wrapper.ListCollectors)
 	router.POST(options.BaseURL+"/api/v2/admin/telemetry/collectors", wrapper.CreateCollector)
 	router.DELETE(options.BaseURL+"/api/v2/admin/telemetry/collectors/:collectorId", wrapper.DeleteCollector)

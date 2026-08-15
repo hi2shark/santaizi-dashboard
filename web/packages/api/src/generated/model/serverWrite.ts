@@ -29,4 +29,9 @@ export interface ServerWrite {
   ddns_profiles?: number[];
   /** 缺省不动既有策略；传数组则以这份为准（含空数组清空）。 */
   traffic_policies?: TrafficPolicyUpsert[];
+  /**
+     * 可选探测地址（域名或 IP）。空则用探针上报的公网 IP。
+     * @maxLength 255
+     */
+  probe_target?: string;
 }

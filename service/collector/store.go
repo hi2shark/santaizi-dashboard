@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/hi2shark/santaizi-dashboard/model"
@@ -144,11 +145,22 @@ func migrate(db *gorm.DB) error {
 		current = 2
 	}
 	if current < 3 {
-		return db.Transaction(func(tx *gorm.DB) error {
+		if err := db.Transaction(func(tx *gorm.DB) error {
 			if err := tx.AutoMigrate(&model.CollectorAuthorizationCache{}); err != nil {
 				return err
 			}
 			return tx.Create(&model.CollectorSchemaMigration{Version: 3, AppliedAt: time.Now().UTC()}).Error
+		}); err != nil {
+			return err
+		}
+		current = 3
+	}
+	if current < 4 {
+		return db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.AutoMigrate(&model.CollectorAuthorizationCache{}, &model.CollectorCachedProbeTarget{}); err != nil {
+				return err
+			}
+			return tx.Create(&model.CollectorSchemaMigration{Version: 4, AppliedAt: time.Now().UTC()}).Error
 		})
 	}
 	return nil
@@ -447,10 +459,18 @@ func (s *Store) SaveAuthorization(ctx context.Context, collectorUUID string, con
 		return errors.New("invalid collector authorization config")
 	}
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		kind := model.CollectorKindObserver
+		if config.GetKind() == pb.CollectorKind_COLLECTOR_KIND_PROBE {
+			kind = model.CollectorKindProbe
+		}
+		var probeJSON []byte
+		if config.GetProbe() != nil {
+			probeJSON, _ = proto.Marshal(config.GetProbe())
+		}
 		cache := model.CollectorAuthorizationCache{
 			ID: 1, CollectorUUID: collectorUUID, PrimaryPublicKey: config.GetPrimaryPublicKey(), KeyID: config.GetKeyId(),
 			ConfigVersion: config.GetConfigVersion(), LastPrimarySeenNano: seenAt.UnixNano(),
-			AgentCACertificatePEM: config.GetAgentCaCertificatePem(),
+			AgentCACertificatePEM: config.GetAgentCaCertificatePem(), Kind: kind, ProbeConfigJSON: probeJSON,
 		}
 		var existing model.CollectorAuthorizationCache
 		if err := tx.First(&existing, "id = 1").Error; err == nil && cache.AgentCACertificatePEM == "" {
@@ -478,8 +498,33 @@ func (s *Store) SaveAuthorization(ctx context.Context, collectorUUID string, con
 				return err
 			}
 		}
+		if err := tx.Where("1 = 1").Delete(&model.CollectorCachedProbeTarget{}).Error; err != nil {
+			return err
+		}
+		for _, target := range config.GetTargets() {
+			ports := make([]string, 0, len(target.GetTcpPorts()))
+			for _, port := range target.GetTcpPorts() {
+				ports = append(ports, fmt.Sprintf("%d", port))
+			}
+			if err := tx.Create(&model.CollectorCachedProbeTarget{
+				ServerID: target.GetServerId(), ServerName: target.GetServerName(), IPv4: target.GetIpv4(), IPv6: target.GetIpv6(),
+				Hostname: target.GetHostname(), TCPPorts: strings.Join(ports, ","), EnableICMP: target.GetEnableIcmp(),
+				EnableTCP: target.GetEnableTcp(), EnableMTR: target.GetEnableMtr(), IntervalSec: uint(target.GetIntervalSeconds()),
+				MTRIntervalSec: uint(target.GetMtrIntervalSeconds()),
+			}).Error; err != nil {
+				return err
+			}
+		}
 		return nil
 	})
+}
+
+func (s *Store) ProbeTargets(ctx context.Context) ([]model.CollectorCachedProbeTarget, error) {
+	var rows []model.CollectorCachedProbeTarget
+	if err := s.db.WithContext(ctx).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
 }
 
 func (s *Store) Authorization(ctx context.Context) (*model.CollectorAuthorizationCache, error) {

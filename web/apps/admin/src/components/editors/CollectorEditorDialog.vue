@@ -3,10 +3,11 @@ import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, type FormInstance } from 'element-plus'
 import { AppDialog } from '@santaizi/ui'
-import { createCollector, listAllServers, updateCollector, updateCollectorScope, type CollectorRecord, type ServerRecord } from '@/api/adminApi'
+import { createCollector, listAllServers, listNotificationGroups, updateCollector, updateCollectorScope, type CollectorRecord, type ServerRecord } from '@/api/adminApi'
 import LocationPicker from '@/components/LocationPicker.vue'
 import { useEditorSnapshot } from '@/composables/editorSnapshot'
 import { notifyAPIError } from '@/composables/notify'
+import { isProbeCollector } from '@/domain/collectorKind'
 import type { CollectorScope } from '@santaizi/api'
 import { joinHostPort, parsePort, splitHostPort } from '@/domain/collectorAddress'
 
@@ -18,9 +19,31 @@ const { t, te } = useI18n()
 const saving = ref(false)
 const formRef = ref<FormInstance>()
 const servers = ref<ServerRecord[]>([])
+const notificationGroups = ref<string[]>(['default'])
 const selectedServerIds = ref<string[]>([])
-const form = reactive<{ id: string; name: string; host: string; listen_port: string; access_port: string; tls: boolean; insecure_tls: boolean; location: string; scopes: CollectorScope[] }>({
-    id: '', name: '', host: '', listen_port: String(defaultListenPort), access_port: '', tls: true, insecure_tls: false, location: '', scopes: [{ type: 'all', value: '' }],
+const form = reactive({
+  id: '',
+  name: '',
+  kind: 'observer' as 'observer' | 'probe',
+  host: '',
+  listen_port: String(defaultListenPort),
+  access_port: '',
+  tls: true,
+  insecure_tls: false,
+  location: '',
+  probe_interval_seconds: 30,
+  mtr_interval_seconds: 300,
+  tcp_ports: '22,443',
+  enable_icmp: true,
+  enable_tcp: true,
+  enable_mtr: true,
+  notify: false,
+  notification_tag: 'default',
+  latency_notify: false,
+  min_latency_ms: 0,
+  max_latency_ms: 0,
+  fail_threshold: 3,
+  scopes: [{ type: 'all', value: '' }] as CollectorScope[],
 })
 const snapshotValue = computed(() => ({ form, selectedServerIds: selectedServerIds.value }))
 const { dirty, capture } = useEditorSnapshot(snapshotValue, computed(() => props.modelValue))
@@ -28,6 +51,7 @@ const groups = computed(() => [...new Set(servers.value.map(server => server.tag
 const tags = groups
 const transferData = computed(() => servers.value.map(server => ({ key: String(server.id), label: server.name })))
 const firstServerScopeIndex = computed(() => form.scopes.findIndex(scope => scope.type === 'server'))
+const isProbe = computed(() => form.kind === 'probe')
 
 function portRule(required: boolean) {
   return {
@@ -107,28 +131,39 @@ async function reset(value?: CollectorRecord) {
   Object.assign(form, {
     id: value?.id || '',
     name: value?.name || '',
+    kind: isProbeCollector(value) ? 'probe' : 'observer',
     host: parsed.host,
     listen_port: String(listen),
     access_port: access == null ? '' : String(access),
     tls: value?.tls ?? true,
     insecure_tls: value?.insecure_tls ?? false,
     location: value?.location || '',
+    probe_interval_seconds: value?.probe_interval_seconds || 30,
+    mtr_interval_seconds: value?.mtr_interval_seconds || 300,
+    tcp_ports: value?.tcp_ports || '22,443',
+    enable_icmp: value?.enable_icmp ?? true,
+    enable_tcp: value?.enable_tcp ?? true,
+    enable_mtr: value?.enable_mtr ?? true,
+    notify: value?.notify ?? false,
+    notification_tag: value?.notification_tag || 'default',
+    latency_notify: value?.latency_notify ?? false,
+    min_latency_ms: value?.min_latency_ms || 0,
+    max_latency_ms: value?.max_latency_ms || 0,
+    fail_threshold: value?.fail_threshold || 3,
     scopes: collapsed.ui,
   })
   selectedServerIds.value = collapsed.serverIds
-  try { servers.value = (await listAllServers()).data } catch (error) { notifyAPIError(error, t as never, te) }
+  try {
+    const [serverResult, groups] = await Promise.all([listAllServers(), listNotificationGroups()])
+    servers.value = serverResult.data
+    notificationGroups.value = groups.length ? groups : ['default']
+  } catch (error) { notifyAPIError(error, t as never, te) }
   await nextTick()
   capture()
 }
 
 async function submit() {
   await formRef.value?.validate()
-  const listen = parsePort(form.listen_port)
-  const access = parsePort(form.access_port) ?? listen
-  if (!form.host.trim() || listen == null || access == null) {
-    ElMessage.warning(t('required'))
-    return
-  }
   const scopes = buildScopesForSubmit()
   const hasAll = scopes.some(scope => scope.type === 'all')
   const incomplete = scopes.some(scope => scope.type !== 'all' && !scope.value.trim())
@@ -136,19 +171,52 @@ async function submit() {
     ElMessage.warning(t('invalidCollectorScope'))
     return
   }
-  saving.value = true
-  try {
-    let token = ''
-    let created: CollectorRecord | undefined
-    const payload = {
+  const probeFields = {
+    probe_interval_seconds: Number(form.probe_interval_seconds) || 30,
+    mtr_interval_seconds: Number(form.mtr_interval_seconds) || 300,
+    tcp_ports: form.tcp_ports.trim() || '22,443',
+    enable_icmp: form.enable_icmp,
+    enable_tcp: form.enable_tcp,
+    enable_mtr: form.enable_mtr,
+    notify: form.notify,
+    notification_tag: form.notification_tag,
+    latency_notify: form.latency_notify,
+    min_latency_ms: Number(form.min_latency_ms) || 0,
+    max_latency_ms: Number(form.max_latency_ms) || 0,
+    fail_threshold: Number(form.fail_threshold) || 3,
+  }
+  let payload: Parameters<typeof createCollector>[0]
+  if (isProbe.value) {
+    payload = {
       name: form.name,
+      kind: form.kind,
+      location: form.location,
+      scopes,
+      ...probeFields,
+    }
+  } else {
+    const listen = parsePort(form.listen_port)
+    const access = parsePort(form.access_port) ?? listen
+    if (!form.host.trim() || listen == null || access == null) {
+      ElMessage.warning(t('required'))
+      return
+    }
+    payload = {
+      name: form.name,
+      kind: form.kind,
       address: joinHostPort(form.host, access),
       listen_port: listen,
       tls: form.tls,
       insecure_tls: form.insecure_tls,
       location: form.location,
       scopes,
+      ...probeFields,
     }
+  }
+  saving.value = true
+  try {
+    let token = ''
+    let created: CollectorRecord | undefined
     if (form.id) {
       await updateCollector(form.id, payload)
       await updateCollectorScope(form.id, { scopes })
@@ -173,12 +241,42 @@ watch(() => props.modelValue, value => { if (value) void reset(props.value) })
     <el-form ref="formRef" :model="form" label-position="top" @submit.prevent="submit">
       <div class="editor-grid">
         <el-form-item :label="t('name')" prop="name" :rules="[{ required: true, message: t('required') }]"><el-input v-model="form.name" /></el-form-item>
-        <el-form-item :label="t('address')" prop="host" :rules="[{ required: true, message: t('required') }]"><el-input v-model="form.host" placeholder="collector.example.com" /></el-form-item>
-        <el-form-item :label="t('listenPort')" prop="listen_port" :rules="[portRule(true)]"><el-input v-model="form.listen_port" inputmode="numeric" placeholder="5556" /></el-form-item>
-        <el-form-item :label="t('accessPort')" prop="access_port" :rules="[portRule(false)]"><el-input v-model="form.access_port" inputmode="numeric" :placeholder="form.listen_port || '5556'" /></el-form-item>
+        <el-form-item :label="t('collectorKind')">
+          <el-select v-model="form.kind" :disabled="Boolean(form.id)">
+            <el-option :label="t('collectorKindObserver')" value="observer" />
+            <el-option :label="t('collectorKindProbe')" value="probe" />
+          </el-select>
+        </el-form-item>
+        <template v-if="!isProbe">
+          <el-form-item :label="t('address')" prop="host" :rules="[{ required: true, message: t('required') }]"><el-input v-model="form.host" placeholder="collector.example.com" /></el-form-item>
+          <el-form-item :label="t('listenPort')" prop="listen_port" :rules="[portRule(true)]"><el-input v-model="form.listen_port" inputmode="numeric" placeholder="5556" /></el-form-item>
+          <el-form-item :label="t('accessPort')" prop="access_port" :rules="[portRule(false)]"><el-input v-model="form.access_port" inputmode="numeric" :placeholder="form.listen_port || '5556'" /></el-form-item>
+        </template>
         <el-form-item :label="t('location')"><LocationPicker v-model="form.location" /></el-form-item>
+        <template v-if="isProbe">
+          <el-form-item :label="t('probeInterval')"><el-input v-model.number="form.probe_interval_seconds" inputmode="numeric" /></el-form-item>
+          <el-form-item :label="t('mtrInterval')"><el-input v-model.number="form.mtr_interval_seconds" inputmode="numeric" /></el-form-item>
+          <el-form-item :label="t('tcpPorts')"><el-input v-model="form.tcp_ports" /></el-form-item>
+          <el-form-item :label="t('failThreshold')"><el-input v-model.number="form.fail_threshold" inputmode="numeric" /></el-form-item>
+          <el-form-item :label="t('notificationGroup')">
+            <el-select v-model="form.notification_tag" filterable allow-create>
+              <el-option v-for="group in notificationGroups" :key="group" :label="group" :value="group" />
+            </el-select>
+          </el-form-item>
+        </template>
       </div>
-      <div class="switch-grid"><label><span>{{ t('tls') }}</span><el-switch v-model="form.tls" /></label><label v-if="form.tls"><span>{{ t('insecureTLS') }}</span><el-switch v-model="form.insecure_tls" /></label></div>
+      <div v-if="!isProbe" class="switch-grid"><label><span>{{ t('tls') }}</span><el-switch v-model="form.tls" /></label><label v-if="form.tls"><span>{{ t('insecureTLS') }}</span><el-switch v-model="form.insecure_tls" /></label></div>
+      <div v-else class="switch-grid">
+        <label><span>{{ t('enableICMP') }}</span><el-switch v-model="form.enable_icmp" /></label>
+        <label><span>{{ t('enableTCP') }}</span><el-switch v-model="form.enable_tcp" /></label>
+        <label><span>{{ t('enableMTR') }}</span><el-switch v-model="form.enable_mtr" /></label>
+        <label><span>{{ t('notify') }}</span><el-switch v-model="form.notify" /></label>
+        <label><span>{{ t('EnableLatencyNotification') }}</span><el-switch v-model="form.latency_notify" /></label>
+      </div>
+      <div v-if="isProbe && form.latency_notify" class="editor-grid">
+        <el-form-item :label="t('MinLatency')"><el-input v-model.number="form.min_latency_ms" inputmode="numeric" /></el-form-item>
+        <el-form-item :label="t('MaxLatency')"><el-input v-model.number="form.max_latency_ms" inputmode="numeric" /></el-form-item>
+      </div>
       <div class="editor-section">
         <div class="editor-section-title"><h3>{{ t('scope') }}</h3><el-button @click="addScope"><i class="ri-add-line"></i>{{ t('addScope') }}</el-button></div>
         <div class="scope-list">

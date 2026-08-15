@@ -190,13 +190,26 @@ func currentNodeForServer(c *gin.Context) ([]byte, bool) {
 }
 
 type collectorRequest struct {
-	Name        string                  `json:"name" binding:"required"`
-	Address     string                  `json:"address" binding:"required"`
-	ListenPort  uint                    `json:"listen_port"`
-	TLS         bool                    `json:"tls"`
-	InsecureTLS bool                    `json:"insecure_tls"`
-	Location    string                  `json:"location"`
-	Scopes      []collectorScopeRequest `json:"scopes"`
+	Name                 string                  `json:"name" binding:"required"`
+	Kind                 string                  `json:"kind"`
+	Address              string                  `json:"address"`
+	ListenPort           uint                    `json:"listen_port"`
+	TLS                  bool                    `json:"tls"`
+	InsecureTLS          bool                    `json:"insecure_tls"`
+	Location             string                  `json:"location"`
+	ProbeIntervalSeconds uint                    `json:"probe_interval_seconds"`
+	MTRIntervalSeconds   uint                    `json:"mtr_interval_seconds"`
+	TCPPorts             string                  `json:"tcp_ports"`
+	EnableICMP           *bool                   `json:"enable_icmp"`
+	EnableTCP            *bool                   `json:"enable_tcp"`
+	EnableMTR            *bool                   `json:"enable_mtr"`
+	Notify               bool                    `json:"notify"`
+	NotificationTag      string                  `json:"notification_tag"`
+	LatencyNotify        bool                    `json:"latency_notify"`
+	MinLatencyMs         float64                 `json:"min_latency_ms"`
+	MaxLatencyMs         float64                 `json:"max_latency_ms"`
+	FailThreshold        uint                    `json:"fail_threshold"`
+	Scopes               []collectorScopeRequest `json:"scopes"`
 }
 
 type collectorScopeRequest struct {
@@ -222,6 +235,15 @@ func createCollector(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	kind := model.NormalizeCollectorKind(request.Kind)
+	if kind == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "kind must be observer or probe"})
+		return
+	}
+	if kind == model.CollectorKindObserver && strings.TrimSpace(request.Address) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": errObserverAddressRequired.Error()})
+		return
+	}
 	listenPort, err := normalizeCollectorListenPort(request.ListenPort, request.Address)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -241,8 +263,10 @@ func createCollector(c *gin.Context) {
 		CollectorUUID: id, Name: request.Name, Address: request.Address, ListenPort: listenPort, TokenHash: hash,
 		RegistrationToken: plain,
 		Generation:        1, ConfigVersion: singleton.CurrentTelemetryConfigVersion() + 1, TLS: request.TLS, InsecureTLS: request.InsecureTLS,
-		Location: strings.TrimSpace(request.Location),
+		Location: strings.TrimSpace(request.Location), Kind: kind,
 	}
+	applyCollectorProbeRequest(&collector, request, true)
+	collector.ApplyProbeDefaults()
 	if err := singleton.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&collector).Error; err != nil {
 			return err

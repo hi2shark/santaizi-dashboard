@@ -31,6 +31,15 @@ func TestOpenDBFromPathCreatesVersionedSchema(t *testing.T) {
 	if !db.Migrator().HasColumn(&model.Collector{}, "listen_port") {
 		t.Fatal("collector listen_port column was not created")
 	}
+	if !db.Migrator().HasColumn(&model.Collector{}, "kind") {
+		t.Fatal("collector kind column was not created")
+	}
+	if !db.Migrator().HasColumn(&model.Server{}, "probe_target") {
+		t.Fatal("server probe_target column was not created")
+	}
+	if !db.Migrator().HasTable(&model.ProbeSampleBucket{}) || !db.Migrator().HasTable(&model.ProbeTrace{}) {
+		t.Fatal("probe tables were not created")
+	}
 }
 
 func TestOpenDBFromPathRejectsUnversionedDatabase(t *testing.T) {
