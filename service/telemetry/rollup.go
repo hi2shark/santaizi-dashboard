@@ -14,20 +14,41 @@ import (
 )
 
 type RetentionPolicy struct {
-	StateRaw       time.Duration
-	StateOneMinute time.Duration
-	StateOneHour   time.Duration
-	Observation    time.Duration
-	Lifecycle      time.Duration
-	BatchSize      int
+	StateRaw        time.Duration
+	StateOneMinute  time.Duration
+	StateOneHour    time.Duration
+	Observation     time.Duration
+	Lifecycle       time.Duration
+	Receipt         time.Duration
+	BatchSize       int
+	MaxRuntime      time.Duration
+	CompactMinBytes int64
+	AutoCompact     bool
 }
 
-type RollupWorker struct {
-	db        *gorm.DB
-	retention RetentionPolicy
+const (
+	DefaultRetentionBatch  = 5000
+	DefaultRetentionBudget = 20 * time.Second
+	DefaultReceiptRetain   = 7 * 24 * time.Hour
+	DefaultCompactMinBytes = int64(64 << 20)
+)
+
+func PolicyFromConfig(config model.RetentionConfig) RetentionPolicy {
+	return NormalizeRetentionPolicy(RetentionPolicy{
+		StateRaw:        time.Duration(config.StateRawHours) * time.Hour,
+		StateOneMinute:  time.Duration(config.StateOneMinuteDays) * 24 * time.Hour,
+		StateOneHour:    time.Duration(config.StateOneHourDays) * 24 * time.Hour,
+		Observation:     time.Duration(config.ObservationDays) * 24 * time.Hour,
+		Lifecycle:       time.Duration(config.LifecycleDays) * 24 * time.Hour,
+		Receipt:         time.Duration(config.ReceiptDays) * 24 * time.Hour,
+		BatchSize:       config.BatchSize,
+		MaxRuntime:      time.Duration(config.MaxRuntimeMs) * time.Millisecond,
+		CompactMinBytes: config.CompactMinBytes,
+		AutoCompact:     model.BoolOrTrue(config.AutoCompact),
+	})
 }
 
-func NewRollupWorker(db *gorm.DB, policy RetentionPolicy) *RollupWorker {
+func NormalizeRetentionPolicy(policy RetentionPolicy) RetentionPolicy {
 	if policy.StateRaw <= 0 {
 		policy.StateRaw = 6 * time.Hour
 	}
@@ -43,17 +64,33 @@ func NewRollupWorker(db *gorm.DB, policy RetentionPolicy) *RollupWorker {
 	if policy.Lifecycle <= 0 {
 		policy.Lifecycle = 10 * 365 * 24 * time.Hour
 	}
-	if policy.BatchSize <= 0 {
-		policy.BatchSize = 1000
+	if policy.Receipt <= 0 {
+		policy.Receipt = DefaultReceiptRetain
 	}
-	return &RollupWorker{db: db, retention: policy}
+	if policy.BatchSize <= 0 {
+		policy.BatchSize = DefaultRetentionBatch
+	}
+	if policy.MaxRuntime <= 0 {
+		policy.MaxRuntime = DefaultRetentionBudget
+	}
+	if policy.CompactMinBytes <= 0 {
+		policy.CompactMinBytes = DefaultCompactMinBytes
+	}
+	return policy
+}
+
+type RollupWorker struct {
+	db        *gorm.DB
+	retention RetentionPolicy
+}
+
+func NewRollupWorker(db *gorm.DB, policy RetentionPolicy) *RollupWorker {
+	return &RollupWorker{db: db, retention: NormalizeRetentionPolicy(policy)}
 }
 
 func (w *RollupWorker) Run(ctx context.Context) {
 	rollupTicker := time.NewTicker(time.Minute)
-	retentionTicker := time.NewTicker(time.Hour)
 	defer rollupTicker.Stop()
-	defer retentionTicker.Stop()
 	_ = w.RollupPending(ctx, time.Now())
 	for {
 		select {
@@ -61,8 +98,6 @@ func (w *RollupWorker) Run(ctx context.Context) {
 			return
 		case now := <-rollupTicker.C:
 			_ = w.RollupPending(ctx, now)
-		case now := <-retentionTicker.C:
-			_ = w.ApplyRetention(ctx, now)
 		}
 	}
 }
@@ -315,57 +350,155 @@ func cloneState(state *pb.State) *pb.State {
 }
 
 func (w *RollupWorker) ApplyRetention(ctx context.Context, now time.Time) error {
-	batch := w.retention.BatchSize
-	statePayloadBefore := now.Add(-w.retention.StateRaw).UnixNano()
-	if err := w.db.WithContext(ctx).Exec(`UPDATE telemetry_events SET payload = NULL, payload_retained = 0
-		WHERE rowid IN (SELECT e.rowid FROM telemetry_events e
-		WHERE e.event_type = ? AND e.payload_retained = 1 AND e.collected_at < ?
-		AND EXISTS (SELECT 1 FROM state_rollups r WHERE r.node_uuid = e.node_uuid AND r.resolution = '1m'
-		AND r.window_start <= e.collected_at AND r.window_end > e.collected_at) LIMIT ?)`,
-		pb.TelemetryEventType_TELEMETRY_EVENT_TYPE_STATE, statePayloadBefore, batch).Error; err != nil {
+	_, err := DrainRetention(ctx, w.db, w.retention, now)
+	return err
+}
+
+func DrainRetention(ctx context.Context, db *gorm.DB, policy RetentionPolicy, now time.Time) (int64, error) {
+	policy = NormalizeRetentionPolicy(policy)
+	deadline := now.Add(policy.MaxRuntime)
+	batch := policy.BatchSize
+	var deleted int64
+	add := func(n int64, err error) error {
+		deleted += n
 		return err
 	}
-	observationBefore := now.Add(-w.retention.Observation).UnixNano()
-	if err := deleteBatch(w.db.WithContext(ctx), "telemetry_observations", "received_at < ?", observationBefore, batch); err != nil {
-		return err
+
+	completedMinute := now.Truncate(time.Minute).UnixNano()
+	statePayloadBefore := now.Add(-policy.StateRaw).UnixNano()
+	if completedMinute < statePayloadBefore {
+		statePayloadBefore = completedMinute
 	}
-	if err := w.db.WithContext(ctx).Exec(`DELETE FROM telemetry_events WHERE rowid IN
-		(SELECT rowid FROM telemetry_events WHERE collected_at < ? AND event_type != ? LIMIT ?)`,
-		observationBefore, pb.TelemetryEventType_TELEMETRY_EVENT_TYPE_LIFECYCLE, batch).Error; err != nil {
-		return err
+	if sqliteTableExists(db, "telemetry_events") {
+		stripped, err := updateUntil(ctx, db, deadline, batch, `UPDATE telemetry_events SET payload = NULL, payload_retained = 0
+		WHERE rowid IN (SELECT rowid FROM telemetry_events
+		WHERE event_type = ? AND payload_retained = 1 AND collected_at < ? LIMIT ?)`,
+			pb.TelemetryEventType_TELEMETRY_EVENT_TYPE_STATE, statePayloadBefore)
+		if err != nil {
+			return deleted, err
+		}
+		deleted += stripped
 	}
-	lifecycleBefore := now.Add(-w.retention.Lifecycle).UnixNano()
-	for table, column := range map[string]string{
-		"telemetry_events": "collected_at", "telemetry_gaps": "created_at_unix_nano",
-		"availability_buckets": "bucket_start", "availability_incidents": "started_at",
+
+	observationBefore := now.Add(-policy.Observation).UnixNano()
+	if err := add(drainUntil(ctx, db, deadline, batch, "telemetry_observations", "received_at < ?", observationBefore)); err != nil {
+		return deleted, err
+	}
+	if err := add(drainUntil(ctx, db, deadline, batch, "telemetry_events", "collected_at < ? AND event_type != "+itoa(int(pb.TelemetryEventType_TELEMETRY_EVENT_TYPE_LIFECYCLE)), observationBefore)); err != nil {
+		return deleted, err
+	}
+	if err := add(drainUntil(ctx, db, deadline, batch, "observer_path_buckets", "bucket_start < ?", observationBefore)); err != nil {
+		return deleted, err
+	}
+	if err := add(drainUntil(ctx, db, deadline, batch, "observer_health_buckets", "bucket_start < ?", observationBefore)); err != nil {
+		return deleted, err
+	}
+	if err := add(drainUntil(ctx, db, deadline, batch, "telemetry_alerts", "occurred_at < ?", observationBefore)); err != nil {
+		return deleted, err
+	}
+	if err := add(drainUntil(ctx, db, deadline, batch, "telemetry_data_losses", "occurred_at < ?", observationBefore)); err != nil {
+		return deleted, err
+	}
+	if err := add(drainUntil(ctx, db, deadline, batch, "collector_replication_receipts", "created_at < ?", now.Add(-policy.Receipt))); err != nil {
+		return deleted, err
+	}
+
+	lifecycleBefore := now.Add(-policy.Lifecycle).UnixNano()
+	if err := add(drainUntil(ctx, db, deadline, batch, "incident_revisions", "incident_id IN (SELECT id FROM availability_incidents WHERE started_at < ?)", lifecycleBefore)); err != nil {
+		return deleted, err
+	}
+	for _, item := range []struct {
+		table     string
+		condition string
+		before    int64
+	}{
+		{"telemetry_events", "collected_at < ? AND event_type = " + itoa(int(pb.TelemetryEventType_TELEMETRY_EVENT_TYPE_LIFECYCLE)), lifecycleBefore},
+		{"telemetry_gaps", "created_at_unix_nano < ?", lifecycleBefore},
+		{"availability_buckets", "bucket_start < ?", lifecycleBefore},
+		{"availability_incidents", "started_at < ?", lifecycleBefore},
+		{"state_rollups", "resolution = '1m' AND window_start < ?", now.Add(-policy.StateOneMinute).UnixNano()},
+		{"state_rollups", "resolution = '1h' AND window_start < ?", now.Add(-policy.StateOneHour).UnixNano()},
+		{"connection_latency_buckets", "bucket_start < ?", now.Add(-ConnectionLatencyRetention).UnixNano()},
 	} {
-		condition := column + " < ?"
-		if table == "telemetry_events" {
-			condition += " AND event_type = " + itoa(int(pb.TelemetryEventType_TELEMETRY_EVENT_TYPE_LIFECYCLE))
-		}
-		if err := deleteBatch(w.db.WithContext(ctx), table, condition, lifecycleBefore, batch); err != nil {
-			return err
+		if err := add(drainUntil(ctx, db, deadline, batch, item.table, item.condition, item.before)); err != nil {
+			return deleted, err
 		}
 	}
-	if err := deleteBatch(w.db.WithContext(ctx), "state_rollups", "resolution = '1m' AND window_start < ?", now.Add(-w.retention.StateOneMinute).UnixNano(), batch); err != nil {
-		return err
+	return deleted, nil
+}
+
+func drainUntil(ctx context.Context, db *gorm.DB, deadline time.Time, limit int, table, condition string, before any) (int64, error) {
+	if !retentionTableAllowed(table) {
+		return 0, errors.New("retention table is not allowlisted")
 	}
-	if err := deleteBatch(w.db.WithContext(ctx), "state_rollups", "resolution = '1h' AND window_start < ?", now.Add(-w.retention.StateOneHour).UnixNano(), batch); err != nil {
-		return err
+	if !sqliteTableExists(db, table) {
+		return 0, nil
 	}
-	return deleteBatch(w.db.WithContext(ctx), "connection_latency_buckets", "bucket_start < ?", now.Add(-ConnectionLatencyRetention).UnixNano(), batch)
+	var total int64
+	query := "DELETE FROM " + table + " WHERE rowid IN (SELECT rowid FROM " + table + " WHERE " + condition + " LIMIT ?)"
+	for {
+		if err := ctx.Err(); err != nil {
+			return total, err
+		}
+		if !deadline.IsZero() && !time.Now().Before(deadline) {
+			return total, nil
+		}
+		result := db.WithContext(ctx).Exec(query, before, limit)
+		if result.Error != nil {
+			return total, result.Error
+		}
+		total += result.RowsAffected
+		if result.RowsAffected == 0 {
+			return total, nil
+		}
+	}
+}
+
+func sqliteTableExists(db *gorm.DB, table string) bool {
+	var count int64
+	if err := db.Raw("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = ?", table).Scan(&count).Error; err != nil {
+		return false
+	}
+	return count > 0
+}
+
+func updateUntil(ctx context.Context, db *gorm.DB, deadline time.Time, limit int, query string, args ...any) (int64, error) {
+	var total int64
+	bound := append(append([]any{}, args...), limit)
+	for {
+		if err := ctx.Err(); err != nil {
+			return total, err
+		}
+		if !deadline.IsZero() && !time.Now().Before(deadline) {
+			return total, nil
+		}
+		result := db.WithContext(ctx).Exec(query, bound...)
+		if result.Error != nil {
+			return total, result.Error
+		}
+		total += result.RowsAffected
+		if result.RowsAffected == 0 {
+			return total, nil
+		}
+	}
+}
+
+func retentionTableAllowed(table string) bool {
+	switch table {
+	case "telemetry_observations", "telemetry_events", "telemetry_gaps",
+		"availability_buckets", "availability_incidents", "incident_revisions",
+		"state_rollups", "connection_latency_buckets",
+		"observer_path_buckets", "observer_health_buckets",
+		"collector_replication_receipts", "telemetry_alerts", "telemetry_data_losses":
+		return true
+	default:
+		return false
+	}
 }
 
 func deleteBatch(db *gorm.DB, table, condition string, before int64, limit int) error {
-	allowed := map[string]bool{
-		"telemetry_observations": true, "telemetry_events": true, "telemetry_gaps": true,
-		"availability_buckets": true, "availability_incidents": true, "state_rollups": true,
-		"connection_latency_buckets": true,
-	}
-	if !allowed[table] {
-		return errors.New("retention table is not allowlisted")
-	}
-	return db.Exec("DELETE FROM "+table+" WHERE rowid IN (SELECT rowid FROM "+table+" WHERE "+condition+" LIMIT ?)", before, limit).Error
+	_, err := drainUntil(context.Background(), db, time.Time{}, limit, table, condition, before)
+	return err
 }
 
 func itoa(value int) string {

@@ -103,6 +103,15 @@ func OpenDBFromPath(path string, debug bool) (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
+	var userTableCount int64
+	if err := db.Raw("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").Scan(&userTableCount).Error; err != nil {
+		return nil, err
+	}
+	if userTableCount == 0 {
+		if _, err := sqlDB.Exec("PRAGMA auto_vacuum=INCREMENTAL"); err != nil {
+			return nil, fmt.Errorf("apply PRAGMA auto_vacuum=INCREMENTAL: %w", err)
+		}
+	}
 	for _, pragma := range []string{
 		"PRAGMA journal_mode=WAL",
 		"PRAGMA foreign_keys=ON",

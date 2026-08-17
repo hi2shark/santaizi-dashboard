@@ -156,6 +156,10 @@ type RetentionConfig struct {
 	ObservationDays    uint64 `koanf:"observation_days" yaml:"observation_days"`
 	LifecycleDays      uint64 `koanf:"lifecycle_days" yaml:"lifecycle_days"`
 	BatchSize          int    `koanf:"batch_size" yaml:"batch_size"`
+	MaxRuntimeMs       uint64 `koanf:"max_runtime_ms" yaml:"max_runtime_ms"`
+	ReceiptDays        uint64 `koanf:"receipt_days" yaml:"receipt_days"`
+	CompactMinBytes    int64  `koanf:"compact_min_bytes" yaml:"compact_min_bytes"`
+	AutoCompact        *bool  `koanf:"auto_compact" yaml:"auto_compact"`
 }
 
 type WebConfig struct {
@@ -384,7 +388,19 @@ func (c *Config) Read(path string) error {
 		c.Retention.LifecycleDays = 3650
 	}
 	if c.Retention.BatchSize == 0 {
-		c.Retention.BatchSize = 1000
+		c.Retention.BatchSize = 5000
+	}
+	if c.Retention.MaxRuntimeMs == 0 {
+		c.Retention.MaxRuntimeMs = 20000
+	}
+	if c.Retention.ReceiptDays == 0 {
+		c.Retention.ReceiptDays = 7
+	}
+	if c.Retention.CompactMinBytes == 0 {
+		c.Retention.CompactMinBytes = 64 << 20
+	}
+	if c.Retention.AutoCompact == nil {
+		c.Retention.AutoCompact = BoolPtr(true)
 	}
 	if c.EnableIPChangeNotification && c.IPChangeNotificationTag == "" {
 		c.IPChangeNotificationTag = "default"

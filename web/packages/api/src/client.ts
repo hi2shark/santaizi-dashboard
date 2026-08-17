@@ -9,6 +9,7 @@ import type {
   ServerGroupRenameWriteBody, ServerWriteBody, ScriptCommands, TelemetryAlertRecord, TelemetryDataLossRecord, TrafficPolicy,
   TrafficPolicyWriteBody, TrafficUsage, UpgradePreview, UpgradePreviewWriteBody,
   CycleTransfer, GetPublicMetricsParams, GetPublicServerAvailabilityParams, MonitorHistory, PublicAvailability, PublicMetricPoint,
+  DatabaseStatus,
 } from './generated/model'
 import type {
   ApiData, ApiList, CollectorRecord, ResourceQuery, ResourceRecord, ServerRecord,
@@ -148,6 +149,8 @@ export const updateSettings = (body: unknown) => api.updateSettings(body as Reco
 export const listOfflineHistory = (serverId: number, page = 1, pageSize = 20) => api.listOfflineHistory({ server_id: serverId, page, page_size: pageSize }).then(value => list<ResourceRecord>(value))
 export const deleteOfflineHistory = (id: number) => api.deleteOfflineHistory(id)
 export const cleanupOfflineHistory = (body: unknown = {}) => api.cleanupOfflineHistory(body as Record<string, unknown>).then(value => data<Record<string, unknown>>(value))
+export const getDatabase = () => api.getDatabase().then(value => data<DatabaseStatus>(value))
+export const optimizeDatabase = () => api.optimizeDatabase().then(value => data<DatabaseStatus>(value))
 
 export function websocketURL(path: string) {
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'

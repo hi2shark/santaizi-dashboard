@@ -28,6 +28,8 @@ import (
 
 const ddnsRedactedPlaceholder = "••••••" // #nosec G101 -- UI mask sentinel, not a credential
 
+var DatabaseMaintainer *telemetry.DatabaseMaintainer
+
 type v2Problem struct {
 	Type    string              `json:"type,omitempty"`
 	Title   string              `json:"title"`
@@ -103,6 +105,8 @@ func registerSPAAPIV2(root gin.IRouter) {
 	admin.GET("/offline-history", v2OfflineHistory)
 	admin.DELETE("/offline-history/:id", v2DeleteOfflineHistory)
 	admin.POST("/offline-history/cleanup", v2CleanupOfflineHistory)
+	admin.GET("/database", v2GetDatabase)
+	admin.POST("/database/optimize", v2OptimizeDatabase)
 
 	telemetry := admin.Group("/telemetry")
 	telemetry.GET("/overview", v2TelemetryOverview)
@@ -1887,6 +1891,26 @@ func v2CleanupOfflineHistory(c *gin.Context) {
 	writeV2Data(c, 200, gin.H{"deleted": result.RowsAffected})
 }
 
+func v2GetDatabase(c *gin.Context) {
+	if DatabaseMaintainer == nil {
+		writeV2Problem(c, http.StatusInternalServerError, "database_error", "数据库维护未启动")
+		return
+	}
+	writeV2Data(c, http.StatusOK, DatabaseMaintainer.Status())
+}
+
+func v2OptimizeDatabase(c *gin.Context) {
+	if DatabaseMaintainer == nil {
+		writeV2Problem(c, http.StatusInternalServerError, "database_error", "数据库维护未启动")
+		return
+	}
+	if !DatabaseMaintainer.Start(true) {
+		writeV2Problem(c, http.StatusConflict, "optimize_in_progress", "数据库正在优化")
+		return
+	}
+	writeV2Data(c, http.StatusOK, DatabaseMaintainer.Status())
+}
+
 var errObserverAddressRequired = errors.New("address is required for observer collectors")
 var errProbeIPFamilyRequired = errors.New("enable_ipv4 or enable_ipv6 is required")
 
@@ -1973,7 +1997,7 @@ func collectorDTO(collector model.Collector) gin.H {
 		"pending_records": runtime.PendingRecords, "oldest_pending": optionalRFC3339Nano(runtime.OldestPending),
 		"replication_cursor": runtime.ReplicationCursor, "connected_agents": runtime.ConnectedAgents,
 		"protocol_version": runtime.ProtocolVersion, "software_version": runtime.SoftwareVersion,
-		"heartbeat_rtt_ms": optionalFloat(runtime.HeartbeatRttSampledAt, runtime.HeartbeatRttMs),
+		"heartbeat_rtt_ms":           optionalFloat(runtime.HeartbeatRttSampledAt, runtime.HeartbeatRttMs),
 		"heartbeat_rtt_sampled_at":   optionalRFC3339Nano(runtime.HeartbeatRttSampledAt),
 		"replication_rtt_ms":         optionalFloat(runtime.ReplicationRttSampledAt, runtime.ReplicationRttMs),
 		"replication_rtt_sampled_at": optionalRFC3339Nano(runtime.ReplicationRttSampledAt), "scopes": scopeItems,
@@ -2345,10 +2369,10 @@ func v2ProbePaths(c *gin.Context) {
 		}
 		item := gin.H{
 			"server_id": path.ServerID, "server_name": path.ServerName, "collector_id": path.CollectorID, "collector_name": path.CollectorName,
-			"target": gin.H{"source": path.TargetSource, "hostname": path.Hostname, "ipv4": path.IPv4, "ipv6": path.IPv6},
+			"target":    gin.H{"source": path.TargetSource, "hostname": path.Hostname, "ipv4": path.IPv4, "ipv6": path.IPv6},
 			"reachable": path.Reachable, "has_trace": path.HasTrace, "last_error": path.LastError,
 			"icmp": gin.H{"ok": path.ICMPOk, "rtt_ms": path.ICMPRttMs, "loss": path.ICMPLoss, "packets_sent": path.ICMPSent, "packets_received": path.ICMPRecv},
-			"tcp": tcp,
+			"tcp":  tcp,
 		}
 		if path.SampledAt > 0 {
 			item["sampled_at"] = optionalRFC3339Nano(path.SampledAt)

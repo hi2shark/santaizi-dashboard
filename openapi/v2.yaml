@@ -1182,6 +1182,39 @@ paths:
           $ref: '#/components/responses/ObjectResponse'
         default:
           $ref: '#/components/responses/Problem'
+  /api/v2/admin/database:
+    get:
+      tags:
+      - Settings
+      summary: 数据库体积与优化状态
+      operationId: getDatabase
+      x-ui-route: /admin/settings
+      responses:
+        '200':
+          $ref: '#/components/responses/DatabaseStatusResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/v2/admin/database/optimize:
+    post:
+      tags:
+      - Settings
+      summary: 启动数据库优化
+      description: 后台清理过期探测数据；可回收空间达到阈值时压缩文件。进行中再次调用返回 409。
+      operationId: optimizeDatabase
+      x-ui-route: /admin/settings
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '200':
+          $ref: '#/components/responses/DatabaseStatusResponse'
+        '409':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/script-commands:
     get:
       tags:
@@ -3531,6 +3564,50 @@ components:
           - tag
         value:
           type: string
+    DatabaseOptimizeRun:
+      type: object
+      required:
+      - started_at
+      - deleted
+      - compacted
+      properties:
+        started_at:
+          type: string
+          format: date-time
+        ended_at:
+          type: string
+          format: date-time
+        deleted:
+          type: integer
+          format: int64
+        compacted:
+          type: boolean
+        skipped:
+          type: string
+        error:
+          type: string
+    DatabaseStatus:
+      type: object
+      additionalProperties: false
+      required:
+      - file_bytes
+      - wal_bytes
+      - reclaimable_bytes
+      - running
+      properties:
+        file_bytes:
+          type: integer
+          format: int64
+        wal_bytes:
+          type: integer
+          format: int64
+        reclaimable_bytes:
+          type: integer
+          format: int64
+        running:
+          type: boolean
+        last_run:
+          $ref: '#/components/schemas/DatabaseOptimizeRun'
     ConnectionSummary:
       type: object
       required:
@@ -4855,6 +4932,17 @@ components:
             properties:
               data:
                 $ref: '#/components/schemas/CollectorToken'
+    DatabaseStatusResponse:
+      description: Primary SQLite size and optimize status
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - data
+            properties:
+              data:
+                $ref: '#/components/schemas/DatabaseStatus'
     ConnectionSummaryResponse:
       description: Connection observation summary
       content:

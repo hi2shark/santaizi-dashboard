@@ -36,6 +36,7 @@ import type {
   DDNSProfileResponseResponse,
   DDNSProfileWriteBody,
   DDNSProviderListResponseResponse,
+  DatabaseStatusResponseResponse,
   GenericObjectBody,
   GetProbeTraceParams,
   GetPublicMetricsParams,
@@ -987,6 +988,31 @@ const updateSettings = (
     }
 
 /**
+ * @summary 数据库体积与优化状态
+ */
+const getDatabase = (
+
+ ) => {
+      return santaiziRequest<DatabaseStatusResponseResponse>(
+      {url: `/api/v2/admin/database`, method: 'GET'
+    },
+      );
+    }
+
+/**
+ * 后台清理过期探测数据；可回收空间达到阈值时压缩文件。进行中再次调用返回 409。
+ * @summary 启动数据库优化
+ */
+const optimizeDatabase = (
+
+ ) => {
+      return santaiziRequest<DatabaseStatusResponseResponse>(
+      {url: `/api/v2/admin/database/optimize`, method: 'POST'
+    },
+      );
+    }
+
+/**
  * 返回主面板、从端、探针的通用安装/升级/卸载命令。脚本地址来自 `installscript` 配置；不含密钥或 Token。
  * @summary 列出可复制的无参脚本命令
  */
@@ -1413,7 +1439,7 @@ const listTelemetryAlerts = (
       );
     }
 
-return {getSession,logout,getPublicBootstrap,createViewPasswordSession,listPublicServers,getPublicServer,listPublicServices,getPublicNetworkHistory,listPublicCycleTransfer,getPublicServerAvailability,getPublicMetrics,getAdminSummary,listServers,createServer,getServer,updateServer,deleteServer,listServerAvailability,updateServerDisplayIndex,listServerGroups,renameServerGroup,resetServerSecret,resetServerAvailability,getServerCredential,getServerInstallPreview,getServerUpgradePreview,getProbeCapabilities,listTrafficPolicies,createTrafficPolicy,getTrafficPolicy,updateTrafficPolicy,deleteTrafficPolicy,getTrafficPolicyUsage,batchUpdateServerGroup,batchDeleteServers,listMonitors,createMonitor,getMonitor,updateMonitor,deleteMonitor,listMonitorHistory,listNotifications,createNotification,getNotification,updateNotification,deleteNotification,testNotification,listAlertRules,createAlertRule,getAlertRule,updateAlertRule,deleteAlertRule,listDDNSProviders,listDDNSProfiles,createDDNSProfile,getDDNSProfile,updateDDNSProfile,deleteDDNSProfile,listNATTunnels,createNATTunnel,getNATTunnel,updateNATTunnel,deleteNATTunnel,getSettings,updateSettings,listScriptCommands,listApiTokens,createApiToken,getApiToken,patchApiToken,deleteApiToken,listOfflineHistory,deleteOfflineHistory,cleanupOfflineHistory,getTelemetryOverview,getConnectionSummary,listConnectionPaths,listConnectionLatency,getProbeSummary,listProbePaths,listProbeSamples,getProbeTrace,listCollectors,createCollector,getCollector,updateCollector,deleteCollector,rotateCollectorToken,getCollectorToken,revokeCollector,updateCollectorScope,getCollectorInstallPreview,listObserverAssignments,listAgentReliability,listIncidents,listIncidentRevisions,listTelemetryDataLoss,listTelemetryAlerts}};
+return {getSession,logout,getPublicBootstrap,createViewPasswordSession,listPublicServers,getPublicServer,listPublicServices,getPublicNetworkHistory,listPublicCycleTransfer,getPublicServerAvailability,getPublicMetrics,getAdminSummary,listServers,createServer,getServer,updateServer,deleteServer,listServerAvailability,updateServerDisplayIndex,listServerGroups,renameServerGroup,resetServerSecret,resetServerAvailability,getServerCredential,getServerInstallPreview,getServerUpgradePreview,getProbeCapabilities,listTrafficPolicies,createTrafficPolicy,getTrafficPolicy,updateTrafficPolicy,deleteTrafficPolicy,getTrafficPolicyUsage,batchUpdateServerGroup,batchDeleteServers,listMonitors,createMonitor,getMonitor,updateMonitor,deleteMonitor,listMonitorHistory,listNotifications,createNotification,getNotification,updateNotification,deleteNotification,testNotification,listAlertRules,createAlertRule,getAlertRule,updateAlertRule,deleteAlertRule,listDDNSProviders,listDDNSProfiles,createDDNSProfile,getDDNSProfile,updateDDNSProfile,deleteDDNSProfile,listNATTunnels,createNATTunnel,getNATTunnel,updateNATTunnel,deleteNATTunnel,getSettings,updateSettings,getDatabase,optimizeDatabase,listScriptCommands,listApiTokens,createApiToken,getApiToken,patchApiToken,deleteApiToken,listOfflineHistory,deleteOfflineHistory,cleanupOfflineHistory,getTelemetryOverview,getConnectionSummary,listConnectionPaths,listConnectionLatency,getProbeSummary,listProbePaths,listProbeSamples,getProbeTrace,listCollectors,createCollector,getCollector,updateCollector,deleteCollector,rotateCollectorToken,getCollectorToken,revokeCollector,updateCollectorScope,getCollectorInstallPreview,listObserverAssignments,listAgentReliability,listIncidents,listIncidentRevisions,listTelemetryDataLoss,listTelemetryAlerts}};
 export type GetSessionResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getSession']>>>
 export type LogoutResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['logout']>>>
 export type GetPublicBootstrapResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getPublicBootstrap']>>>
@@ -1479,6 +1505,8 @@ export type UpdateNATTunnelResult = NonNullable<Awaited<ReturnType<ReturnType<ty
 export type DeleteNATTunnelResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['deleteNATTunnel']>>>
 export type GetSettingsResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getSettings']>>>
 export type UpdateSettingsResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['updateSettings']>>>
+export type GetDatabaseResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getDatabase']>>>
+export type OptimizeDatabaseResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['optimizeDatabase']>>>
 export type ListScriptCommandsResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['listScriptCommands']>>>
 export type ListApiTokensResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['listApiTokens']>>>
 export type CreateApiTokenResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['createApiToken']>>>

@@ -50,6 +50,13 @@ func TestOpenDBFromPathCreatesVersionedSchema(t *testing.T) {
 	if !db.Migrator().HasColumn(&model.Collector{}, "enable_ipv4") || !db.Migrator().HasColumn(&model.Collector{}, "enable_ipv6") {
 		t.Fatal("collector ip family columns were not created")
 	}
+	var autoVacuum int
+	if err := db.Raw("PRAGMA auto_vacuum").Scan(&autoVacuum).Error; err != nil {
+		t.Fatal(err)
+	}
+	if autoVacuum != 2 {
+		t.Fatalf("new database auto_vacuum=%d, want INCREMENTAL(2)", autoVacuum)
+	}
 }
 
 func TestOpenDBFromPathRejectsUnversionedDatabase(t *testing.T) {

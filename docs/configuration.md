@@ -348,9 +348,15 @@ grpc_tls:
 | `retention.state_one_hour_days` | `365` |
 | `retention.observation_days` | `30` |
 | `retention.lifecycle_days` | `3650` |
-| `retention.batch_size` | `1000` |
+| `retention.batch_size` | `5000` |
+| `retention.max_runtime_ms` | `20000` |
+| `retention.receipt_days` | `7` |
+| `retention.compact_min_bytes` | `67108864`（64MiB） |
+| `retention.auto_compact` | `true` |
 
-Retention 使用小批后台清理；State Payload 只有在对应 Rollup 完成后才会被清空。
+Primary 每 5 分钟限时清过期探测数据；路径桶 / 健康桶 / 探测告警 / 数据丢失与观测同为 30 天，复制回执 7 天。State Payload 在已完成的 1 分钟窗口且超过 `state_raw_hours` 后剥离。`batch_size` / `max_runtime_ms` 为 0 时用上表默认。
+
+`auto_compact` 为 true 时，每天 03:30 与设置页「优化数据库」在可回收空间 ≥ `compact_min_bytes` 且剩余磁盘不少于当前库文件时执行整库 `VACUUM`。压缩会短暂停写，并大约需要一倍空闲磁盘；磁盘不够则跳过。新库启用 `INCREMENTAL` auto_vacuum，日常只做增量回收。设置页按钮只启动后台任务，不在请求线程里 `VACUUM`。
 
 ---
 
@@ -431,7 +437,11 @@ retention:
   state_one_hour_days: 365
   observation_days: 30
   lifecycle_days: 3650
-  batch_size: 1000
+  batch_size: 5000
+  max_runtime_ms: 20000
+  receipt_days: 7
+  compact_min_bytes: 67108864
+  auto_compact: true
 ```
 
 ---

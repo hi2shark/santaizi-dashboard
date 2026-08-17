@@ -1799,6 +1799,25 @@ type DDNSProvider struct {
 	WebhookUrl         bool   `json:"webhook_url"`
 }
 
+// DatabaseOptimizeRun defines model for DatabaseOptimizeRun.
+type DatabaseOptimizeRun struct {
+	Compacted bool       `json:"compacted"`
+	Deleted   int64      `json:"deleted"`
+	EndedAt   *time.Time `json:"ended_at,omitempty"`
+	Error     *string    `json:"error,omitempty"`
+	Skipped   *string    `json:"skipped,omitempty"`
+	StartedAt time.Time  `json:"started_at"`
+}
+
+// DatabaseStatus defines model for DatabaseStatus.
+type DatabaseStatus struct {
+	FileBytes        int64                `json:"file_bytes"`
+	LastRun          *DatabaseOptimizeRun `json:"last_run,omitempty"`
+	ReclaimableBytes int64                `json:"reclaimable_bytes"`
+	Running          bool                 `json:"running"`
+	WalBytes         int64                `json:"wal_bytes"`
+}
+
 // GenericObject defines model for GenericObject.
 type GenericObject map[string]interface{}
 
@@ -2759,6 +2778,11 @@ type DDNSProviderListResponse struct {
 	Meta Meta           `json:"meta"`
 }
 
+// DatabaseStatusResponse defines model for DatabaseStatusResponse.
+type DatabaseStatusResponse struct {
+	Data DatabaseStatus `json:"data"`
+}
+
 // IncidentListResponse defines model for IncidentListResponse.
 type IncidentListResponse struct {
 	Data []IncidentRecord `json:"data"`
@@ -3000,6 +3024,12 @@ type ListConnectionLatencyParamsKind string
 type ListConnectionPathsParams struct {
 	ServerId   *int64  `form:"server_id,omitempty" json:"server_id,omitempty"`
 	ObserverId *string `form:"observer_id,omitempty" json:"observer_id,omitempty"`
+}
+
+// OptimizeDatabaseParams defines parameters for OptimizeDatabase.
+type OptimizeDatabaseParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // ListDDNSProfilesParams defines parameters for ListDDNSProfiles.
@@ -4113,6 +4143,12 @@ type ServerInterface interface {
 	// GetConnectionSummary 连接观察摘要
 	// (GET /api/v2/admin/connections/summary)
 	GetConnectionSummary(c *gin.Context)
+	// GetDatabase 数据库体积与优化状态
+	// (GET /api/v2/admin/database)
+	GetDatabase(c *gin.Context)
+	// OptimizeDatabase 启动数据库优化
+	// (POST /api/v2/admin/database/optimize)
+	OptimizeDatabase(c *gin.Context, params OptimizeDatabaseParams)
 	// ListDDNSProfiles DDNS 配置列表
 	// (GET /api/v2/admin/ddns)
 	ListDDNSProfiles(c *gin.Context, params ListDDNSProfilesParams)
@@ -4890,6 +4926,59 @@ func (siw *ServerInterfaceWrapper) GetConnectionSummary(c *gin.Context) {
 	}
 
 	siw.Handler.GetConnectionSummary(c)
+}
+
+// GetDatabase operation middleware
+func (siw *ServerInterfaceWrapper) GetDatabase(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetDatabase(c)
+}
+
+// OptimizeDatabase operation middleware
+func (siw *ServerInterfaceWrapper) OptimizeDatabase(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params OptimizeDatabaseParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.OptimizeDatabase(c, params)
 }
 
 // ListDDNSProfiles operation middleware
@@ -8193,6 +8282,8 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.PATCH(options.BaseURL+"/api/v2/admin/nat/:id", wrapper.UpdateNATTunnel)
 	router.GET(options.BaseURL+"/api/v2/admin/settings", wrapper.GetSettings)
 	router.PATCH(options.BaseURL+"/api/v2/admin/settings", wrapper.UpdateSettings)
+	router.GET(options.BaseURL+"/api/v2/admin/database", wrapper.GetDatabase)
+	router.POST(options.BaseURL+"/api/v2/admin/database/optimize", wrapper.OptimizeDatabase)
 	router.GET(options.BaseURL+"/api/v2/admin/script-commands", wrapper.ListScriptCommands)
 	router.GET(options.BaseURL+"/api/v2/admin/api-tokens", wrapper.ListApiTokens)
 	router.POST(options.BaseURL+"/api/v2/admin/api-tokens", wrapper.CreateApiToken)

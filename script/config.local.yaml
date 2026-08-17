@@ -47,4 +47,8 @@ retention:
   state_one_hour_days: 365
   observation_days: 30
   lifecycle_days: 3650
-  batch_size: 1000
+  batch_size: 5000
+  max_runtime_ms: 20000
+  receipt_days: 7
+  compact_min_bytes: 67108864
+  auto_compact: true

@@ -16,7 +16,7 @@
 | 告警规则 | `createAlertRule`, `updateAlertRule`, `deleteAlertRule` | `/admin/alert-rules` 可视化条件卡片 | 指标、阈值、持续时间、服务器范围和通知组 |
 | DDNS | `createDDNSProfile`, `updateDDNSProfile`, `deleteDDNSProfile` | 附加功能中的 Provider 驱动编辑器 | 域名、协议、凭据和 Webhook 动态字段 |
 | NAT | `createNATTunnel`, `updateNATTunnel`, `deleteNATTunnel` | 附加功能中的服务器选择器与目标表单 | 完整 CRUD 与目标格式校验 |
-| 系统设置 | `updateSettings` | `/admin/settings` | 站点、网络、可用性、通知和安全外观 |
+| 系统设置 | `updateSettings`, `getDatabase`, `optimizeDatabase` | `/admin/settings` | 站点、网络、可用性、通知和安全外观；标题旁数据库体积与优化 |
 | 脚本命令 | `listScriptCommands` | 顶栏脚本命令抽屉 | 无参命令复制；不含密钥；空 URL 跳过 |
 | API Token | `listApiTokens`, `createApiToken`, `getApiToken`, `patchApiToken`, `deleteApiToken` | `/admin/api-tokens` 签发（权限/有效期）、列表复制、启用/禁用与删除 | 只读/操作权、过期与禁用鉴权；明文仅详情返回 |
 | Collector 生命周期 | `createCollector`, `updateCollector`, `getCollectorToken`, `rotateCollectorToken`, `revokeCollector`, `deleteCollector`, `getCollectorInstallPreview` | `/admin/telemetry` 专用编辑弹窗、安装命令与操作菜单；列表展示从端二进制版本 | Token 查看/轮换、安装预览、撤销和删除；`software_version` |

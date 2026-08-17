@@ -46,15 +46,12 @@ func initSystem() {
 		time.Duration(singleton.Conf.Telemetry.AvailabilityBucketSeconds)*time.Second,
 		singleton.Conf.Telemetry.MinObservers)
 	go availabilityEngine.Run(context.Background())
-	rollupWorker := telemetryservice.NewRollupWorker(singleton.DB, telemetryservice.RetentionPolicy{
-		StateRaw:       time.Duration(singleton.Conf.Retention.StateRawHours) * time.Hour,
-		StateOneMinute: time.Duration(singleton.Conf.Retention.StateOneMinuteDays) * 24 * time.Hour,
-		StateOneHour:   time.Duration(singleton.Conf.Retention.StateOneHourDays) * 24 * time.Hour,
-		Observation:    time.Duration(singleton.Conf.Retention.ObservationDays) * 24 * time.Hour,
-		Lifecycle:      time.Duration(singleton.Conf.Retention.LifecycleDays) * 24 * time.Hour,
-		BatchSize:      singleton.Conf.Retention.BatchSize,
-	})
+	rollupWorker := telemetryservice.NewRollupWorker(singleton.DB, telemetryservice.PolicyFromConfig(singleton.Conf.Retention))
 	go rollupWorker.Run(context.Background())
+	controller.DatabaseMaintainer = telemetryservice.NewDatabaseMaintainer(singleton.DB, dashboardCliParam.DatebaseLocation, func() telemetryservice.RetentionPolicy {
+		return telemetryservice.PolicyFromConfig(singleton.Conf.Retention)
+	})
+	go controller.DatabaseMaintainer.Run(context.Background())
 	telemetryAlerts := telemetryservice.NewAlertWorker(singleton.DB, telemetryservice.AlertPolicy{
 		NotifyHostOffline:         singleton.Conf.EnableOfflineNotification,
 		NotifyConnectivity:        singleton.Conf.Telemetry.EnableConnectivityNotification,
@@ -80,6 +77,18 @@ func initSystem() {
 
 	// 每天对超过保留期的离线历史进行清理
 	if _, err := singleton.Cron.AddFunc("0 30 3 * * *", singleton.CleanOfflineHistory); err != nil {
+		panic(err)
+	}
+
+	if _, err := singleton.Cron.AddFunc("0 30 3 * * *", func() {
+		if controller.DatabaseMaintainer == nil || singleton.Conf == nil {
+			return
+		}
+		if !telemetryservice.PolicyFromConfig(singleton.Conf.Retention).AutoCompact {
+			return
+		}
+		_ = controller.DatabaseMaintainer.Start(true)
+	}); err != nil {
 		panic(err)
 	}
 
