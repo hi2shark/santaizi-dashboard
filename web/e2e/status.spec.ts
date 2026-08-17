@@ -418,6 +418,7 @@ test('desktop exposes the card, row and ServerStatus list modes', async ({ page 
   await modes.getByRole('button', { name: '列表' }).click()
   await expect(page.locator('.nazhua-home__list.mode-row')).toBeVisible()
   await expect(page.locator('.nazhua-row')).toHaveCount(3)
+  await expect(page.locator('.nazhua-row').first()).toContainText('16 / 5')
   await expect(page.locator('.nazhua-home__list .ri-checkbox-circle-fill, .nazhua-home__list .ri-indeterminate-circle-fill')).toHaveCount(0)
   const rowAlign = await page.locator('.nazhua-row').first().evaluate(row => {
     const name = row.querySelector('strong')!.getBoundingClientRect()
@@ -449,7 +450,7 @@ test('desktop exposes the card, row and ServerStatus list modes', async ({ page 
   }
   await modes.getByRole('button', { name: 'ServerStatus' }).click()
   await expect(page.locator('.nazhua-home__list.mode-server-status')).toBeVisible()
-  await expect(page.locator('.nazhua-status-table__head [role="columnheader"]')).toHaveCount(12)
+  await expect(page.locator('.nazhua-status-table__head [role="columnheader"]')).toHaveCount(13)
   await expect(page.locator('.nazhua-status-table__row').first().getByRole('link')).toBeVisible()
   await expect(page.locator('.nazhua-status-table .ri-checkbox-circle-fill, .nazhua-status-table .ri-indeterminate-circle-fill')).toHaveCount(0)
   const tableGray = await page.locator('.nazhua-status-table__row').evaluateAll(rows => rows.map(row => {
@@ -618,6 +619,10 @@ test('ServerStatus shell uses a tokenized table without particle canvas', async 
   await expect(page.locator('.ss-cell[data-label="位置"]')).toHaveCount(3)
   await expect(page.locator('.ss-cell[data-label="价格"]')).toHaveCount(3)
   await expect(page.locator('.ss-cell[data-label="剩余"]')).toHaveCount(0)
+  await expect(page.locator('.ss-cell[data-label="连接数"]')).toHaveCount(3)
+  await expect(page.locator('.ss-row').first().locator('.ss-cell[data-label="连接数"]')).toHaveText('16 / 5')
+  await expect(page.locator('.ss-row').nth(1).locator('.ss-cell[data-label="连接数"]')).toHaveText('—')
+  await expect(page.locator('.ss-row').nth(2).locator('.ss-cell[data-label="连接数"]')).toHaveText('—')
   await page.locator('.ss-row').first().locator('.ss-row__main').click()
   await expect(page.locator('.el-drawer .ss-detail')).toBeVisible()
   await expect(page.getByText('IEPL')).toBeVisible()

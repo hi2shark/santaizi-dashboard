@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import { formatConnPair } from '@santaizi/theme-server-status'
 import type { NazhuaServerView } from '../../domain/nazhuaServerView'
 import { formatCompactBytes } from '../../domain/nazhuaServerView'
 import { formatSpeed } from '../../utils/host'
@@ -29,6 +30,7 @@ function tone(percent: number) {
       <span role="columnheader" class="is-metric">{{ t('nazhua.netSpeed') }}</span>
       <span role="columnheader" class="is-metric is-cycle">{{ t('nazhua.cycleTransfer') }}</span>
       <span role="columnheader" class="is-load">{{ t('load') }}</span>
+      <span role="columnheader" class="is-metric is-conn">{{ t('connCount') }}</span>
       <span role="columnheader" class="is-billing">{{ t('nazhua.billing') }}</span>
     </div>
     <div
@@ -73,6 +75,7 @@ function tone(percent: number) {
         <i v-if="server.cycle" class="nazhua-mini-bar" :class="`is-${tone(server.cycle.usagePercent)}`"><b :style="{ width: `${Math.min(100, server.cycle.usagePercent)}%` }" /></i>
       </span>
       <span role="cell" class="is-load">{{ server.load1.toFixed(2) }}</span>
+      <span role="cell" class="nazhua-status-table__speed is-conn">{{ formatConnPair(server.tcpConnCount, server.udpConnCount) }}</span>
       <span role="cell" class="is-billing">{{ server.billing || '—' }}</span>
     </div>
   </div>

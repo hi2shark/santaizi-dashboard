@@ -128,6 +128,12 @@ export function pickOptionalNumber(object: FieldSource, ...keys: string[]) {
   return finite(value)
 }
 
+/** 列表单元格：两侧都缺能力时返回空串，由调用方显示 —；有一侧则另一侧按 0。 */
+export function formatConnPair(tcp: number | null, udp: number | null) {
+  if (tcp === null && udp === null) return ''
+  return `${Math.round(tcp ?? 0)} / ${Math.round(udp ?? 0)}`
+}
+
 export function pickText(object: FieldSource, ...keys: string[]) {
   const value = pick(object, ...keys)
   if (value === undefined || value === null) return ''

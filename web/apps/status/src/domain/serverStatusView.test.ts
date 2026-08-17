@@ -3,6 +3,7 @@ import type { ResourceRecord, ServerRecord } from '@santaizi/api'
 import {
   clampPercent,
   formatBytes,
+  formatConnPair,
   mapCycleTransfers,
   percentOf,
   toServerStatusView,
@@ -163,5 +164,10 @@ describe('ServerStatus view adapter', () => {
     expect(percentOf(1, 4)).toBe(25)
     expect(formatBytes(1024)).toBe('1.0 KB')
     expect(formatBytes(0)).toBe('0 B')
+    expect(formatConnPair(16, 5)).toBe('16 / 5')
+    expect(formatConnPair(0, 0)).toBe('0 / 0')
+    expect(formatConnPair(12, null)).toBe('12 / 0')
+    expect(formatConnPair(null, 3)).toBe('0 / 3')
+    expect(formatConnPair(null, null)).toBe('')
   })
 })

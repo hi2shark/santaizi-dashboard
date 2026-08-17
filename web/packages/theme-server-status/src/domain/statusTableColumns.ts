@@ -20,6 +20,7 @@ type ColumnId =
   | 'online'
   | 'availability'
   | 'load'
+  | 'conn'
   | 'speed'
   | 'traffic'
   | 'cores'
@@ -29,7 +30,7 @@ type ColumnId =
 
 const COLUMN_ORDER: ColumnId[] = [
   'status', 'name', 'platform', 'location', 'price', 'online', 'availability',
-  'load', 'speed', 'traffic', 'cores', 'memory', 'disk', 'remaining',
+  'load', 'conn', 'speed', 'traffic', 'cores', 'memory', 'disk', 'remaining',
 ]
 
 const COLUMN_TRACKS: Record<ColumnId, { track: string; min: number }> = {
@@ -41,6 +42,7 @@ const COLUMN_TRACKS: Record<ColumnId, { track: string; min: number }> = {
   online: { track: '64px', min: 64 },
   availability: { track: '56px', min: 56 },
   load: { track: '48px', min: 48 },
+  conn: { track: '72px', min: 72 },
   speed: { track: '104px', min: 104 },
   traffic: { track: 'minmax(96px, 1fr)', min: 96 },
   cores: { track: '56px', min: 56 },

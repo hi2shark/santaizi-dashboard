@@ -39,6 +39,8 @@ describe('statusTableLayout', () => {
       location: false, price: false, availability: false, remaining: false,
     })
     expect(all.columns).toContain('80px')
+    expect(all.columns).toContain('72px')
+    expect(none.columns).toContain('72px')
     expect(none.columns).not.toContain('80px')
     expect(none.count).toBe(all.count - 4)
     expect(none.minWidth).toBeLessThan(all.minWidth)

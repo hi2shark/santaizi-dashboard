@@ -569,7 +569,7 @@ html.dark .nazhua-card:hover,
 
 .nazhua-row {
   display: grid;
-  grid-template-columns: minmax(190px, 1.4fr) repeat(6, minmax(88px, 1fr));
+  grid-template-columns: minmax(190px, 1.4fr) repeat(7, minmax(88px, 1fr));
   align-items: center;
   gap: 10px;
   min-height: 64px;
@@ -646,7 +646,7 @@ html.dark .nazhua-card:hover,
 .nazhua-status-table__head,
 .nazhua-status-table__row {
   display: grid;
-  grid-template-columns: minmax(150px, 1.5fr) 60px minmax(80px, .9fr) minmax(80px, .9fr) 56px repeat(3, minmax(100px, 1fr)) minmax(144px, 1.1fr) minmax(84px, .9fr) 52px 76px;
+  grid-template-columns: minmax(150px, 1.5fr) 60px minmax(80px, .9fr) minmax(80px, .9fr) 56px repeat(3, minmax(100px, 1fr)) minmax(140px, 1.1fr) minmax(84px, .9fr) 52px 56px 76px;
   align-items: center;
   gap: 8px;
   min-height: 44px;
@@ -844,7 +844,8 @@ html.dark .nazhua-footer a,
   .nazhua-donut__text strong { font-size: 18px; }
   .nazhua-card__stats strong { font-size: 20px; }
   .nazhua-status-table .is-spec,
-  .nazhua-status-table .is-load { display: none; }
+  .nazhua-status-table .is-load,
+  .nazhua-status-table .is-conn { display: none; }
   .nazhua-status-table__head,
   .nazhua-status-table__row {
     grid-template-columns: minmax(150px, 1.5fr) 60px minmax(80px, .9fr) 56px repeat(3, minmax(100px, 1fr)) minmax(144px, 1.1fr) minmax(84px, .9fr) 76px;
@@ -870,7 +871,7 @@ html.dark .nazhua-footer a,
   .nazhua-donut__text strong { font-size: 20px; }
   .nazhua-donut__text span { font-size: 14px; }
   .nazhua-row { grid-template-columns: minmax(180px, 1.2fr) repeat(3, minmax(90px, 1fr)); }
-  .nazhua-row__metric:nth-last-child(-n + 3) { display: none; }
+  .nazhua-row__metric:nth-last-child(-n + 4) { display: none; }
   .nazhua-status-table .is-billing,
   .nazhua-status-table .is-cycle { display: none; }
   .nazhua-status-table__head,

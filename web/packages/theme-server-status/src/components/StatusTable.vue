@@ -40,6 +40,7 @@ const tableStyle = computed(() => ({
         <span>{{ t('online') }}</span>
         <span v-if="columns.availability">{{ t('availability') }}</span>
         <span>{{ t('load') }}</span>
+        <span>{{ t('connCount') }}</span>
         <span>{{ t('networkSpeed') }}</span>
         <span>{{ t('traffic') }}</span>
         <span>{{ t('cores') }}</span>

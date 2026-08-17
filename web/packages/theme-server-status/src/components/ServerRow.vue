@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { ServerStatusView } from '../domain/serverStatusView'
+import { formatConnPair, type ServerStatusView } from '../domain/serverStatusView'
 import type { StatusTableColumns } from '../domain/statusTableColumns'
 import { usageTone } from '../domain/transfer'
 import { billingText, remainingText, trafficUsageText } from '../domain/publicNoteDisplay'
@@ -29,6 +29,7 @@ const availabilityLabel = computed(() => {
   return t('unknown')
 })
 const speed = computed(() => `${props.server.speedInLabel.replace(/\/s$/, '')} | ${props.server.speedOutLabel.replace(/\/s$/, '')}`)
+const conn = computed(() => formatConnPair(props.server.tcp, props.server.udp) || '—')
 </script>
 
 <template>
@@ -65,6 +66,7 @@ const speed = computed(() => `${props.server.speedInLabel.replace(/\/s$/, '')} |
       <span class="ss-cell" :data-label="t('online')">{{ server.uptimeLabel || '—' }}</span>
       <span v-if="columns.availability" class="ss-cell" :data-label="t('availability')">{{ availabilityLabel }}</span>
       <span class="ss-cell" :data-label="t('load')">{{ server.hasLoad ? server.load1.toFixed(2) : '—' }}</span>
+      <span class="ss-cell ss-cell--num" :data-label="t('connCount')">{{ conn }}</span>
       <span class="ss-cell ss-cell--num" :data-label="t('networkSpeed')">{{ speed }}</span>
       <span
         class="ss-cell ss-cell--traffic"

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import { formatConnPair } from '@santaizi/theme-server-status'
 import type { NazhuaServerView } from '../../domain/nazhuaServerView'
 import { formatCompactBytes } from '../../domain/nazhuaServerView'
 import { formatSpeed } from '../../utils/host'
@@ -24,5 +25,6 @@ const { t } = useI18n()
     <div class="nazhua-row__metric"><small>{{ t('nazhua.download') }}</small>{{ formatSpeed(server.speedIn) }}</div>
     <div class="nazhua-row__metric"><small>{{ t('nazhua.upload') }}</small>{{ formatSpeed(server.speedOut) }}</div>
     <div class="nazhua-row__metric"><small>{{ t('nazhua.cycleTransfer') }}</small>{{ formatCompactBytes(server.trafficBytes, 1) }}</div>
+    <div class="nazhua-row__metric"><small>{{ t('connCount') }}</small>{{ formatConnPair(server.tcpConnCount, server.udpConnCount) }}</div>
   </RouterLink>
 </template>
