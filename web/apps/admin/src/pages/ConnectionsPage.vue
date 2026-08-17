@@ -34,7 +34,10 @@ const activeCollector = ref<CollectorRecord>()
 const activePath = ref<ConnectionPath>()
 const activeProbe = ref<ProbePath>()
 const POLL_MS = 5000
+const MOBILE_MATRIX_MQ = '(max-width: 860px)'
+const serversAsRows = ref(typeof window !== 'undefined' && window.matchMedia(MOBILE_MATRIX_MQ).matches)
 let timer: ReturnType<typeof setInterval> | undefined
+let axisMq: MediaQueryList | undefined
 let inflight = false
 
 type MatrixObserver = { id: string; name: string; kind: 'primary' | 'collector' | 'probe' }
@@ -399,7 +402,14 @@ function onVisibility() {
   if (!document.hidden) void load(true)
 }
 
+function syncMatrixAxis() {
+  serversAsRows.value = Boolean(axisMq?.matches)
+}
+
 onMounted(async () => {
+  axisMq = window.matchMedia(MOBILE_MATRIX_MQ)
+  syncMatrixAxis()
+  axisMq.addEventListener('change', syncMatrixAxis)
   const observerId = String(route.query.observer_id || '')
   if (observerId) observerFilter.value = observerId
   await load()
@@ -407,6 +417,7 @@ onMounted(async () => {
   document.addEventListener('visibilitychange', onVisibility)
 })
 onUnmounted(() => {
+  axisMq?.removeEventListener('change', syncMatrixAxis)
   if (timer) clearInterval(timer)
   document.removeEventListener('visibilitychange', onVisibility)
 })
@@ -420,7 +431,7 @@ onUnmounted(() => {
   </div>
 
   <div class="page-stack">
-    <section class="surface table-card">
+    <section class="surface table-card connections-collectors">
       <div class="toolbar">
         <h2 class="table-card-title">{{ t('collectorLinks') }} <small>{{ collectors.length }}</small></h2>
       </div>
@@ -461,7 +472,7 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <section class="surface table-card">
+    <section class="surface table-card connections-nodes">
       <div class="toolbar">
         <h2 class="table-card-title">{{ t('nodeLinks') }} <small>{{ filteredPaths.length + filteredProbePaths.length }}</small></h2>
         <div class="toolbar-filters mobile-only">
@@ -474,93 +485,115 @@ onUnmounted(() => {
           </el-select>
         </div>
       </div>
-      <div class="path-matrix-wrap desktop-only" v-loading="loading">
+      <div class="path-matrix-wrap" v-loading="loading">
         <AppEmpty v-if="!matrixRows.length && !loading" class="empty-state" icon="ri-links-line" :title="t('noPathsTitle')" :description="t('noPathsHint')" />
         <div
           v-else
           class="path-matrix"
+          :class="serversAsRows ? 'is-servers-y' : 'is-servers-x'"
           role="table"
-          :style="{ '--obs-count': String(matrixObservers.length || 1) }"
+          :style="serversAsRows
+            ? { '--obs-count': String(matrixObservers.length || 1) }
+            : { '--server-count': String(matrixRows.length || 1) }"
         >
           <div class="path-matrix__head" role="row">
-            <div class="col-server" role="columnheader">{{ t('server') }}</div>
-            <div
-              v-for="obs in matrixObservers"
-              :key="obs.id"
-              class="col-observer"
-              :class="{ 'is-probe': obs.kind === 'probe' }"
-              role="columnheader"
-            >
-              <i v-if="obs.kind === 'probe'" class="ri-radar-line" aria-hidden="true"></i>
-              <span>{{ obs.name }}</span>
-            </div>
-          </div>
-          <div
-            v-for="row in matrixRows"
-            :key="row.key"
-            class="path-matrix__row"
-            role="row"
-          >
-            <div class="col-server" role="rowheader">{{ row.server_name || '—' }}</div>
-            <div
-              v-for="obs in matrixObservers"
-              :key="obs.id"
-              class="col-observer"
-              role="cell"
-            >
-              <button
-                v-for="cell in matrixCells(row, obs)"
-                :key="cell.kind === 'probe' && cell.probe ? probeRowKey(cell.probe) : pathRowKey(cell.path!)"
-                type="button"
-                class="path-matrix__cell"
-                :class="cellTone(cell)"
-                :title="cell.title"
-                @click="openMatrixCell(cell)"
+            <div class="col-corner" role="columnheader">{{ serversAsRows ? t('server') : '' }}</div>
+            <template v-if="serversAsRows">
+              <div
+                v-for="obs in matrixObservers"
+                :key="obs.id"
+                class="col-observer"
+                :class="{ 'is-probe': obs.kind === 'probe' }"
+                role="columnheader"
               >
-                <span class="rtt-main">
-                  <i v-if="cell.hasError" class="ri-error-warning-line" aria-hidden="true"></i>
-                  <span class="rtt-value">{{ cell.text }}</span>
-                </span>
-                <span v-if="cell.sampled" class="rtt-sampled">{{ cell.sampled }}</span>
-              </button>
-              <span v-if="!hasMatrixCell(row, obs)" class="path-matrix__empty" aria-hidden="true"></span>
-            </div>
+                <i v-if="obs.kind === 'probe'" class="ri-radar-line" aria-hidden="true"></i>
+                <span>{{ obs.name }}</span>
+              </div>
+            </template>
+            <template v-else>
+              <div
+                v-for="row in matrixRows"
+                :key="row.key"
+                class="col-server"
+                role="columnheader"
+                :title="row.server_name || undefined"
+              >{{ row.server_name || '—' }}</div>
+            </template>
           </div>
-        </div>
-      </div>
-      <div class="mobile-only" v-loading="loading">
-        <AppEmpty v-if="!filteredPaths.length && !filteredProbePaths.length && !loading" class="empty-state" icon="ri-links-line" :title="t('noPathsTitle')" :description="t('noPathsHint')" />
-        <div v-else class="mobile-card-list">
-          <article v-for="row in filteredPaths" :key="pathRowKey(row)" class="mobile-card" @click="openPath(row)">
-            <div class="mobile-card-head">
-              <span class="mobile-card-status"><span class="status-dot" :class="pathLive(row) ? 'online' : 'offline'"></span></span>
-              <div class="mobile-card-title"><strong>{{ row.server_name || '—' }}</strong><small>{{ observerLabel(row) }}</small></div>
-            </div>
-            <dl class="mobile-card-meta">
-              <div><dt>{{ t('linkStatus') }}</dt><dd>{{ t(pathLive(row) ? 'connected' : 'disconnected') }}</dd></div>
-              <div><dt>{{ t('lastObservation') }}</dt><dd>{{ pretty(row.last_seen, 'last_seen') }}</dd></div>
-              <div><dt>{{ t('latency') }}</dt><dd>{{ pathLive(row) ? latencyText(row.sink.last_rtt_ms, row.sink.rtt_sampled_at) : t('disconnected') }}</dd></div>
-              <div><dt>{{ t('pendingEvents') }}</dt><dd>{{ pretty(row.sink.pending_events, 'pending_events') }}</dd></div>
-              <div>
-                <dt>{{ t('lastError') }}</dt>
-                <dd><span class="cell-ellipsis" :title="lastErrorText(row.sink.last_error)">{{ lastErrorText(row.sink.last_error) }}</span></dd>
+          <template v-if="serversAsRows">
+            <div
+              v-for="row in matrixRows"
+              :key="row.key"
+              class="path-matrix__row"
+              role="row"
+            >
+              <div class="path-matrix__stub col-server" role="rowheader" :title="row.server_name || undefined">{{ row.server_name || '—' }}</div>
+              <div
+                v-for="obs in matrixObservers"
+                :key="obs.id"
+                class="col-observer"
+                role="cell"
+              >
+                <button
+                  v-for="cell in matrixCells(row, obs)"
+                  :key="cell.kind === 'probe' && cell.probe ? probeRowKey(cell.probe) : pathRowKey(cell.path!)"
+                  type="button"
+                  class="path-matrix__cell"
+                  :class="cellTone(cell)"
+                  :title="cell.title"
+                  @click="openMatrixCell(cell)"
+                >
+                  <span class="rtt-main">
+                    <i v-if="cell.hasError" class="ri-error-warning-line" aria-hidden="true"></i>
+                    <span class="rtt-value">{{ cell.text }}</span>
+                  </span>
+                  <span v-if="cell.sampled" class="rtt-sampled">{{ cell.sampled }}</span>
+                </button>
+                <span v-if="!hasMatrixCell(row, obs)" class="path-matrix__empty" aria-hidden="true"></span>
               </div>
-            </dl>
-          </article>
-          <article v-for="row in filteredProbePaths" :key="probeRowKey(row)" class="mobile-card" @click="openProbe(row)">
-            <div class="mobile-card-head">
-              <span class="mobile-card-status"><span class="status-dot" :class="probeLive(row) ? 'online' : 'offline'"></span></span>
-              <div class="mobile-card-title"><strong>{{ row.server_name || '—' }}</strong><small>{{ row.collector_name }}</small></div>
             </div>
-            <dl class="mobile-card-meta">
-              <div><dt>{{ t('latency') }}</dt><dd>{{ probeChipText(row) }}</dd></div>
-              <div><dt>{{ t('lastObservation') }}</dt><dd>{{ pretty(row.sampled_at, 'sampled_at') }}</dd></div>
-              <div>
-                <dt>{{ t('lastError') }}</dt>
-                <dd><span class="cell-ellipsis" :title="lastErrorText(row.last_error)">{{ lastErrorText(row.last_error) }}</span></dd>
+          </template>
+          <template v-else>
+            <div
+              v-for="obs in matrixObservers"
+              :key="obs.id"
+              class="path-matrix__row"
+              role="row"
+            >
+              <div
+                class="path-matrix__stub col-observer"
+                :class="{ 'is-probe': obs.kind === 'probe' }"
+                role="rowheader"
+                :title="obs.name"
+              >
+                <i v-if="obs.kind === 'probe'" class="ri-radar-line" aria-hidden="true"></i>
+                <span>{{ obs.name }}</span>
               </div>
-            </dl>
-          </article>
+              <div
+                v-for="row in matrixRows"
+                :key="row.key"
+                class="col-observer"
+                role="cell"
+              >
+                <button
+                  v-for="cell in matrixCells(row, obs)"
+                  :key="cell.kind === 'probe' && cell.probe ? probeRowKey(cell.probe) : pathRowKey(cell.path!)"
+                  type="button"
+                  class="path-matrix__cell"
+                  :class="cellTone(cell)"
+                  :title="cell.title"
+                  @click="openMatrixCell(cell)"
+                >
+                  <span class="rtt-main">
+                    <i v-if="cell.hasError" class="ri-error-warning-line" aria-hidden="true"></i>
+                    <span class="rtt-value">{{ cell.text }}</span>
+                  </span>
+                  <span v-if="cell.sampled" class="rtt-sampled">{{ cell.sampled }}</span>
+                </button>
+                <span v-if="!hasMatrixCell(row, obs)" class="path-matrix__empty" aria-hidden="true"></span>
+              </div>
+            </div>
+          </template>
         </div>
       </div>
     </section>
