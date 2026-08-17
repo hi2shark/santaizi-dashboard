@@ -131,7 +131,9 @@ func offlineDetectorLoop(ctx context.Context) {
 	}
 }
 
-// DetectOfflineServers 扫描所有在线服务器，将超过离线阈值未上报的服务器标记为离线。
+// DetectOfflineServers 扫描服务器并将确认离线的节点写入离线历史。
+// V1 仍按主端 LastSeenAt 超时判定；V2 只认 AvailabilityBucket 共识
+// （全部已分配且健康的观测点都看不到，并持续达到阈值）。
 func DetectOfflineServers() {
 	if !Conf.EnableOfflineHistory {
 		return
@@ -157,7 +159,8 @@ func DetectOfflineServers() {
 
 	deadline := now.Add(-threshold)
 	var runtimes []model.ServerRuntime
-	if err := DB.Where("status = ? AND last_seen_at < ?", model.ServerRuntimeStatusOnline, deadline).Find(&runtimes).Error; err != nil {
+	if err := DB.Where("status = ? AND last_seen_at < ? AND (protocol = '' OR protocol IS NULL OR protocol <> ?)",
+		model.ServerRuntimeStatusOnline, deadline, "v2").Find(&runtimes).Error; err != nil {
 		log.Printf("SANTAIZI>> 离线检测查询失败: %v", err)
 		return
 	}
@@ -172,6 +175,7 @@ func DetectOfflineServers() {
 			batch = append(batch, offlineNotice{serverID: rt.ServerID, history: history})
 		}
 	}
+	detectV2OfflineServers(now, threshold, &batch)
 	if Conf.EnableOfflineNotification {
 		notifyOfflineBatch(batch)
 	}
@@ -317,10 +321,7 @@ func closeOfflineHistoryTx(tx *gorm.DB, rt *model.ServerRuntime, state *model.Ho
 	}
 
 	reason := DetectOfflineReason(history.LastBootTime, recoveredBootTime, history.LastUptime, recoveredUptime)
-	duration := uint64(now.Sub(history.StartedAt).Seconds())
-	if history.StartedAt.After(now) {
-		duration = 0
-	}
+	duration := durationSecondsBetween(history.StartedAt, now)
 
 	history.EndedAt = &now
 	history.RecoveredAt = &now
@@ -391,11 +392,7 @@ func tryMergeWithPrevious(serverID uint64, current *model.ServerOfflineHistory) 
 	prev.RecoveredBootTime = current.RecoveredBootTime
 	prev.RecoveredUptime = current.RecoveredUptime
 	prev.RecoveredIP = current.RecoveredIP
-	if prev.StartedAt.Before(*current.EndedAt) {
-		prev.DurationSeconds = uint64(current.EndedAt.Sub(prev.StartedAt).Seconds())
-	} else {
-		prev.DurationSeconds = 0
-	}
+	prev.DurationSeconds = durationSecondsBetween(prev.StartedAt, *current.EndedAt)
 	// 两段原因不同时降级为 unknown，避免误导
 	if prev.Reason != current.Reason {
 		prev.Reason = model.OfflineReasonUnknown
@@ -491,7 +488,7 @@ func reconcileServerOfflineHistories(serverID uint64, now time.Time, threshold t
 				}
 				h.EndedAt = &end
 				h.RecoveredAt = &end
-				h.DurationSeconds = uint64(end.Sub(h.StartedAt).Seconds())
+				h.DurationSeconds = durationSecondsBetween(h.StartedAt, end)
 				h.Status = model.OfflineHistoryStatusClosed
 				h.Reason = DetectOfflineReason(h.LastBootTime, rt.LastBootTime, h.LastUptime, rt.LastUptime)
 				h.RecoveredBootTime = rt.LastBootTime
@@ -739,6 +736,9 @@ func sendOfflineNotification(serverID uint64, history *model.ServerOfflineHistor
 	detected := history.DetectedAt.In(Loc).Format("01/02/2006 15:04:05")
 	msg := fmt.Sprintf("[离线] %s\n最后上报：%s\n判定离线：%s\n离线阈值：%d 秒\nIP：%s",
 		serverCopy.Name, lastSeen, detected, history.ThresholdSeconds, IPDesensitize(history.LastIP))
+	if line := v2ObserverLine(serverID); line != "" {
+		msg += "\n" + line
+	}
 	SendNotification("default", msg, NotificationMuteLabel.ServerOffline(serverID), &serverCopy)
 }
 
@@ -813,4 +813,16 @@ func sendRecoveryNotification(serverID uint64, history *model.ServerOfflineHisto
 	msg := fmt.Sprintf("[恢复] %s\n恢复时间：%s\n离线时长：%s\n原因：%s\n离线前 IP：%s\n恢复后 IP：%s",
 		serverCopy.Name, recovered, duration, reasonText, IPDesensitize(history.LastIP), IPDesensitize(history.RecoveredIP))
 	SendNotification("default", msg, NotificationMuteLabel.ServerRecovery(serverID), &serverCopy)
+}
+
+func durationSecondsBetween(start, end time.Time) uint64 {
+	if !end.After(start) {
+		return 0
+	}
+	d := end.Sub(start)
+	sec := d / time.Second
+	if d%time.Second >= time.Second/2 {
+		sec++
+	}
+	return uint64(sec)
 }

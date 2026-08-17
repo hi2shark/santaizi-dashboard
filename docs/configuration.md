@@ -48,13 +48,13 @@ site:
 | `avgpingcount` | int | `2` | 平均 Ping 次数 |
 | `dnsservers` | string | `""` | 自定义 DNS 服务器，逗号分隔 |
 | `enableofflinehistory` | bool | `true` | 是否启用服务器离线历史 |
-| `offlinethresholdseconds` | uint64 | `30` | 离线判定阈值（秒，最小 `10`） |
-| `offlinecheckintervalseconds` | uint64 | `10` | 离线检测间隔（秒，最小 `5`，且 ≤ 阈值）；修改后热生效，无需重启 |
+| `offlinethresholdseconds` | uint64 | `30` | 离线判定阈值（秒，最小 `10`）。V2 节点衡量「所有已分配且健康的观测点连续看不到该节点多久」，不是「主端多久没直收上报」；实际生效粒度不会小于 `telemetry.availability_bucket_seconds`。V1 服务器仍按主端最后上报计时 |
+| `offlinecheckintervalseconds` | uint64 | `10` | 离线检测间隔（秒，最小 `5`，且 ≤ 阈值）；修改后热生效，无需重启。V2 节点在该周期内读取 Availability Bucket 共识 |
 | `offlinemergegapseconds` | uint64 | `10` | 离线合并间隔（秒，1~3600）：相邻两次离线之间的在线时间 ≤ 该值时合并为一次，默认 10 |
 | `offlinehistoryretentiondays` | uint64 | `365` | 离线历史保留天数 |
 | `enableofflinenotification` | bool | `false` | 离线时发送通知 |
 | `enablerecoverynotification` | bool | `false` | 恢复时发送通知 |
-| `showavailabilitytoguest` | bool | `false` | 是否向前台访客展示服务器可用性摘要（30 天可用率、离线次数等） |
+| `showavailabilitytoguest` | bool | `false` | 是否向前台访客展示服务器可用性摘要（30 天可用率、离线次数等）。公开站该可用率按离线历史存活率计算；Admin 可用性历史抽屉的「可用率」是完整连通率（部分连通拉低百分比，不算离线），二者不是同一口径 |
 
 ### `grpc_tls` gRPC 传输与设备证书
 
@@ -290,7 +290,7 @@ oauth2:
 | `telemetry.primary_endpoint` | `grpchost` 或本机 gRPC | Agent 控制流下发的 Primary 地址 |
 | `telemetry.state_interval_seconds` | `5` | State 采样间隔 |
 | `telemetry.heartbeat_interval_seconds` | `10` | Heartbeat 间隔 |
-| `telemetry.offline_threshold_seconds` | `30` | 新鲜度与离线判定阈值 |
+| `telemetry.offline_threshold_seconds` | `30` | 实时快照新鲜度校验（丢弃采集时刻过旧的 realtime snapshot）；与顶层 `offlinethresholdseconds` 不是同一项 |
 | `telemetry.ingest_batch_size` | `256` | V2 接收批大小 |
 | `telemetry.ingest_queue_size` | `4096` | 接收侧有界容量 |
 | `telemetry.credential_validity_days` | `30` | Agent 探测凭据有效期 |

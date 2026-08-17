@@ -161,6 +161,13 @@ func serverOnline(lastActive time.Time) bool {
 	return time.Since(lastActive) < time.Duration(singleton.Conf.Telemetry.OfflineThresholdSeconds)*time.Second
 }
 
+func serverOnlineFlag(server model.Server, presentation runtimeServerResponse) bool {
+	if presentation.Protocol == "v2" && presentation.NodeUUID != "" {
+		return presentation.HostState == model.HostStateOnline
+	}
+	return serverOnline(server.LastActive)
+}
+
 func writeV2List(c *gin.Context, data any, meta v2Meta) {
 	c.JSON(http.StatusOK, gin.H{"data": data, "meta": meta})
 }
@@ -341,7 +348,7 @@ func publicServerSnapshot(c *gin.Context) []gin.H {
 			"id": item.ID, "name": item.Name, "tag": item.Tag, "public_note": decodePublicNote(item.PublicNote),
 			"display_index": item.DisplayIndex, "hide_for_guest": item.HideForGuest, "enable_ddns": item.EnableDDNS,
 			"host": publicHostView(c, item.Host), "state": item.State, "last_active": formatOptionalTime(item.LastActive),
-			"online":    serverOnline(item.LastActive),
+			"online":    serverOnlineFlag(item, presentation),
 			"telemetry": telemetry,
 		}
 		if tokenFull {
@@ -530,7 +537,7 @@ func serverAdminDTO(server model.Server, reveal bool) gin.H {
 		result["secret"] = server.Secret
 	}
 	runtime := runtimeForServer(server)
-	result["online"] = serverOnline(server.LastActive)
+	result["online"] = serverOnlineFlag(server, runtime)
 	result["telemetry"] = gin.H{"host": runtime.HostState, "connectivity": runtime.Connectivity, "available": runtime.Availability, "coverage": runtime.Coverage}
 	return result
 }

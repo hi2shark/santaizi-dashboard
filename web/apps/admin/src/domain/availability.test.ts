@@ -89,11 +89,35 @@ describe('availability segments', () => {
     ])
     const summary = summarizeAvailability(segments)
     expect(summary.availableMs).toBe(60_000)
+    expect(summary.partialMs).toBe(0)
     expect(summary.unavailableMs).toBe(30_000)
     expect(summary.unknownMs).toBe(30_000)
     expect(summary.gapMs).toBe(30_000)
     expect(summary.availablePercent).toBeCloseTo(200 / 3)
     expect(summary.outageCount).toBe(1)
+    expect(summary.degradedCount).toBe(0)
+  })
+
+  it('does not treat partial connectivity as full availability', () => {
+    const segments = buildAvailabilitySegments([
+      bucket('2026-08-13T06:00:00Z'),
+      bucket('2026-08-13T06:00:30Z', { connectivity: 'partial', seen_observers: 1, observer_evidence: [{ observer_id: 'primary', seen: true, healthy: true }] }),
+    ])
+    const summary = summarizeAvailability(segments)
+    expect(summary.availableMs).toBe(30_000)
+    expect(summary.partialMs).toBe(30_000)
+    expect(summary.availablePercent).toBe(50)
+    expect(summary.outageCount).toBe(0)
+    expect(summary.degradedCount).toBe(1)
+  })
+
+  it('counts consecutive partial segments as one degradation', () => {
+    const segments = buildAvailabilitySegments([
+      bucket('2026-08-13T06:00:00Z', { connectivity: 'partial', seen_observers: 1, observer_evidence: [{ observer_id: 'primary', seen: true, healthy: true }] }),
+      bucket('2026-08-13T06:00:30Z', { connectivity: 'partial', seen_observers: 1, observer_evidence: [{ observer_id: 'collector-a', seen: true, healthy: true }] }),
+    ])
+    expect(segments).toHaveLength(2)
+    expect(summarizeAvailability(segments).degradedCount).toBe(1)
   })
 
   it('counts consecutive unavailable segments as one outage', () => {

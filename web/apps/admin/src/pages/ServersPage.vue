@@ -24,6 +24,7 @@ import {
 } from '@/domain/availability'
 import { hostAddresses } from '@/domain/hostAddress'
 import { parsePublicNote } from '@/domain/publicNote'
+import { hostCoverageIcon, hostCoverageTone, hostListTone } from '@/domain/serverPresence'
 
 const { t, te, locale } = useI18n()
 const route = useRoute()
@@ -75,23 +76,15 @@ function agentVersionText(server: ServerRecord) { return server.host?.Version?.t
 async function removeOne(server: ServerRecord) { await ElMessageBox.confirm(t('confirmDelete'), t('dangerousAction'), { type: 'warning' }); try { await deleteServer(server.id); ElMessage.success(t('deleteSuccess')); await load() } catch (error) { notifyAPIError(error, t as never, te) } }
 async function groupSelected() { try { const { value } = await ElMessageBox.prompt(t('group'), t('batchGroup'), { inputValue: selected.value[0]?.tag || '' }); await batchUpdateServerGroup(selected.value.map(server => server.id), value); await load() } catch { /* user cancelled */ } }
 async function deleteSelected() { await ElMessageBox.confirm(t('confirmDelete'), t('dangerousAction'), { type: 'warning' }); try { await batchDeleteServers(selected.value.map(server => server.id)); selected.value = []; await load(); ElMessage.success(t('deleteSuccess')) } catch (error) { notifyAPIError(error, t as never, te) } }
-function status(server: ServerRecord) { return server.online ? 'online' : (server.telemetry?.connectivity || 'offline') }
+function status(server: ServerRecord) { return hostListTone(server) }
 function coverageText(server: ServerRecord) {
   const coverage = server.telemetry?.coverage
   if (coverage && /^\d+\/\d+$/.test(coverage)) return coverage
   const key = coverage || status(server)
   return te(key) ? t(key) : (key || '—')
 }
-function availabilityTone(server: ServerRecord) {
-  if (server.telemetry?.available === true) return 'is-ok'
-  if (server.telemetry?.available === false) return 'is-bad'
-  return 'is-unknown'
-}
-function availabilityIcon(server: ServerRecord) {
-  if (server.telemetry?.available === true) return 'ri-checkbox-circle-fill'
-  if (server.telemetry?.available === false) return 'ri-close-circle-fill'
-  return 'ri-question-fill'
-}
+function availabilityTone(server: ServerRecord) { return hostCoverageTone(server) }
+function availabilityIcon(server: ServerRecord) { return hostCoverageIcon(hostCoverageTone(server)) }
 function display(value: unknown, key: string) { return formatAdminValue(value, key, locale.value, t as never, te) }
 function observerLabel(item: { observer_kind?: string; observer_name?: string; observer_id?: string }) {
   if (item.observer_kind === 'primary' || item.observer_id === 'primary') return t('observerKindPrimary')
@@ -411,6 +404,7 @@ onUnmounted(() => { hoverMedia?.removeEventListener('change', onHoverMediaChange
           <div v-if="availabilitySummary.windowStart" class="availability-summary">
             <span>{{ t('availabilityRate') }} <strong>{{ percentText(availabilitySummary.availablePercent) }}</strong></span>
             <span>{{ t('outages') }} <strong>{{ availabilitySummary.outageCount }}</strong></span>
+            <span>{{ t('degradations') }} <strong>{{ availabilitySummary.degradedCount }}</strong></span>
             <span v-if="availabilitySummary.gapMs">{{ t('noObservation') }} <strong>{{ formatDurationMs(availabilitySummary.gapMs) }}</strong></span>
           </div>
         </div>

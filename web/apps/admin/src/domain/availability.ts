@@ -35,11 +35,13 @@ export type AvailabilitySegment = {
 
 export type AvailabilitySummary = {
   availableMs: number
+  partialMs: number
   unavailableMs: number
   unknownMs: number
   gapMs: number
   availablePercent: number | null
   outageCount: number
+  degradedCount: number
   windowStart: number | null
   windowEnd: number | null
 }
@@ -164,16 +166,17 @@ export function buildAvailabilitySegments(rows: AvailabilityBucketLike[], bucket
   return segments
 }
 
-function connectivityKind(connectivity: string): 'available' | 'unavailable' | 'unknown' {
-  if (connectivity === 'full' || connectivity === 'partial') return 'available'
+function connectivityKind(connectivity: string): 'available' | 'partial' | 'unavailable' | 'unknown' {
+  if (connectivity === 'full') return 'available'
+  if (connectivity === 'partial') return 'partial'
   if (connectivity === 'unavailable') return 'unavailable'
   return 'unknown'
 }
 
 export function summarizeAvailability(segments: AvailabilitySegment[]): AvailabilitySummary {
   const summary: AvailabilitySummary = {
-    availableMs: 0, unavailableMs: 0, unknownMs: 0, gapMs: 0,
-    availablePercent: null, outageCount: 0, windowStart: null, windowEnd: null,
+    availableMs: 0, partialMs: 0, unavailableMs: 0, unknownMs: 0, gapMs: 0,
+    availablePercent: null, outageCount: 0, degradedCount: 0, windowStart: null, windowEnd: null,
   }
   if (!segments.length) return summary
   const first = segments[0]
@@ -181,19 +184,30 @@ export function summarizeAvailability(segments: AvailabilitySegment[]): Availabi
   summary.windowStart = first ? first.start : null
   summary.windowEnd = last ? last.end : null
   let inOutage = false
+  let inDegraded = false
   for (const segment of segments) {
     const span = Math.max(0, segment.end - segment.start)
     if (segment.kind === 'gap') {
       summary.gapMs += span
       inOutage = false
+      inDegraded = false
       continue
     }
     const kind = connectivityKind(segment.connectivity)
     if (kind === 'available') {
       summary.availableMs += span
       inOutage = false
+      inDegraded = false
+    } else if (kind === 'partial') {
+      summary.partialMs += span
+      inOutage = false
+      if (!inDegraded) {
+        summary.degradedCount++
+        inDegraded = true
+      }
     } else if (kind === 'unavailable') {
       summary.unavailableMs += span
+      inDegraded = false
       if (!inOutage) {
         summary.outageCount++
         inOutage = true
@@ -201,9 +215,10 @@ export function summarizeAvailability(segments: AvailabilitySegment[]): Availabi
     } else {
       summary.unknownMs += span
       inOutage = false
+      inDegraded = false
     }
   }
-  const known = summary.availableMs + summary.unavailableMs
+  const known = summary.availableMs + summary.partialMs + summary.unavailableMs
   if (known > 0) summary.availablePercent = (summary.availableMs / known) * 100
   return summary
 }
