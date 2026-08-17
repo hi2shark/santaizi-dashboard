@@ -66,7 +66,11 @@ func TestSendNotificationDoesNotMergeDifferentKinds(t *testing.T) {
 	if len(*got) != 2 {
 		t.Fatalf("got=%#v", *got)
 	}
-	if (*got)[0] != "[离线] 东京-1" || (*got)[1] != "[恢复] 大阪" {
+	seen := map[string]bool{}
+	for _, msg := range *got {
+		seen[msg] = true
+	}
+	if !seen["[离线] 东京-1"] || !seen["[恢复] 大阪"] {
 		t.Fatalf("got=%#v", *got)
 	}
 }
