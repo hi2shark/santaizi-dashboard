@@ -15,6 +15,7 @@ import CollectorEditorDialog from '@/components/editors/CollectorEditorDialog.vu
 import InstallCollectorDialog from '@/components/InstallCollectorDialog.vue'
 import CopyableId from '@/components/CopyableId.vue'
 import { collectorAccessHost, collectorAccessPort, collectorListenPort } from '@/domain/collectorAddress'
+import { isProbeCollector } from '@/domain/collectorKind'
 
 type DatasetKey = 'assignments' | 'agents' | 'incidents' | 'revisions' | 'loss' | 'alerts'
 type DatasetRow = ObserverAssignmentRecord | AgentReliabilityRecord | IncidentRecord | IncidentRevisionRecord | TelemetryDataLossRecord | TelemetryAlertRecord
@@ -127,6 +128,10 @@ function collectorVersionText(row: CollectorRecord) {
   return formatProductVersion(row.software_version) || '—'
 }
 
+function collectorKindLabel(row: CollectorRecord) {
+  return t(isProbeCollector(row) ? 'collectorKindProbe' : 'collectorKindObserver')
+}
+
 function formatEnd(value: unknown, key: string) {
   if (value === null || value === undefined || value === '') return t('ongoing')
   return pretty(value, key)
@@ -190,17 +195,19 @@ onMounted(async () => {
             <span class="status-dot" :class="row.revoked?'offline':row.status||'unknown'"></span>
           </template>
         </el-table-column>
-        <el-table-column prop="name" :label="t('name')" min-width="160">
+        <el-table-column prop="name" :label="t('name')" min-width="180">
           <template #default="{row}">
             <div class="server-name">
               <strong>{{ row.name }}</strong>
-              <small>{{ t(row.kind === 'probe' ? 'collectorKindProbe' : 'collectorKindObserver') }}</small>
               <CopyableId :value="row.id" />
             </div>
           </template>
         </el-table-column>
-        <el-table-column :label="t('address')" min-width="180">
-          <template #default="{row}"><span class="cell-ellipsis">{{ collectorAccessHost(row) || '—' }}</span></template>
+        <el-table-column :label="t('collectorKind')" min-width="120">
+          <template #default="{row}"><el-tag effect="plain">{{ collectorKindLabel(row) }}</el-tag></template>
+        </el-table-column>
+        <el-table-column :label="t('address')" min-width="180" show-overflow-tooltip>
+          <template #default="{row}">{{ collectorAccessHost(row) || '—' }}</template>
         </el-table-column>
         <el-table-column :label="t('accessPort')" width="110">
           <template #default="{row}">{{ collectorAccessPort(row) ?? '—' }}</template>
@@ -252,7 +259,6 @@ onMounted(async () => {
               <span class="mobile-card-status"><span class="status-dot" :class="row.revoked?'offline':row.status||'unknown'"></span></span>
               <div class="mobile-card-title">
                 <strong>{{ row.name }}</strong>
-                <small>{{ t(row.kind === 'probe' ? 'collectorKindProbe' : 'collectorKindObserver') }}</small>
                 <CopyableId :value="row.id" />
               </div>
               <div class="mobile-card-actions">
@@ -272,6 +278,7 @@ onMounted(async () => {
               </div>
             </div>
             <dl class="mobile-card-meta">
+              <div><dt>{{ t('collectorKind') }}</dt><dd><el-tag effect="plain">{{ collectorKindLabel(row) }}</el-tag></dd></div>
               <div><dt>{{ t('address') }}</dt><dd>{{ collectorAccessHost(row) || '—' }}</dd></div>
               <div><dt>{{ t('accessPort') }}</dt><dd>{{ collectorAccessPort(row) ?? '—' }}</dd></div>
               <div><dt>{{ t('listenPort') }}</dt><dd>{{ collectorListenPort(row) ?? '—' }}</dd></div>

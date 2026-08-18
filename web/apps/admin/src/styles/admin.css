@@ -208,7 +208,7 @@ html.dark .metric-icon.blue,html.dark .metric-icon.green,html.dark .metric-icon.
 .dashboard-panel { padding: 14px; }
 .section-title { display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:10px }.section-title h2,.section-title h3{margin:0;font-size:15px}.section-title a{color:var(--sz-primary);text-decoration:none;font-weight:650;display:inline-flex;align-items:center;gap:var(--icon-text-gap);line-height:1}
 .quick-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.quick-grid a{display:flex;align-items:center;gap:var(--icon-text-gap);padding:10px 12px;border:1px solid var(--sz-border);border-radius:10px;color:var(--sz-text);text-decoration:none;font-weight:600;line-height:1;min-height:var(--control-height);min-width:0}.quick-grid a:hover{border-color:var(--sz-primary);background:var(--sz-primary-soft)}.quick-grid i{font-size:16px;color:var(--sz-primary);flex:0 0 auto}.quick-grid a span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.server-name{min-width:0}.server-name strong,.server-name small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.server-name small{margin-top:3px;color:var(--sz-text-muted)}
+.server-name{min-width:0}.server-name strong,.server-name small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.server-name small{margin-top:3px;color:var(--sz-text-muted)}.server-name .token-cell{margin-top:4px}
 .cell-ellipsis{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dataset-table .el-table__row{cursor:pointer}
 .copyable-id__text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
@@ -1262,6 +1262,7 @@ html.dark .topology-globe__canvas { filter: none; }
   line-height: 1.35;
   word-break: break-word;
 }
+.mobile-card-title .token-cell { margin-top: 4px; }
 .mobile-card-actions {
   flex: 0 0 auto;
   display: inline-flex;
