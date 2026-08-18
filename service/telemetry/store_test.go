@@ -175,3 +175,31 @@ func TestClockRollbackUsesReceiveTimeAndCannotBecomeFreshRuntime(t *testing.T) {
 		t.Fatalf("path bucket=%d want receive-time bucket %d", path.BucketStart, expectedBucket)
 	}
 }
+
+func TestReplicateSkipsObservationWhenEventGone(t *testing.T) {
+	store, db := newTelemetryStore(t)
+	now := time.Now()
+	node, session := bytes.Repeat([]byte{0x71}, 16), bytes.Repeat([]byte{0x72}, 16)
+	missing := event(t, node, session, 9, now)
+	batch := &pb.ReplicationBatch{
+		CollectorUuid: "collector-b", ReplicationSession: bytes.Repeat([]byte{0x73}, 16),
+		BatchSequence: 1, SpoolThroughId: 7,
+		Observations: []*pb.TelemetryObservation{{
+			EventId: missing.GetEventId(), ObserverId: "collector-b", ReceivedAtUnixNano: now.UnixNano(),
+		}},
+	}
+	committed, err := store.Replicate(context.Background(), batch, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if committed != 7 {
+		t.Fatalf("committed=%d", committed)
+	}
+	var observations int64
+	if err := db.Model(&model.TelemetryObservation{}).Count(&observations).Error; err != nil {
+		t.Fatal(err)
+	}
+	if observations != 0 {
+		t.Fatalf("observations=%d", observations)
+	}
+}

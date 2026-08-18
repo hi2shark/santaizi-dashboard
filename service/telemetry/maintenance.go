@@ -12,10 +12,13 @@ import (
 )
 
 const (
-	maintenanceInterval = 5 * time.Minute
-	incrementalPages    = 256
-	vacuumBusyTimeoutMS = 60000
-	defaultBusyTimeout  = 5000
+	maintenanceInterval   = 5 * time.Minute
+	incrementalPages      = 4096
+	incrementalMaxRounds  = 32
+	vacuumBusyTimeoutMS   = 60000
+	defaultBusyTimeout    = 5000
+	compactCooldown       = 6 * time.Hour
+	autoCompactHugeFactor = int64(8)
 )
 
 type DatabaseStatus struct {
@@ -41,9 +44,10 @@ type DatabaseMaintainer struct {
 	policyFn func() RetentionPolicy
 	rollup   *RollupWorker
 
-	mu      sync.Mutex
-	running bool
-	last    *DatabaseOptimizeRun
+	mu            sync.Mutex
+	running       bool
+	last          *DatabaseOptimizeRun
+	lastCompactAt time.Time
 }
 
 func NewDatabaseMaintainer(db *gorm.DB, path string, policyFn func() RetentionPolicy) *DatabaseMaintainer {
@@ -125,15 +129,27 @@ func (m *DatabaseMaintainer) run(ctx context.Context, compact bool) DatabaseOpti
 		return result
 	}
 	reclaimable, _ := reclaimableBytes(m.db)
-	if compact && reclaimable >= policy.CompactMinBytes {
+	mode, _ := autoVacuumMode(m.db)
+	wantCompact := compact
+	if !wantCompact && policy.AutoCompact && reclaimable >= policy.CompactMinBytes {
+		legacy := mode != 2
+		huge := reclaimable >= policy.CompactMinBytes*autoCompactHugeFactor
+		if (legacy || huge) && (m.lastCompactAt.IsZero() || time.Since(m.lastCompactAt) >= compactCooldown) {
+			wantCompact = true
+		}
+	}
+	if wantCompact && reclaimable >= policy.CompactMinBytes {
 		compacted, skip, compactErr := m.compactIfPossible()
 		result.Compacted = compacted
 		result.Skipped = skip
 		if compactErr != nil {
 			result.Error = compactErr.Error()
 		}
+		if compacted {
+			m.lastCompactAt = time.Now()
+		}
 	} else {
-		_ = incrementalVacuum(m.db, incrementalPages)
+		_ = incrementalVacuumBudget(m.db, incrementalPages, incrementalMaxRounds)
 	}
 	result.EndedAt = time.Now().UTC().Format(time.RFC3339)
 	return result
@@ -196,6 +212,25 @@ func incrementalVacuum(db *gorm.DB, pages int) error {
 		return db.Exec("PRAGMA incremental_vacuum").Error
 	}
 	return db.Exec("PRAGMA incremental_vacuum(" + strconv.Itoa(pages) + ")").Error
+}
+
+func incrementalVacuumBudget(db *gorm.DB, pages, rounds int) error {
+	if rounds <= 0 {
+		return incrementalVacuum(db, pages)
+	}
+	for i := 0; i < rounds; i++ {
+		reclaimable, err := reclaimableBytes(db)
+		if err != nil {
+			return err
+		}
+		if reclaimable == 0 {
+			return nil
+		}
+		if err := incrementalVacuum(db, pages); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func compactDatabase(db *gorm.DB) error {

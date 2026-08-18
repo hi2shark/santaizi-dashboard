@@ -96,6 +96,49 @@ func TestStartOptimizeRejectsConcurrentRun(t *testing.T) {
 	}
 }
 
+func TestPeriodicOptimizeCompactsLegacyWhenReclaimable(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "santaizi.db")
+	db, err := gorm.Open(sqlite.Open(path), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		sqlDB, _ := db.DB()
+		if sqlDB != nil {
+			_, _ = sqlDB.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
+			_ = sqlDB.Close()
+		}
+	})
+	if err := db.AutoMigrate(&model.TelemetryObservation{}); err != nil {
+		t.Fatal(err)
+	}
+	payload := make([]byte, 32768)
+	old := time.Now().Add(-40 * 24 * time.Hour).UnixNano()
+	rows := make([]model.TelemetryObservation, 80)
+	for i := range rows {
+		id := make([]byte, 16)
+		id[0] = byte(i)
+		rows[i] = model.TelemetryObservation{
+			EventID: id, ObserverID: "primary", NodeUUID: make([]byte, 16), ReceivedAt: old, Metadata: payload,
+		}
+	}
+	if err := db.CreateInBatches(rows, 80).Error; err != nil {
+		t.Fatal(err)
+	}
+	maintainer := NewDatabaseMaintainer(db, path, func() RetentionPolicy {
+		return RetentionPolicy{CompactMinBytes: 1, MaxRuntime: time.Minute, BatchSize: 200, AutoCompact: true}
+	})
+	result := maintainer.RunOnce(context.Background(), false)
+	if result.Error != "" {
+		t.Fatalf("optimize: %#v", result)
+	}
+	if !result.Compacted {
+		reclaimable, _ := reclaimableBytes(db)
+		t.Fatalf("expected auto compact on NONE vacuum: %#v reclaimable=%d", result, reclaimable)
+	}
+}
+
 func TestDataLossTableNameMatchesDrain(t *testing.T) {
 	db := newRetentionDB(t)
 	if !sqliteTableExists(db, "telemetry_data_losses") {

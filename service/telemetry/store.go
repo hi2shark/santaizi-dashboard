@@ -94,6 +94,9 @@ func (s *Store) Replicate(ctx context.Context, batch *pb.ReplicationBatch, recei
 			}
 			var event model.TelemetryEvent
 			if err := tx.Select("node_uuid", "collected_at", "clock_untrusted").First(&event, "event_id = ?", observation.GetEventId()).Error; err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					continue
+				}
 				return fmt.Errorf("replicated observation references unknown event: %w", err)
 			}
 			row := model.TelemetryObservation{

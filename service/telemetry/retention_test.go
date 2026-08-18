@@ -66,12 +66,14 @@ func TestDrainRetentionDeletesMoreThanOneBatch(t *testing.T) {
 
 func TestDrainRetentionKeepsFreshRowsAndStripsOldStatePayload(t *testing.T) {
 	db := newRetentionDB(t)
-	now := time.Now()
+	now := time.Now().Truncate(time.Minute).Add(30 * time.Second)
 	node, session := bytes.Repeat([]byte{1}, 16), bytes.Repeat([]byte{2}, 16)
 	oldAt := now.Add(-8 * time.Hour)
-	freshAt := now.Add(-time.Minute)
+	freshAt := now
 	oldID, _ := EventID(node, session, 1)
 	freshID, _ := EventID(node, session, 2)
+	hostID, _ := EventID(node, session, 3)
+	beatID, _ := EventID(node, session, 4)
 	event := &pb.TelemetryEvent{EventId: oldID, NodeUuid: node, SessionId: session, Sequence: 1, EventType: pb.TelemetryEventType_TELEMETRY_EVENT_TYPE_STATE, Payload: &pb.TelemetryEvent_State{State: &pb.State{Cpu: 10}}}
 	encoded, _ := proto.Marshal(event)
 	if err := db.Create(&model.TelemetryEvent{
@@ -86,6 +88,23 @@ func TestDrainRetentionKeepsFreshRowsAndStripsOldStatePayload(t *testing.T) {
 		EventType: int32(pb.TelemetryEventType_TELEMETRY_EVENT_TYPE_STATE), CollectedAt: freshAt.UnixNano(),
 		Payload: encoded, PayloadRetained: true,
 	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.TelemetryEvent{
+		EventID: hostID, NodeUUID: node, SessionID: session, Sequence: 3,
+		EventType: int32(pb.TelemetryEventType_TELEMETRY_EVENT_TYPE_HOST), CollectedAt: oldAt.UnixNano(),
+		Payload: encoded, PayloadRetained: true,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.TelemetryEvent{
+		EventID: beatID, NodeUUID: node, SessionID: session, Sequence: 4,
+		EventType: int32(pb.TelemetryEventType_TELEMETRY_EVENT_TYPE_HEARTBEAT), CollectedAt: oldAt.UnixNano(),
+		Payload: encoded, PayloadRetained: true,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.TelemetryObservation{EventID: oldID, ObserverID: "primary", NodeUUID: node, ReceivedAt: oldAt.UnixNano()}).Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := db.Create(&model.TelemetryObservation{EventID: freshID, ObserverID: "primary", NodeUUID: node, ReceivedAt: freshAt.UnixNano()}).Error; err != nil {
@@ -117,18 +136,21 @@ func TestDrainRetentionKeepsFreshRowsAndStripsOldStatePayload(t *testing.T) {
 	if _, err := DrainRetention(context.Background(), db, RetentionPolicy{BatchSize: 50, MaxRuntime: time.Minute}, now); err != nil {
 		t.Fatal(err)
 	}
-	var oldEvent, freshEvent model.TelemetryEvent
-	if err := db.First(&oldEvent, "event_id = ?", oldID).Error; err != nil {
-		t.Fatal(err)
+	if err := db.First(&model.TelemetryEvent{}, "event_id = ?", oldID).Error; err == nil {
+		t.Fatal("8h-old STATE row should be deleted")
 	}
-	if oldEvent.PayloadRetained || len(oldEvent.Payload) != 0 {
-		t.Fatalf("old payload still retained: %#v", oldEvent)
+	if err := db.First(&model.TelemetryEvent{}, "event_id = ?", beatID).Error; err == nil {
+		t.Fatal("8h-old HEARTBEAT row should be deleted")
 	}
+	var freshEvent, hostEvent model.TelemetryEvent
 	if err := db.First(&freshEvent, "event_id = ?", freshID).Error; err != nil {
 		t.Fatal(err)
 	}
 	if !freshEvent.PayloadRetained {
-		t.Fatal("fresh payload stripped")
+		t.Fatal("current-minute payload stripped")
+	}
+	if err := db.First(&hostEvent, "event_id = ?", hostID).Error; err != nil {
+		t.Fatal(err)
 	}
 	var paths, health, receipts, observations int64
 	if err := db.Model(&model.ObserverPathBucket{}).Count(&paths).Error; err != nil {
@@ -185,5 +207,57 @@ func TestPayloadRetentionSkipsCurrentMinute(t *testing.T) {
 	}
 	if !row.PayloadRetained {
 		t.Fatal("current-minute payload should stay")
+	}
+}
+
+func TestDrainRetentionStripsCompletedMinuteButKeepsSixHourRow(t *testing.T) {
+	db := newRetentionDB(t)
+	now := time.Now().Truncate(time.Minute).Add(30 * time.Second)
+	node, session := bytes.Repeat([]byte{7}, 16), bytes.Repeat([]byte{8}, 16)
+	eventID, _ := EventID(node, session, 1)
+	encoded, _ := proto.Marshal(&pb.TelemetryEvent{EventId: eventID, Payload: &pb.TelemetryEvent_State{State: &pb.State{Cpu: 1}}})
+	if err := db.Create(&model.TelemetryEvent{
+		EventID: eventID, NodeUUID: node, SessionID: session, Sequence: 1,
+		EventType:   int32(pb.TelemetryEventType_TELEMETRY_EVENT_TYPE_STATE),
+		CollectedAt: now.Add(-2 * time.Minute).UnixNano(), Payload: encoded, PayloadRetained: true,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DrainRetention(context.Background(), db, RetentionPolicy{MaxRuntime: time.Minute}, now); err != nil {
+		t.Fatal(err)
+	}
+	var row model.TelemetryEvent
+	if err := db.First(&row, "event_id = ?", eventID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if row.PayloadRetained || len(row.Payload) != 0 {
+		t.Fatalf("completed-minute payload should be stripped: %#v", row)
+	}
+}
+
+func TestDrainRetentionDeletesStaleMonitorHistory(t *testing.T) {
+	db := newRetentionDB(t)
+	if err := db.AutoMigrate(&model.MonitorHistory{}); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	rows := []model.MonitorHistory{
+		{MonitorID: 1, ServerID: 9, CreatedAt: now.Add(-36 * time.Hour), AvgDelay: 1},
+		{MonitorID: 1, ServerID: 9, CreatedAt: now.Add(-time.Hour), AvgDelay: 2},
+		{MonitorID: 1, ServerID: 0, CreatedAt: now.Add(-2 * 24 * time.Hour), AvgDelay: 3},
+		{MonitorID: 1, ServerID: 0, CreatedAt: now.Add(-40 * 24 * time.Hour), AvgDelay: 4},
+	}
+	if err := db.Create(&rows).Error; err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DrainRetention(context.Background(), db, RetentionPolicy{MaxRuntime: time.Minute}, now); err != nil {
+		t.Fatal(err)
+	}
+	var remaining []model.MonitorHistory
+	if err := db.Find(&remaining).Error; err != nil {
+		t.Fatal(err)
+	}
+	if len(remaining) != 2 {
+		t.Fatalf("remaining=%d %#v", len(remaining), remaining)
 	}
 }

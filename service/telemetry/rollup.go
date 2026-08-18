@@ -365,15 +365,24 @@ func DrainRetention(ctx context.Context, db *gorm.DB, policy RetentionPolicy, no
 	}
 
 	completedMinute := now.Truncate(time.Minute).UnixNano()
-	statePayloadBefore := now.Add(-policy.StateRaw).UnixNano()
-	if completedMinute < statePayloadBefore {
-		statePayloadBefore = completedMinute
+	stateRawBefore := now.Add(-policy.StateRaw).UnixNano()
+	if completedMinute < stateRawBefore {
+		stateRawBefore = completedMinute
 	}
+	highFreq := highFrequencyEventTypesSQL()
 	if sqliteTableExists(db, "telemetry_events") {
+		if err := add(drainUntil(ctx, db, deadline, batch, "telemetry_observations",
+			"event_id IN (SELECT event_id FROM telemetry_events WHERE event_type IN ("+highFreq+") AND collected_at < ?)", stateRawBefore)); err != nil {
+			return deleted, err
+		}
+		if err := add(drainUntil(ctx, db, deadline, batch, "telemetry_events",
+			"collected_at < ? AND event_type IN ("+highFreq+")", stateRawBefore)); err != nil {
+			return deleted, err
+		}
 		stripped, err := updateUntil(ctx, db, deadline, batch, `UPDATE telemetry_events SET payload = NULL, payload_retained = 0
 		WHERE rowid IN (SELECT rowid FROM telemetry_events
 		WHERE event_type = ? AND payload_retained = 1 AND collected_at < ? LIMIT ?)`,
-			pb.TelemetryEventType_TELEMETRY_EVENT_TYPE_STATE, statePayloadBefore)
+			pb.TelemetryEventType_TELEMETRY_EVENT_TYPE_STATE, completedMinute)
 		if err != nil {
 			return deleted, err
 		}
@@ -419,15 +428,35 @@ func DrainRetention(ctx context.Context, db *gorm.DB, policy RetentionPolicy, no
 		{"state_rollups", "resolution = '1m' AND window_start < ?", now.Add(-policy.StateOneMinute).UnixNano()},
 		{"state_rollups", "resolution = '1h' AND window_start < ?", now.Add(-policy.StateOneHour).UnixNano()},
 		{"connection_latency_buckets", "bucket_start < ?", now.Add(-ConnectionLatencyRetention).UnixNano()},
+		{"probe_sample_buckets", "bucket_start < ?", now.Add(-ProbeSampleRetention).UnixNano()},
 	} {
 		if err := add(drainUntil(ctx, db, deadline, batch, item.table, item.condition, item.before)); err != nil {
+			return deleted, err
+		}
+	}
+	if err := add(drainUntil(ctx, db, deadline, batch, "monitor_histories", "server_id != 0 AND created_at < ?", now.Add(-24*time.Hour))); err != nil {
+		return deleted, err
+	}
+	if err := add(drainUntil(ctx, db, deadline, batch, "monitor_histories", "created_at < ?", now.Add(-30*24*time.Hour))); err != nil {
+		return deleted, err
+	}
+	if sqliteTableExists(db, "monitors") {
+		if err := add(drainUntil(ctx, db, deadline, batch, "monitor_histories", "monitor_id NOT IN (SELECT id FROM monitors)")); err != nil {
+			return deleted, err
+		}
+	}
+	if err := add(drainUntil(ctx, db, deadline, batch, "transfers", "created_at < ?", now.Add(-48*time.Hour))); err != nil {
+		return deleted, err
+	}
+	if sqliteTableExists(db, "servers") {
+		if err := add(drainUntil(ctx, db, deadline, batch, "transfers", "server_id NOT IN (SELECT id FROM servers)")); err != nil {
 			return deleted, err
 		}
 	}
 	return deleted, nil
 }
 
-func drainUntil(ctx context.Context, db *gorm.DB, deadline time.Time, limit int, table, condition string, before any) (int64, error) {
+func drainUntil(ctx context.Context, db *gorm.DB, deadline time.Time, limit int, table, condition string, args ...any) (int64, error) {
 	if !retentionTableAllowed(table) {
 		return 0, errors.New("retention table is not allowlisted")
 	}
@@ -436,6 +465,7 @@ func drainUntil(ctx context.Context, db *gorm.DB, deadline time.Time, limit int,
 	}
 	var total int64
 	query := "DELETE FROM " + table + " WHERE rowid IN (SELECT rowid FROM " + table + " WHERE " + condition + " LIMIT ?)"
+	bound := append(append([]any{}, args...), limit)
 	for {
 		if err := ctx.Err(); err != nil {
 			return total, err
@@ -443,7 +473,7 @@ func drainUntil(ctx context.Context, db *gorm.DB, deadline time.Time, limit int,
 		if !deadline.IsZero() && !time.Now().Before(deadline) {
 			return total, nil
 		}
-		result := db.WithContext(ctx).Exec(query, before, limit)
+		result := db.WithContext(ctx).Exec(query, bound...)
 		if result.Error != nil {
 			return total, result.Error
 		}
@@ -489,11 +519,18 @@ func retentionTableAllowed(table string) bool {
 		"availability_buckets", "availability_incidents", "incident_revisions",
 		"state_rollups", "connection_latency_buckets",
 		"observer_path_buckets", "observer_health_buckets",
-		"collector_replication_receipts", "telemetry_alerts", "telemetry_data_losses":
+		"collector_replication_receipts", "telemetry_alerts", "telemetry_data_losses",
+		"probe_sample_buckets", "monitor_histories", "transfers":
 		return true
 	default:
 		return false
 	}
+}
+
+func highFrequencyEventTypesSQL() string {
+	return itoa(int(pb.TelemetryEventType_TELEMETRY_EVENT_TYPE_HEARTBEAT)) + "," +
+		itoa(int(pb.TelemetryEventType_TELEMETRY_EVENT_TYPE_STATE)) + "," +
+		itoa(int(pb.TelemetryEventType_TELEMETRY_EVENT_TYPE_STATE_ROLLUP))
 }
 
 func deleteBatch(db *gorm.DB, table, condition string, before int64, limit int) error {

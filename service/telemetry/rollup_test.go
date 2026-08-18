@@ -85,12 +85,15 @@ func TestRawRollupAndPayloadRetentionRequireCompletedMinute(t *testing.T) {
 	if err := worker.ApplyRetention(context.Background(), time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	var retained int64
-	if err := db.Model(&model.TelemetryEvent{}).Where("payload_retained = ?", true).Count(&retained).Error; err != nil {
+	var remaining int64
+	if err := db.Model(&model.TelemetryEvent{}).Count(&remaining).Error; err != nil {
 		t.Fatal(err)
 	}
-	if retained != 0 {
-		t.Fatalf("retained state payloads=%d", retained)
+	if remaining != 0 {
+		t.Fatalf("raw STATE rows after 6h retention=%d", remaining)
+	}
+	if err := db.First(&row, "node_uuid = ? AND resolution = ? AND window_start = ?", node, "1m", start.UnixNano()).Error; err != nil {
+		t.Fatal(err)
 	}
 }
 
