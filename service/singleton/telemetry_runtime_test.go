@@ -462,6 +462,17 @@ func TestEndpointAssignmentPrimaryTLSFollowsGRPCTLS(t *testing.T) {
 	}
 }
 
+func TestEndpointAssignmentForNodeNilConf(t *testing.T) {
+	previous := Conf
+	Conf = nil
+	t.Cleanup(func() { Conf = previous })
+	node, session := bytes.Repeat([]byte{0x51}, 16), bytes.Repeat([]byte{0x52}, 16)
+	_, err := EndpointAssignmentForNode(node, session, 1)
+	if err == nil {
+		t.Fatal("expected error when Conf is nil")
+	}
+}
+
 func TestServerIDFromNodeUUIDUsesBindingAndLock(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
 	if err != nil {

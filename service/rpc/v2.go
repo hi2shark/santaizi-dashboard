@@ -171,10 +171,14 @@ func (h *V2Handler) Control(stream grpc.BidiStreamingServer[pb.AgentControlReque
 	session := newControlSession(serverID, hello, stream)
 	registerControlSession(session)
 	defer unregisterControlSession(session)
+	conf := singleton.Conf
+	if conf == nil {
+		return status.Error(codes.Internal, "config is not initialized")
+	}
 	configVersion := singleton.CurrentTelemetryConfigVersion()
 	credential, err := h.signer.Sign(
 		hello.GetNodeUuid(), configVersion, time.Now(),
-		time.Duration(singleton.Conf.Telemetry.CredentialValidityDays)*24*time.Hour,
+		time.Duration(conf.Telemetry.CredentialValidityDays)*24*time.Hour,
 	)
 	if err != nil {
 		return status.Error(codes.Internal, err.Error())

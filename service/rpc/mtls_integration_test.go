@@ -559,6 +559,12 @@ func TestIngestHelloUUIDMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if credMsg.GetCredential() == nil {
+		t.Fatal("expected credential")
+	}
+	if _, err := control.Recv(); err != nil {
+		t.Fatal(err)
+	}
 	ingest, err := pb.NewSantaiziTelemetryServiceClient(conn).Ingest(context.Background())
 	if err != nil {
 		t.Fatal(err)

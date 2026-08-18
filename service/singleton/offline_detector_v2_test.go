@@ -28,6 +28,7 @@ func newV2DetectorDB(t *testing.T) *gorm.DB {
 
 func setupV2Detector(t *testing.T) {
 	t.Helper()
+	previousDB, previousConf := DB, Conf
 	DB = newV2DetectorDB(t)
 	Conf = &model.Config{
 		EnableOfflineHistory:        true,
@@ -38,6 +39,10 @@ func setupV2Detector(t *testing.T) {
 		Telemetry:                   model.TelemetryConfig{AvailabilityBucketSeconds: 30},
 	}
 	offlineDetectorStartTime = time.Now().Add(-time.Hour)
+	t.Cleanup(func() {
+		DB = previousDB
+		Conf = previousConf
+	})
 }
 
 func v2TestNode(id byte) []byte {

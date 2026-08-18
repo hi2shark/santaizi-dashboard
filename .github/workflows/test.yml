@@ -76,14 +76,15 @@ jobs:
         run: pnpm test:e2e
 
       - name: Unit test
-        run: go test -v ./...
+        # Packages share singleton.Conf/DB; parallel packages can nil Conf mid-RPC (run 32110822499).
+        run: go test -p 1 -v ./...
 
       - name: Build test
         run: go build -v ./...
 
       - name: Race test critical telemetry paths
         if: runner.os == 'Linux'
-        run: go test -race ./cmd/dashboard/controller ./service/telemetry ./service/collector ./service/availability ./service/singleton
+        run: go test -p 1 -race ./cmd/dashboard/controller ./service/telemetry ./service/collector ./service/availability ./service/singleton
 
       - name: Run Gosec Security Scanner
         if: runner.os == 'Linux'

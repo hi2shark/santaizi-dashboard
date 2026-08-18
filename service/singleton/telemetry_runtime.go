@@ -323,14 +323,18 @@ func EndpointAssignmentForNode(nodeUUID, sessionID []byte, activationSequence ui
 	if activationSequence == 0 {
 		activationSequence = 1
 	}
+	conf := Conf
+	if conf == nil {
+		return nil, errors.New("config is not initialized")
+	}
 	version := CurrentTelemetryConfigVersion()
-	primaryAddress := Conf.Telemetry.PrimaryEndpoint
+	primaryAddress := conf.Telemetry.PrimaryEndpoint
 	if primaryAddress == "" {
-		primaryAddress = fmt.Sprintf("localhost:%d", Conf.GRPCPort)
+		primaryAddress = fmt.Sprintf("localhost:%d", conf.GRPCPort)
 	}
 	assignment := &pb.EndpointAssignment{ConfigVersion: version, Endpoints: []*pb.TelemetryEndpoint{{
 		EndpointId: "primary", Kind: pb.EndpointKind_ENDPOINT_KIND_PRIMARY, Address: primaryAddress,
-		Reliable: true, Tls: Conf.TLS || Conf.GRPCTLS.Enabled, Generation: 1, ActivationSessionId: append([]byte(nil), sessionID...),
+		Reliable: true, Tls: conf.TLS || conf.GRPCTLS.Enabled, Generation: 1, ActivationSessionId: append([]byte(nil), sessionID...),
 		ActivationSequence: 1,
 	}}}
 	var observerAssignments []model.ObserverAssignment
