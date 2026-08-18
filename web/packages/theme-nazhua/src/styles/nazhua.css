@@ -765,14 +765,6 @@ html.dark .nazhua-globe__chart,
 .nazhua-monitor__head h2 { margin-bottom: 0; }
 .nazhua-cycle-transfer__head button,
 .nazhua-monitor__empty button { display: inline-flex; align-items: center; gap: var(--icon-text-gap); min-height: 36px; padding: 0 12px; border: 1px solid var(--nazhua-border); border-radius: 5px; background: transparent; color: var(--nazhua-text); cursor: pointer; line-height: 1; }
-.nazhua-monitor__ranges .el-button--primary {
-  --el-button-bg-color: var(--nazhua-accent);
-  --el-button-text-color: var(--nazhua-accent-ink);
-  --el-button-border-color: var(--nazhua-accent);
-  --el-button-hover-bg-color: var(--nazhua-accent);
-  --el-button-hover-text-color: var(--nazhua-accent-ink);
-  --el-button-hover-border-color: var(--nazhua-accent);
-}
 .nazhua-cycle-transfer__list { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
 .nazhua-cycle-transfer__item { padding: 12px 14px; border: 1px solid var(--nazhua-border); border-radius: 8px; background: var(--nazhua-surface-sunken); }
 .nazhua-cycle-transfer__row { display: flex; align-items: center; gap: 12px; min-width: 0; }
@@ -794,20 +786,48 @@ html.dark .nazhua-globe__chart,
 .nazhua-monitor__switch { display: inline-flex; align-items: center; gap: var(--icon-text-gap); min-height: 32px; color: var(--nazhua-muted); font-size: 13px; line-height: 1; }
 .nazhua-monitor__ranges { display: inline-flex; flex-wrap: nowrap; align-items: center; gap: var(--icon-text-gap); flex: 0 1 auto; min-width: 0; color: var(--nazhua-muted); font-size: 12px; line-height: 1; }
 .nazhua-monitor__ranges > span { flex: 0 0 auto; }
-.nazhua-monitor__ranges .el-button-group { display: inline-flex; flex: 0 0 auto; }
-.nazhua-monitor__ranges .el-button {
-  height: 32px;
-  min-height: 32px;
+.nazhua-monitor__ranges .el-button-group {
+  display: inline-flex;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border: 1px solid var(--nazhua-border);
+  border-radius: 16px;
+  background: var(--nazhua-filter-bg);
+}
+.nazhua-monitor__ranges .el-button-group > .el-button {
+  height: 30px;
+  min-height: 30px;
   min-width: 50px;
   margin: 0;
-  padding: 0 8px;
+  padding: 0 12px;
+  border: 0;
   border-radius: 0;
+  background: transparent;
+  color: var(--nazhua-filter-color);
   font-size: 12px;
+  font-weight: 700;
   white-space: nowrap;
 }
-.nazhua-monitor__ranges .el-button + .el-button { margin-left: -1px; }
-.nazhua-monitor__ranges .el-button:first-child { border-radius: 6px 0 0 6px; }
-.nazhua-monitor__ranges .el-button:last-child { border-radius: 0 6px 6px 0; }
+.nazhua-monitor__ranges .el-button-group > .el-button + .el-button { margin-left: 0; }
+.nazhua-monitor__ranges .el-button-group > .el-button:not(:first-child) {
+  box-shadow: inset 1px 0 0 var(--nazhua-border);
+}
+.nazhua-monitor__ranges .el-button-group > .el-button:hover,
+.nazhua-monitor__ranges .el-button-group > .el-button:focus-visible {
+  background: var(--nazhua-filter-hover-bg);
+  color: var(--nazhua-filter-hover-color);
+}
+.nazhua-monitor__ranges .el-button-group > .el-button--primary,
+.nazhua-monitor__ranges .el-button-group > .el-button--primary:hover,
+.nazhua-monitor__ranges .el-button-group > .el-button--primary:focus-visible {
+  z-index: 1;
+  background: var(--nazhua-filter-active-bg);
+  color: var(--nazhua-filter-active-color);
+  box-shadow: none;
+}
+.nazhua-monitor__ranges .el-button-group > .el-button--primary + .el-button {
+  box-shadow: none;
+}
 .nazhua-monitor__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .nazhua-monitor__card { padding: 12px; border: 1px solid var(--nazhua-border); border-radius: 8px; background: var(--nazhua-surface-sunken); }
 .nazhua-monitor__card header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
@@ -935,7 +955,8 @@ html.dark .nazhua-footer a,
   .nazhua-filter__groups .el-button { flex-shrink: 0; }
   .nazhua-filter .el-button { padding: 0 10px; }
   .nazhua-monitor__switch { min-height: 44px; }
-  .nazhua-monitor__ranges .el-button { height: 44px; min-height: 44px; min-width: 46px; padding: 0 6px; }
+  .nazhua-monitor__ranges .el-button-group { border-radius: 22px; }
+  .nazhua-monitor__ranges .el-button-group > .el-button { height: 42px; min-height: 42px; min-width: 46px; padding: 0 12px; }
   .nazhua-filter__tools { flex: 0 0 auto; flex-wrap: nowrap; gap: 8px; }
   .nazhua-filter .el-button.nazhua-filter__sort { padding-right: 0; }
   .nazhua-sort-menu .el-dropdown-menu__item { min-height: 44px; }
