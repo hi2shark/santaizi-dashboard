@@ -50,7 +50,7 @@ const zhCN = {
   cleanupHistory: '清理过期历史', cleanupHistoryConfirm: '将按当前保留策略删除已经结束的过期离线历史，确认继续吗？', cleanupHistoryResult: '已清理 {count} 条历史记录',
   optimizeDatabase: '优化数据库', optimizeDatabaseConfirm: '将删除过期探测数据，必要时压缩文件并短暂停写，确认继续吗？', optimizeDatabaseStarted: '已开始优化', optimizeDatabaseDone: '优化完成',
   notifyRecovery: '发送恢复通知', showAvailabilityGuest: '向访客展示可用性', telemetryNotifications: '探测通知', connectivityNotification: '连通性降级通知',
-  correctionNotification: '历史修正通知', collectorOfflineNotification: '从端离线通知', dataLossNotification: '数据丢失通知', appearance: '外观定制',
+  correctionNotification: '历史修正通知', collectorOfflineNotification: '从端离线通知', dataLossNotification: '数据丢失通知', plainIPInNotification: '通知中显示完整 IP', appearance: '外观定制',
   primaryColor: '品牌主色', footerText: '页脚文字', logoURL: 'Logo 地址', backgroundURL: '背景地址', customCSS: '受限自定义 CSS', deprecatedCode: '自定义代码已停用',
   tokenNote: 'Token 备注', issueToken: '签发 Token', apiDocs: '接口文档', apiDocHint: '在独立接口文档中查看完整 OpenAPI 和调用示例。',
   tokenPermission: '权限', tokenReadOnly: '只读', tokenWrite: '操作', tokenExpiresAt: '有效期', tokenNeverExpires: '永不过期',
@@ -275,7 +275,7 @@ const enUS = {
   cleanupHistory: 'Clean expired history', cleanupHistoryConfirm: 'Delete ended offline records outside the current retention policy?', cleanupHistoryResult: 'Removed {count} history records',
   optimizeDatabase: 'Optimize database', optimizeDatabaseConfirm: 'Expired probe data will be deleted. Compacting may briefly pause writes. Continue?', optimizeDatabaseStarted: 'Optimization started', optimizeDatabaseDone: 'Optimization finished',
   showAvailabilityGuest: 'Show availability to guests', telemetryNotifications: 'Probe notifications', connectivityNotification: 'Connectivity degradation', correctionNotification: 'History corrections',
-  collectorOfflineNotification: 'Collector offline', dataLossNotification: 'Probe data loss', appearance: 'Appearance', primaryColor: 'Primary color', footerText: 'Footer text',
+  collectorOfflineNotification: 'Collector offline', dataLossNotification: 'Probe data loss', plainIPInNotification: 'Show full IP in notifications', appearance: 'Appearance', primaryColor: 'Primary color', footerText: 'Footer text',
   logoURL: 'Logo URL', backgroundURL: 'Background URL', customCSS: 'Restricted custom CSS', deprecatedCode: 'Custom code is disabled', tokenNote: 'Token note', issueToken: 'Issue token',
   tokenPermission: 'Permission', tokenReadOnly: 'Read-only', tokenWrite: 'Operational', tokenExpiresAt: 'Expires', tokenNeverExpires: 'Never expires',
   tokenExpiry7d: '7 days', tokenExpiry30d: '30 days', tokenExpiry90d: '90 days', tokenExpiry365d: '365 days', tokenExpiryCustom: 'Custom',
@@ -393,7 +393,7 @@ const esES = {
 }
 
 const editorZhCN = {
-  additionalFeatures: '附加功能', notificationChannels: '通知渠道', alertRules: '告警规则', enabled: '启用', disabled: '停用', saved: '已保存', token: 'Token', viewToken: '查看 Token',
+  additionalFeatures: '附加功能', notificationChannels: '通知渠道', alertRules: '告警配置', enabled: '启用', disabled: '停用', saved: '已保存', token: 'Token', viewToken: '查看 Token',
   basicInformation: '基础信息', accessAndDisplay: '访问与展示', adminNote: '备注', ddnsAssociation: 'DDNS 关联', ddnsProfiles: 'DDNS 配置', installAgent: '安装探针', upgradeAgent: '升级探针', copyCommand: '复制安装命令', copyUpgradeCommand: '复制升级命令',
   scriptCommands: '脚本命令', scriptGroupDashboard: '主面板', scriptGroupCollector: '从端', scriptGroupAgent: '探针',
   scriptCmdDashboardInstall: '安装主面板', scriptCmdDashboardUpgrade: '升级主面板', scriptCmdCollectorUpgrade: '升级从端', scriptCmdCollectorRemove: '下线从端',
@@ -431,7 +431,7 @@ const editorZhCN = {
 }
 
 const editorZhTW = {
-  additionalFeatures: '附加功能', notificationChannels: '通知管道', alertRules: '警報規則', enabled: '啟用', disabled: '停用', saved: '已儲存', token: 'Token', viewToken: '查看 Token',
+  additionalFeatures: '附加功能', notificationChannels: '通知管道', alertRules: '告警配置', enabled: '啟用', disabled: '停用', saved: '已儲存', token: 'Token', viewToken: '查看 Token',
   basicInformation: '基本資訊', accessAndDisplay: '存取與顯示', adminNote: '備註', ddnsAssociation: 'DDNS 關聯', ddnsProfiles: 'DDNS 設定', installAgent: '安裝探針', upgradeAgent: '升級探針', copyCommand: '複製安裝指令', copyUpgradeCommand: '複製升級指令',
   scriptCommands: '腳本命令', scriptGroupDashboard: '主面板', scriptGroupCollector: '從端', scriptGroupAgent: '探針',
   scriptCmdDashboardInstall: '安裝主面板', scriptCmdDashboardUpgrade: '升級主面板', scriptCmdCollectorUpgrade: '升級從端', scriptCmdCollectorRemove: '下線從端',
@@ -464,7 +464,7 @@ const editorZhTW = {
 }
 
 const editorEnUS = {
-  additionalFeatures: 'Additional features', notificationChannels: 'Notification channels', alertRules: 'Alert rules', enabled: 'Enabled', disabled: 'Disabled', saved: 'Saved', token: 'Token', viewToken: 'View token', basicInformation: 'Basic information', accessAndDisplay: 'Access and display', adminNote: 'Note', ddnsAssociation: 'DDNS association', ddnsProfiles: 'DDNS profiles', installAgent: 'Install agent', upgradeAgent: 'Upgrade agent', copyCommand: 'Copy install command', copyUpgradeCommand: 'Copy upgrade command',
+  additionalFeatures: 'Additional features', notificationChannels: 'Notification channels', alertRules: 'Alert config', enabled: 'Enabled', disabled: 'Disabled', saved: 'Saved', token: 'Token', viewToken: 'View token', basicInformation: 'Basic information', accessAndDisplay: 'Access and display', adminNote: 'Note', ddnsAssociation: 'DDNS association', ddnsProfiles: 'DDNS profiles', installAgent: 'Install agent', upgradeAgent: 'Upgrade agent', copyCommand: 'Copy install command', copyUpgradeCommand: 'Copy upgrade command',
   scriptCommands: 'Script commands', scriptGroupDashboard: 'Dashboard', scriptGroupCollector: 'Collector', scriptGroupAgent: 'Agent',
   scriptCmdDashboardInstall: 'Install dashboard', scriptCmdDashboardUpgrade: 'Upgrade dashboard', scriptCmdCollectorUpgrade: 'Upgrade collector', scriptCmdCollectorRemove: 'Remove collector',
   scriptCmdAgentUpgradeLinux: 'Upgrade agent (Linux)', scriptCmdAgentUpgradeMacos: 'Upgrade agent (macOS)', scriptCmdAgentUpgradeWindows: 'Upgrade agent (Windows)',
@@ -495,7 +495,7 @@ const editorEnUS = {
 }
 
 const editorEsES = {
-  additionalFeatures: 'Funciones adicionales', notificationChannels: 'Canales de notificación', alertRules: 'Reglas de alerta', enabled: 'Activado', disabled: 'Desactivado', saved: 'Guardado', token: 'Token', viewToken: 'Ver token', basicInformation: 'Información básica', accessAndDisplay: 'Acceso y visualización', adminNote: 'Nota', ddnsAssociation: 'Asociación DDNS', ddnsProfiles: 'Perfiles DDNS', installAgent: 'Instalar agente', upgradeAgent: 'Actualizar agente', copyCommand: 'Copiar comando de instalación', copyUpgradeCommand: 'Copiar comando de actualización',
+  additionalFeatures: 'Funciones adicionales', notificationChannels: 'Canales de notificación', alertRules: 'Config. de alertas', enabled: 'Activado', disabled: 'Desactivado', saved: 'Guardado', token: 'Token', viewToken: 'Ver token', basicInformation: 'Información básica', accessAndDisplay: 'Acceso y visualización', adminNote: 'Nota', ddnsAssociation: 'Asociación DDNS', ddnsProfiles: 'Perfiles DDNS', installAgent: 'Instalar agente', upgradeAgent: 'Actualizar agente', copyCommand: 'Copiar comando de instalación', copyUpgradeCommand: 'Copiar comando de actualización',
   scriptCommands: 'Comandos de script', scriptGroupDashboard: 'Panel', scriptGroupCollector: 'Recolector', scriptGroupAgent: 'Agente',
   scriptCmdDashboardInstall: 'Instalar el panel', scriptCmdDashboardUpgrade: 'Actualizar el panel', scriptCmdCollectorUpgrade: 'Actualizar el recolector', scriptCmdCollectorRemove: 'Retirar el recolector',
   scriptCmdAgentUpgradeLinux: 'Actualizar agente (Linux)', scriptCmdAgentUpgradeMacos: 'Actualizar agente (macOS)', scriptCmdAgentUpgradeWindows: 'Actualizar agente (Windows)',
@@ -556,7 +556,7 @@ const commonZhTW = {
   retentionDays: '保留天數', revision: '修訂版本', revoke: '撤銷', rotateToken: '輪換 Token', safeCSSRules: "禁止 {'@'}import、遠端 url()、expression 與可執行內容。", saveSuccess: '儲存成功',
   scope: '觀測範圍', scopeAll: '全部伺服器', scopeExceptSelected: '除所選外全部伺服器', scopeGroup: '伺服器分組', scopeSelectedServers: '僅所選伺服器', scopeServer: '指定伺服器', scopeTag: '標籤', search: '搜尋',
   secret: '連線密鑰', server: '伺服器', serverCount: '伺服器數', serverName: '伺服器名稱', serviceAvailability: '30 天可用性', showAvailabilityGuest: '向訪客顯示可用性', site: '站點', siteTitle: '站點標題', skipContent: '跳到主要內容',
-  spoolSize: '暫存大小', startedAt: '開始時間', status: '狀態', statusNavigation: '公開狀態導覽', statusNetwork: '網路', statusServices: '服務狀態', system: '跟隨系統', target: '目標', telemetryNotifications: '探測通知',
+  spoolSize: '暫存大小', startedAt: '開始時間', status: '狀態', statusNavigation: '公開狀態導覽', statusNetwork: '網路', statusServices: '服務狀態', system: '跟隨系統', target: '目標', telemetryNotifications: '探測通知', plainIPInNotification: '通知中顯示完整 IP',
   test: '傳送測試', tls: 'TLS', tokenNote: 'Token 備註', tokenPermission: '權限', tokenReadOnly: '唯讀', tokenWrite: '操作', tokenExpiresAt: '有效期', tokenNeverExpires: '永不過期',
   tokenExpiry7d: '7 天', tokenExpiry30d: '30 天', tokenExpiry90d: '90 天', tokenExpiry365d: '365 天', tokenExpiryCustom: '自訂', tokenExpired: '已過期', copyToken: '複製 Token', issueTokenSuccess: 'Token 已簽發',
   traffic: '流量', triggerAlways: '持續觸發', triggerOnce: '僅觸發一次', upCount: '成功次數', uptime: '執行時間', verifyTLS: '驗證憑證',
@@ -596,7 +596,7 @@ const commonEsES = {
   safeCSSRules: "Se rechazan {'@'}import, url() remotas, expression y contenido ejecutable.", saveSuccess: 'Guardado', scope: 'Ámbito', scopeAll: 'Todos los servidores', scopeExceptSelected: 'Todos salvo los seleccionados', scopeGroup: 'Grupo de servidores',
   scopeSelectedServers: 'Solo servidores seleccionados', scopeServer: 'Servidor específico', scopeTag: 'Etiqueta', secret: 'Clave de conexión', server: 'Servidor', serverCount: 'Servidores', serverName: 'Nombre del servidor', serviceAvailability: 'Disponibilidad de 30 días',
   showAvailabilityGuest: 'Mostrar disponibilidad a visitantes', site: 'Sitio', siteTitle: 'Título del sitio', skipContent: 'Saltar al contenido principal', spoolSize: 'Tamaño de la cola', startedAt: 'Inicio', status: 'Estado', statusNavigation: 'Navegación pública',
-  system: 'Sistema', target: 'Objetivo', telemetry: 'Sondeo fiable', telemetryNotifications: 'Avisos de sondeo', test: 'Enviar prueba', tls: 'TLS', tokenNote: 'Nota del token',
+  system: 'Sistema', target: 'Objetivo', telemetry: 'Sondeo fiable', telemetryNotifications: 'Avisos de sondeo', plainIPInNotification: 'Mostrar IP completa en notificaciones', test: 'Enviar prueba', tls: 'TLS', tokenNote: 'Nota del token',
   tokenPermission: 'Permiso', tokenReadOnly: 'Solo lectura', tokenWrite: 'Operación', tokenExpiresAt: 'Caducidad', tokenNeverExpires: 'Sin caducidad',
   tokenExpiry7d: '7 días', tokenExpiry30d: '30 días', tokenExpiry90d: '90 días', tokenExpiry365d: '365 días', tokenExpiryCustom: 'Personalizado', tokenExpired: 'Caducado', copyToken: 'Copiar token', issueTokenSuccess: 'Token emitido',
   traffic: 'Tráfico', triggerAlways: 'Activar siempre',

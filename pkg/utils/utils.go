@@ -2,7 +2,9 @@ package utils
 
 import (
 	"crypto/rand"
+	"fmt"
 	"math/big"
+	"net/netip"
 	"os"
 	"regexp"
 	"strings"
@@ -22,20 +24,53 @@ func IsWindows() bool {
 
 var ipv4Re = regexp.MustCompile(`(\d*\.).*(\.\d*)`)
 
+// ipv4Desensitize 保留 A.B、隐藏 C.D；切不出 4 段时回退正则打码兜底
 func ipv4Desensitize(ipv4Addr string) string {
-	return ipv4Re.ReplaceAllString(ipv4Addr, "$1****$2")
+	parts := strings.Split(ipv4Addr, ".")
+	if len(parts) != 4 {
+		return ipv4Re.ReplaceAllString(ipv4Addr, "$1****$2")
+	}
+	return parts[0] + "." + parts[1] + ".*.*"
 }
 
 var ipv6Re = regexp.MustCompile(`(\w*:\w*:).*(:\w*:\w*)`)
 
+// ipv6Desensitize 保留前 3 个 hextet（/48）；解析失败回退正则打码兜底
 func ipv6Desensitize(ipv6Addr string) string {
-	return ipv6Re.ReplaceAllString(ipv6Addr, "$1****$2")
+	addr, err := netip.ParseAddr(ipv6Addr)
+	if err != nil {
+		return ipv6Re.ReplaceAllString(ipv6Addr, "$1****$2")
+	}
+	// netip 无导出的 WithoutZone，WithZone("") 等价去 zone
+	addr = addr.WithZone("")
+	if addr.Is4() || addr.Is4In6() {
+		return ipv4Desensitize(addr.Unmap().String())
+	}
+	b := addr.As16()
+	return fmt.Sprintf("%x:%x:%x:****::",
+		uint16(b[0])<<8|uint16(b[1]),
+		uint16(b[2])<<8|uint16(b[3]),
+		uint16(b[4])<<8|uint16(b[5]),
+	)
 }
 
+// IPDesensitize 按 / 拆双栈串逐段打码后拼回；空段与空串原样保留
 func IPDesensitize(ipAddr string) string {
-	ipAddr = ipv4Desensitize(ipAddr)
-	ipAddr = ipv6Desensitize(ipAddr)
-	return ipAddr
+	if ipAddr == "" {
+		return ""
+	}
+	ipList := strings.Split(ipAddr, "/")
+	for i, ip := range ipList {
+		if ip == "" {
+			continue
+		}
+		if strings.Contains(ip, ":") {
+			ipList[i] = ipv6Desensitize(ip)
+		} else {
+			ipList[i] = ipv4Desensitize(ip)
+		}
+	}
+	return strings.Join(ipList, "/")
 }
 
 // SplitIPAddr 传入/分割的v4v6混合地址，返回v4和v6地址与有效地址

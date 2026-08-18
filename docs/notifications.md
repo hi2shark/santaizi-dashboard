@@ -18,7 +18,7 @@
 | `#SANTAIZI#` | 消息正文 |
 | `#DATETIME#` | 当前时间 |
 | `#SERVER.NAME#` | 服务器名称 |
-| `#SERVER.IP#` | 服务器 IP（可能脱敏） |
+| `#SERVER.IP#` | 服务器 IP（始终输出原文，不受脱敏开关影响） |
 | `#SERVER.IPV4#` | IPv4 地址 |
 | `#SERVER.IPV6#` | IPv6 地址 |
 | `#SERVER.CPU#` | CPU 占用率 |
@@ -169,4 +169,4 @@
 
 ## IP 脱敏
 
-默认情况下，通知中的服务器 IP 会经过脱敏处理。如果需要完整 IP，可以在 **设置** 中开启 **通知中 IP 不打码**（`enableplainipinnotification: true`）。
+默认情况下，通知中的服务器 IP 会经过脱敏处理。如果需要完整 IP，可以在 **告警配置** 页开启 **通知中 IP 不打码**（`enableplainipinnotification: true`）。自定义通知模板的 `#SERVER.IP#`、`#SERVER.IPV4#`、`#SERVER.IPV6#` 占位符始终输出原文，不受该开关控制。

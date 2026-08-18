@@ -1493,6 +1493,7 @@ func v2SettingsDTO() gin.H {
 		"grpc_host": singleton.Conf.GRPCHost, "proxy_grpc_port": singleton.Conf.ProxyGRPCPort, "tls": singleton.Conf.TLS, "nameservers": splitNonEmpty(singleton.Conf.DNSServers), "enable_offline_history": singleton.Conf.EnableOfflineHistory,
 		"offline_threshold": singleton.Conf.OfflineThresholdSeconds, "check_interval": singleton.Conf.OfflineCheckIntervalSeconds, "merge_gap": singleton.Conf.OfflineMergeGapSeconds,
 		"retention_days": singleton.Conf.OfflineHistoryRetentionDays, "notify_offline": singleton.Conf.EnableOfflineNotification, "notify_recovery": singleton.Conf.EnableRecoveryNotification,
+		"plain_ip_in_notification": singleton.Conf.EnablePlainIPInNotification,
 		"show_availability_guest": singleton.Conf.ShowAvailabilityToGuest, "connectivity_notification": singleton.Conf.Telemetry.EnableConnectivityNotification,
 		"correction_notification": singleton.Conf.Telemetry.EnableCorrectionNotification, "collector_offline_notification": singleton.Conf.Telemetry.EnableCollectorOfflineNotification,
 		"data_loss_notification": singleton.Conf.Telemetry.EnableDataLossNotification, "primary_color": singleton.Conf.Site.PrimaryColor, "footer_text": singleton.Conf.Site.FooterText,
@@ -1602,6 +1603,9 @@ func v2UpdateSettings(c *gin.Context) {
 	}
 	if value, exists := body["notify_recovery"]; exists {
 		singleton.Conf.EnableRecoveryNotification = asBool(value)
+	}
+	if value, exists := body["plain_ip_in_notification"]; exists {
+		singleton.Conf.EnablePlainIPInNotification = asBool(value)
 	}
 	if value, exists := body["show_availability_guest"]; exists {
 		singleton.Conf.ShowAvailabilityToGuest = asBool(value)

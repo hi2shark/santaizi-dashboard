@@ -5,22 +5,87 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { AppEmpty } from '@santaizi/ui'
 import AlertRuleEditorDialog from '@/components/editors/AlertRuleEditorDialog.vue'
 import { deleteAlertRule, listAlertRules } from '@/api/adminApi'
+import { cleanupOfflineHistory, getSettings, updateSettings } from '@santaizi/api'
 import { notifyAPIError } from '@/composables/notify'
 import { isRowSelected, toggleRowSelection } from '@/composables/selection'
 import type { AlertRuleRecord } from '@/types/admin'
 
 const { t, te } = useI18n()
-const loading = ref(false), editor = ref(false), total = ref(0)
+const loading = ref(false), saving = ref(false), editor = ref(false), total = ref(0)
 const items = ref<AlertRuleRecord[]>([]), selected = ref<AlertRuleRecord[]>([]), editing = ref<AlertRuleRecord>()
 const query = reactive({ page: 1, page_size: 20, q: '', sort: 'id', order: 'desc' as const })
-async function load() { loading.value = true; try { const result = await listAlertRules(query); items.value = result.data; total.value = result.meta.total || result.data.length } catch (error) { notifyAPIError(error, t as never, te) } finally { loading.value = false } }
+const SETTINGS_KEYS = ['enable_offline_history', 'offline_threshold', 'check_interval', 'merge_gap', 'retention_days', 'notify_offline', 'notify_recovery', 'connectivity_notification', 'correction_notification', 'collector_offline_notification', 'data_loss_notification', 'plain_ip_in_notification'] as const
+const form = reactive<Record<string, unknown>>({
+  enable_offline_history: true, offline_threshold: 30, check_interval: 5, merge_gap: 0, retention_days: 30,
+  notify_offline: true, notify_recovery: true, connectivity_notification: false, correction_notification: false,
+  collector_offline_notification: true, data_loss_notification: true, plain_ip_in_notification: false,
+})
+async function load() {
+  loading.value = true
+  try {
+    const [settings, result] = await Promise.all([getSettings(), listAlertRules(query)])
+    Object.assign(form, settings)
+    items.value = result.data
+    total.value = result.meta.total || result.data.length
+  } catch (error) { notifyAPIError(error, t as never, te) } finally { loading.value = false }
+}
+async function saveSettings() {
+  saving.value = true
+  try {
+    const payload: Record<string, unknown> = {}
+    for (const key of SETTINGS_KEYS) payload[key] = form[key]
+    Object.assign(form, await updateSettings(payload))
+    ElMessage.success(t('saveSuccess'))
+  } catch (error) { notifyAPIError(error, t as never, te) } finally { saving.value = false }
+}
+async function cleanupHistory() {
+  await ElMessageBox.confirm(t('cleanupHistoryConfirm'), t('confirm'), { type: 'warning' })
+  try {
+    const result = await cleanupOfflineHistory()
+    ElMessage.success(t('cleanupHistoryResult', { count: Number(result.deleted || 0) }))
+  } catch (error) { notifyAPIError(error, t as never, te) }
+}
 function open(item?: AlertRuleRecord) { editing.value = item; editor.value = true }
 async function remove(rows: AlertRuleRecord[]) { await ElMessageBox.confirm(t('confirmDelete'), t('dangerousAction'), { type: 'warning' }); try { await Promise.all(rows.map(row => deleteAlertRule(row.id))); selected.value = []; await load(); ElMessage.success(t('deleteSuccess')) } catch (error) { notifyAPIError(error, t as never, te) } }
 function onSelect(row: AlertRuleRecord, checked: boolean | string | number) { selected.value = toggleRowSelection(selected.value, row, !!checked) }
 onMounted(load)
 </script>
 <template>
-  <div class="page-head"><h1>{{ t('alertRules') }}</h1><el-button type="primary" @click="open()"><i class="ri-add-line"></i>{{ t('createAlertRule') }}</el-button></div>
+  <div class="page-head">
+    <h1>{{ t('alertRules') }}</h1>
+    <div class="page-actions">
+      <el-button @click="open()"><i class="ri-add-line"></i>{{ t('createAlertRule') }}</el-button>
+      <el-button type="primary" :loading="saving" @click="saveSettings"><i class="ri-save-line"></i>{{ t('save') }}</el-button>
+    </div>
+  </div>
+  <el-form :model="form" label-position="top" class="settings-stack">
+    <section class="surface settings-section">
+      <div class="settings-heading">
+        <i class="ri-timer-flash-line"></i>
+        <div><h2>{{ t('offlineSettings') }}</h2></div>
+        <el-button plain @click="cleanupHistory"><i class="ri-delete-bin-5-line"></i>{{ t('cleanupHistory') }}</el-button>
+      </div>
+      <div class="form-grid">
+        <el-form-item :label="t('enableOfflineHistory')"><el-switch v-model="form.enable_offline_history"/></el-form-item>
+        <el-form-item :label="t('offlineThreshold')"><el-input v-model.number="form.offline_threshold" inputmode="numeric" style="width:100%"/></el-form-item>
+        <el-form-item :label="t('checkInterval')"><el-input v-model.number="form.check_interval" inputmode="numeric" style="width:100%"/></el-form-item>
+        <el-form-item :label="t('mergeGap')"><el-input v-model.number="form.merge_gap" inputmode="numeric" style="width:100%"/></el-form-item>
+        <el-form-item :label="t('retentionDays')"><el-input v-model.number="form.retention_days" inputmode="numeric" style="width:100%"/></el-form-item>
+        <el-form-item :label="t('notifyOffline')"><el-switch v-model="form.notify_offline"/></el-form-item>
+        <el-form-item :label="t('notifyRecovery')"><el-switch v-model="form.notify_recovery"/></el-form-item>
+      </div>
+    </section>
+    <section class="surface settings-section">
+      <div class="settings-heading"><i class="ri-notification-badge-line"></i><div><h2>{{ t('telemetryNotifications') }}</h2></div></div>
+      <div class="setting-switches">
+        <label><span>{{ t('connectivityNotification') }}</span><el-switch v-model="form.connectivity_notification"/></label>
+        <label><span>{{ t('correctionNotification') }}</span><el-switch v-model="form.correction_notification"/></label>
+        <label><span>{{ t('collectorOfflineNotification') }}</span><el-switch v-model="form.collector_offline_notification"/></label>
+        <label><span>{{ t('dataLossNotification') }}</span><el-switch v-model="form.data_loss_notification"/></label>
+        <label><span>{{ t('plainIPInNotification') }}</span><el-switch v-model="form.plain_ip_in_notification"/></label>
+      </div>
+    </section>
+  </el-form>
   <section class="surface table-card"><div class="toolbar"><el-input v-model="query.q" class="search-input" clearable :placeholder="t('search')" @keyup.enter="query.page=1;load()"><template #prefix><i class="ri-search-line"></i></template></el-input><el-button @click="query.page=1;load()"><i class="ri-search-line"></i>{{ t('submitSearch') }}</el-button><el-button v-if="selected.length" type="danger" plain @click="remove(selected)"><i class="ri-delete-bin-6-line"></i>{{ t('batchDelete') }}</el-button><span class="toolbar-spacer"></span><el-button @click="load"><i class="ri-refresh-line"></i>{{ t('refresh') }}</el-button></div>
     <el-table class="desktop-only" v-loading="loading" :data="items" row-key="id" @selection-change="selected=$event"><el-table-column type="selection" width="46"/><el-table-column prop="name" :label="t('name')" min-width="180"/><el-table-column prop="notification_tag" :label="t('notificationGroup')" width="160"><template #default="{row}"><el-tag effect="plain">{{ row.notification_tag }}</el-tag></template></el-table-column><el-table-column :label="t('informationTypes')" min-width="260"><template #default="{row}"><div class="metric-tags"><el-tag v-for="condition in row.conditions" :key="condition.type" effect="plain"><i class="ri-pulse-line"></i>{{ t(`metric_${condition.type}`) }}</el-tag></div></template></el-table-column><el-table-column :label="t('triggerMode')" width="130"><template #default="{row}">{{ t(row.trigger_mode === 'once' ? 'triggerOnce' : 'triggerAlways') }}</template></el-table-column><el-table-column :label="t('status')" width="100"><template #default="{row}"><el-tag :type="row.enabled ? 'success' : 'info'">{{ t(row.enabled ? 'enabled' : 'disabled') }}</el-tag></template></el-table-column><el-table-column :label="t('actions')" width="72" fixed="right"><template #default="{row}"><el-dropdown trigger="click"><el-button text class="actions-more" :aria-label="t('actions')"><i class="ri-more-fill"></i></el-button><template #dropdown><el-dropdown-menu><el-dropdown-item @click="open(row)"><i class="ri-edit-line"></i>{{ t('edit') }}</el-dropdown-item><el-dropdown-item divided @click="remove([row])"><i class="ri-delete-bin-6-line"></i>{{ t('delete') }}</el-dropdown-item></el-dropdown-menu></template></el-dropdown></template></el-table-column><template #empty><AppEmpty icon="ri-alarm-warning-line" :description="t('noData')"/></template></el-table>
     <div class="mobile-only" v-loading="loading">

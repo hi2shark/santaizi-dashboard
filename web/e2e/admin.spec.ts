@@ -296,6 +296,7 @@ test('notification channels and alert rules have separate typed editors', async 
     }
     return fulfillJSON(route, list())
   })
+  await page.route('**/api/v2/admin/settings', route => fulfillJSON(route, item({})))
 
   await page.goto('/admin/notifications')
   await page.getByRole('button', { name: '添加通知渠道' }).click()

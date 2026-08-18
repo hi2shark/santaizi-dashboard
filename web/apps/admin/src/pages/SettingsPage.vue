@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { cleanupOfflineHistory, getDatabase, getSettings, optimizeDatabase, updateSettings } from '@santaizi/api'
+import { getDatabase, getSettings, optimizeDatabase, updateSettings } from '@santaizi/api'
 import type { DatabaseStatus } from '@santaizi/api'
 import { notifyAPIError } from '@/composables/notify'
 import { formatBytes } from '@/composables/format'
@@ -13,9 +13,7 @@ const optimizing = ref(false)
 const dbStatus = ref<DatabaseStatus | null>(null)
 const form = reactive<Record<string, unknown>>({
   site_title: '三太子监控', language: 'zh-CN', view_password: '', view_password_configured: false, clear_view_password: false,
-  grpc_host: '', proxy_grpc_port: 0, tls: false, nameservers: [], enable_offline_history: true, offline_threshold: 30,
-  check_interval: 5, merge_gap: 0, retention_days: 30, notify_offline: true, notify_recovery: true, show_availability_guest: true,
-  connectivity_notification: false, correction_notification: false, collector_offline_notification: true, data_loss_notification: true,
+  grpc_host: '', proxy_grpc_port: 0, tls: false, nameservers: [], show_availability_guest: true,
   primary_color: '#2563eb', footer_text: '', logo_url: '/static/logo.svg', background_url: '', custom_css: '', theme: 'server-status',
   allow_frontend_theme_switch: true, primary_location: '',
 })
@@ -62,15 +60,6 @@ async function save() {
     notifyAPIError(e, t as never, te)
   } finally {
     saving.value = false
-  }
-}
-async function cleanupHistory() {
-  await ElMessageBox.confirm(t('cleanupHistoryConfirm'), t('confirm'), { type: 'warning' })
-  try {
-    const result = await cleanupOfflineHistory()
-    ElMessage.success(t('cleanupHistoryResult', { count: Number(result.deleted || 0) }))
-  } catch (e) {
-    notifyAPIError(e, t as never, te)
   }
 }
 async function optimize() {
@@ -124,32 +113,7 @@ onUnmounted(stopPoll)
         <el-form-item :label="t('grpcTLS')"><el-switch v-model="form.tls"/></el-form-item>
         <el-form-item :label="t('primaryLocation')"><LocationPicker :model-value="String(form.primary_location || '')" @update:model-value="form.primary_location = $event"/></el-form-item>
         <el-form-item class="span-2" :label="t('nameservers')"><el-select v-model="form.nameservers" multiple allow-create filterable style="width:100%"/></el-form-item>
-      </div>
-    </section>
-    <section class="surface settings-section">
-      <div class="settings-heading">
-        <i class="ri-timer-flash-line"></i>
-        <div><h2>{{ t('offlineSettings') }}</h2></div>
-        <el-button plain @click="cleanupHistory"><i class="ri-delete-bin-5-line"></i>{{ t('cleanupHistory') }}</el-button>
-      </div>
-      <div class="form-grid">
-        <el-form-item :label="t('enableOfflineHistory')"><el-switch v-model="form.enable_offline_history"/></el-form-item>
         <el-form-item :label="t('showAvailabilityGuest')"><el-switch v-model="form.show_availability_guest"/></el-form-item>
-        <el-form-item :label="t('offlineThreshold')"><el-input v-model.number="form.offline_threshold" inputmode="numeric" style="width:100%"/></el-form-item>
-        <el-form-item :label="t('checkInterval')"><el-input v-model.number="form.check_interval" inputmode="numeric" style="width:100%"/></el-form-item>
-        <el-form-item :label="t('mergeGap')"><el-input v-model.number="form.merge_gap" inputmode="numeric" style="width:100%"/></el-form-item>
-        <el-form-item :label="t('retentionDays')"><el-input v-model.number="form.retention_days" inputmode="numeric" style="width:100%"/></el-form-item>
-        <el-form-item :label="t('notifyOffline')"><el-switch v-model="form.notify_offline"/></el-form-item>
-        <el-form-item :label="t('notifyRecovery')"><el-switch v-model="form.notify_recovery"/></el-form-item>
-      </div>
-    </section>
-    <section class="surface settings-section">
-      <div class="settings-heading"><i class="ri-notification-badge-line"></i><div><h2>{{ t('telemetryNotifications') }}</h2></div></div>
-      <div class="setting-switches">
-        <label><span>{{ t('connectivityNotification') }}</span><el-switch v-model="form.connectivity_notification"/></label>
-        <label><span>{{ t('correctionNotification') }}</span><el-switch v-model="form.correction_notification"/></label>
-        <label><span>{{ t('collectorOfflineNotification') }}</span><el-switch v-model="form.collector_offline_notification"/></label>
-        <label><span>{{ t('dataLossNotification') }}</span><el-switch v-model="form.data_loss_notification"/></label>
       </div>
     </section>
     <section class="surface settings-section">

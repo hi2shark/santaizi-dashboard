@@ -959,6 +959,7 @@ const deleteNATTunnel = (
  * `proxy_grpc_port`（公网 gRPC 端口，0 表示使用监听端口 `grpcport`）、
  * `tls`（探针安装命令是否附加 `--tls` / `-Tls`）。
  * `primary_location` 为主面板在地球上的位置（ISO 国家/地区码或 `lat,lon`）。
+ * `plain_ip_in_notification` 控制通知中是否显示完整 IP（默认 false，即脱敏）。
  * @summary 获取站点设置
  */
 const getSettings = (
@@ -974,6 +975,7 @@ const getSettings = (
  * 更新并保存站点设置。可写入 `grpc_host`、`proxy_grpc_port`（0–65535，0 表示使用监听端口）
  * 和 `tls`。这两项用于生成探针/从端安装命令中的公网端口与 TLS 标志，不改变本机 gRPC 监听端口。
  * 可写入 `primary_location`（ISO 国家/地区码或 `lat,lon`，最多 64 字符）。
+ * 可写入 `plain_ip_in_notification`（通知中显示完整 IP，默认 false）。
  * @summary 更新站点设置
  */
 const updateSettings = (
