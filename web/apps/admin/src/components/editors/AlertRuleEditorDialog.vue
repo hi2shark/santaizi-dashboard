@@ -93,7 +93,7 @@ watch(() => props.modelValue, value => { if (value) { reset(props.value); void l
             <div class="editor-grid condition-fields">
               <el-form-item :label="t('informationType')">
                 <el-select v-model="condition.type" class="field-full">
-                  <el-option-group v-for="group in metricGroups" :key="group.label" :label="group.label"><el-option v-for="metric in group.options" :key="metric" :value="metric"><div class="metric-option"><i :class="metricIcons[metric]"></i><span>{{ t(`metric_${metric}`) }}</span><small>{{ t(`metricHelp_${metric}`) }}</small></div></el-option></el-option-group>
+                  <el-option-group v-for="group in metricGroups" :key="group.label" :label="group.label"><el-option v-for="metric in group.options" :key="metric" :value="metric"><div class="metric-option"><i :class="metricIcons[metric]"></i><span>{{ t(`metric_${metric}`) }}</span></div></el-option></el-option-group>
                 </el-select>
               </el-form-item>
               <el-form-item :label="t('durationSeconds')"><el-input v-model.number="condition.duration_seconds" inputmode="numeric" class="field-full" @blur="condition.duration_seconds = clampNumber(condition.duration_seconds, 3, 86400, 30)" /></el-form-item>

@@ -237,7 +237,7 @@ onUnmounted(() => { hoverMedia?.removeEventListener('change', onHoverMediaChange
   <section class="surface table-card">
     <div class="toolbar">
       <el-input v-model="query.q" class="search-input" clearable :placeholder="t('search')" @keyup.enter="query.page=1;load()"><template #prefix><i class="ri-search-line"></i></template></el-input>
-      <el-button @click="query.page=1;load()"><i class="ri-filter-3-line"></i>{{ t('filter') }}</el-button>
+      <el-button @click="query.page=1;load()"><i class="ri-search-line"></i>{{ t('submitSearch') }}</el-button>
       <el-button @click="groupManager=true"><i class="ri-folder-settings-line"></i>{{ t('manageGroups') }}</el-button>
       <template v-if="selected.length">
         <el-button @click="groupSelected"><i class="ri-folder-transfer-line"></i>{{ t('batchGroup') }}</el-button>
@@ -289,7 +289,7 @@ onUnmounted(() => { hoverMedia?.removeEventListener('change', onHoverMediaChange
           />
         </template>
       </el-table-column>
-      <el-table-column :label="t('host')" min-width="170">
+      <el-table-column :label="t('platform')" min-width="170">
         <template #default="{row}">{{ row.host?.Platform || '—' }}</template>
       </el-table-column>
       <el-table-column :label="t('agentVersion')" min-width="120">
@@ -377,7 +377,7 @@ onUnmounted(() => { hoverMedia?.removeEventListener('change', onHoverMediaChange
             </el-button>
           </div>
           <dl class="mobile-card-meta mobile-card-meta--stats">
-            <div><dt>{{ t('host') }}</dt><dd>{{ row.host?.Platform || '—' }}</dd></div>
+            <div><dt>{{ t('platform') }}</dt><dd>{{ row.host?.Platform || '—' }}</dd></div>
             <div><dt>{{ t('agentVersion') }}</dt><dd>{{ agentVersionText(row) }}</dd></div>
             <div><dt>{{ t('lastSeen') }}</dt><dd>{{ display(row.last_active,'last_active') }}</dd></div>
             <div><dt>{{ t('ipv4') }}</dt><dd>{{ reportedAddresses(row).ipv4 || '—' }}</dd></div>
@@ -410,7 +410,7 @@ onUnmounted(() => { hoverMedia?.removeEventListener('change', onHoverMediaChange
   <AppDialog v-model="noteDialog" :title="`${t('note')} · ${noteServer?.name || ''}`" mode="view" width="min(560px,92vw)">
     <p class="admin-note-body">{{ noteServer?.note }}</p>
   </AppDialog>
-  <AppDrawer v-model="historyDrawer" :title="`${t('availabilityHistory')} · ${historyServer?.name || ''}`" mode="view" size="min(980px,96vw)">
+  <AppDrawer v-model="historyDrawer" :title="`${t('details')} · ${historyServer?.name || ''}`" mode="view" size="min(980px,96vw)">
     <el-tabs v-model="historyTab">
       <el-tab-pane :label="t('availability')" name="availability">
         <div class="availability-toolbar">
