@@ -607,17 +607,22 @@ html.dark .topology-globe__canvas { filter: none; }
 .section-card { padding: 22px; }
 .section-card h2 { margin: 0 0 18px; font-size: 18px; }
 .toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 16px; border-bottom: 1px solid var(--sz-border); }
-.connections-page .toolbar { border-bottom: 0; }
-.connections-page .toolbar-filters { display: none; }
-.admin-content:has(> .connections-page) { overflow: hidden; }
-.admin-content > .connections-page {
+.connections-page .toolbar,
+.probes-page .toolbar { border-bottom: 0; }
+.connections-page .toolbar-filters,
+.probes-page .toolbar-filters { display: none; }
+.admin-content:has(> .connections-page),
+.admin-content:has(> .probes-page) { overflow: hidden; }
+.admin-content > .connections-page,
+.admin-content > .probes-page {
   flex: 1 1 0;
   min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
-.connections-page > .page-stack {
+.connections-page > .page-stack,
+.probes-page > .page-stack {
   flex: 1 1 0;
   min-height: 0;
   display: flex;
@@ -1500,7 +1505,8 @@ html.dark .topology-globe__canvas { filter: none; }
     min-width: 0;
     max-width: 100%;
   }
-  .connections-page .toolbar-filters.mobile-only {
+  .connections-page .toolbar-filters.mobile-only,
+  .probes-page .toolbar-filters.mobile-only {
     display: flex;
     flex: 1 1 100%;
     gap: var(--space-2);
@@ -1509,10 +1515,14 @@ html.dark .topology-globe__canvas { filter: none; }
   .connections-nodes .path-matrix-wrap { padding: 4px 0 8px; }
   .connections-page .path-matrix__head,
   .connections-page .col-corner,
-  .connections-page .path-matrix__stub {
+  .connections-page .path-matrix__stub,
+  .probes-page .path-matrix__head,
+  .probes-page .col-corner,
+  .probes-page .path-matrix__stub {
     background: var(--sz-bg);
   }
-  .connections-page .path-matrix__row:hover .path-matrix__stub {
+  .connections-page .path-matrix__row:hover .path-matrix__stub,
+  .probes-page .path-matrix__row:hover .path-matrix__stub {
     background: var(--sz-primary-soft);
   }
   .path-matrix__head,

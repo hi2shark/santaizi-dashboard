@@ -403,6 +403,10 @@ func replaceCollectorScopes(tx *gorm.DB, collector *model.Collector, scopes []co
 			return err
 		}
 	}
+	if collector.IsProbe() {
+		return tx.Model(&model.ObserverAssignment{}).Where("observer_id = ? AND valid_to = 0", collector.CollectorUUID).
+			Updates(map[string]any{"valid_to": now.UnixNano()}).Error
+	}
 	var bindings []model.ServerNodeBinding
 	if err := tx.Where("current = ?", true).Find(&bindings).Error; err != nil {
 		return err

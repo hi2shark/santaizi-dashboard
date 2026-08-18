@@ -1584,7 +1584,10 @@ type CollectorCreated struct {
 
 // CollectorInstallPreview defines model for CollectorInstallPreview.
 type CollectorInstallPreview struct {
-	Command            string `json:"command"`
+	Command string `json:"command"`
+
+	// DefaultPrimaryTls 主面板当前 grpc_tls.enabled，安装弹窗打开时用此值作为 TLS 默认。
+	DefaultPrimaryTls  bool   `json:"default_primary_tls"`
 	GrpcPort           int    `json:"grpc_port"`
 	PrimaryEndpoint    string `json:"primary_endpoint"`
 	PrimaryInsecureTls bool   `json:"primary_insecure_tls"`

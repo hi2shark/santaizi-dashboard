@@ -252,3 +252,16 @@ describe('layoutSite', () => {
     expect(siteClusterRadius(200)).toBeLessThanOrEqual(200 * Math.PI / 180)
   })
 })
+
+describe('probe collectors', () => {
+  it('omits probe collectors from globe markers and counts', () => {
+    const graph = buildTopology({
+      servers: [server(1, 'a', { country: 'SG' })],
+      collectors: [collector('c1', 'obs'), collector('p1', 'probe', { kind: 'probe' })],
+      paths: [path(1, 'c1', 'collector')],
+    })
+    expect(graph.collectors.map(item => item.id)).toEqual(['c1'])
+    expect(graph.collectorsTotal).toBe(1)
+    expect(graph.links.some(link => link.fromId === 'p1' || link.toId === 'p1')).toBe(false)
+  })
+})

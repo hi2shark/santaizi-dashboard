@@ -197,12 +197,13 @@ export function buildTopology(input: TopologyInput): TopologyGraph {
     onlines: [true],
   }
 
-  const collectors: TopologyMarker[] = input.collectors.map((collector) => {
+  const observers = input.collectors.filter(row => row.kind !== 'probe')
+  const collectors: TopologyMarker[] = observers.map((collector) => {
     const parsed = parseLocation(collector.location)
     const covered = locatedServers.filter(item => collectorCovers(collector, item.server, input.paths)).map(item => item.point)
     const point = spread(parsed || sphericalMean(covered) || anchor, taken, !parsed, 'collector')
     const assigned = input.paths.filter(path => path.observer_id === collector.id)
-    const connected = assigned.filter(path => pathHandshaked(path, input.collectors))
+    const connected = assigned.filter(path => pathHandshaked(path, observers))
     const online = collectorStatus(collector) === 'online'
     return {
       id: collector.id,
@@ -237,7 +238,7 @@ export function buildTopology(input: TopologyInput): TopologyGraph {
     if (!fromId) continue
     const toId = path.observer_kind === 'primary' ? 'primary' : path.observer_id
     if (toId !== 'primary' && !collectors.some(item => item.id === toId)) continue
-    const live = pathHandshaked(path, input.collectors)
+    const live = pathHandshaked(path, observers)
     links.push({
       fromId,
       toId,
@@ -248,7 +249,7 @@ export function buildTopology(input: TopologyInput): TopologyGraph {
   }
 
   const assigned = input.paths.length
-  const connected = input.paths.filter(path => pathHandshaked(path, input.collectors)).length
+  const connected = input.paths.filter(path => pathHandshaked(path, observers)).length
   primary.coverage = `${connected}/${assigned}`
 
   return {
@@ -258,8 +259,8 @@ export function buildTopology(input: TopologyInput): TopologyGraph {
     unlocated,
     countries: [...countries],
     links,
-    collectorsOnline: input.collectors.filter(row => !row.revoked && row.status === 'online').length,
-    collectorsTotal: input.collectors.length,
+    collectorsOnline: observers.filter(row => !row.revoked && row.status === 'online').length,
+    collectorsTotal: observers.length,
     pathsConnected: connected,
     pathsAssigned: assigned,
   }

@@ -801,14 +801,59 @@ test('connection observation hides stale RTT when collector is offline', async (
   ])))
   await page.goto('/admin/connections')
   const collectorGrid = page.locator('.collector-grid').filter({ visible: true })
-  await expect(collectorGrid.getByText('离线').filter({ visible: true })).toHaveCount(2)
+  await expect(collectorGrid.getByText('Frankfurt edge')).toBeVisible()
+  await expect(collectorGrid).not.toContainText('SLC probe')
+  await expect(collectorGrid.getByText('离线').filter({ visible: true })).toHaveCount(1)
   await expect(collectorGrid).not.toContainText('18.5 ms')
   await expect(collectorGrid).not.toContainText('9 ms')
   const matrix = page.locator('.path-matrix').filter({ visible: true })
   await expect(matrix.getByRole('button', { name: /12\.5 ms/ })).toBeVisible()
-  await expect(matrix.getByRole('button', { name: '未连接' })).toHaveCount(2)
+  await expect(matrix.getByRole('button', { name: '未连接' })).toHaveCount(1)
+  await expect(matrix).not.toContainText('SLC probe')
   await expect(matrix).not.toContainText('99.9 ms')
   await expect(matrix).not.toContainText('21.5 ms')
+})
+
+
+test('probe observation shows ICMP paths separately from node links', async ({ page }, testInfo) => {
+  const observer = {
+    id: 'collector-1', name: 'Frankfurt edge', address: 'collector.example.com:5555', tls: true, insecure_tls: false,
+    generation: 1, config_version: 1, status: 'online', revoked: false, kind: 'observer', connected_agents: 1, pending_records: 0,
+    last_seen: '2026-08-13T06:00:00Z', scopes: [{ type: 'all', value: '' }],
+  }
+  const probe = {
+    id: 'collector-2', name: 'SLC probe', address: '', tls: false, insecure_tls: false,
+    generation: 1, config_version: 1, status: 'online', revoked: false, kind: 'probe',
+    last_seen: '2026-08-13T06:00:00Z', heartbeat_rtt_ms: 9, heartbeat_rtt_sampled_at: '2026-08-13T06:00:00Z',
+    software_version: '1.4.0', scopes: [{ type: 'all', value: '' }],
+  }
+  await page.route('**/api/v2/admin/telemetry/collectors**', route => fulfillJSON(route, list([observer, probe])))
+  await page.route('**/api/v2/admin/probes/paths**', route => fulfillJSON(route, list([{
+    server_id: 7, server_name: 'edge-a', collector_id: 'collector-2', collector_name: 'SLC probe',
+    target: { source: 'host', ipv4: '192.0.2.10' }, reachable: true, display_rtt_ms: 21.5, sampled_at: '2026-08-13T06:00:00Z',
+    icmp: { ok: true, rtt_ms: 21.5, loss: 0 }, has_trace: false,
+  }])))
+  await page.route('**/api/v2/admin/probes/samples**', route => fulfillJSON(route, list()))
+  await page.route('**/api/v2/admin/probes/trace**', route => fulfillJSON(route, item(null)))
+  await page.goto('/admin/probes')
+  await expect(page.getByRole('heading', { name: '探测观测' })).toBeVisible()
+  const collectorGrid = page.locator('.collector-grid').filter({ visible: true })
+  await expect(collectorGrid.getByText('SLC probe')).toBeVisible()
+  await expect(collectorGrid).not.toContainText('Frankfurt edge')
+  await expect(collectorGrid.getByText('9 ms').filter({ visible: true })).toBeVisible()
+  const matrix = page.locator('.path-matrix').filter({ visible: true })
+  if (testInfo.project.name === 'admin-mobile') {
+    await expect(matrix.getByRole('columnheader', { name: /SLC probe/ })).toBeVisible()
+    await expect(matrix.getByRole('rowheader', { name: 'edge-a' })).toBeVisible()
+  } else {
+    await expect(matrix.getByRole('rowheader', { name: /SLC probe/ })).toBeVisible()
+    await expect(matrix.getByRole('columnheader', { name: 'edge-a' })).toBeVisible()
+  }
+  await expect(matrix.getByRole('button', { name: /21\.5 ms/ })).toBeVisible()
+  await expect(matrix).not.toContainText('未连接')
+  await matrix.getByRole('button', { name: /21\.5 ms/ }).click()
+  const drawer = page.locator('.el-drawer').filter({ visible: true })
+  await expect(drawer.getByText('ICMP').filter({ visible: true }).first()).toBeVisible()
 })
 
 test('connection observation refreshes matrix latency on poll', async ({ page }) => {

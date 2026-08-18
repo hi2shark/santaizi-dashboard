@@ -14,4 +14,6 @@ export interface CollectorInstallPreview {
   grpc_port: number;
   primary_tls: boolean;
   primary_insecure_tls: boolean;
+  /** 主面板当前 grpc_tls.enabled，安装弹窗打开时用此值作为 TLS 默认。 */
+  default_primary_tls: boolean;
 }

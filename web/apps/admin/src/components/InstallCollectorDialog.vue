@@ -15,7 +15,7 @@ const token = ref('')
 const command = ref('')
 const form = reactive({
   primary_endpoint: '',
-  primary_tls: true,
+  primary_tls: false,
   primary_insecure_tls: false,
 })
 const snapshotValue = computed(() => ({ ...form }))
@@ -30,13 +30,14 @@ async function refreshPreview() {
   })
   command.value = preview.command
   if (!form.primary_endpoint) form.primary_endpoint = preview.primary_endpoint
+  return preview
 }
 
 async function open() {
   loading.value = true
   command.value = ''
   form.primary_endpoint = ''
-  form.primary_tls = true
+  form.primary_tls = false
   form.primary_insecure_tls = false
   try {
     if (props.token) {
@@ -47,7 +48,11 @@ async function open() {
     } else {
       token.value = ''
     }
-    await refreshPreview()
+    const preview = await refreshPreview()
+    if (preview && preview.default_primary_tls !== form.primary_tls) {
+      form.primary_tls = preview.default_primary_tls
+      await refreshPreview()
+    }
     await nextTick()
     capture()
   } catch (error) {

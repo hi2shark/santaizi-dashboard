@@ -2207,12 +2207,17 @@ func v2CollectorInstallPreview(c *gin.Context) {
 		script = "https://raw.githubusercontent.com/hi2shark/santaizi-dashboard/master/script/install_collector.sh"
 	}
 	command := buildCollectorInstallCommand(script, endpoint, collector.RegistrationToken, grpcPort, request.PrimaryTLS, request.PrimaryInsecureTLS)
+	defaultTLS := false
+	if singleton.Conf != nil {
+		defaultTLS = singleton.Conf.GRPCTLS.Enabled
+	}
 	writeV2Data(c, 200, gin.H{
 		"command":              command,
 		"primary_endpoint":     endpoint,
 		"grpc_port":            grpcPort,
 		"primary_tls":          request.PrimaryTLS,
 		"primary_insecure_tls": request.PrimaryInsecureTLS,
+		"default_primary_tls":  defaultTLS,
 	})
 }
 func v2RevokeCollector(c *gin.Context) {

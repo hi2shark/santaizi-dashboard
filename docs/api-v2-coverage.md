@@ -21,8 +21,8 @@
 | API Token | `listApiTokens`, `createApiToken`, `getApiToken`, `patchApiToken`, `deleteApiToken` | `/admin/api-tokens` 签发（权限/有效期）、列表复制、启用/禁用与删除 | 只读/操作权、过期与禁用鉴权；明文仅详情返回 |
 | Collector 生命周期 | `createCollector`, `updateCollector`, `getCollectorToken`, `rotateCollectorToken`, `revokeCollector`, `deleteCollector`, `getCollectorInstallPreview` | `/admin/telemetry` 专用编辑弹窗、安装命令与操作菜单；列表展示从端二进制版本 | Token 查看/轮换、安装预览、撤销和删除；`software_version` |
 | Collector Scope | `updateCollectorScope` | All/Server/Group/Tag 类型化范围 | Scope 选择与配置版本更新 |
-| 连接观察 | `getConnectionSummary`, `listConnectionPaths`, `listConnectionLatency`, `listCollectors` | `/admin/connections` 主从表与节点路径及延迟列/抽屉历史；总览连接摘要；主机历史抽屉连接页 | 心跳派生从端状态、路径 sink、RTT 最近一次与采样时刻、24h 分钟桶 |
-| 探测型从端 | `createCollector`/`updateCollector` 的 `kind` 与探测配置；`getProbeSummary`, `listProbePaths`, `listProbeSamples`, `getProbeTrace` | `/admin/connections` 矩阵探测列与抽屉；`/admin/telemetry` 从端编辑器 | 独立 `/api/v2/admin/probes/*`；不混入 connections；无地址不告警 |
+| 连接观察 | `getConnectionSummary`, `listConnectionPaths`, `listConnectionLatency`, `listCollectors` | `/admin/connections` 主从表与节点 gRPC 路径及延迟列/抽屉历史；总览连接摘要；主机历史抽屉节点连接页。不含探测型 | 心跳派生从端状态、路径 sink、RTT 最近一次与采样时刻、24h 分钟桶 |
+| 探测型从端 | `createCollector`/`updateCollector` 的 `kind` 与探测配置；`getProbeSummary`, `listProbePaths`, `listProbeSamples`, `getProbeTrace` | `/admin/probes` 探测从端卡片与 ICMP/TCP 矩阵及抽屉；主机历史抽屉探测 tab；`/admin/telemetry` 从端编辑器 | 独立 `/api/v2/admin/probes/*`；不混入 connections；无地址不告警；`x-ui-route` `/admin/probes` |
 | 公开可用性与资源历史 | `getPublicServerAvailability`, `getPublicMetrics` | Nazhua 详情六卡资源曲线（CPU / 内存 / 磁盘 / 进程 / 网速 / TCP·UDP）；可用性受 `show_availability_to_guest` 门控 | 匿名 403、无绑定空 list、rollup Average 序列含进程与连接 |
 | 可靠探测数据 | `listObserverAssignments`, `listAgentReliability`, `listIncidents`, `listIncidentRevisions`, `listTelemetryDataLoss`, `listTelemetryAlerts` | `/admin/telemetry` 六个数据 tab 固定列、只读抽屉与 `page`/`page_size` 翻页 | 解码 sink/证据、RFC3339 时间、分类小写、截断 UUID、列表分页 |
 

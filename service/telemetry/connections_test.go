@@ -63,6 +63,31 @@ func TestLoadConnectionSummaryCountsCollectorHeartbeat(t *testing.T) {
 	}
 }
 
+func TestLoadConnectionSummaryIgnoresProbeCollectors(t *testing.T) {
+	db := newConnectionDB(t)
+	now := time.Unix(1_700_000_090, 0)
+	createCollector(t, db, "online-c", "Online")
+	if err := db.Create(&model.Collector{
+		CollectorUUID: "probe-c", Name: "Probe", Kind: model.CollectorKindProbe,
+		TokenHash: bytes.Repeat([]byte{3}, 32), RegistrationToken: "token-probe-c",
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.CollectorRuntime{CollectorUUID: "online-c", Status: "online", LastSeen: now.Add(-10 * time.Second).UnixNano()}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.CollectorRuntime{CollectorUUID: "probe-c", Status: "online", LastSeen: now.Add(-10 * time.Second).UnixNano()}).Error; err != nil {
+		t.Fatal(err)
+	}
+	summary, err := LoadConnectionSummary(db, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if summary.CollectorsTotal != 1 || summary.CollectorsOnline != 1 || summary.CollectorsOffline != 0 {
+		t.Fatalf("probe collectors must not count as observers: %#v", summary)
+	}
+}
+
 func TestLoadConnectionPathsJoinsAssignmentPathAndSink(t *testing.T) {
 	db := newConnectionDB(t)
 	now := time.Unix(1_700_000_000, 0)
@@ -176,6 +201,44 @@ func TestLoadConnectionPathsClearsOfflineCollectorRTT(t *testing.T) {
 	stale := byObserver["collector-stale"]
 	if stale.Sink.Connected || stale.Sink.LastRttMs != 0 || stale.Sink.RttSampledAt != 0 || stale.Sink.LastError != "old" {
 		t.Fatalf("stale should drop RTT and stay disconnected: %#v", stale)
+	}
+}
+
+func TestLoadConnectionPathsSkipsProbeAssignments(t *testing.T) {
+	db := newConnectionDB(t)
+	now := time.Unix(1_700_000_000, 0)
+	node := bytes.Repeat([]byte{7}, 16)
+	server := model.Server{Name: "edge-a", Secret: "secret"}
+	if err := db.Create(&server).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.ServerNodeBinding{ServerID: server.ID, NodeUUID: node, Current: true, Reason: "test", ValidFrom: now.UnixNano()}).Error; err != nil {
+		t.Fatal(err)
+	}
+	createCollector(t, db, "collector-east", "East")
+	if err := db.Create(&model.Collector{
+		CollectorUUID: "probe-east", Name: "Probe East", Kind: model.CollectorKindProbe,
+		TokenHash: bytes.Repeat([]byte{5}, 32), RegistrationToken: "token-probe-east",
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	for _, observer := range []string{PrimaryObserverID, "collector-east", "probe-east"} {
+		if err := db.Create(&model.ObserverAssignment{NodeUUID: node, ObserverID: observer, ValidFrom: now.UnixNano(), ConfigVersion: 1, Generation: 1}).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	paths, err := LoadConnectionPaths(db, PathFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(paths) != 2 {
+		t.Fatalf("paths=%d", len(paths))
+	}
+	for _, path := range paths {
+		if path.ObserverID == "probe-east" {
+			t.Fatalf("probe assignment leaked into connection paths: %#v", path)
+		}
 	}
 }
 

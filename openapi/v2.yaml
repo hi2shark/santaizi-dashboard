@@ -1458,7 +1458,7 @@ paths:
       - Probes
       summary: 探测从端摘要
       operationId: getProbeSummary
-      x-ui-route: /admin/connections
+      x-ui-route: /admin/probes
       responses:
         '200':
           $ref: '#/components/responses/ProbeSummaryResponse'
@@ -1470,7 +1470,7 @@ paths:
       - Probes
       summary: 探测路径
       operationId: listProbePaths
-      x-ui-route: /admin/connections
+      x-ui-route: /admin/probes
       parameters:
       - name: server_id
         in: query
@@ -1493,7 +1493,7 @@ paths:
       - Probes
       summary: 探测样本历史
       operationId: listProbeSamples
-      x-ui-route: /admin/connections
+      x-ui-route: /admin/probes
       parameters:
       - name: collector_id
         in: query
@@ -1531,7 +1531,7 @@ paths:
       - Probes
       summary: 最近一次 MTR
       operationId: getProbeTrace
-      x-ui-route: /admin/connections
+      x-ui-route: /admin/probes
       parameters:
       - name: collector_id
         in: query
@@ -3340,6 +3340,7 @@ components:
       - grpc_port
       - primary_tls
       - primary_insecure_tls
+      - default_primary_tls
       properties:
         command:
           type: string
@@ -3351,6 +3352,9 @@ components:
           type: boolean
         primary_insecure_tls:
           type: boolean
+        default_primary_tls:
+          type: boolean
+          description: 主面板当前 grpc_tls.enabled，安装弹窗打开时用此值作为 TLS 默认。
     CollectorCreated:
       type: object
       required:

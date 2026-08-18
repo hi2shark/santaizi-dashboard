@@ -3,8 +3,8 @@ import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { AppDrawer, AppEmpty } from '@santaizi/ui'
-import type { ConnectionLatencyBucket, ConnectionPath, ProbePath, ProbeSampleBucket, ProbeTrace } from '@santaizi/api'
-import { getProbeTrace, listCollectors, listConnectionLatency, listConnectionPaths, listProbePaths, listProbeSamples, type CollectorRecord } from '@/api/adminApi'
+import type { ConnectionLatencyBucket, ConnectionPath } from '@santaizi/api'
+import { listCollectors, listConnectionLatency, listConnectionPaths, type CollectorRecord } from '@/api/adminApi'
 import CopyableId from '@/components/CopyableId.vue'
 import { formatAdminValue, formatClockTime, formatDateTime, formatProductVersion } from '@/composables/format'
 import { notifyAPIError } from '@/composables/notify'
@@ -17,22 +17,16 @@ const loading = ref(false)
 const latencyLoading = ref(false)
 const collectors = ref<CollectorRecord[]>([])
 const paths = ref<ConnectionPath[]>([])
-const probePaths = ref<ProbePath[]>([])
 const collectorLatency = ref<ConnectionLatencyBucket[]>([])
 const pathLatency = ref<ConnectionLatencyBucket[]>([])
-const probeSamples = ref<ProbeSampleBucket[]>([])
-const probeTrace = ref<ProbeTrace | null>(null)
 const collectorLatencyMeta = reactive({ page: 1, page_size: 20, total: 0 })
 const pathLatencyMeta = reactive({ page: 1, page_size: 20, total: 0 })
-const probeSampleMeta = reactive({ page: 1, page_size: 20, total: 0 })
 const observerFilter = ref('')
 const linkFilter = ref('')
 const collectorDrawer = ref(false)
 const pathDrawer = ref(false)
-const probeDrawer = ref(false)
 const activeCollector = ref<CollectorRecord>()
 const activePath = ref<ConnectionPath>()
-const activeProbe = ref<ProbePath>()
 const POLL_MS = 5000
 const MOBILE_MATRIX_MQ = '(max-width: 860px)'
 const serversAsRows = ref(typeof window !== 'undefined' && window.matchMedia(MOBILE_MATRIX_MQ).matches)
@@ -40,19 +34,16 @@ let timer: ReturnType<typeof setInterval> | undefined
 let axisMq: MediaQueryList | undefined
 let inflight = false
 
-type MatrixObserver = { id: string; name: string; kind: 'primary' | 'collector' | 'probe' }
+type MatrixObserver = { id: string; name: string; kind: 'primary' | 'collector' }
 type PathMatrixRow = {
   key: string
   server_id?: number
   node_uuid?: string
   server_name: string
   cells: Record<string, ConnectionPath>
-  probeCells: Record<string, ProbePath>
 }
 type MatrixCell = {
-  kind: 'observer' | 'probe'
-  path?: ConnectionPath
-  probe?: ProbePath
+  path: ConnectionPath
   connected: boolean
   hasError: boolean
   title?: string
@@ -65,17 +56,21 @@ function rowIdentity(serverId?: number, nodeUuid?: string) {
   return `n:${nodeUuid || ''}`
 }
 
+const observerCollectors = computed(() => collectors.value.filter(row => !row.revoked && !isProbeCollector(row)))
+
+function isProbeObserverID(id: string) {
+  return collectors.value.some(row => row.id === id && isProbeCollector(row))
+}
+
 const observerOptions = computed(() => {
   const items: MatrixObserver[] = [{ id: 'primary', name: t('observerKindPrimary'), kind: 'primary' }]
   const seen = new Set(['primary'])
-  const observers = collectors.value.filter(row => !row.revoked && !isProbeCollector(row))
-  const probes = collectors.value.filter(row => !row.revoked && isProbeCollector(row))
-  for (const row of observers) {
+  for (const row of observerCollectors.value) {
     seen.add(row.id)
     items.push({ id: row.id, name: row.name, kind: 'collector' })
   }
   for (const path of paths.value) {
-    if (seen.has(path.observer_id)) continue
+    if (seen.has(path.observer_id) || isProbeObserverID(path.observer_id)) continue
     seen.add(path.observer_id)
     items.push({
       id: path.observer_id,
@@ -83,30 +78,14 @@ const observerOptions = computed(() => {
       kind: path.observer_kind === 'primary' ? 'primary' : 'collector',
     })
   }
-  for (const row of probes) {
-    seen.add(row.id)
-    items.push({ id: row.id, name: row.name, kind: 'probe' })
-  }
-  for (const path of probePaths.value) {
-    if (seen.has(path.collector_id)) continue
-    seen.add(path.collector_id)
-    items.push({ id: path.collector_id, name: path.collector_name || path.collector_id, kind: 'probe' })
-  }
   return items
 })
 
 const filteredPaths = computed(() => paths.value.filter((path) => {
+  if (isProbeObserverID(path.observer_id)) return false
   if (observerFilter.value && path.observer_id !== observerFilter.value) return false
   if (linkFilter.value === 'connected' && !pathLive(path)) return false
   if (linkFilter.value === 'disconnected' && pathLive(path)) return false
-  return true
-}))
-
-const filteredProbePaths = computed(() => probePaths.value.filter((path) => {
-  if (observerFilter.value && path.collector_id !== observerFilter.value) return false
-  if (path.target?.source === 'none') return !linkFilter.value
-  if (linkFilter.value === 'connected' && !probeLive(path)) return false
-  if (linkFilter.value === 'disconnected' && probeLive(path)) return false
   return true
 }))
 
@@ -118,12 +97,11 @@ const matrixObservers = computed(() => {
 const matrixRows = computed(() => {
   const matching = new Set<string>()
   for (const path of filteredPaths.value) matching.add(rowIdentity(path.server_id, path.node_uuid))
-  for (const path of filteredProbePaths.value) matching.add(rowIdentity(path.server_id))
   const rows = new Map<string, PathMatrixRow>()
   const take = (key: string, serverId: number | undefined, nodeUuid: string | undefined, name: string) => {
     let row = rows.get(key)
     if (!row) {
-      row = { key, server_id: serverId, node_uuid: nodeUuid, server_name: name, cells: {}, probeCells: {} }
+      row = { key, server_id: serverId, node_uuid: nodeUuid, server_name: name, cells: {} }
       rows.set(key, row)
     }
     if (!row.server_name && name) row.server_name = name
@@ -135,11 +113,6 @@ const matrixRows = computed(() => {
     const key = rowIdentity(path.server_id, path.node_uuid)
     if (!matching.has(key)) continue
     take(key, path.server_id, path.node_uuid, path.server_name || '').cells[path.observer_id] = path
-  }
-  for (const path of probePaths.value) {
-    const key = rowIdentity(path.server_id)
-    if (!matching.has(key)) continue
-    take(key, path.server_id, undefined, path.server_name || '').probeCells[path.collector_id] = path
   }
   return [...rows.values()]
 })
@@ -176,7 +149,7 @@ function collectorStatus(row: CollectorRecord) {
 }
 
 function collectorOnline(id: string) {
-  const row = collectors.value.find(item => item.id === id)
+  const row = observerCollectors.value.find(item => item.id === id)
   return Boolean(row && collectorStatus(row) === 'online')
 }
 
@@ -184,11 +157,6 @@ function pathLive(path: ConnectionPath) {
   if (!path.sink.connected) return false
   if (path.observer_kind === 'primary' || path.observer_id === 'primary') return true
   return collectorOnline(path.observer_id)
-}
-
-function probeLive(path: ProbePath) {
-  if (!collectorOnline(path.collector_id)) return false
-  return Boolean(path.reachable && path.sampled_at)
 }
 
 function collectorRttTone(row: CollectorRecord) {
@@ -227,47 +195,20 @@ function pathRowKey(row: ConnectionPath) {
   return `${row.node_uuid}:${row.observer_id}`
 }
 
-function probeRowKey(row: ProbePath) {
-  return `${row.server_id}:${row.collector_id}`
-}
-
 function observerLabel(path: ConnectionPath) {
   if (path.observer_kind === 'primary') return t('observerKindPrimary')
   return path.observer_name || path.observer_id
 }
 
 function hasMatrixCell(row: PathMatrixRow, observer: MatrixObserver) {
-  return observer.kind === 'probe' ? Boolean(row.probeCells[observer.id]) : Boolean(row.cells[observer.id])
-}
-
-function probeChipText(path: ProbePath) {
-  if (path.target?.source === 'none') return '—'
-  if (!collectorOnline(path.collector_id)) return t('disconnected')
-  if (path.reachable && path.sampled_at) return latencyText(path.display_rtt_ms, path.sampled_at)
-  return t('probeTimeout')
+  return Boolean(row.cells[observer.id])
 }
 
 function matrixCells(row: PathMatrixRow, observer: MatrixObserver): MatrixCell[] {
-  if (observer.kind === 'probe') {
-    const path = row.probeCells[observer.id]
-    if (!path) return []
-    const noTarget = path.target?.source === 'none'
-    const live = probeLive(path)
-    return [{
-      kind: 'probe',
-      probe: path,
-      connected: live,
-      hasError: Boolean(path.last_error) && collectorOnline(path.collector_id),
-      title: live ? sampledTitle(path.sampled_at) : (path.last_error && collectorOnline(path.collector_id) ? lastErrorText(path.last_error) : undefined),
-      text: probeChipText(path),
-      sampled: live && !noTarget ? sampledClock(path.sampled_at) : '',
-    }]
-  }
   const path = row.cells[observer.id]
   if (!path) return []
   const live = pathLive(path)
   return [{
-    kind: 'observer',
     path,
     connected: live,
     hasError: Boolean(path.sink.last_error),
@@ -280,24 +221,12 @@ function matrixCells(row: PathMatrixRow, observer: MatrixObserver): MatrixCell[]
 }
 
 function cellTone(cell: MatrixCell) {
-  if (cell.kind === 'probe' && cell.probe?.target?.source === 'none') return ''
   return cell.connected ? 'is-connected' : 'is-disconnected'
-}
-
-function openMatrixCell(cell: MatrixCell) {
-  if (cell.kind === 'probe' && cell.probe) openProbe(cell.probe)
-  else if (cell.path) openPath(cell.path)
-}
-
-function formatLoss(value?: number | null) {
-  if (value == null || !Number.isFinite(value)) return '—'
-  const percent = value <= 1 ? value * 100 : value
-  return `${new Intl.NumberFormat(locale.value, { maximumFractionDigits: 1 }).format(percent)}%`
 }
 
 async function loadCollectorLatency() {
   const collector = activeCollector.value
-  if (!collector || isProbeCollector(collector)) return
+  if (!collector) return
   latencyLoading.value = true
   try {
     const result = await listConnectionLatency({
@@ -330,28 +259,6 @@ async function loadPathLatency() {
   }
 }
 
-async function loadProbeDetail() {
-  const path = activeProbe.value
-  if (!path) return
-  latencyLoading.value = true
-  try {
-    const [samples, trace] = await Promise.all([
-      listProbeSamples({
-        collector_id: path.collector_id, server_id: path.server_id,
-        page: probeSampleMeta.page, page_size: probeSampleMeta.page_size,
-      }),
-      getProbeTrace({ collector_id: path.collector_id, server_id: path.server_id }),
-    ])
-    probeSamples.value = samples.data
-    probeSampleMeta.total = samples.meta.total || samples.data.length
-    probeTrace.value = trace
-  } catch (error) {
-    notifyAPIError(error, t as never, te)
-  } finally {
-    latencyLoading.value = false
-  }
-}
-
 function openCollector(row: CollectorRecord) {
   activeCollector.value = row
   collectorLatencyMeta.page = 1
@@ -366,30 +273,17 @@ function openPath(row: ConnectionPath) {
   void loadPathLatency()
 }
 
-function openProbe(row: ProbePath) {
-  activeProbe.value = row
-  probeSampleMeta.page = 1
-  probeTrace.value = null
-  probeDrawer.value = true
-  void loadProbeDetail()
-}
-
 async function load(quiet = false) {
   if (inflight) return
   inflight = true
   if (!quiet) loading.value = true
   try {
-    const [collectorList, pathList, probeList] = await Promise.all([
+    const [collectorList, pathList] = await Promise.all([
       listCollectors(),
       listConnectionPaths(),
-      listProbePaths().catch((error) => {
-        notifyAPIError(error, t as never, te)
-        return { data: [] as ProbePath[] }
-      }),
     ])
     collectors.value = collectorList.data
     paths.value = pathList.data
-    probePaths.value = probeList.data
   } catch (error) {
     notifyAPIError(error, t as never, te)
   } finally {
@@ -433,12 +327,12 @@ onUnmounted(() => {
   <div class="page-stack">
     <section class="surface table-card connections-collectors">
       <div class="toolbar">
-        <h2 class="table-card-title">{{ t('collectorLinks') }} <small>{{ collectors.length }}</small></h2>
+        <h2 class="table-card-title">{{ t('collectorLinks') }} <small>{{ observerCollectors.length }}</small></h2>
       </div>
       <div class="collector-grid" v-loading="loading">
-        <AppEmpty v-if="!collectors.length && !loading" class="empty-state" icon="ri-radar-line" :title="t('noCollectorsTitle')" :description="t('noCollectorsHint')" />
+        <AppEmpty v-if="!observerCollectors.length && !loading" class="empty-state" icon="ri-base-station-line" :title="t('noCollectorsTitle')" :description="t('noCollectorsHint')" />
         <article
-          v-for="row in collectors"
+          v-for="row in observerCollectors"
           :key="row.id"
           class="collector-tile"
           role="button"
@@ -457,24 +351,19 @@ onUnmounted(() => {
             <span v-if="collectorRttSampled(row)" class="rtt-sampled">{{ collectorRttSampled(row) }}</span>
           </span>
           <div class="collector-tile__metrics">
-            <template v-if="isProbeCollector(row)">
-              <span>{{ collectorVersionText(row) }}</span>
-            </template>
-            <template v-else>
-              <span>{{ pretty(row.connected_agents, 'connected_agents') }} {{ t('connectedAgents') }}</span>
-              <span>{{ collectorReplicationText(row) }}</span>
-            </template>
+            <span>{{ pretty(row.connected_agents, 'connected_agents') }} {{ t('connectedAgents') }}</span>
+            <span>{{ collectorReplicationText(row) }}</span>
           </div>
         </article>
       </div>
-      <div v-if="!collectors.length && !loading" class="pagination">
+      <div v-if="!observerCollectors.length && !loading" class="pagination">
         <el-button type="primary" @click="router.push('/telemetry?create=1')"><i class="ri-add-line"></i>{{ t('createCollector') }}</el-button>
       </div>
     </section>
 
     <section class="surface table-card connections-nodes">
       <div class="toolbar">
-        <h2 class="table-card-title">{{ t('nodeLinks') }} <small>{{ filteredPaths.length + filteredProbePaths.length }}</small></h2>
+        <h2 class="table-card-title">{{ t('nodeLinks') }} <small>{{ filteredPaths.length }}</small></h2>
         <div class="toolbar-filters mobile-only">
           <el-select v-model="observerFilter" class="toolbar-filter" clearable :placeholder="t('allObservers')">
             <el-option v-for="item in observerOptions" :key="item.id" :label="item.name" :value="item.id" />
@@ -503,10 +392,8 @@ onUnmounted(() => {
                 v-for="obs in matrixObservers"
                 :key="obs.id"
                 class="col-observer"
-                :class="{ 'is-probe': obs.kind === 'probe' }"
                 role="columnheader"
               >
-                <i v-if="obs.kind === 'probe'" class="ri-radar-line" aria-hidden="true"></i>
                 <span>{{ obs.name }}</span>
               </div>
             </template>
@@ -536,12 +423,12 @@ onUnmounted(() => {
               >
                 <button
                   v-for="cell in matrixCells(row, obs)"
-                  :key="cell.kind === 'probe' && cell.probe ? probeRowKey(cell.probe) : pathRowKey(cell.path!)"
+                  :key="pathRowKey(cell.path)"
                   type="button"
                   class="path-matrix__cell"
                   :class="cellTone(cell)"
                   :title="cell.title"
-                  @click="openMatrixCell(cell)"
+                  @click="openPath(cell.path)"
                 >
                   <span class="rtt-main">
                     <i v-if="cell.hasError" class="ri-error-warning-line" aria-hidden="true"></i>
@@ -562,11 +449,9 @@ onUnmounted(() => {
             >
               <div
                 class="path-matrix__stub col-observer"
-                :class="{ 'is-probe': obs.kind === 'probe' }"
                 role="rowheader"
                 :title="obs.name"
               >
-                <i v-if="obs.kind === 'probe'" class="ri-radar-line" aria-hidden="true"></i>
                 <span>{{ obs.name }}</span>
               </div>
               <div
@@ -577,12 +462,12 @@ onUnmounted(() => {
               >
                 <button
                   v-for="cell in matrixCells(row, obs)"
-                  :key="cell.kind === 'probe' && cell.probe ? probeRowKey(cell.probe) : pathRowKey(cell.path!)"
+                  :key="pathRowKey(cell.path)"
                   type="button"
                   class="path-matrix__cell"
                   :class="cellTone(cell)"
                   :title="cell.title"
-                  @click="openMatrixCell(cell)"
+                  @click="openPath(cell.path)"
                 >
                   <span class="rtt-main">
                     <i v-if="cell.hasError" class="ri-error-warning-line" aria-hidden="true"></i>
@@ -603,21 +488,21 @@ onUnmounted(() => {
     <div class="page-stack">
     <dl v-if="activeCollector" class="mobile-card-meta">
       <div><dt>{{ t('id') }}</dt><dd><CopyableId :value="activeCollector.id" :compact="false" /></dd></div>
-      <div><dt>{{ t('collectorKind') }}</dt><dd>{{ t(isProbeCollector(activeCollector) ? 'collectorKindProbe' : 'collectorKindObserver') }}</dd></div>
+      <div><dt>{{ t('collectorKind') }}</dt><dd>{{ t('collectorKindObserver') }}</dd></div>
       <div><dt>{{ t('status') }}</dt><dd>{{ t(collectorStatus(activeCollector)) }}</dd></div>
       <div><dt>{{ t('lastSeen') }}</dt><dd>{{ pretty(activeCollector.last_seen, 'last_seen') }}</dd></div>
-      <div v-if="!isProbeCollector(activeCollector)"><dt>{{ t('lastSync') }}</dt><dd>{{ pretty(activeCollector.last_sync, 'last_sync') }}</dd></div>
+      <div><dt>{{ t('lastSync') }}</dt><dd>{{ pretty(activeCollector.last_sync, 'last_sync') }}</dd></div>
       <div><dt>{{ t('lastPrimarySeen') }}</dt><dd>{{ pretty(activeCollector.last_primary_seen, 'last_primary_seen') }}</dd></div>
       <div><dt>{{ t('heartbeatLatency') }}</dt><dd>{{ collectorStatus(activeCollector) === 'online' ? latencyText(activeCollector.heartbeat_rtt_ms, activeCollector.heartbeat_rtt_sampled_at) : t('offline') }}</dd></div>
-      <div v-if="!isProbeCollector(activeCollector)"><dt>{{ t('replicationLatency') }}</dt><dd>{{ collectorStatus(activeCollector) === 'online' ? latencyText(activeCollector.replication_rtt_ms, activeCollector.replication_rtt_sampled_at) : t('offline') }}</dd></div>
-      <div v-if="!isProbeCollector(activeCollector)"><dt>{{ t('connectedAgents') }}</dt><dd>{{ pretty(activeCollector.connected_agents, 'connected_agents') }}</dd></div>
-      <div v-if="!isProbeCollector(activeCollector)"><dt>{{ t('pendingRecords') }}</dt><dd>{{ pretty(activeCollector.pending_records, 'pending_records') }}</dd></div>
-      <div v-if="!isProbeCollector(activeCollector)"><dt>{{ t('oldestPending') }}</dt><dd>{{ pretty(activeCollector.oldest_pending, 'oldest_pending') }}</dd></div>
-      <div v-if="!isProbeCollector(activeCollector)"><dt>{{ t('replicationCursor') }}</dt><dd>{{ pretty(activeCollector.replication_cursor, 'replication_cursor') }}</dd></div>
+      <div><dt>{{ t('replicationLatency') }}</dt><dd>{{ collectorStatus(activeCollector) === 'online' ? latencyText(activeCollector.replication_rtt_ms, activeCollector.replication_rtt_sampled_at) : t('offline') }}</dd></div>
+      <div><dt>{{ t('connectedAgents') }}</dt><dd>{{ pretty(activeCollector.connected_agents, 'connected_agents') }}</dd></div>
+      <div><dt>{{ t('pendingRecords') }}</dt><dd>{{ pretty(activeCollector.pending_records, 'pending_records') }}</dd></div>
+      <div><dt>{{ t('oldestPending') }}</dt><dd>{{ pretty(activeCollector.oldest_pending, 'oldest_pending') }}</dd></div>
+      <div><dt>{{ t('replicationCursor') }}</dt><dd>{{ pretty(activeCollector.replication_cursor, 'replication_cursor') }}</dd></div>
       <div><dt>{{ t('protocolVersion') }}</dt><dd>{{ pretty(activeCollector.protocol_version, 'protocol_version') }}</dd></div>
       <div><dt>{{ t('collectorVersion') }}</dt><dd>{{ collectorVersionText(activeCollector) }}</dd></div>
     </dl>
-    <el-table v-if="activeCollector && !isProbeCollector(activeCollector)" v-loading="latencyLoading" :data="collectorLatency" class="dataset-table">
+    <el-table v-if="activeCollector" v-loading="latencyLoading" :data="collectorLatency" class="dataset-table">
       <el-table-column :label="t('bucketStart')" min-width="180"><template #default="{row}">{{ pretty(row.bucket_start, 'bucket_start') }}</template></el-table-column>
       <el-table-column :label="t('type')" width="90"><template #default="{row}">{{ pretty(row.kind, 'kind') }}</template></el-table-column>
       <el-table-column :label="t('minMs')" width="90"><template #default="{row}">{{ pretty(row.min_ms, 'min_ms') }}</template></el-table-column>
@@ -625,7 +510,7 @@ onUnmounted(() => {
       <el-table-column :label="t('maxMs')" width="90"><template #default="{row}">{{ pretty(row.max_ms, 'max_ms') }}</template></el-table-column>
       <template #empty><AppEmpty icon="ri-timer-line" :description="t('noData')" /></template>
     </el-table>
-    <div v-if="activeCollector && !isProbeCollector(activeCollector) && collectorLatencyMeta.total" class="pagination">
+    <div v-if="activeCollector && collectorLatencyMeta.total" class="pagination">
       <el-pagination v-model:current-page="collectorLatencyMeta.page" v-model:page-size="collectorLatencyMeta.page_size" layout="total, prev, pager, next" :total="collectorLatencyMeta.total" @change="loadCollectorLatency"/>
     </div>
     </div>
@@ -653,46 +538,6 @@ onUnmounted(() => {
     <div v-if="pathLatencyMeta.total" class="pagination">
       <el-pagination v-model:current-page="pathLatencyMeta.page" v-model:page-size="pathLatencyMeta.page_size" layout="total, prev, pager, next" :total="pathLatencyMeta.total" @change="loadPathLatency"/>
     </div>
-    </div>
-  </AppDrawer>
-
-  <AppDrawer v-model="probeDrawer" :title="activeProbe ? (activeProbe.server_name || t('server')) : t('nodeLinks')" mode="view">
-    <div class="page-stack">
-    <dl v-if="activeProbe" class="mobile-card-meta">
-      <div><dt>{{ t('collector') }}</dt><dd>{{ activeProbe.collector_name }}</dd></div>
-      <div><dt>{{ t('target') }}</dt><dd>{{ activeProbe.target?.hostname || activeProbe.target?.ipv4 || activeProbe.target?.ipv6 || '—' }}</dd></div>
-      <div><dt>{{ t('latency') }}</dt><dd>{{ probeChipText(activeProbe) }}</dd></div>
-      <div><dt>{{ t('lastObservation') }}</dt><dd>{{ pretty(activeProbe.sampled_at, 'sampled_at') }}</dd></div>
-      <div><dt>{{ t('icmp') }}</dt><dd>{{ activeProbe.icmp?.ok ? pretty(activeProbe.icmp.rtt_ms, 'rtt_ms') : t('probeTimeout') }}</dd></div>
-      <div><dt>{{ t('loss') }}</dt><dd>{{ formatLoss(activeProbe.icmp?.loss) }}</dd></div>
-      <div><dt>{{ t('lastError') }}</dt><dd><CopyableId :value="activeProbe.last_error" :compact="false" /></dd></div>
-    </dl>
-    <el-table v-if="activeProbe?.tcp?.length" :data="activeProbe.tcp" class="dataset-table">
-      <el-table-column :label="t('tcp')" width="90"><template #default="{row}">{{ row.port }}</template></el-table-column>
-      <el-table-column :label="t('status')" width="90"><template #default="{row}">{{ row.ok ? t('connected') : t('probeTimeout') }}</template></el-table-column>
-      <el-table-column :label="t('latency')"><template #default="{row}">{{ row.ok ? pretty(row.rtt_ms, 'rtt_ms') : '—' }}</template></el-table-column>
-    </el-table>
-    <el-table v-loading="latencyLoading" :data="probeSamples" class="dataset-table">
-      <el-table-column :label="t('bucketStart')" min-width="180"><template #default="{row}">{{ pretty(row.bucket_start, 'bucket_start') }}</template></el-table-column>
-      <el-table-column :label="t('type')" width="80"><template #default="{row}">{{ pretty(row.kind, 'kind') }}</template></el-table-column>
-      <el-table-column :label="t('tcp')" width="80"><template #default="{row}">{{ row.port || '—' }}</template></el-table-column>
-      <el-table-column :label="t('minMs')" width="90"><template #default="{row}">{{ pretty(row.min_ms, 'min_ms') }}</template></el-table-column>
-      <el-table-column :label="t('avgMs')" width="90"><template #default="{row}">{{ pretty(row.avg_ms, 'avg_ms') }}</template></el-table-column>
-      <el-table-column :label="t('maxMs')" width="90"><template #default="{row}">{{ pretty(row.max_ms, 'max_ms') }}</template></el-table-column>
-      <el-table-column :label="t('loss')" width="80"><template #default="{row}">{{ formatLoss(row.loss) }}</template></el-table-column>
-      <template #empty><AppEmpty icon="ri-timer-line" :description="t('noData')" /></template>
-    </el-table>
-    <div v-if="probeSampleMeta.total" class="pagination">
-      <el-pagination v-model:current-page="probeSampleMeta.page" v-model:page-size="probeSampleMeta.page_size" layout="total, prev, pager, next" :total="probeSampleMeta.total" @change="loadProbeDetail"/>
-    </div>
-    <h3 v-if="probeTrace" class="editor-section-title"><span>{{ t('probeTrace') }}</span></h3>
-    <el-table v-if="probeTrace" :data="probeTrace.hops" class="dataset-table">
-      <el-table-column :label="t('hop')" width="70"><template #default="{row}">{{ row.ttl }}</template></el-table-column>
-      <el-table-column :label="t('address')" min-width="160"><template #default="{row}">{{ row.address || '—' }}</template></el-table-column>
-      <el-table-column :label="t('avgMs')" width="90"><template #default="{row}">{{ pretty(row.avg_ms, 'avg_ms') }}</template></el-table-column>
-      <el-table-column :label="t('loss')" width="80"><template #default="{row}">{{ formatLoss(row.loss) }}</template></el-table-column>
-      <template #empty><AppEmpty icon="ri-route-line" :description="t('noData')" /></template>
-    </el-table>
     </div>
   </AppDrawer>
   </div>

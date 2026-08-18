@@ -4,12 +4,13 @@ import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { AppDialog, AppDrawer, AppEmpty } from '@santaizi/ui'
-import type { ConnectionPath } from '@santaizi/api'
+import type { ConnectionPath, ProbePath } from '@santaizi/api'
 import ServerEditorDialog from '@/components/editors/ServerEditorDialog.vue'
 import ServerGroupManagerDialog from '@/components/editors/ServerGroupManagerDialog.vue'
 import InstallAgentDialog from '@/components/InstallAgentDialog.vue'
 import UpgradeAgentDialog from '@/components/UpgradeAgentDialog.vue'
-import { batchDeleteServers, batchUpdateServerGroup, deleteOfflineHistory, deleteServer, listConnectionPaths, listOfflineHistory, listServerAvailability, listServers, resetServerAvailability, resetServerSecret, updateServerDisplayIndex, type ResourceRecord, type ServerRecord } from '@/api/adminApi'
+import ProbePathDrawer from '@/components/ProbePathDrawer.vue'
+import { batchDeleteServers, batchUpdateServerGroup, deleteOfflineHistory, deleteServer, listConnectionPaths, listOfflineHistory, listProbePaths, listServerAvailability, listServers, resetServerAvailability, resetServerSecret, updateServerDisplayIndex, type ResourceRecord, type ServerRecord } from '@/api/adminApi'
 import {formatAdminValue} from '@/composables/format'
 import { notifyAPIError } from '@/composables/notify'
 import { isRowSelected, toggleRowSelection } from '@/composables/selection'
@@ -24,6 +25,7 @@ import {
 } from '@/domain/availability'
 import { hostAddresses } from '@/domain/hostAddress'
 import { parsePublicNote } from '@/domain/publicNote'
+import { probeHasNoTarget, probePathKey, probeTargetText } from '@/domain/probePath'
 import { hostCoverageIcon, hostCoverageTone, hostListTone } from '@/domain/serverPresence'
 
 const { t, te, locale } = useI18n()
@@ -32,7 +34,9 @@ const loading = ref(false), editor = ref(false), installDialog = ref(false), upg
 const items = ref<ServerRecord[]>([]), selected = ref<ServerRecord[]>([]), editing = ref<ServerRecord>(), installServer = ref<ServerRecord>(), installSecret = ref(''), upgradeServer = ref<ServerRecord>()
 const total = ref(0)
 const query = reactive({ page: 1, page_size: 20, q: '', sort: 'display_index', order: 'desc' as const })
-const historyDrawer = ref(false), historyLoading = ref(false), historyServer = ref<ServerRecord>(), historyTab = ref('availability'), history = ref<ResourceRecord[]>([]), availability = ref<ResourceRecord[]>([]), connectionPaths = ref<ConnectionPath[]>([])
+const historyDrawer = ref(false), historyLoading = ref(false), historyServer = ref<ServerRecord>(), historyTab = ref('availability'), history = ref<ResourceRecord[]>([]), availability = ref<ResourceRecord[]>([]), connectionPaths = ref<ConnectionPath[]>([]), probePaths = ref<ProbePath[]>([])
+const probeDrawer = ref(false)
+const activeProbe = ref<ProbePath>()
 const availabilityHours = ref(6)
 const availabilityRangeOptions = [1, 6, 24]
 const sortDraft = ref<Record<number, string>>({})
@@ -96,6 +100,16 @@ function pathObserverLabel(path: ConnectionPath) {
   if (path.observer_kind === 'primary') return t('observerKindPrimary')
   return path.observer_name || path.observer_id
 }
+function probeChipText(path: ProbePath) {
+  if (probeHasNoTarget(path)) return '—'
+  if (path.reachable && path.sampled_at) return display(path.display_rtt_ms, 'display_rtt_ms')
+  if (!path.sampled_at) return t('offline')
+  return t('probeTimeout')
+}
+function openProbe(row: ProbePath) {
+  activeProbe.value = row
+  probeDrawer.value = true
+}
 function onSelect(row: ServerRecord, checked: boolean | string | number) { selected.value = toggleRowSelection(selected.value, row, !!checked) }
 function showInstall(server: ServerRecord, secret = '') { installServer.value = server; installSecret.value = secret; installDialog.value = true }
 function showUpgrade(server: ServerRecord) { upgradeServer.value = server; upgradeDialog.value = true }
@@ -128,10 +142,12 @@ async function showHistory(server: ServerRecord) {
   history.value = []
   availability.value = []
   connectionPaths.value = []
+  probePaths.value = []
   try {
     await Promise.all([
       listOfflineHistory(server.id).then(result => { history.value = result.data }),
       listConnectionPaths({ server_id: server.id }).then(result => { connectionPaths.value = result.data }),
+      listProbePaths({ server_id: server.id }).then(result => { probePaths.value = result.data }),
       loadAvailabilityHistory(server),
     ])
   } catch (error) {
@@ -446,6 +462,15 @@ onUnmounted(() => { hoverMedia?.removeEventListener('change', onHoverMediaChange
           <template #empty><AppEmpty icon="ri-links-line" :title="t('noPathsTitle')" :description="t('noPathsHint')"/></template>
         </el-table>
       </el-tab-pane>
+      <el-tab-pane :label="t('probeObservation')" name="probes">
+        <el-table v-loading="historyLoading" :data="probePaths" :row-key="probePathKey" @row-click="openProbe">
+          <el-table-column :label="t('collector')" min-width="160"><template #default="{row}">{{ row.collector_name || row.collector_id }}</template></el-table-column>
+          <el-table-column :label="t('target')" min-width="160"><template #default="{row}">{{ probeTargetText(row) }}</template></el-table-column>
+          <el-table-column :label="t('latency')" width="120"><template #default="{row}">{{ probeChipText(row) }}</template></el-table-column>
+          <el-table-column :label="t('lastObservation')" min-width="180"><template #default="{row}">{{ display(row.sampled_at, 'sampled_at') }}</template></el-table-column>
+          <template #empty><AppEmpty icon="ri-radar-line" :title="t('noProbePathsTitle')" :description="t('noProbePathsHint')"/></template>
+        </el-table>
+      </el-tab-pane>
       <el-tab-pane :label="t('offlineHistory')" name="offline">
         <el-table v-loading="historyLoading" :data="history">
           <el-table-column prop="started_at" :label="t('startedAt')" min-width="190"><template #default="{row}">{{display(row.started_at,'started_at')}}</template></el-table-column>
@@ -456,6 +481,7 @@ onUnmounted(() => { hoverMedia?.removeEventListener('change', onHoverMediaChange
       </el-tab-pane>
     </el-tabs>
   </AppDrawer>
+  <ProbePathDrawer v-model="probeDrawer" :path="activeProbe" :chip-text="activeProbe ? probeChipText(activeProbe) : '—'" />
 </template>
 
 <style scoped>

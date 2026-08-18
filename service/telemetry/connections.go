@@ -111,7 +111,7 @@ type PathFilter struct {
 func LoadConnectionSummary(db *gorm.DB, now time.Time) (ConnectionSummary, error) {
 	var summary ConnectionSummary
 	var collectors []model.Collector
-	if err := db.Where("deleted = ? AND revoked = ?", false, false).Find(&collectors).Error; err != nil {
+	if err := db.Where("deleted = ? AND revoked = ? AND kind != ?", false, false, model.CollectorKindProbe).Find(&collectors).Error; err != nil {
 		return summary, err
 	}
 	summary.CollectorsTotal = int64(len(collectors))
@@ -232,6 +232,9 @@ func loadConnectionPaths(db *gorm.DB, filter PathFilter, now time.Time) ([]Conne
 
 	paths := make([]ConnectionPath, 0, len(assignments))
 	for _, assignment := range assignments {
+		if idx.isProbeObserver(assignment.ObserverID) {
+			continue
+		}
 		serverID, serverName := idx.host(assignment.NodeUUID)
 		kind, name := idx.observer(assignment.ObserverID)
 		sink := sinks[pathKey(assignment.NodeUUID, assignment.ObserverID)]
@@ -380,6 +383,14 @@ func (idx hostIndex) observer(id string) (kind, name string) {
 		return ObserverKindPrimary, ""
 	}
 	return ObserverKindCollector, idx.collectors[id].Name
+}
+
+func (idx hostIndex) isProbeObserver(id string) bool {
+	if id == "" || id == PrimaryObserverID {
+		return false
+	}
+	collector, ok := idx.collectors[id]
+	return ok && collector.IsProbe()
 }
 
 func loadHostIndex(db *gorm.DB, nodeIDs [][]byte, observerIDs []string) (hostIndex, error) {
