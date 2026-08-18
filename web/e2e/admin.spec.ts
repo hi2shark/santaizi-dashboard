@@ -976,7 +976,7 @@ test('telemetry datasets show readable rows without blobs or full uuids', async 
   await page.keyboard.press('Escape')
   await expect(drawer).toHaveCount(0)
 
-  await page.getByRole('tab', { name: '事件', exact: true }).click()
+  await page.getByRole('tab', { name: '连通异常', exact: true }).click()
   const incidentsList = page.locator('.dataset-table, .mobile-card-list').filter({ visible: true }).first()
   await expect(incidentsList.getByText('连通性降级').filter({ visible: true })).toBeVisible()
   await expect(incidentsList.getByText('进行中').filter({ visible: true })).toBeVisible()
