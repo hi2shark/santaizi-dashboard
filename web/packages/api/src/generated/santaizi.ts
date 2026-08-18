@@ -41,6 +41,7 @@ import type {
   GetProbeTraceParams,
   GetPublicMetricsParams,
   GetPublicServerAvailabilityParams,
+  GetServerTrafficHistoryParams,
   IncidentListResponseResponse,
   IncidentRevisionListResponseResponse,
   InstallPreviewResponseResponse,
@@ -97,6 +98,7 @@ import type {
   SessionResponseResponse,
   TelemetryAlertListResponseResponse,
   TelemetryDataLossListResponseResponse,
+  TrafficHistoryListResponseResponse,
   TrafficPolicyListResponseResponse,
   TrafficPolicyResponseResponse,
   TrafficPolicyWriteBody,
@@ -541,6 +543,22 @@ const deleteTrafficPolicy = (
  ) => {
       return santaiziRequest<void>(
       {url: `/api/v2/admin/servers/${serverId}/traffic-policies/${policyId}`, method: 'DELETE'
+    },
+      );
+    }
+
+/**
+ * 返回该服务器全部流量策略的当前窗口用量、近 24 小时按小时序列，以及当前窗口内按天序列（最多回溯 90 天）。
+ * `tz` 为 IANA 时区，用于按天切日界；非法或空则按 UTC。无节点绑定或无 rollup 时序列为 0，不返回 404。
+ * @summary 服务器流量策略历史
+ */
+const getServerTrafficHistory = (
+    serverId: number,
+    params?: GetServerTrafficHistoryParams,
+ ) => {
+      return santaiziRequest<TrafficHistoryListResponseResponse>(
+      {url: `/api/v2/admin/servers/${serverId}/traffic-history`, method: 'GET',
+        params
     },
       );
     }
@@ -1441,7 +1459,7 @@ const listTelemetryAlerts = (
       );
     }
 
-return {getSession,logout,getPublicBootstrap,createViewPasswordSession,listPublicServers,getPublicServer,listPublicServices,getPublicNetworkHistory,listPublicCycleTransfer,getPublicServerAvailability,getPublicMetrics,getAdminSummary,listServers,createServer,getServer,updateServer,deleteServer,listServerAvailability,updateServerDisplayIndex,listServerGroups,renameServerGroup,resetServerSecret,resetServerAvailability,getServerCredential,getServerInstallPreview,getServerUpgradePreview,getProbeCapabilities,listTrafficPolicies,createTrafficPolicy,getTrafficPolicy,updateTrafficPolicy,deleteTrafficPolicy,getTrafficPolicyUsage,batchUpdateServerGroup,batchDeleteServers,listMonitors,createMonitor,getMonitor,updateMonitor,deleteMonitor,listMonitorHistory,listNotifications,createNotification,getNotification,updateNotification,deleteNotification,testNotification,listAlertRules,createAlertRule,getAlertRule,updateAlertRule,deleteAlertRule,listDDNSProviders,listDDNSProfiles,createDDNSProfile,getDDNSProfile,updateDDNSProfile,deleteDDNSProfile,listNATTunnels,createNATTunnel,getNATTunnel,updateNATTunnel,deleteNATTunnel,getSettings,updateSettings,getDatabase,optimizeDatabase,listScriptCommands,listApiTokens,createApiToken,getApiToken,patchApiToken,deleteApiToken,listOfflineHistory,deleteOfflineHistory,cleanupOfflineHistory,getTelemetryOverview,getConnectionSummary,listConnectionPaths,listConnectionLatency,getProbeSummary,listProbePaths,listProbeSamples,getProbeTrace,listCollectors,createCollector,getCollector,updateCollector,deleteCollector,rotateCollectorToken,getCollectorToken,revokeCollector,updateCollectorScope,getCollectorInstallPreview,listObserverAssignments,listAgentReliability,listIncidents,listIncidentRevisions,listTelemetryDataLoss,listTelemetryAlerts}};
+return {getSession,logout,getPublicBootstrap,createViewPasswordSession,listPublicServers,getPublicServer,listPublicServices,getPublicNetworkHistory,listPublicCycleTransfer,getPublicServerAvailability,getPublicMetrics,getAdminSummary,listServers,createServer,getServer,updateServer,deleteServer,listServerAvailability,updateServerDisplayIndex,listServerGroups,renameServerGroup,resetServerSecret,resetServerAvailability,getServerCredential,getServerInstallPreview,getServerUpgradePreview,getProbeCapabilities,listTrafficPolicies,createTrafficPolicy,getTrafficPolicy,updateTrafficPolicy,deleteTrafficPolicy,getServerTrafficHistory,getTrafficPolicyUsage,batchUpdateServerGroup,batchDeleteServers,listMonitors,createMonitor,getMonitor,updateMonitor,deleteMonitor,listMonitorHistory,listNotifications,createNotification,getNotification,updateNotification,deleteNotification,testNotification,listAlertRules,createAlertRule,getAlertRule,updateAlertRule,deleteAlertRule,listDDNSProviders,listDDNSProfiles,createDDNSProfile,getDDNSProfile,updateDDNSProfile,deleteDDNSProfile,listNATTunnels,createNATTunnel,getNATTunnel,updateNATTunnel,deleteNATTunnel,getSettings,updateSettings,getDatabase,optimizeDatabase,listScriptCommands,listApiTokens,createApiToken,getApiToken,patchApiToken,deleteApiToken,listOfflineHistory,deleteOfflineHistory,cleanupOfflineHistory,getTelemetryOverview,getConnectionSummary,listConnectionPaths,listConnectionLatency,getProbeSummary,listProbePaths,listProbeSamples,getProbeTrace,listCollectors,createCollector,getCollector,updateCollector,deleteCollector,rotateCollectorToken,getCollectorToken,revokeCollector,updateCollectorScope,getCollectorInstallPreview,listObserverAssignments,listAgentReliability,listIncidents,listIncidentRevisions,listTelemetryDataLoss,listTelemetryAlerts}};
 export type GetSessionResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getSession']>>>
 export type LogoutResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['logout']>>>
 export type GetPublicBootstrapResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getPublicBootstrap']>>>
@@ -1474,6 +1492,7 @@ export type CreateTrafficPolicyResult = NonNullable<Awaited<ReturnType<ReturnTyp
 export type GetTrafficPolicyResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getTrafficPolicy']>>>
 export type UpdateTrafficPolicyResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['updateTrafficPolicy']>>>
 export type DeleteTrafficPolicyResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['deleteTrafficPolicy']>>>
+export type GetServerTrafficHistoryResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getServerTrafficHistory']>>>
 export type GetTrafficPolicyUsageResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getTrafficPolicyUsage']>>>
 export type BatchUpdateServerGroupResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['batchUpdateServerGroup']>>>
 export type BatchDeleteServersResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['batchDeleteServers']>>>

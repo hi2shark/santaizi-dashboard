@@ -952,6 +952,27 @@ func (e TrafficPolicyMode) Valid() bool {
 	}
 }
 
+// Defines values for TrafficPolicyHistoryDirection.
+const (
+	TrafficPolicyHistoryDirectionInbound  TrafficPolicyHistoryDirection = "inbound"
+	TrafficPolicyHistoryDirectionOutbound TrafficPolicyHistoryDirection = "outbound"
+	TrafficPolicyHistoryDirectionTotal    TrafficPolicyHistoryDirection = "total"
+)
+
+// Valid indicates whether the value is a known member of the TrafficPolicyHistoryDirection enum.
+func (e TrafficPolicyHistoryDirection) Valid() bool {
+	switch e {
+	case TrafficPolicyHistoryDirectionInbound:
+		return true
+	case TrafficPolicyHistoryDirectionOutbound:
+		return true
+	case TrafficPolicyHistoryDirectionTotal:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TrafficPolicyUpsertCycleUnit.
 const (
 	TrafficPolicyUpsertCycleUnitDay   TrafficPolicyUpsertCycleUnit = "day"
@@ -1084,6 +1105,27 @@ func (e TrafficPolicyWriteMode) Valid() bool {
 	}
 }
 
+// Defines values for TrafficSummaryStatus.
+const (
+	TrafficSummaryStatusExceeded TrafficSummaryStatus = "exceeded"
+	TrafficSummaryStatusNormal   TrafficSummaryStatus = "normal"
+	TrafficSummaryStatusWarning  TrafficSummaryStatus = "warning"
+)
+
+// Valid indicates whether the value is a known member of the TrafficSummaryStatus enum.
+func (e TrafficSummaryStatus) Valid() bool {
+	switch e {
+	case TrafficSummaryStatusExceeded:
+		return true
+	case TrafficSummaryStatusNormal:
+		return true
+	case TrafficSummaryStatusWarning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TrafficUsageDirection.
 const (
 	TrafficUsageDirectionInbound  TrafficUsageDirection = "inbound"
@@ -1125,19 +1167,19 @@ func (e TrafficUsageMode) Valid() bool {
 
 // Defines values for TrafficUsageStatus.
 const (
-	Exceeded TrafficUsageStatus = "exceeded"
-	Normal   TrafficUsageStatus = "normal"
-	Warning  TrafficUsageStatus = "warning"
+	TrafficUsageStatusExceeded TrafficUsageStatus = "exceeded"
+	TrafficUsageStatusNormal   TrafficUsageStatus = "normal"
+	TrafficUsageStatusWarning  TrafficUsageStatus = "warning"
 )
 
 // Valid indicates whether the value is a known member of the TrafficUsageStatus enum.
 func (e TrafficUsageStatus) Valid() bool {
 	switch e {
-	case Exceeded:
+	case TrafficUsageStatusExceeded:
 		return true
-	case Normal:
+	case TrafficUsageStatusNormal:
 		return true
-	case Warning:
+	case TrafficUsageStatusWarning:
 		return true
 	default:
 		return false
@@ -2339,6 +2381,9 @@ type Server struct {
 
 	// TrafficPolicies 仅创建/更新响应填充；列表接口不带。
 	TrafficPolicies *[]TrafficPolicy `json:"traffic_policies,omitempty"`
+
+	// TrafficSummaries 列表接口填充已启用策略的当前窗口用量；无策略时省略或为空数组。
+	TrafficSummaries *[]TrafficSummary `json:"traffic_summaries,omitempty"`
 }
 
 // ServerCredential defines model for ServerCredential.
@@ -2515,6 +2560,13 @@ type TelemetryPresentationConnectivity string
 // TelemetryPresentationHost defines model for TelemetryPresentation.Host.
 type TelemetryPresentationHost string
 
+// TrafficHistoryPoint defines model for TrafficHistoryPoint.
+type TrafficHistoryPoint struct {
+	Bytes       int64      `json:"bytes"`
+	WindowEnd   *time.Time `json:"window_end,omitempty"`
+	WindowStart time.Time  `json:"window_start"`
+}
+
 // TrafficPolicy defines model for TrafficPolicy.
 type TrafficPolicy struct {
 	CreatedAt       *time.Time              `json:"created_at,omitempty"`
@@ -2542,6 +2594,21 @@ type TrafficPolicyDirection string
 
 // TrafficPolicyMode defines model for TrafficPolicy.Mode.
 type TrafficPolicyMode string
+
+// TrafficPolicyHistory defines model for TrafficPolicyHistory.
+type TrafficPolicyHistory struct {
+	Daily     []TrafficHistoryPoint         `json:"daily"`
+	Direction TrafficPolicyHistoryDirection `json:"direction"`
+	Enabled   bool                          `json:"enabled"`
+	Hourly    []TrafficHistoryPoint         `json:"hourly"`
+	Name      string                        `json:"name"`
+	PolicyId  int64                         `json:"policy_id"`
+	ServerId  int64                         `json:"server_id"`
+	Usage     TrafficUsage                  `json:"usage"`
+}
+
+// TrafficPolicyHistoryDirection defines model for TrafficPolicyHistory.Direction.
+type TrafficPolicyHistoryDirection string
 
 // TrafficPolicyUpsert defines model for TrafficPolicyUpsert.
 type TrafficPolicyUpsert struct {
@@ -2591,6 +2658,19 @@ type TrafficPolicyWriteDirection string
 
 // TrafficPolicyWriteMode defines model for TrafficPolicyWrite.Mode.
 type TrafficPolicyWriteMode string
+
+// TrafficSummary defines model for TrafficSummary.
+type TrafficSummary struct {
+	Name         string               `json:"name"`
+	PolicyId     int64                `json:"policy_id"`
+	QuotaBytes   int64                `json:"quota_bytes"`
+	Status       TrafficSummaryStatus `json:"status"`
+	UsagePercent float32              `json:"usage_percent"`
+	UsedBytes    int64                `json:"used_bytes"`
+}
+
+// TrafficSummaryStatus defines model for TrafficSummary.Status.
+type TrafficSummaryStatus string
 
 // TrafficUsage defines model for TrafficUsage.
 type TrafficUsage struct {
@@ -2939,6 +3019,12 @@ type TelemetryAlertListResponse struct {
 type TelemetryDataLossListResponse struct {
 	Data []TelemetryDataLossRecord `json:"data"`
 	Meta Meta                      `json:"meta"`
+}
+
+// TrafficHistoryListResponse defines model for TrafficHistoryListResponse.
+type TrafficHistoryListResponse struct {
+	Data []TrafficPolicyHistory `json:"data"`
+	Meta Meta                   `json:"meta"`
 }
 
 // TrafficPolicyListResponse defines model for TrafficPolicyListResponse.
@@ -3291,6 +3377,11 @@ type ResetServerAvailabilityParams struct {
 type ResetServerSecretParams struct {
 	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
 	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// GetServerTrafficHistoryParams defines parameters for GetServerTrafficHistory.
+type GetServerTrafficHistoryParams struct {
+	Tz *string `form:"tz,omitempty" json:"tz,omitempty"`
 }
 
 // CreateTrafficPolicyParams defines parameters for CreateTrafficPolicy.
@@ -4293,6 +4384,9 @@ type ServerInterface interface {
 	// ResetServerSecret 重置服务器密钥
 	// (POST /api/v2/admin/servers/{serverId}/reset-secret)
 	ResetServerSecret(c *gin.Context, serverId ServerId, params ResetServerSecretParams)
+	// GetServerTrafficHistory 服务器流量策略历史
+	// (GET /api/v2/admin/servers/{serverId}/traffic-history)
+	GetServerTrafficHistory(c *gin.Context, serverId ServerId, params GetServerTrafficHistoryParams)
 	// ListTrafficPolicies 流量策略列表
 	// (GET /api/v2/admin/servers/{serverId}/traffic-policies)
 	ListTrafficPolicies(c *gin.Context, serverId ServerId)
@@ -6938,6 +7032,42 @@ func (siw *ServerInterfaceWrapper) ResetServerSecret(c *gin.Context) {
 	siw.Handler.ResetServerSecret(c, serverId, params)
 }
 
+// GetServerTrafficHistory operation middleware
+func (siw *ServerInterfaceWrapper) GetServerTrafficHistory(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "serverId" -------------
+	var serverId ServerId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "serverId", c.Param("serverId"), &serverId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter serverId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetServerTrafficHistoryParams
+
+	// ------------- Optional query parameter "tz" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "tz", c.Request.URL.Query(), &params.Tz, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter tz: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetServerTrafficHistory(c, serverId, params)
+}
+
 // ListTrafficPolicies operation middleware
 func (siw *ServerInterfaceWrapper) ListTrafficPolicies(c *gin.Context) {
 
@@ -8252,6 +8382,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.DELETE(options.BaseURL+"/api/v2/admin/servers/:serverId/traffic-policies/:policyId", wrapper.DeleteTrafficPolicy)
 	router.GET(options.BaseURL+"/api/v2/admin/servers/:serverId/traffic-policies/:policyId", wrapper.GetTrafficPolicy)
 	router.PATCH(options.BaseURL+"/api/v2/admin/servers/:serverId/traffic-policies/:policyId", wrapper.UpdateTrafficPolicy)
+	router.GET(options.BaseURL+"/api/v2/admin/servers/:serverId/traffic-history", wrapper.GetServerTrafficHistory)
 	router.GET(options.BaseURL+"/api/v2/admin/servers/:serverId/traffic-policies/:policyId/usage", wrapper.GetTrafficPolicyUsage)
 	router.POST(options.BaseURL+"/api/v2/admin/servers/batch/group", wrapper.BatchUpdateServerGroup)
 	router.POST(options.BaseURL+"/api/v2/admin/servers/batch/delete", wrapper.BatchDeleteServers)

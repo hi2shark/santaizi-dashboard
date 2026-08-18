@@ -566,7 +566,36 @@ func v2AdminServers(c *gin.Context) {
 		items = append(items, serverAdminDTO(server, false))
 	}
 	singleton.ServerLock.RUnlock()
+	if err := attachTrafficSummaries(items); err != nil {
+		writeV2Problem(c, 500, "traffic_usage_failed", err.Error())
+		return
+	}
 	writeV2List(c, items, v2Meta{Page: page, PageSize: size, Total: total})
+}
+
+func attachTrafficSummaries(items []gin.H) error {
+	ids := make([]uint64, 0, len(items))
+	for _, item := range items {
+		id, ok := item["id"].(uint64)
+		if !ok {
+			continue
+		}
+		ids = append(ids, id)
+	}
+	summaries, err := trafficservice.Summaries(singleton.DB, ids, time.Now())
+	if err != nil {
+		return err
+	}
+	for _, item := range items {
+		id, _ := item["id"].(uint64)
+		rows := summaries[id]
+		payload := make([]gin.H, 0, len(rows))
+		for _, row := range rows {
+			payload = append(payload, trafficSummaryDTO(row))
+		}
+		item["traffic_summaries"] = payload
+	}
+	return nil
 }
 
 func v2AdminServer(c *gin.Context) {
@@ -1494,7 +1523,7 @@ func v2SettingsDTO() gin.H {
 		"offline_threshold": singleton.Conf.OfflineThresholdSeconds, "check_interval": singleton.Conf.OfflineCheckIntervalSeconds, "merge_gap": singleton.Conf.OfflineMergeGapSeconds,
 		"retention_days": singleton.Conf.OfflineHistoryRetentionDays, "notify_offline": singleton.Conf.EnableOfflineNotification, "notify_recovery": singleton.Conf.EnableRecoveryNotification,
 		"plain_ip_in_notification": singleton.Conf.EnablePlainIPInNotification,
-		"show_availability_guest": singleton.Conf.ShowAvailabilityToGuest, "connectivity_notification": singleton.Conf.Telemetry.EnableConnectivityNotification,
+		"show_availability_guest":  singleton.Conf.ShowAvailabilityToGuest, "connectivity_notification": singleton.Conf.Telemetry.EnableConnectivityNotification,
 		"correction_notification": singleton.Conf.Telemetry.EnableCorrectionNotification, "collector_offline_notification": singleton.Conf.Telemetry.EnableCollectorOfflineNotification,
 		"data_loss_notification": singleton.Conf.Telemetry.EnableDataLossNotification, "primary_color": singleton.Conf.Site.PrimaryColor, "footer_text": singleton.Conf.Site.FooterText,
 		"logo_url": singleton.Conf.Site.LogoURL, "background_url": singleton.Conf.Site.BackgroundURL, "custom_css": singleton.Conf.Site.SafeCustomCSS,

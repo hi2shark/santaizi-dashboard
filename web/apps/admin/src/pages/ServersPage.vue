@@ -4,14 +4,15 @@ import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { AppDialog, AppDrawer, AppEmpty } from '@santaizi/ui'
-import type { ConnectionPath, ProbePath } from '@santaizi/api'
+import type { ConnectionPath, ProbePath, TrafficPolicyHistory, TrafficSummary } from '@santaizi/api'
 import ServerEditorDialog from '@/components/editors/ServerEditorDialog.vue'
 import ServerGroupManagerDialog from '@/components/editors/ServerGroupManagerDialog.vue'
 import InstallAgentDialog from '@/components/InstallAgentDialog.vue'
 import UpgradeAgentDialog from '@/components/UpgradeAgentDialog.vue'
 import ProbePathDrawer from '@/components/ProbePathDrawer.vue'
-import { batchDeleteServers, batchUpdateServerGroup, deleteOfflineHistory, deleteServer, listConnectionPaths, listOfflineHistory, listProbePaths, listServerAvailability, listServers, resetServerAvailability, resetServerSecret, updateServerDisplayIndex, type ResourceRecord, type ServerRecord } from '@/api/adminApi'
-import {formatAdminValue} from '@/composables/format'
+import TrafficHistoryPanel from '@/components/TrafficHistoryPanel.vue'
+import { batchDeleteServers, batchUpdateServerGroup, deleteOfflineHistory, deleteServer, getServerTrafficHistory, listConnectionPaths, listOfflineHistory, listProbePaths, listServerAvailability, listServers, resetServerAvailability, resetServerSecret, updateServerDisplayIndex, type ResourceRecord, type ServerRecord } from '@/api/adminApi'
+import { formatAdminValue, formatBytes } from '@/composables/format'
 import { notifyAPIError } from '@/composables/notify'
 import { isRowSelected, toggleRowSelection } from '@/composables/selection'
 import { shortId } from '@/composables/shortId'
@@ -34,7 +35,7 @@ const loading = ref(false), editor = ref(false), installDialog = ref(false), upg
 const items = ref<ServerRecord[]>([]), selected = ref<ServerRecord[]>([]), editing = ref<ServerRecord>(), installServer = ref<ServerRecord>(), installSecret = ref(''), upgradeServer = ref<ServerRecord>()
 const total = ref(0)
 const query = reactive({ page: 1, page_size: 20, q: '', sort: 'display_index', order: 'desc' as const })
-const historyDrawer = ref(false), historyLoading = ref(false), historyServer = ref<ServerRecord>(), historyTab = ref('availability'), history = ref<ResourceRecord[]>([]), availability = ref<ResourceRecord[]>([]), connectionPaths = ref<ConnectionPath[]>([]), probePaths = ref<ProbePath[]>([])
+const historyDrawer = ref(false), historyLoading = ref(false), historyServer = ref<ServerRecord>(), historyTab = ref('availability'), history = ref<ResourceRecord[]>([]), availability = ref<ResourceRecord[]>([]), connectionPaths = ref<ConnectionPath[]>([]), probePaths = ref<ProbePath[]>([]), trafficHistories = ref<TrafficPolicyHistory[]>([])
 const probeDrawer = ref(false)
 const activeProbe = ref<ProbePath>()
 const availabilityHours = ref(6)
@@ -89,6 +90,23 @@ function coverageText(server: ServerRecord) {
 }
 function availabilityTone(server: ServerRecord) { return hostCoverageTone(server) }
 function availabilityIcon(server: ServerRecord) { return hostCoverageIcon(hostCoverageTone(server)) }
+function hasTraffic(server?: ServerRecord | null) { return Boolean(server?.traffic_summaries?.length) }
+function primaryTrafficSummary(server: ServerRecord): TrafficSummary | undefined {
+  const rows = server.traffic_summaries || []
+  if (!rows.length) return undefined
+  return rows.reduce((best, row) => row.usage_percent > best.usage_percent ? row : best)
+}
+function trafficTone(status?: string) {
+  if (status === 'exceeded') return 'is-bad'
+  if (status === 'warning') return 'is-warn'
+  if (status === 'normal') return 'is-ok'
+  return ''
+}
+function trafficLabel(server: ServerRecord) {
+  const summary = primaryTrafficSummary(server)
+  if (!summary) return ''
+  return `${formatBytes(summary.used_bytes, locale.value)} / ${formatBytes(summary.quota_bytes, locale.value)}`
+}
 function display(value: unknown, key: string) { return formatAdminValue(value, key, locale.value, t as never, te) }
 function observerLabel(item: { observer_kind?: string; observer_name?: string; observer_id?: string }) {
   if (item.observer_kind === 'primary' || item.observer_id === 'primary') return t('observerKindPrimary')
@@ -134,22 +152,34 @@ async function loadAvailabilityHistory(server: ServerRecord) {
   }
   availability.value = rows
 }
-async function showHistory(server: ServerRecord) {
+async function loadTrafficHistory(server: ServerRecord) {
+  if (!hasTraffic(server)) {
+    trafficHistories.value = []
+    return
+  }
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+  const result = await getServerTrafficHistory(server.id, { tz })
+  trafficHistories.value = result.data
+}
+async function showHistory(server: ServerRecord, tab = 'availability') {
   historyServer.value = server
   historyDrawer.value = true
-  historyTab.value = 'availability'
+  historyTab.value = hasTraffic(server) ? tab : (tab === 'traffic' ? 'availability' : tab)
   historyLoading.value = true
   history.value = []
   availability.value = []
   connectionPaths.value = []
   probePaths.value = []
+  trafficHistories.value = []
   try {
-    await Promise.all([
+    const tasks: Promise<unknown>[] = [
       listOfflineHistory(server.id).then(result => { history.value = result.data }),
       listConnectionPaths({ server_id: server.id }).then(result => { connectionPaths.value = result.data }),
       listProbePaths({ server_id: server.id }).then(result => { probePaths.value = result.data }),
       loadAvailabilityHistory(server),
-    ])
+    ]
+    if (hasTraffic(server)) tasks.push(loadTrafficHistory(server))
+    await Promise.all(tasks)
   } catch (error) {
     notifyAPIError(error, t as never, te)
   } finally {
@@ -310,6 +340,13 @@ onUnmounted(() => { hoverMedia?.removeEventListener('change', onHoverMediaChange
           </el-button>
         </template>
       </el-table-column>
+      <el-table-column :label="t('traffic')" min-width="160">
+        <template #default="{row}">
+          <el-button v-if="primaryTrafficSummary(row)" text class="traffic-entry" :class="trafficTone(primaryTrafficSummary(row)?.status)" :aria-label="t('traffic')" @click="showHistory(row, 'traffic')">
+            {{ trafficLabel(row) }}
+          </el-button>
+        </template>
+      </el-table-column>
       <el-table-column prop="last_active" :label="t('lastSeen')" width="190">
         <template #default="{row}">{{ display(row.last_active,'last_active') }}</template>
       </el-table-column>
@@ -374,6 +411,9 @@ onUnmounted(() => { hoverMedia?.removeEventListener('change', onHoverMediaChange
             <el-tag effect="plain">{{ row.tag || 'default' }}</el-tag>
             <el-button text class="availability-entry" :class="availabilityTone(row)" :aria-label="t('availabilityHistory')" @click="showHistory(row)">
               <i :class="availabilityIcon(row)"></i>{{ coverageText(row) }}
+            </el-button>
+            <el-button v-if="primaryTrafficSummary(row)" text class="traffic-entry" :class="trafficTone(primaryTrafficSummary(row)?.status)" :aria-label="t('traffic')" @click="showHistory(row, 'traffic')">
+              {{ trafficLabel(row) }}
             </el-button>
           </div>
           <dl class="mobile-card-meta mobile-card-meta--stats">
@@ -448,6 +488,9 @@ onUnmounted(() => { hoverMedia?.removeEventListener('change', onHoverMediaChange
           </el-table-column>
           <template #empty><AppEmpty icon="ri-history-line" :description="t('noData')"/></template>
         </el-table>
+      </el-tab-pane>
+      <el-tab-pane v-if="hasTraffic(historyServer)" :label="t('traffic')" name="traffic">
+        <TrafficHistoryPanel :items="trafficHistories" :loading="historyLoading" />
       </el-tab-pane>
       <el-tab-pane :label="t('nodeLinks')" name="connections">
         <el-table v-loading="historyLoading" :data="connectionPaths" :row-key="pathRowKey">

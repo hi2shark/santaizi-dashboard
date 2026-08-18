@@ -1,4 +1,4 @@
-import type { ServerHost, ServerState } from './generated/model'
+import type { ServerHost, ServerState, TrafficSummary } from './generated/model'
 
 export type Locale = 'zh-CN' | 'zh-TW' | 'en-US' | 'es-ES'
 export type ThemeMode = 'system' | 'light' | 'dark'
@@ -78,6 +78,7 @@ export interface ServerRecord extends ResourceRecord {
   last_active?: string
   online?: boolean
   telemetry?: ServerTelemetryPresentation
+  traffic_summaries?: TrafficSummary[]
   probe_target?: string
   probe_tcp_ports?: string
   probe_enable_icmp?: boolean

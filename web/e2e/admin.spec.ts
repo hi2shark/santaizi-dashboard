@@ -814,7 +814,6 @@ test('connection observation hides stale RTT when collector is offline', async (
   await expect(matrix).not.toContainText('21.5 ms')
 })
 
-
 test('probe observation shows ICMP paths separately from node links', async ({ page }, testInfo) => {
   const observer = {
     id: 'collector-1', name: 'Frankfurt edge', address: 'collector.example.com:5555', tls: true, insecure_tls: false,
@@ -939,6 +938,7 @@ test('server history drawer shows observer evidence and connection paths', async
   await page.locator('.availability-entry').filter({ visible: true }).first().click()
   const drawer = page.locator('.el-drawer').filter({ visible: true })
   await expect(drawer.getByText('详情 · edge-a')).toBeVisible()
+  await expect(drawer.getByRole('tab', { name: '流量' })).toHaveCount(0)
   await expect(drawer.getByText('观测点').filter({ visible: true })).toBeVisible()
   await expect(drawer.getByText('主面板').filter({ visible: true }).first()).toBeVisible()
   await expect(drawer.getByText('可用率').filter({ visible: true })).toBeVisible()
@@ -946,6 +946,69 @@ test('server history drawer shows observer evidence and connection paths', async
   await page.getByRole('tab', { name: '节点连接' }).click()
   await expect(page.getByText('已连接').filter({ visible: true })).toBeVisible()
   await expect(page.getByText('9 ms').filter({ visible: true })).toBeVisible()
+})
+
+test('servers list shows traffic usage and hourly plus daily history', async ({ page }) => {
+  let historyTz = ''
+  const hourly = Array.from({ length: 24 }, (_, index) => ({
+    window_start: `2026-08-17T${String(index).padStart(2, '0')}:00:00.000Z`,
+    bytes: index + 1,
+  }))
+  await page.route('**/api/v2/admin/servers**', route => {
+    const url = new URL(route.request().url())
+    const path = url.pathname
+    if (path.endsWith('/traffic-history')) {
+      historyTz = url.searchParams.get('tz') || ''
+      return fulfillJSON(route, list([{
+        policy_id: 3, server_id: 7, name: 'Monthly total', enabled: true, direction: 'total',
+        usage: {
+          policy_id: 3, server_id: 7, direction: 'total', mode: 'cumulative',
+          window_start: '2026-08-01T00:00:00Z', window_end: null,
+          used_bytes: 100, quota_bytes: 1000, warning_percent: 80, usage_percent: 10,
+          status: 'normal', updated_at: '2026-08-18T12:00:00Z',
+        },
+        hourly,
+        daily: [
+          { window_start: '2026-08-17T00:00:00.000Z', bytes: 80 },
+          { window_start: '2026-08-18T00:00:00.000Z', bytes: 45 },
+        ],
+      }]))
+    }
+    if (path.endsWith('/availability')) return fulfillJSON(route, list())
+    return fulfillJSON(route, list([
+      {
+        id: 7, name: 'edge-a', tag: 'edge', online: true, public_note: {}, monitoring_options: {},
+        display_index: 1, hide_for_guest: false, enable_ddns: false,
+        host: { Platform: 'debian', Version: '1.0.0' },
+        traffic_summaries: [{ policy_id: 3, name: 'Monthly total', used_bytes: 100, quota_bytes: 1000, usage_percent: 10, status: 'normal' }],
+        telemetry: { host: 'online', connectivity: 'full', available: true, coverage: '1/1' },
+      },
+      {
+        id: 8, name: 'edge-b', tag: 'edge', online: true, public_note: {}, monitoring_options: {},
+        display_index: 2, hide_for_guest: false, enable_ddns: false,
+        traffic_summaries: [],
+        telemetry: { host: 'online', connectivity: 'full', available: true, coverage: '1/1' },
+      },
+    ]))
+  })
+  await page.goto('/admin/servers')
+  await expect(page.locator('.traffic-entry').filter({ visible: true })).toHaveCount(1)
+  await expect(page.locator('.traffic-entry').filter({ visible: true })).toContainText('100 B / 1,000 B')
+  await page.locator('.traffic-entry').filter({ visible: true }).click()
+  const drawer = page.locator('.el-drawer').filter({ visible: true })
+  await expect(drawer.getByText('详情 · edge-a')).toBeVisible()
+  await expect(drawer.getByRole('tab', { name: '流量' })).toBeVisible()
+  await expect(drawer.getByText('近 24 小时')).toBeVisible()
+  await expect(drawer.getByText('按天')).toBeVisible()
+  await expect(drawer.locator('.traffic-bars').first().locator('.traffic-bar-slot')).toHaveCount(24)
+  await expect(drawer.locator('.traffic-bars').nth(1).locator('.traffic-bar-slot')).toHaveCount(2)
+  await expect.poll(() => historyTz).not.toBe('')
+  await page.keyboard.press('Escape')
+  await expect(drawer).toHaveCount(0)
+  await page.locator('.availability-entry').filter({ visible: true }).nth(1).click()
+  const next = page.locator('.el-drawer').filter({ visible: true })
+  await expect(next.getByText('详情 · edge-b')).toBeVisible()
+  await expect(next.getByRole('tab', { name: '流量' })).toHaveCount(0)
 })
 
 test('telemetry datasets show readable rows without blobs or full uuids', async ({ page }) => {

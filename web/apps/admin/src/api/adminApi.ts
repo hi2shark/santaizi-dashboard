@@ -67,6 +67,7 @@ export const getServerCredential = (server: ServerRecord) => api.getServerCreden
 
 export const listTrafficPolicies = (serverId: number) => api.listTrafficPolicies(serverId) as Promise<api.ApiList<TrafficPolicyRecord>>
 export const getTrafficPolicyUsage = api.getTrafficPolicyUsage
+export const getServerTrafficHistory = api.getServerTrafficHistory
 export const getProbeCapabilities = () => api.getProbeCapabilities() as Promise<ProbeCapabilitiesMetadata>
 export const getServerInstallPreview = api.getServerInstallPreview
 export const getServerUpgradePreview = api.getServerUpgradePreview

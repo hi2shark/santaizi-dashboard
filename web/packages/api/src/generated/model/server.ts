@@ -13,6 +13,7 @@ import type { ServerHost } from './serverHost';
 import type { ServerState } from './serverState';
 import type { TelemetryPresentation } from './telemetryPresentation';
 import type { TrafficPolicy } from './trafficPolicy';
+import type { TrafficSummary } from './trafficSummary';
 
 export interface Server {
   id: number;
@@ -33,6 +34,8 @@ export interface Server {
   telemetry?: TelemetryPresentation;
   /** 仅创建/更新响应填充；列表接口不带。 */
   traffic_policies?: TrafficPolicy[];
+  /** 列表接口填充已启用策略的当前窗口用量；无策略时省略或为空数组。 */
+  traffic_summaries?: TrafficSummary[];
   /**
      * 可选探测地址（域名或 IP）。空则用探针上报的公网 IP。
      * @maxLength 255

@@ -608,6 +608,30 @@ paths:
           description: Deleted
         default:
           $ref: '#/components/responses/Problem'
+  /api/v2/admin/servers/{serverId}/traffic-history:
+    parameters:
+    - $ref: '#/components/parameters/ServerId'
+    get:
+      tags:
+      - Servers
+      summary: 服务器流量策略历史
+      description: |
+        返回该服务器全部流量策略的当前窗口用量、近 24 小时按小时序列，以及当前窗口内按天序列（最多回溯 90 天）。
+        `tz` 为 IANA 时区，用于按天切日界；非法或空则按 UTC。无节点绑定或无 rollup 时序列为 0，不返回 404。
+      operationId: getServerTrafficHistory
+      x-ui-route: /admin/servers
+      parameters:
+      - name: tz
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 64
+      responses:
+        '200':
+          $ref: '#/components/responses/TrafficHistoryListResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/servers/{serverId}/traffic-policies/{policyId}/usage:
     parameters:
     - $ref: '#/components/parameters/ServerId'
@@ -2494,6 +2518,11 @@ components:
           items:
             $ref: '#/components/schemas/TrafficPolicy'
           description: 仅创建/更新响应填充；列表接口不带。
+        traffic_summaries:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrafficSummary'
+          description: 列表接口填充已启用策略的当前窗口用量；无策略时省略或为空数组。
         probe_target:
           type: string
           maxLength: 255
@@ -3064,6 +3093,89 @@ components:
         updated_at:
           type: string
           format: date-time
+    TrafficSummary:
+      type: object
+      required:
+      - policy_id
+      - name
+      - used_bytes
+      - quota_bytes
+      - usage_percent
+      - status
+      properties:
+        policy_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        used_bytes:
+          type: integer
+          format: int64
+        quota_bytes:
+          type: integer
+          format: int64
+        usage_percent:
+          type: number
+        status:
+          type: string
+          enum:
+          - normal
+          - warning
+          - exceeded
+    TrafficHistoryPoint:
+      type: object
+      required:
+      - window_start
+      - bytes
+      properties:
+        window_start:
+          type: string
+          format: date-time
+        window_end:
+          type: string
+          format: date-time
+          nullable: true
+        bytes:
+          type: integer
+          format: int64
+    TrafficPolicyHistory:
+      type: object
+      required:
+      - policy_id
+      - server_id
+      - name
+      - enabled
+      - direction
+      - usage
+      - hourly
+      - daily
+      properties:
+        policy_id:
+          type: integer
+          format: int64
+        server_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        enabled:
+          type: boolean
+        direction:
+          type: string
+          enum:
+          - inbound
+          - outbound
+          - total
+        usage:
+          $ref: '#/components/schemas/TrafficUsage'
+        hourly:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrafficHistoryPoint'
+        daily:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrafficHistoryPoint'
     InstallPreviewWrite:
       type: object
       required:
@@ -4851,6 +4963,22 @@ components:
             properties:
               data:
                 $ref: '#/components/schemas/TrafficUsage'
+    TrafficHistoryListResponse:
+      description: Traffic policy history
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - data
+            - meta
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TrafficPolicyHistory'
+              meta:
+                $ref: '#/components/schemas/Meta'
     APITokenResponse:
       description: API token
       content:

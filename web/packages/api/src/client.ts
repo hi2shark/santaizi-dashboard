@@ -7,8 +7,8 @@ import type {
   NATTunnelWriteBody, NotificationChannel, NotificationChannelWriteBody, ObserverAssignmentRecord,
   ProbeCapabilities, ProbePath, ProbeSampleBucket, ProbeSummary, ProbeTrace, ServerCredential, ServerDisplayIndexWriteBody, ServerGroup,
   ServerGroupRenameWriteBody, ServerWriteBody, ScriptCommands, TelemetryAlertRecord, TelemetryDataLossRecord, TrafficPolicy,
-  TrafficPolicyWriteBody, TrafficUsage, UpgradePreview, UpgradePreviewWriteBody,
-  CycleTransfer, GetPublicMetricsParams, GetPublicServerAvailabilityParams, MonitorHistory, PublicAvailability, PublicMetricPoint,
+  TrafficPolicyHistory, TrafficPolicyWriteBody, TrafficUsage, UpgradePreview, UpgradePreviewWriteBody,
+  CycleTransfer, GetPublicMetricsParams, GetPublicServerAvailabilityParams, GetServerTrafficHistoryParams, MonitorHistory, PublicAvailability, PublicMetricPoint,
   DatabaseStatus,
 } from './generated/model'
 import type {
@@ -98,6 +98,7 @@ export const createTrafficPolicy = (serverId: number, body: TrafficPolicyWriteBo
 export const updateTrafficPolicy = (serverId: number, id: number, body: TrafficPolicyWriteBody) => api.updateTrafficPolicy(serverId, id, body).then(value => data<TrafficPolicy>(value))
 export const deleteTrafficPolicy = (serverId: number, id: number) => api.deleteTrafficPolicy(serverId, id)
 export const getTrafficPolicyUsage = (serverId: number, id: number) => api.getTrafficPolicyUsage(serverId, id).then(value => data<TrafficUsage>(value))
+export const getServerTrafficHistory = (serverId: number, params?: GetServerTrafficHistoryParams) => api.getServerTrafficHistory(serverId, params).then(value => list<TrafficPolicyHistory>(value))
 
 export const listCollectors = () => api.listCollectors().then(value => list<CollectorRecord>(value))
 export const getConnectionSummary = () => api.getConnectionSummary().then(value => data<ConnectionSummary>(value))

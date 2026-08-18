@@ -63,6 +63,7 @@ func registerTypedAdminRoutes(admin *gin.RouterGroup) {
 	admin.PATCH("/servers/:id/traffic-policies/:policyId", v2UpdateTrafficPolicy)
 	admin.DELETE("/servers/:id/traffic-policies/:policyId", v2DeleteTrafficPolicy)
 	admin.GET("/servers/:id/traffic-policies/:policyId/usage", v2TrafficPolicyUsage)
+	admin.GET("/servers/:id/traffic-history", v2ServerTrafficHistory)
 }
 
 type monitorScopeDTO struct {
@@ -1013,6 +1014,48 @@ func v2TrafficPolicyUsage(c *gin.Context) {
 }
 func trafficUsageDTO(usage trafficservice.Usage) gin.H {
 	return gin.H{"policy_id": usage.PolicyID, "server_id": usage.ServerID, "direction": usage.Direction, "mode": usage.Mode, "window_start": usage.WindowStart.Format(time.RFC3339), "window_end": usage.WindowEnd, "used_bytes": usage.UsedBytes, "quota_bytes": usage.QuotaBytes, "warning_percent": usage.WarningPercent, "usage_percent": usage.UsagePercent, "status": usage.Status, "updated_at": usage.UpdatedAt.Format(time.RFC3339)}
+}
+
+func trafficSummaryDTO(row trafficservice.Summary) gin.H {
+	return gin.H{"policy_id": row.PolicyID, "name": row.Name, "used_bytes": row.UsedBytes, "quota_bytes": row.QuotaBytes, "usage_percent": row.UsagePercent, "status": row.Status}
+}
+
+func trafficHistoryPointDTO(point trafficservice.Point) gin.H {
+	return gin.H{"window_start": point.Start.Format(time.RFC3339), "window_end": point.End.Format(time.RFC3339), "bytes": point.Bytes}
+}
+
+func trafficPointsDTO(points []trafficservice.Point) []gin.H {
+	items := make([]gin.H, 0, len(points))
+	for _, point := range points {
+		items = append(items, trafficHistoryPointDTO(point))
+	}
+	return items
+}
+
+func trafficPolicyHistoryDTO(item trafficservice.PolicyHistory) gin.H {
+	return gin.H{"policy_id": item.Policy.ID, "server_id": item.Policy.ServerID, "name": item.Policy.Name, "enabled": item.Policy.Enabled, "direction": item.Policy.Direction, "usage": trafficUsageDTO(item.Usage), "hourly": trafficPointsDTO(item.Hourly), "daily": trafficPointsDTO(item.Daily)}
+}
+
+func v2ServerTrafficHistory(c *gin.Context) {
+	id, ok := v2ID(c)
+	if !ok {
+		return
+	}
+	var server model.Server
+	if singleton.DB.Select("id").First(&server, id).Error != nil {
+		writeV2Problem(c, 404, "server_not_found", "服务器不存在")
+		return
+	}
+	items, err := trafficservice.Histories(singleton.DB, id, time.Now(), trafficservice.LocationOrUTC(c.Query("tz")))
+	if err != nil {
+		writeV2Problem(c, 500, "traffic_history_failed", err.Error())
+		return
+	}
+	payload := make([]gin.H, 0, len(items))
+	for _, item := range items {
+		payload = append(payload, trafficPolicyHistoryDTO(item))
+	}
+	writeV2List(c, payload, v2Meta{Page: 1, PageSize: len(payload), Total: int64(len(payload))})
 }
 
 type monitoringOptionsDTO struct {

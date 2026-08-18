@@ -243,6 +243,25 @@ html.dark .metric-icon.blue,html.dark .metric-icon.green,html.dark .metric-icon.
 .availability-entry.is-warn i { color: var(--sz-warning); }
 .availability-entry.is-bad i { color: var(--sz-danger); }
 .availability-entry.is-unknown i { color: var(--sz-text-muted); }
+.traffic-entry.el-button.is-text {
+  height: var(--control-height);
+  min-height: var(--control-height);
+  padding: 0 8px;
+  border: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sz-text);
+  background: transparent;
+}
+.traffic-entry.el-button.is-text:hover,
+.traffic-entry.el-button.is-text:focus {
+  background: transparent;
+  border-color: transparent;
+  color: var(--sz-text);
+}
+.traffic-entry.el-button.is-text.is-ok { color: var(--sz-success); }
+.traffic-entry.el-button.is-text.is-warn { color: var(--sz-warning); }
+.traffic-entry.el-button.is-text.is-bad { color: var(--sz-danger); }
 .availability-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0 0 12px; }
 .availability-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; min-height: 32px; font-size: 13px; color: var(--sz-text); }
 .availability-summary span { display: inline-flex; align-items: center; gap: var(--icon-text-gap); line-height: 1; }
@@ -1772,6 +1791,7 @@ html.dark .topology-globe__canvas { filter: none; }
   .mobile-card-actions .el-button:focus,
   .admin-note-btn.el-button.is-text,
   .availability-entry.el-button.is-text,
+  .traffic-entry.el-button.is-text,
   .user-button,
   .topbar-icon {
     cursor: default;

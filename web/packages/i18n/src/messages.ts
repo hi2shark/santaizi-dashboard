@@ -61,7 +61,7 @@ const zhCN = {
   loginTitle: '登录管理后台', loginDescription: '使用站点配置的 OAuth 管理员账号登录。', loginButton: '前往 OAuth 登录', sessionExpired: '登录已过期，请重新登录',
   viewPasswordTitle: '访问受保护', viewPasswordDescription: '输入站点查看密码后继续。', password: '密码', verify: '验证',
   groupView: '分组显示', flatView: '列表显示', worldMap: '世界地图', cpu: 'CPU', memory: '内存', disk: '磁盘',
-  load: '负载', networkSpeed: '网络速率', traffic: '流量', uptime: '运行时间', location: '位置', platform: '系统', version: '版本', agentVersion: '探针版本',
+  load: '负载', networkSpeed: '网络速率', traffic: '流量', trafficHourly: '近 24 小时', trafficDaily: '按天', uptime: '运行时间', location: '位置', platform: '系统', version: '版本', agentVersion: '探针版本',
   arch: '架构', virtualization: '虚拟化', bootTime: '启动时间', moreSpecs: '规格', cycleTransfer: '周期流量',
   serviceAvailability: '30 天可用性', averageLatency: '平均延迟', monitorHistory: '监控历史', upCount: '成功次数', downCount: '失败次数', cyclePeriod: '流量周期', nextUpdate: '下次更新', pauseLive: '暂停实时更新', resumeLive: '继续实时更新', reconnecting: '正在重新连接实时数据',
   back: '返回',
@@ -115,7 +115,7 @@ const zhCN = {
     requestFailed: '请求失败，请稍后重试', loading: '加载中…', noData: '暂无数据', refresh: '刷新',
     cycleStatus: { ok: '充足', warning: '注意', critical: '告警', exceeded: '超限' },
   },
-  errors: { authentication_required: '登录已过期，请重新登录', csrf_invalid: '安全校验失败，请刷新页面后重试', invalid_request: '提交内容格式不正确', invalid_server: '服务器信息不完整或无效', invalid_collector: '从端信息不完整或无效', invalid_probe_ip_family: '请至少选择 IPv4 或 IPv6', invalid_settings: '设置内容无效', invalid_offline_settings: '离线与保留策略超出允许范围', unsafe_asset_url: '站点资产地址不安全', unsafe_custom_css: '自定义 CSS 包含被禁止的规则', server_not_found: '服务器不存在', collector_not_found: '从端不存在', database_error: '读取数据失败', session_not_found: '会话不存在或已过期', server_offline: '服务器离线，暂时无法执行该操作', view_password_required: '需要先验证公开站查看密码', invalid_display_index: '权重无效', display_index_update_failed: '更新排序失败', group_not_found: '分组不存在或没有服务器', group_rename_failed: '重命名分组失败', invalid_group_rename: '分组重命名参数无效', invalid_traffic_policy: '流量策略无效：请检查名称、配额、预警比例与周期设置', traffic_policy_not_found: '流量策略不存在', traffic_policy_save_failed: '保存流量策略失败', optimize_in_progress: '数据库正在优化' },
+  errors: { authentication_required: '登录已过期，请重新登录', csrf_invalid: '安全校验失败，请刷新页面后重试', invalid_request: '提交内容格式不正确', invalid_server: '服务器信息不完整或无效', invalid_collector: '从端信息不完整或无效', invalid_probe_ip_family: '请至少选择 IPv4 或 IPv6', invalid_settings: '设置内容无效', invalid_offline_settings: '离线与保留策略超出允许范围', unsafe_asset_url: '站点资产地址不安全', unsafe_custom_css: '自定义 CSS 包含被禁止的规则', server_not_found: '服务器不存在', collector_not_found: '从端不存在', database_error: '读取数据失败', session_not_found: '会话不存在或已过期', server_offline: '服务器离线，暂时无法执行该操作', view_password_required: '需要先验证公开站查看密码', invalid_display_index: '权重无效', display_index_update_failed: '更新排序失败', group_not_found: '分组不存在或没有服务器', group_rename_failed: '重命名分组失败', invalid_group_rename: '分组重命名参数无效', invalid_traffic_policy: '流量策略无效：请检查名称、配额、预警比例与周期设置', traffic_policy_not_found: '流量策略不存在', traffic_policy_save_failed: '保存流量策略失败', traffic_usage_failed: '读取流量用量失败', traffic_history_failed: '读取流量历史失败', optimize_in_progress: '数据库正在优化' },
 }
 
 const zhTW = {
@@ -138,6 +138,7 @@ const zhTW = {
   swapOff: 'OFF', serverDetail: '主機詳情',
   availability30d: '30 天可用率', offlineCount: '離線次數', longestOffline: '最長離線',
   arch: '架構', virtualization: '虛擬化', bootTime: '啟動時間', moreSpecs: '規格', cycleTransfer: '週期流量',
+  trafficHourly: '近 24 小時', trafficDaily: '按天',
   nazhua: {
     ...zhCN.nazhua,
     totalPrefix: '共',
@@ -222,7 +223,7 @@ const zhTW = {
   requestFailed: '請求失敗', requestFailedWithCode: '請求失敗（錯誤碼：{code}）',
   messageCenter: '訊息中心', markAllRead: '全部已讀', clearMessages: '清空訊息', clearMessagesConfirm: '確定清空全部訊息嗎？', errorDetail: '錯誤詳情', errorCode: '錯誤碼',
   traceId: '追蹤 ID', httpStatus: 'HTTP 狀態', noMessages: '暫無報錯訊息', unread: '未讀', readStatus: '已讀', fieldErrors: '欄位錯誤', errorRoute: '頁面路徑',
-  errors: { ...zhCN.errors, authentication_required: '登入已過期，請重新登入', csrf_invalid: '安全驗證失敗，請重新整理頁面後再試', invalid_request: '提交內容格式不正確', invalid_server: '伺服器資訊不完整或無效', invalid_collector: '從端資訊不完整或無效', invalid_probe_ip_family: '請至少選擇 IPv4 或 IPv6', invalid_settings: '設定內容無效', server_not_found: '伺服器不存在', collector_not_found: '從端不存在', database_error: '讀取資料失敗', session_not_found: '工作階段不存在或已過期', server_offline: '伺服器離線，暫時無法執行此操作', optimize_in_progress: '資料庫正在優化' },
+  errors: { ...zhCN.errors, authentication_required: '登入已過期，請重新登入', csrf_invalid: '安全驗證失敗，請重新整理頁面後再試', invalid_request: '提交內容格式不正確', invalid_server: '伺服器資訊不完整或無效', invalid_collector: '從端資訊不完整或無效', invalid_probe_ip_family: '請至少選擇 IPv4 或 IPv6', invalid_settings: '設定內容無效', server_not_found: '伺服器不存在', collector_not_found: '從端不存在', database_error: '讀取資料失敗', session_not_found: '工作階段不存在或已過期', server_offline: '伺服器離線，暫時無法執行此操作', traffic_usage_failed: '讀取流量用量失敗', traffic_history_failed: '讀取流量歷史失敗', optimize_in_progress: '資料庫正在優化' },
 }
 
 const enUS = {
@@ -288,7 +289,7 @@ const enUS = {
   loginDescription: 'Use an OAuth administrator account configured for this site.', loginButton: 'Continue with OAuth', sessionExpired: 'Your session expired. Sign in again.',
   viewPasswordTitle: 'Protected status page', viewPasswordDescription: 'Enter the site view password to continue.', password: 'Password', verify: 'Verify', groupView: 'Group view',
   flatView: 'Flat view', worldMap: 'World map', cpu: 'CPU', memory: 'Memory', disk: 'Disk', load: 'Load', networkSpeed: 'Network speed',
-  traffic: 'Traffic', uptime: 'Uptime', location: 'Location', platform: 'Platform', version: 'Version', agentVersion: 'Agent version',
+  traffic: 'Traffic', trafficHourly: 'Last 24 hours', trafficDaily: 'By day', uptime: 'Uptime', location: 'Location', platform: 'Platform', version: 'Version', agentVersion: 'Agent version',
   arch: 'Arch', virtualization: 'Virtualization', bootTime: 'Boot time', moreSpecs: 'Specs', cycleTransfer: 'Cycle transfer',
   serviceAvailability: '30-day availability', averageLatency: 'Average latency', monitorHistory: 'Monitor history', upCount: 'Successful checks', downCount: 'Failed checks', cyclePeriod: 'Transfer period', nextUpdate: 'Next update',
   pauseLive: 'Pause live updates', resumeLive: 'Resume live updates', reconnecting: 'Reconnecting live data', back: 'Back',
@@ -341,7 +342,7 @@ const enUS = {
     requestFailed: 'Request failed. Try again later.', loading: 'Loading…', noData: 'No data', refresh: 'Refresh',
     cycleStatus: { ok: 'OK', warning: 'Warning', critical: 'Critical', exceeded: 'Exceeded' },
   },
-  errors: { authentication_required: 'Your session expired. Sign in again.', csrf_invalid: 'Security validation failed. Refresh the page and try again.', invalid_request: 'The submitted data is invalid.', invalid_server: 'The server configuration is incomplete or invalid.', invalid_collector: 'The collector configuration is incomplete or invalid.', invalid_probe_ip_family: 'Select IPv4 or IPv6.', invalid_settings: 'The settings are invalid.', invalid_offline_settings: 'The offline or retention policy is outside the allowed range.', unsafe_asset_url: 'The site asset URL is not allowed.', unsafe_custom_css: 'The custom CSS contains a prohibited rule.', server_not_found: 'The server does not exist.', collector_not_found: 'The collector does not exist.', database_error: 'The data could not be loaded.', session_not_found: 'The session does not exist or has expired.', server_offline: 'The server is offline, so this action is unavailable.', view_password_required: 'Verify the public view password first.', invalid_display_index: 'The weight is invalid.', display_index_update_failed: 'Failed to update sort weight.', group_not_found: 'The group does not exist or has no servers.', group_rename_failed: 'Failed to rename the group.', invalid_group_rename: 'The group rename request is invalid.', invalid_traffic_policy: 'The traffic policy is invalid. Check its name, quota, warning threshold and cycle settings.', traffic_policy_not_found: 'The traffic policy does not exist.', traffic_policy_save_failed: 'Failed to save the traffic policy.', optimize_in_progress: 'Database optimization is already running' },
+  errors: { authentication_required: 'Your session expired. Sign in again.', csrf_invalid: 'Security validation failed. Refresh the page and try again.', invalid_request: 'The submitted data is invalid.', invalid_server: 'The server configuration is incomplete or invalid.', invalid_collector: 'The collector configuration is incomplete or invalid.', invalid_probe_ip_family: 'Select IPv4 or IPv6.', invalid_settings: 'The settings are invalid.', invalid_offline_settings: 'The offline or retention policy is outside the allowed range.', unsafe_asset_url: 'The site asset URL is not allowed.', unsafe_custom_css: 'The custom CSS contains a prohibited rule.', server_not_found: 'The server does not exist.', collector_not_found: 'The collector does not exist.', database_error: 'The data could not be loaded.', session_not_found: 'The session does not exist or has expired.', server_offline: 'The server is offline, so this action is unavailable.', view_password_required: 'Verify the public view password first.', invalid_display_index: 'The weight is invalid.', display_index_update_failed: 'Failed to update sort weight.', group_not_found: 'The group does not exist or has no servers.', group_rename_failed: 'Failed to rename the group.', invalid_group_rename: 'The group rename request is invalid.', invalid_traffic_policy: 'The traffic policy is invalid. Check its name, quota, warning threshold and cycle settings.', traffic_policy_not_found: 'The traffic policy does not exist.', traffic_policy_save_failed: 'Failed to save the traffic policy.', traffic_usage_failed: 'Failed to load traffic usage.', traffic_history_failed: 'Failed to load traffic history.', optimize_in_progress: 'Database optimization is already running' },
 }
 
 const esES = {
@@ -365,6 +366,7 @@ const esES = {
   swapOff: 'OFF', serverDetail: 'Detalles del servidor',
   availability30d: 'Disponibilidad 30 días', offlineCount: 'Cortes', longestOffline: 'Corte más largo',
   arch: 'Arquitectura', virtualization: 'Virtualización', bootTime: 'Arranque', moreSpecs: 'Especificaciones', cycleTransfer: 'Tráfico cíclico',
+  trafficHourly: 'Últimas 24 h', trafficDaily: 'Por día',
   nazhua: {
     title: 'Santaizi Monitoring', totalPrefix: 'Total', serverCount: 'servidores', transfer: 'Tráfico', netSpeed: 'Velocidad', search: 'Buscar',
     searchPlaceholder: 'Buscar nombre, grupo, SO o país', group: 'Grupo', allGroups: 'Todos los grupos', sort: 'Ordenar',
@@ -393,7 +395,7 @@ const esES = {
   viewPasswordTitle: 'Página protegida', password: 'Contraseña', verify: 'Verificar', requestFailed: 'La solicitud falló', requestFailedWithCode: 'La solicitud falló (código: {code})',
   messageCenter: 'Centro de mensajes', markAllRead: 'Marcar todo como leído', clearMessages: 'Vaciar mensajes', clearMessagesConfirm: '¿Vaciar todos los mensajes?', errorDetail: 'Detalle del error', errorCode: 'Código de error',
   traceId: 'ID de seguimiento', httpStatus: 'Estado HTTP', noMessages: 'No hay mensajes de error', unread: 'No leído', readStatus: 'Leído', fieldErrors: 'Errores de campo', errorRoute: 'Ruta de la página',
-  errors: { ...enUS.errors, authentication_required: 'La sesión ha caducado. Inicia sesión de nuevo.', csrf_invalid: 'Falló la validación de seguridad. Actualiza la página e inténtalo de nuevo.', invalid_request: 'Los datos enviados no son válidos.', invalid_server: 'La configuración del servidor está incompleta o no es válida.', invalid_collector: 'La configuración del recolector está incompleta o no es válida.', invalid_probe_ip_family: 'Selecciona IPv4 o IPv6.', invalid_settings: 'La configuración no es válida.', server_not_found: 'El servidor no existe.', collector_not_found: 'El recolector no existe.', database_error: 'No se pudieron cargar los datos.', session_not_found: 'La sesión no existe o ha caducado.', server_offline: 'El servidor está fuera de línea y la acción no está disponible.', optimize_in_progress: 'La base de datos se está optimizando' },
+  errors: { ...enUS.errors, authentication_required: 'La sesión ha caducado. Inicia sesión de nuevo.', csrf_invalid: 'Falló la validación de seguridad. Actualiza la página e inténtalo de nuevo.', invalid_request: 'Los datos enviados no son válidos.', invalid_server: 'La configuración del servidor está incompleta o no es válida.', invalid_collector: 'La configuración del recolector está incompleta o no es válida.', invalid_probe_ip_family: 'Selecciona IPv4 o IPv6.', invalid_settings: 'La configuración no es válida.', server_not_found: 'El servidor no existe.', collector_not_found: 'El recolector no existe.', database_error: 'No se pudieron cargar los datos.', session_not_found: 'La sesión no existe o ha caducado.', server_offline: 'El servidor está fuera de línea y la acción no está disponible.', traffic_usage_failed: 'No se pudo cargar el uso de tráfico.', traffic_history_failed: 'No se pudo cargar el historial de tráfico.', optimize_in_progress: 'La base de datos se está optimizando' },
 }
 
 const editorZhCN = {
@@ -565,7 +567,7 @@ const commonZhTW = {
   spoolSize: '暫存大小', startedAt: '開始時間', status: '狀態', statusNavigation: '公開狀態導覽', statusNetwork: '網路', statusServices: '服務狀態', system: '跟隨系統', target: '目標', telemetryNotifications: '探測通知', plainIPInNotification: '通知中顯示完整 IP',
   test: '傳送測試', tls: 'TLS', tokenNote: 'Token 備註', tokenPermission: '權限', tokenReadOnly: '唯讀', tokenWrite: '操作', tokenExpiresAt: '有效期', tokenNeverExpires: '永不過期',
   tokenExpiry7d: '7 天', tokenExpiry30d: '30 天', tokenExpiry90d: '90 天', tokenExpiry365d: '365 天', tokenExpiryCustom: '自訂', tokenExpired: '已過期', copyToken: '複製 Token', issueTokenSuccess: 'Token 已簽發',
-  traffic: '流量', triggerAlways: '持續觸發', triggerOnce: '僅觸發一次', upCount: '成功次數', uptime: '執行時間', verifyTLS: '驗證憑證',
+  traffic: '流量', trafficHourly: '近 24 小時', trafficDaily: '按天', triggerAlways: '持續觸發', triggerOnce: '僅觸發一次', upCount: '成功次數', uptime: '執行時間', verifyTLS: '驗證憑證',
   version: '版本', agentVersion: '探針版本', windows: 'Windows', worldMap: '世界地圖', accessPassword: '公開站查看密碼', DDNSAccessID: 'Access ID', DDNSAccessSecret: 'Access Secret', WebhookURL: 'Webhook 位址',
 }
 
@@ -607,7 +609,7 @@ const commonEsES = {
   system: 'Sistema', target: 'Objetivo', telemetry: 'Sondeo fiable', telemetryNotifications: 'Avisos de sondeo', plainIPInNotification: 'Mostrar IP completa en notificaciones', test: 'Enviar prueba', tls: 'TLS', tokenNote: 'Nota del token',
   tokenPermission: 'Permiso', tokenReadOnly: 'Solo lectura', tokenWrite: 'Operación', tokenExpiresAt: 'Caducidad', tokenNeverExpires: 'Sin caducidad',
   tokenExpiry7d: '7 días', tokenExpiry30d: '30 días', tokenExpiry90d: '90 días', tokenExpiry365d: '365 días', tokenExpiryCustom: 'Personalizado', tokenExpired: 'Caducado', copyToken: 'Copiar token', issueTokenSuccess: 'Token emitido',
-  traffic: 'Tráfico', triggerAlways: 'Activar siempre',
+  traffic: 'Tráfico', trafficHourly: 'Últimas 24 h', trafficDaily: 'Por día', triggerAlways: 'Activar siempre',
   triggerOnce: 'Activar una vez', upCount: 'Éxitos', uptime: 'Tiempo activo', verifyTLS: 'Verificar TLS', version: 'Versión', agentVersion: 'Versión del agente', windows: 'Windows', worldMap: 'Mapa mundial', DDNSAccessID: 'Access ID', DDNSAccessSecret: 'Access Secret', WebhookURL: 'URL del webhook',
 }
 
