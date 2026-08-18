@@ -55,8 +55,9 @@
   --nazhua-point-offline-fill: #e11d48;
   --nazhua-search-bg: #ffffff;
   --nazhua-search-color: #806400;
-  --nazhua-map-filter: brightness(0.22) saturate(0) contrast(1.35);
-  --nazhua-map-opacity: .55;
+  --nazhua-map-dot: #7d8fa8;
+  --nazhua-map-opacity: .5;
+  --nazhua-map-halo: var(--nazhua-bg);
   --nazhua-globe-ocean: #cfe6f7;
   --nazhua-globe-land: #ffffff;
   --nazhua-globe-land-stroke: rgba(147, 197, 222, .45);
@@ -159,8 +160,9 @@ html.dark .nazhua-shell,
   --nazhua-point-offline-fill: #ff8a84;
   --nazhua-search-bg: rgba(0, 0, 0, .82);
   --nazhua-search-color: #fff143;
-  --nazhua-map-filter: none;
-  --nazhua-map-opacity: .75;
+  --nazhua-map-dot: #aab7c4;
+  --nazhua-map-opacity: .4;
+  --nazhua-map-halo: #20263a;
   --nazhua-globe-ocean: #0b2833;
   --nazhua-globe-land: #5e8fa3;
   --nazhua-globe-land-stroke: rgba(180, 236, 248, .35);
@@ -368,9 +370,18 @@ html.dark .nazhua-search-dialog { --el-dialog-bg-color: #090e14; --el-text-color
 .nazhua-world-map__image {
   position: absolute;
   inset: 0;
-  background: var(--world-map-image) 50% 50% / 100% 100% no-repeat;
+  background: var(--nazhua-map-dot);
+  -webkit-mask-image: var(--world-map-image);
+  mask-image: var(--world-map-image);
+  -webkit-mask-mode: alpha;
+  mask-mode: alpha;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-position: 50% 50%;
+  mask-position: 50% 50%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
   opacity: var(--nazhua-map-opacity);
-  filter: var(--nazhua-map-filter);
 }
 
 .nazhua-world-map__point { position: absolute; display: grid; place-items: center; width: 32px; height: 32px; padding: 0; transform: translate(-50%, -50%); border: 0; border-radius: 50%; background: transparent; cursor: pointer; }
@@ -382,6 +393,7 @@ html.dark .nazhua-search-dialog { --el-dialog-bg-color: #090e14; --el-text-color
   border: 2px solid var(--nazhua-point);
   border-radius: 50%;
   background: transparent;
+  box-shadow: 0 0 0 2px var(--nazhua-map-halo);
 }
 .nazhua-world-map__point i::after {
   content: "";
@@ -401,6 +413,7 @@ html.dark .nazhua-search-dialog { --el-dialog-bg-color: #090e14; --el-text-color
   border: 2px solid var(--nazhua-point);
   border-radius: 50%;
   opacity: .5;
+  box-shadow: 0 0 0 2px var(--nazhua-map-halo);
 }
 .nazhua-world-map__point.is-offline i {
   border-color: var(--nazhua-point-offline);

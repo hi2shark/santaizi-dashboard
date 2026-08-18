@@ -82,7 +82,10 @@ async function waitNazhuaHomeReady(page: Page, mode: 'dark' | 'light') {
       take(getComputedStyle(shell, ':before').backgroundImage)
     }
     const map = document.querySelector<HTMLElement>('.nazhua-world-map__image')
-    if (map) take(getComputedStyle(map).backgroundImage)
+    if (map) {
+      const style = getComputedStyle(map)
+      take(style.webkitMaskImage || style.maskImage)
+    }
     await Promise.all([...urls].map(src => {
       const img = new Image()
       img.src = src
@@ -165,7 +168,10 @@ test('renders a complete Nazhua homepage with one shell, map points and cycle-aw
       .map(node => Number.parseFloat(getComputedStyle(node).fontSize))
       .filter(Number.isFinite)
     return {
-      mapBackground: getComputedStyle(mapImage).backgroundImage,
+      mapBackground: (() => {
+        const style = getComputedStyle(mapImage)
+        return style.webkitMaskImage || style.maskImage
+      })(),
       mapWidth: map.getBoundingClientRect().width,
       viewportWidth: window.innerWidth,
       cardTop: card.getBoundingClientRect().top,
