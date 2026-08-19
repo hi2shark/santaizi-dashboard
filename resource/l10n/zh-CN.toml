@@ -1180,6 +1180,9 @@ other = "连接质量下降"
 [TelemetryAlertCollectorOffline]
 other = "从端离线"
 
+[TelemetryAlertCollectorOnline]
+other = "从端上线"
+
 [TelemetryAlertDataLoss]
 other = "探测数据丢失"
 

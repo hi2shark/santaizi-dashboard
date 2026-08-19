@@ -299,7 +299,7 @@ oauth2:
 | `telemetry.availability_bucket_seconds` | `30` | Availability Bucket 大小 |
 | `telemetry.min_observers` | `1` | 判定 `OFFLINE` 所需的最少健康 Observer 数 |
 
-`enable_connectivity_notification`、`enable_correction_notification`、`enable_collector_offline_notification` 与 `enable_data_loss_notification` 位于 `telemetry` 下，默认均为 `false`。Host 离线通知继续由顶层 `enableofflinenotification` 控制。
+`enable_connectivity_notification`、`enable_correction_notification`、`enable_collector_offline_notification`、`enable_collector_online_notification` 与 `enable_data_loss_notification` 位于 `telemetry` 下，默认均为 `false`。Host 离线/恢复通知继续由顶层 `enableofflinenotification` 与 `enablerecoverynotification` 控制。`enable_collector_online_notification` 只在从端曾被记为离线后再上线时发送 `[从端上线]`，不覆盖首次接入。
 
 ## `collector` Collector 模式
 

@@ -52,15 +52,18 @@ func initSystem() {
 		return telemetryservice.PolicyFromConfig(singleton.Conf.Retention)
 	})
 	go controller.DatabaseMaintainer.Run(context.Background())
-	telemetryAlerts := telemetryservice.NewAlertWorker(singleton.DB, telemetryservice.AlertPolicy{
-		NotifyHostOffline:         singleton.Conf.EnableOfflineNotification,
-		NotifyConnectivity:        singleton.Conf.Telemetry.EnableConnectivityNotification,
-		NotifyCorrection:          singleton.Conf.Telemetry.EnableCorrectionNotification,
-		NotifyCollectorOffline:    singleton.Conf.Telemetry.EnableCollectorOfflineNotification,
-		NotifyDataLoss:            singleton.Conf.Telemetry.EnableDataLossNotification,
-		SuppressHostOfflineNotify: singleton.Conf.EnableOfflineHistory && singleton.Conf.EnableOfflineNotification,
-		CollectorTimeout:          telemetryservice.CollectorTimeout,
-		AvailabilityBucket:        time.Duration(singleton.Conf.Telemetry.AvailabilityBucketSeconds) * time.Second,
+	telemetryAlerts := telemetryservice.NewAlertWorkerFrom(singleton.DB, func() telemetryservice.AlertPolicy {
+		return telemetryservice.AlertPolicy{
+			NotifyHostOffline:         singleton.Conf.EnableOfflineNotification,
+			NotifyConnectivity:        singleton.Conf.Telemetry.EnableConnectivityNotification,
+			NotifyCorrection:          singleton.Conf.Telemetry.EnableCorrectionNotification,
+			NotifyCollectorOffline:    singleton.Conf.Telemetry.EnableCollectorOfflineNotification,
+			NotifyCollectorOnline:     singleton.Conf.Telemetry.EnableCollectorOnlineNotification,
+			NotifyDataLoss:            singleton.Conf.Telemetry.EnableDataLossNotification,
+			SuppressHostOfflineNotify: singleton.Conf.EnableOfflineHistory && singleton.Conf.EnableOfflineNotification,
+			CollectorTimeout:          telemetryservice.CollectorTimeout,
+			AvailabilityBucket:        time.Duration(singleton.Conf.Telemetry.AvailabilityBucketSeconds) * time.Second,
+		}
 	}, func(message, muteKey string) {
 		var mute *string
 		if muteKey != "" {

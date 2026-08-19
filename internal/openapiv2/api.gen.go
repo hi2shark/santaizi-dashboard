@@ -2138,6 +2138,13 @@ type ProbeICMP struct {
 	RttMs           *float64 `json:"rtt_ms,omitempty"`
 }
 
+// ProbeMTR defines model for ProbeMTR.
+type ProbeMTR struct {
+	HopCount  *int       `json:"hop_count,omitempty"`
+	Loss      *float64   `json:"loss,omitempty"`
+	SampledAt *time.Time `json:"sampled_at,omitempty"`
+}
+
 // ProbeMTRHop defines model for ProbeMTRHop.
 type ProbeMTRHop struct {
 	Address *string  `json:"address,omitempty"`
@@ -2155,6 +2162,7 @@ type ProbePath struct {
 	HasTrace      bool        `json:"has_trace"`
 	Icmp          *ProbeICMP  `json:"icmp,omitempty"`
 	LastError     *string     `json:"last_error,omitempty"`
+	Mtr           *ProbeMTR   `json:"mtr,omitempty"`
 	Reachable     bool        `json:"reachable"`
 	SampledAt     *time.Time  `json:"sampled_at,omitempty"`
 	ServerId      int64       `json:"server_id"`

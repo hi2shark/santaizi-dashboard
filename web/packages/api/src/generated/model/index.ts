@@ -168,6 +168,7 @@ export * from './probeCapabilitiesPresets';
 export * from './probeCapabilitiesResponseResponse';
 export * from './probeCapability';
 export * from './probeICMP';
+export * from './probeMTR';
 export * from './probeMTRHop';
 export * from './probePath';
 export * from './probePathListResponseResponse';

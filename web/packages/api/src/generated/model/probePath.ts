@@ -8,6 +8,7 @@
  * OpenAPI spec version: 2.0.0
  */
 import type { ProbeICMP } from './probeICMP';
+import type { ProbeMTR } from './probeMTR';
 import type { ProbeTarget } from './probeTarget';
 import type { ProbeTCP } from './probeTCP';
 
@@ -23,5 +24,6 @@ export interface ProbePath {
   last_error?: string;
   icmp?: ProbeICMP;
   tcp?: ProbeTCP[];
+  mtr?: ProbeMTR;
   has_trace: boolean;
 }

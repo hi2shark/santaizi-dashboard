@@ -56,6 +56,13 @@ type ProbePath struct {
 	ICMPRecv      uint32
 	TCP           []ProbeTCPView
 	HasTrace      bool
+	MTR           ProbeMTRView
+}
+
+type ProbeMTRView struct {
+	Loss      float64
+	HopCount  int
+	SampledAt int64
 }
 
 type ProbePathFilter struct {
@@ -186,6 +193,14 @@ func loadProbePaths(db *gorm.DB, filter ProbePathFilter, now time.Time) ([]Probe
 	for _, row := range latests {
 		latestByKey[row.CollectorUUID+"/"+fmt.Sprintf("%d", row.ServerID)] = row
 	}
+	var traces []model.ProbeTrace
+	if err := db.Where("collector_uuid IN ?", ids).Find(&traces).Error; err != nil {
+		return nil, err
+	}
+	traceByKey := map[string]model.ProbeTrace{}
+	for _, row := range traces {
+		traceByKey[row.CollectorUUID+"/"+fmt.Sprintf("%d", row.ServerID)] = row
+	}
 	var scopes []model.CollectorScope
 	if err := db.Where("collector_uuid IN ?", ids).Find(&scopes).Error; err != nil {
 		return nil, err
@@ -239,11 +254,29 @@ func loadProbePaths(db *gorm.DB, filter ProbePathFilter, now time.Time) ([]Probe
 				if len(latest.TCPJSON) > 0 {
 					_ = json.Unmarshal(latest.TCPJSON, &path.TCP)
 				}
+				if trace, ok := traceByKey[collector.CollectorUUID+"/"+fmt.Sprintf("%d", server.ID)]; ok {
+					if mtr, ok := probeMTRFromTrace(trace); ok {
+						path.MTR = mtr
+						path.HasTrace = true
+					}
+				}
 			}
 			paths = append(paths, path)
 		}
 	}
 	return paths, nil
+}
+
+func probeMTRFromTrace(row model.ProbeTrace) (ProbeMTRView, bool) {
+	var hops []netprobe.Hop
+	if len(row.HopsJSON) > 0 {
+		_ = json.Unmarshal(row.HopsJSON, &hops)
+	}
+	if len(hops) == 0 {
+		return ProbeMTRView{}, false
+	}
+	last := hops[len(hops)-1]
+	return ProbeMTRView{Loss: last.Loss, HopCount: len(hops), SampledAt: row.SampledAt}, true
 }
 
 func ListProbeSamples(db *gorm.DB, filter ProbeSampleFilter, offset, limit int) ([]ProbeSampleRow, int64, error) {

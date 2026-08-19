@@ -18,11 +18,13 @@ func TestClassifyNotification(t *testing.T) {
 		{desc: "[离线] 东京-1\n最后上报：01/02/2026 15:04:05", kind: "离线", names: []string{"东京-1"}, ok: true},
 		{desc: "[离线] 3 台主机\n东京-1  最后上报 01/02/2026 15:04:05\n大阪  最后上报 01/02/2026 15:04:06", kind: "离线", names: []string{"东京-1", "大阪"}, ok: true},
 		{desc: "[从端离线] 大阪", kind: "从端离线", names: []string{"大阪"}, ok: true},
+		{desc: "[从端上线] 大阪", kind: "从端上线", names: []string{"大阪"}, ok: true},
 		{desc: "[恢复] 东京-1\n恢复时间：01/02/2026 15:04:05", kind: "恢复", names: []string{"东京-1"}, ok: true},
 		{desc: "[连通降级] 东京-1", kind: "连通降级", names: []string{"东京-1"}, ok: true},
 		{desc: "[探测丢失] collector-a", kind: "探测丢失", names: []string{"collector-a"}, ok: true},
 		{desc: "[ProbeDown] 大阪 → 东京-1 timeout", kind: "ProbeDown", names: []string{"大阪 → 东京-1 timeout"}, ok: true},
 		{desc: "HOST_OFFLINE node=abababababababab incident=3 revision=1", kind: "离线", names: []string{"abababab"}, ok: true},
+		{desc: "COLLECTOR_ONLINE collector=east", kind: "从端上线", names: []string{"east"}, ok: true},
 		{desc: "[SSL] example.com expired", ok: false},
 		{desc: "[IPChanged] 东京-1, 1.1.1.x => 2.2.2.x", ok: false},
 	}

@@ -1180,6 +1180,9 @@ other = "Conectividad degradada"
 [TelemetryAlertCollectorOffline]
 other = "Recolector sin conexión"
 
+[TelemetryAlertCollectorOnline]
+other = "Recolector en línea"
+
 [TelemetryAlertDataLoss]
 other = "Pérdida de datos de sondeo"
 

@@ -2,10 +2,12 @@ package telemetry
 
 import (
 	"bytes"
+	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/hi2shark/santaizi-dashboard/model"
+	"github.com/hi2shark/santaizi-dashboard/pkg/netprobe"
 	pb "github.com/hi2shark/santaizi-dashboard/proto"
 	"github.com/hi2shark/santaizi-dashboard/service/singleton"
 	"gorm.io/driver/sqlite"
@@ -176,6 +178,50 @@ func TestLoadProbePathsHidesLatestWhenCollectorOffline(t *testing.T) {
 	}
 	if len(online) != 1 || !online[0].Reachable || online[0].DisplayRttMs != 21.5 {
 		t.Fatalf("online collector should keep latest RTT: %+v", online)
+	}
+}
+
+func TestLoadProbePathsIncludesLastHopLoss(t *testing.T) {
+	db := probeTestDB(t)
+	now := time.Unix(1_700_000_090, 0)
+	probe := model.Collector{CollectorUUID: "probe-mtr", Name: "CD", Kind: model.CollectorKindProbe, TokenHash: bytes.Repeat([]byte{8}, 32), RegistrationToken: "token-mtr"}
+	if err := db.Create(&probe).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.CollectorScope{CollectorUUID: "probe-mtr", ScopeType: "all"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	host := probeServer(31, "edge-a", "secret-31")
+	host.ProbeTarget = "1.1.1.1"
+	if err := db.Create(&host).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.CollectorRuntime{CollectorUUID: "probe-mtr", Status: "online", LastSeen: now.Add(-10 * time.Second).UnixNano()}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.ProbeLatest{
+		CollectorUUID: "probe-mtr", ServerID: 31, Reachable: true, DisplayRttMs: 21.5, SampledAt: now.UnixNano(), ICMPOk: true, ICMPRttMs: 21.5, HasTrace: true,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	hopsJSON, err := json.Marshal([]netprobe.Hop{
+		{TTL: 1, Address: "10.0.0.1", Loss: 0, Avg: 2 * time.Millisecond, Sent: 10},
+		{TTL: 8, Address: "1.1.1.1", Loss: 0.12, Avg: 40 * time.Millisecond, Sent: 10},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.ProbeTrace{
+		CollectorUUID: "probe-mtr", ServerID: 31, SampledAt: now.UnixNano(), Destination: "1.1.1.1", HopsJSON: hopsJSON,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	paths, err := loadProbePaths(db, ProbePathFilter{CollectorID: "probe-mtr", ServerID: 31}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(paths) != 1 || !paths[0].HasTrace || paths[0].MTR.HopCount != 2 || paths[0].MTR.Loss != 0.12 {
+		t.Fatalf("last hop loss: %+v", paths)
 	}
 }
 

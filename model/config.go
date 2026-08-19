@@ -121,6 +121,7 @@ type TelemetryConfig struct {
 	EnableConnectivityNotification     bool   `koanf:"enable_connectivity_notification" yaml:"enable_connectivity_notification"`
 	EnableCorrectionNotification       bool   `koanf:"enable_correction_notification" yaml:"enable_correction_notification"`
 	EnableCollectorOfflineNotification bool   `koanf:"enable_collector_offline_notification" yaml:"enable_collector_offline_notification"`
+	EnableCollectorOnlineNotification  bool   `koanf:"enable_collector_online_notification" yaml:"enable_collector_online_notification"`
 	EnableDataLossNotification         bool   `koanf:"enable_data_loss_notification" yaml:"enable_data_loss_notification"`
 }
 

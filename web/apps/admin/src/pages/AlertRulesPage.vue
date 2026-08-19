@@ -14,11 +14,11 @@ const { t, te } = useI18n()
 const loading = ref(false), saving = ref(false), editor = ref(false), total = ref(0)
 const items = ref<AlertRuleRecord[]>([]), selected = ref<AlertRuleRecord[]>([]), editing = ref<AlertRuleRecord>()
 const query = reactive({ page: 1, page_size: 20, q: '', sort: 'id', order: 'desc' as const })
-const SETTINGS_KEYS = ['enable_offline_history', 'offline_threshold', 'check_interval', 'merge_gap', 'retention_days', 'notify_offline', 'notify_recovery', 'connectivity_notification', 'correction_notification', 'collector_offline_notification', 'data_loss_notification', 'plain_ip_in_notification'] as const
+const SETTINGS_KEYS = ['enable_offline_history', 'offline_threshold', 'check_interval', 'merge_gap', 'retention_days', 'notify_offline', 'notify_recovery', 'connectivity_notification', 'correction_notification', 'collector_offline_notification', 'collector_online_notification', 'data_loss_notification', 'plain_ip_in_notification'] as const
 const form = reactive<Record<string, unknown>>({
   enable_offline_history: true, offline_threshold: 30, check_interval: 5, merge_gap: 0, retention_days: 30,
   notify_offline: true, notify_recovery: true, connectivity_notification: false, correction_notification: false,
-  collector_offline_notification: true, data_loss_notification: true, plain_ip_in_notification: false,
+  collector_offline_notification: true, collector_online_notification: true, data_loss_notification: true, plain_ip_in_notification: false,
 })
 async function load() {
   loading.value = true
@@ -58,6 +58,7 @@ onMounted(load)
       <el-button type="primary" :loading="saving" @click="saveSettings"><i class="ri-save-line"></i>{{ t('save') }}</el-button>
     </div>
   </div>
+  <div class="page-stack">
   <el-form :model="form" label-position="top" class="settings-stack">
     <section class="surface settings-section">
       <div class="settings-heading">
@@ -81,6 +82,7 @@ onMounted(load)
         <label><span>{{ t('connectivityNotification') }}</span><el-switch v-model="form.connectivity_notification"/></label>
         <label><span>{{ t('correctionNotification') }}</span><el-switch v-model="form.correction_notification"/></label>
         <label><span>{{ t('collectorOfflineNotification') }}</span><el-switch v-model="form.collector_offline_notification"/></label>
+        <label><span>{{ t('collectorOnlineNotification') }}</span><el-switch v-model="form.collector_online_notification"/></label>
         <label><span>{{ t('dataLossNotification') }}</span><el-switch v-model="form.data_loss_notification"/></label>
         <label><span>{{ t('plainIPInNotification') }}</span><el-switch v-model="form.plain_ip_in_notification"/></label>
       </div>
@@ -117,5 +119,6 @@ onMounted(load)
       </div>
     </div>
     <div class="pagination"><el-pagination v-model:current-page="query.page" v-model:page-size="query.page_size" layout="total, sizes, prev, pager, next" :total="total" @change="load"/></div></section>
+  </div>
   <AlertRuleEditorDialog v-model="editor" :value="editing" @saved="load"/>
 </template>

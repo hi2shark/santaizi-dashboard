@@ -1180,6 +1180,9 @@ other = "Connectivity Degraded"
 [TelemetryAlertCollectorOffline]
 other = "Collector Offline"
 
+[TelemetryAlertCollectorOnline]
+other = "Collector Online"
+
 [TelemetryAlertDataLoss]
 other = "Probe Data Loss"
 

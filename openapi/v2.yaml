@@ -3984,8 +3984,21 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ProbeTCP'
+        mtr:
+          $ref: '#/components/schemas/ProbeMTR'
         has_trace:
           type: boolean
+    ProbeMTR:
+      type: object
+      properties:
+        loss:
+          type: number
+          format: double
+        hop_count:
+          type: integer
+        sampled_at:
+          type: string
+          format: date-time
     ProbeSampleBucket:
       type: object
       required:

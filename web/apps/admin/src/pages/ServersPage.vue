@@ -9,7 +9,7 @@ import ServerEditorDialog from '@/components/editors/ServerEditorDialog.vue'
 import ServerGroupManagerDialog from '@/components/editors/ServerGroupManagerDialog.vue'
 import InstallAgentDialog from '@/components/InstallAgentDialog.vue'
 import UpgradeAgentDialog from '@/components/UpgradeAgentDialog.vue'
-import ProbePathDrawer from '@/components/ProbePathDrawer.vue'
+import ProbePathDialog from '@/components/ProbePathDialog.vue'
 import TrafficHistoryPanel from '@/components/TrafficHistoryPanel.vue'
 import { batchDeleteServers, batchUpdateServerGroup, deleteOfflineHistory, deleteServer, getServerTrafficHistory, listConnectionPaths, listOfflineHistory, listProbePaths, listServerAvailability, listServers, resetServerAvailability, resetServerSecret, updateServerDisplayIndex, type ResourceRecord, type ServerRecord } from '@/api/adminApi'
 import { formatAdminValue, formatBytes } from '@/composables/format'
@@ -36,7 +36,7 @@ const items = ref<ServerRecord[]>([]), selected = ref<ServerRecord[]>([]), editi
 const total = ref(0)
 const query = reactive({ page: 1, page_size: 20, q: '', sort: 'display_index', order: 'desc' as const })
 const historyDrawer = ref(false), historyLoading = ref(false), historyServer = ref<ServerRecord>(), historyTab = ref('availability'), history = ref<ResourceRecord[]>([]), availability = ref<ResourceRecord[]>([]), connectionPaths = ref<ConnectionPath[]>([]), probePaths = ref<ProbePath[]>([]), trafficHistories = ref<TrafficPolicyHistory[]>([])
-const probeDrawer = ref(false)
+const probeDialog = ref(false)
 const activeProbe = ref<ProbePath>()
 const availabilityHours = ref(6)
 const availabilityRangeOptions = [1, 6, 24]
@@ -126,7 +126,7 @@ function probeChipText(path: ProbePath) {
 }
 function openProbe(row: ProbePath) {
   activeProbe.value = row
-  probeDrawer.value = true
+  probeDialog.value = true
 }
 function onSelect(row: ServerRecord, checked: boolean | string | number) { selected.value = toggleRowSelection(selected.value, row, !!checked) }
 function showInstall(server: ServerRecord, secret = '') { installServer.value = server; installSecret.value = secret; installDialog.value = true }
@@ -524,7 +524,7 @@ onUnmounted(() => { hoverMedia?.removeEventListener('change', onHoverMediaChange
       </el-tab-pane>
     </el-tabs>
   </AppDrawer>
-  <ProbePathDrawer v-model="probeDrawer" :path="activeProbe" :chip-text="activeProbe ? probeChipText(activeProbe) : '—'" />
+  <ProbePathDialog v-model="probeDialog" :path="activeProbe" />
 </template>
 
 <style scoped>

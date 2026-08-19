@@ -6,11 +6,18 @@ import { AppDrawer, AppEmpty } from '@santaizi/ui'
 import type { ProbePath } from '@santaizi/api'
 import { listCollectors, listProbePaths, type CollectorRecord } from '@/api/adminApi'
 import CopyableId from '@/components/CopyableId.vue'
-import ProbePathDrawer from '@/components/ProbePathDrawer.vue'
+import ProbePathDialog from '@/components/ProbePathDialog.vue'
 import { formatAdminValue, formatClockTime, formatDateTime, formatProductVersion } from '@/composables/format'
 import { notifyAPIError } from '@/composables/notify'
 import { isProbeCollector } from '@/domain/collectorKind'
-import { probeHasNoTarget, probePathKey } from '@/domain/probePath'
+import {
+  probeHasNoTarget,
+  probeICMPMetric,
+  probeMTRMetric,
+  probePathKey,
+  probeTCPMetric,
+  probeTargetText,
+} from '@/domain/probePath'
 
 const { t, te, locale } = useI18n()
 const router = useRouter()
@@ -20,49 +27,16 @@ const probePaths = ref<ProbePath[]>([])
 const collectorFilter = ref('')
 const statusFilter = ref('')
 const collectorDrawer = ref(false)
-const probeDrawer = ref(false)
+const probeDialog = ref(false)
 const activeCollector = ref<CollectorRecord>()
 const activeProbe = ref<ProbePath>()
 const POLL_MS = 5000
-const MOBILE_MATRIX_MQ = '(max-width: 860px)'
-const serversAsRows = ref(typeof window !== 'undefined' && window.matchMedia(MOBILE_MATRIX_MQ).matches)
 let timer: ReturnType<typeof setInterval> | undefined
-let axisMq: MediaQueryList | undefined
 let inflight = false
-
-type MatrixCollector = { id: string; name: string }
-type PathMatrixRow = {
-  key: string
-  server_id: number
-  server_name: string
-  cells: Record<string, ProbePath>
-}
-type MatrixCell = {
-  probe: ProbePath
-  reachable: boolean
-  noTarget: boolean
-  hasError: boolean
-  title?: string
-  text: string
-  sampled: string
-}
 
 const probeCollectors = computed(() => collectors.value.filter(row => !row.revoked && isProbeCollector(row)))
 
-const collectorOptions = computed(() => {
-  const items: MatrixCollector[] = []
-  const seen = new Set<string>()
-  for (const row of probeCollectors.value) {
-    seen.add(row.id)
-    items.push({ id: row.id, name: row.name })
-  }
-  for (const path of probePaths.value) {
-    if (seen.has(path.collector_id)) continue
-    seen.add(path.collector_id)
-    items.push({ id: path.collector_id, name: path.collector_name || path.collector_id })
-  }
-  return items
-})
+const collectorOptions = computed(() => probeCollectors.value.map(row => ({ id: row.id, name: row.name })))
 
 function probeStatus(path: ProbePath) {
   if (probeHasNoTarget(path)) return 'none'
@@ -77,35 +51,20 @@ const filteredProbePaths = computed(() => probePaths.value.filter((path) => {
   return probeStatus(path) === statusFilter.value
 }))
 
-const matrixCollectors = computed(() => {
-  if (!collectorFilter.value) return collectorOptions.value
-  return collectorOptions.value.filter((item) => item.id === collectorFilter.value)
-})
-
-const matrixRows = computed(() => {
-  const matching = new Set<string>()
-  for (const path of filteredProbePaths.value) matching.add(String(path.server_id))
-  const rows = new Map<string, PathMatrixRow>()
-  for (const path of probePaths.value) {
-    const key = String(path.server_id)
-    if (!matching.has(key)) continue
-    let row = rows.get(key)
-    if (!row) {
-      row = { key, server_id: path.server_id, server_name: path.server_name || '', cells: {} }
-      rows.set(key, row)
-    }
-    if (!row.server_name && path.server_name) row.server_name = path.server_name
-    row.cells[path.collector_id] = path
-  }
-  return [...rows.values()]
+const probeGroups = computed(() => {
+  const rows = collectorFilter.value
+    ? probeCollectors.value.filter(row => row.id === collectorFilter.value)
+    : probeCollectors.value
+  const groups = rows.map(collector => ({
+    collector,
+    paths: filteredProbePaths.value.filter(path => path.collector_id === collector.id),
+  }))
+  if (statusFilter.value) return groups.filter(group => group.paths.length)
+  return groups
 })
 
 function pretty(value: unknown, key = '') {
   return formatAdminValue(value, key, locale.value, t as never, te)
-}
-
-function lastErrorText(value?: string | null) {
-  return pretty(value, 'last_error')
 }
 
 function latencyText(ms?: number | null, sampled?: string | null) {
@@ -155,38 +114,21 @@ function collectorRttTitle(row: CollectorRecord) {
   return sampledTitle(row.heartbeat_rtt_sampled_at)
 }
 
-function probeChipText(path: ProbePath) {
-  if (probeHasNoTarget(path)) return '—'
-  if (!collectorOnline(path.collector_id)) return t('offline')
-  if (path.reachable && path.sampled_at) return latencyText(path.display_rtt_ms, path.sampled_at)
-  return t('probeTimeout')
+function icmpMetric(path: ProbePath) {
+  return probeICMPMetric(path, locale.value, t('probeTimeout'))
 }
 
-function hasMatrixCell(row: PathMatrixRow, collector: MatrixCollector) {
-  return Boolean(row.cells[collector.id])
+function tcpMetric(path: ProbePath) {
+  return probeTCPMetric(path, locale.value, t('probeTimeout'))
 }
 
-function matrixCells(row: PathMatrixRow, collector: MatrixCollector): MatrixCell[] {
-  const path = row.cells[collector.id]
-  if (!path) return []
-  const noTarget = probeHasNoTarget(path)
-  const status = probeStatus(path)
-  return [{
-    probe: path,
-    reachable: status === 'reachable',
-    noTarget,
-    hasError: Boolean(path.last_error) && collectorOnline(path.collector_id),
-    title: status === 'reachable'
-      ? sampledTitle(path.sampled_at)
-      : (path.last_error && collectorOnline(path.collector_id) ? lastErrorText(path.last_error) : undefined),
-    text: probeChipText(path),
-    sampled: status === 'reachable' ? sampledClock(path.sampled_at) : '',
-  }]
+function mtrMetric(path: ProbePath) {
+  return probeMTRMetric(path, locale.value)
 }
 
-function cellTone(cell: MatrixCell) {
-  if (cell.noTarget) return ''
-  return cell.reachable ? 'is-connected' : 'is-disconnected'
+function tcpLabel(path: ProbePath) {
+  const metric = tcpMetric(path)
+  return metric.port != null ? `${t('tcp')} :${metric.port}` : t('tcp')
 }
 
 function openCollector(row: CollectorRecord) {
@@ -196,7 +138,7 @@ function openCollector(row: CollectorRecord) {
 
 function openProbe(row: ProbePath) {
   activeProbe.value = row
-  probeDrawer.value = true
+  probeDialog.value = true
 }
 
 async function load(quiet = false) {
@@ -222,20 +164,12 @@ function onVisibility() {
   if (!document.hidden) void load(true)
 }
 
-function syncMatrixAxis() {
-  serversAsRows.value = Boolean(axisMq?.matches)
-}
-
 onMounted(async () => {
-  axisMq = window.matchMedia(MOBILE_MATRIX_MQ)
-  syncMatrixAxis()
-  axisMq.addEventListener('change', syncMatrixAxis)
   await load()
   timer = setInterval(() => { if (!document.hidden) void load(true) }, POLL_MS)
   document.addEventListener('visibilitychange', onVisibility)
 })
 onUnmounted(() => {
-  axisMq?.removeEventListener('change', syncMatrixAxis)
   if (timer) clearInterval(timer)
   document.removeEventListener('visibilitychange', onVisibility)
 })
@@ -245,167 +179,73 @@ onUnmounted(() => {
   <div class="probes-page">
   <div class="page-head">
     <h1>{{ t('probeObservation') }}</h1>
-    <el-button @click="load()"><i class="ri-refresh-line"></i>{{ t('refresh') }}</el-button>
+    <div class="page-actions">
+      <el-select v-model="collectorFilter" class="toolbar-filter" clearable :placeholder="t('allProbes')">
+        <el-option v-for="item in collectorOptions" :key="item.id" :label="item.name" :value="item.id" />
+      </el-select>
+      <el-select v-model="statusFilter" class="toolbar-filter" clearable :placeholder="t('allProbeStatus')">
+        <el-option :label="t('probeReachable')" value="reachable" />
+        <el-option :label="t('probeTimeout')" value="timeout" />
+        <el-option :label="t('probeNoTarget')" value="none" />
+      </el-select>
+      <el-button @click="load()"><i class="ri-refresh-line"></i>{{ t('refresh') }}</el-button>
+    </div>
   </div>
 
-  <div class="page-stack">
-    <section class="surface table-card connections-collectors">
-      <div class="toolbar">
-        <h2 class="table-card-title">{{ t('collectors') }} <small>{{ probeCollectors.length }}</small></h2>
-      </div>
-      <div class="collector-grid" v-loading="loading">
-        <AppEmpty v-if="!probeCollectors.length && !loading" class="empty-state" icon="ri-radar-line" :title="t('noProbesTitle')" :description="t('noProbesHint')" />
-        <article
-          v-for="row in probeCollectors"
-          :key="row.id"
-          class="collector-tile"
-          role="button"
-          tabindex="0"
-          @click="openCollector(row)"
-          @keydown.enter.prevent="openCollector(row)"
-          @keydown.space.prevent="openCollector(row)"
-        >
-          <span class="status-dot" :class="collectorStatus(row)"></span>
-          <div class="collector-tile__id">
-            <strong>{{ row.name }}</strong>
-            <CopyableId :value="row.id" />
-          </div>
-          <span class="rtt-chip" :class="collectorRttTone(row)" :title="collectorRttTitle(row)">
-            <span class="rtt-value">{{ collectorRttText(row) }}</span>
-            <span v-if="collectorRttSampled(row)" class="rtt-sampled">{{ collectorRttSampled(row) }}</span>
-          </span>
-          <div class="collector-tile__metrics">
-            <span>{{ collectorVersionText(row) }}</span>
-          </div>
-        </article>
-      </div>
-      <div v-if="!probeCollectors.length && !loading" class="pagination">
-        <el-button type="primary" @click="router.push('/telemetry?create=1')"><i class="ri-add-line"></i>{{ t('createCollector') }}</el-button>
-      </div>
-    </section>
-
-    <section class="surface table-card connections-nodes">
-      <div class="toolbar">
-        <h2 class="table-card-title">{{ t('probePaths') }} <small>{{ filteredProbePaths.length }}</small></h2>
-        <div class="toolbar-filters mobile-only">
-          <el-select v-model="collectorFilter" class="toolbar-filter" clearable :placeholder="t('allProbes')">
-            <el-option v-for="item in collectorOptions" :key="item.id" :label="item.name" :value="item.id" />
-          </el-select>
-          <el-select v-model="statusFilter" class="toolbar-filter" clearable :placeholder="t('allProbeStatus')">
-            <el-option :label="t('probeReachable')" value="reachable" />
-            <el-option :label="t('probeTimeout')" value="timeout" />
-            <el-option :label="t('probeNoTarget')" value="none" />
-          </el-select>
+  <div class="probe-groups-wrap" v-loading="loading">
+    <AppEmpty v-if="!probeCollectors.length && !loading" class="empty-state" icon="ri-radar-line" :title="t('noProbesTitle')" :description="t('noProbesHint')" />
+    <div v-if="!probeCollectors.length && !loading" class="pagination">
+      <el-button type="primary" @click="router.push('/telemetry?create=1')"><i class="ri-add-line"></i>{{ t('createCollector') }}</el-button>
+    </div>
+    <AppEmpty v-else-if="!probeGroups.length && !loading" class="empty-state" icon="ri-radar-line" :title="t('noProbePathsTitle')" :description="t('noProbePathsHint')" />
+    <section v-for="group in probeGroups" :key="group.collector.id" class="surface probe-group">
+      <article
+        class="collector-tile"
+        role="button"
+        tabindex="0"
+        @click="openCollector(group.collector)"
+        @keydown.enter.prevent="openCollector(group.collector)"
+        @keydown.space.prevent="openCollector(group.collector)"
+      >
+        <span class="status-dot" :class="collectorStatus(group.collector)"></span>
+        <div class="collector-tile__id">
+          <strong>{{ group.collector.name }}</strong>
+          <CopyableId :value="group.collector.id" />
         </div>
-      </div>
-      <div class="path-matrix-wrap" v-loading="loading">
-        <AppEmpty v-if="!matrixRows.length && !loading" class="empty-state" icon="ri-radar-line" :title="t('noProbePathsTitle')" :description="t('noProbePathsHint')" />
-        <div
-          v-else
-          class="path-matrix"
-          :class="serversAsRows ? 'is-servers-y' : 'is-servers-x'"
-          role="table"
-          :style="serversAsRows
-            ? { '--obs-count': String(matrixCollectors.length || 1) }
-            : { '--server-count': String(matrixRows.length || 1) }"
-        >
-          <div class="path-matrix__head" role="row">
-            <div class="col-corner" role="columnheader">{{ serversAsRows ? t('server') : '' }}</div>
-            <template v-if="serversAsRows">
-              <div
-                v-for="obs in matrixCollectors"
-                :key="obs.id"
-                class="col-observer is-probe"
-                role="columnheader"
-              >
-                <i class="ri-radar-line" aria-hidden="true"></i>
-                <span>{{ obs.name }}</span>
-              </div>
-            </template>
-            <template v-else>
-              <div
-                v-for="row in matrixRows"
-                :key="row.key"
-                class="col-server"
-                role="columnheader"
-                :title="row.server_name || undefined"
-              >{{ row.server_name || '—' }}</div>
-            </template>
-          </div>
-          <template v-if="serversAsRows">
-            <div
-              v-for="row in matrixRows"
-              :key="row.key"
-              class="path-matrix__row"
-              role="row"
-            >
-              <div class="path-matrix__stub col-server" role="rowheader" :title="row.server_name || undefined">{{ row.server_name || '—' }}</div>
-              <div
-                v-for="obs in matrixCollectors"
-                :key="obs.id"
-                class="col-observer"
-                role="cell"
-              >
-                <button
-                  v-for="cell in matrixCells(row, obs)"
-                  :key="probePathKey(cell.probe)"
-                  type="button"
-                  class="path-matrix__cell"
-                  :class="cellTone(cell)"
-                  :title="cell.title"
-                  @click="openProbe(cell.probe)"
-                >
-                  <span class="rtt-main">
-                    <i v-if="cell.hasError" class="ri-error-warning-line" aria-hidden="true"></i>
-                    <span class="rtt-value">{{ cell.text }}</span>
-                  </span>
-                  <span v-if="cell.sampled" class="rtt-sampled">{{ cell.sampled }}</span>
-                </button>
-                <span v-if="!hasMatrixCell(row, obs)" class="path-matrix__empty" aria-hidden="true"></span>
-              </div>
-            </div>
-          </template>
-          <template v-else>
-            <div
-              v-for="obs in matrixCollectors"
-              :key="obs.id"
-              class="path-matrix__row"
-              role="row"
-            >
-              <div
-                class="path-matrix__stub col-observer is-probe"
-                role="rowheader"
-                :title="obs.name"
-              >
-                <i class="ri-radar-line" aria-hidden="true"></i>
-                <span>{{ obs.name }}</span>
-              </div>
-              <div
-                v-for="row in matrixRows"
-                :key="row.key"
-                class="col-observer"
-                role="cell"
-              >
-                <button
-                  v-for="cell in matrixCells(row, obs)"
-                  :key="probePathKey(cell.probe)"
-                  type="button"
-                  class="path-matrix__cell"
-                  :class="cellTone(cell)"
-                  :title="cell.title"
-                  @click="openProbe(cell.probe)"
-                >
-                  <span class="rtt-main">
-                    <i v-if="cell.hasError" class="ri-error-warning-line" aria-hidden="true"></i>
-                    <span class="rtt-value">{{ cell.text }}</span>
-                  </span>
-                  <span v-if="cell.sampled" class="rtt-sampled">{{ cell.sampled }}</span>
-                </button>
-                <span v-if="!hasMatrixCell(row, obs)" class="path-matrix__empty" aria-hidden="true"></span>
-              </div>
-            </div>
-          </template>
+        <span class="rtt-chip" :class="collectorRttTone(group.collector)" :title="collectorRttTitle(group.collector)">
+          <span class="rtt-value">{{ collectorRttText(group.collector) }}</span>
+          <span v-if="collectorRttSampled(group.collector)" class="rtt-sampled">{{ collectorRttSampled(group.collector) }}</span>
+        </span>
+        <div class="collector-tile__metrics">
+          <span>{{ collectorVersionText(group.collector) }}</span>
         </div>
+      </article>
+      <div class="probe-card-grid">
+        <AppEmpty v-if="!group.paths.length" class="empty-state" icon="ri-radar-line" :title="t('noProbePathsTitle')" :description="t('noProbePathsHint')" />
+        <button
+          v-for="path in group.paths"
+          :key="probePathKey(path)"
+          type="button"
+          class="probe-card"
+          @click="openProbe(path)"
+        >
+          <strong class="probe-card__name">{{ path.server_name || '—' }}</strong>
+          <span class="probe-card__target">{{ probeTargetText(path) }}</span>
+          <div class="probe-card__metrics">
+            <span class="probe-metric" :class="icmpMetric(path).tone">
+              <span class="probe-metric__label">{{ t('icmp') }}</span>
+              <span class="probe-metric__value">{{ icmpMetric(path).text }}</span>
+            </span>
+            <span class="probe-metric" :class="tcpMetric(path).tone">
+              <span class="probe-metric__label">{{ tcpLabel(path) }}</span>
+              <span class="probe-metric__value">{{ tcpMetric(path).text }}</span>
+            </span>
+            <span class="probe-metric" :class="mtrMetric(path).tone">
+              <span class="probe-metric__label">{{ t('probeTrace') }}</span>
+              <span class="probe-metric__value">{{ mtrMetric(path).text }}</span>
+            </span>
+          </div>
+        </button>
       </div>
     </section>
   </div>
@@ -425,6 +265,6 @@ onUnmounted(() => {
     </div>
   </AppDrawer>
 
-  <ProbePathDrawer v-model="probeDrawer" :path="activeProbe" :chip-text="activeProbe ? probeChipText(activeProbe) : '—'" />
+  <ProbePathDialog v-model="probeDialog" :path="activeProbe" />
   </div>
 </template>

@@ -1525,7 +1525,8 @@ func v2SettingsDTO() gin.H {
 		"plain_ip_in_notification": singleton.Conf.EnablePlainIPInNotification,
 		"show_availability_guest":  singleton.Conf.ShowAvailabilityToGuest, "connectivity_notification": singleton.Conf.Telemetry.EnableConnectivityNotification,
 		"correction_notification": singleton.Conf.Telemetry.EnableCorrectionNotification, "collector_offline_notification": singleton.Conf.Telemetry.EnableCollectorOfflineNotification,
-		"data_loss_notification": singleton.Conf.Telemetry.EnableDataLossNotification, "primary_color": singleton.Conf.Site.PrimaryColor, "footer_text": singleton.Conf.Site.FooterText,
+		"collector_online_notification": singleton.Conf.Telemetry.EnableCollectorOnlineNotification,
+		"data_loss_notification":        singleton.Conf.Telemetry.EnableDataLossNotification, "primary_color": singleton.Conf.Site.PrimaryColor, "footer_text": singleton.Conf.Site.FooterText,
 		"logo_url": singleton.Conf.Site.LogoURL, "background_url": singleton.Conf.Site.BackgroundURL, "custom_css": singleton.Conf.Site.SafeCustomCSS,
 		"primary_location": singleton.Conf.Site.PrimaryLocation,
 		"theme":            model.NormalizePublicTheme(singleton.Conf.Site.Theme), "allow_frontend_theme_switch": !singleton.Conf.DisableSwitchTemplateInFrontend,
@@ -1647,6 +1648,9 @@ func v2UpdateSettings(c *gin.Context) {
 	}
 	if value, exists := body["collector_offline_notification"]; exists {
 		singleton.Conf.Telemetry.EnableCollectorOfflineNotification = asBool(value)
+	}
+	if value, exists := body["collector_online_notification"]; exists {
+		singleton.Conf.Telemetry.EnableCollectorOnlineNotification = asBool(value)
 	}
 	if value, exists := body["data_loss_notification"]; exists {
 		singleton.Conf.Telemetry.EnableDataLossNotification = asBool(value)
@@ -2422,6 +2426,13 @@ func v2ProbePaths(c *gin.Context) {
 		if path.SampledAt > 0 {
 			item["sampled_at"] = optionalRFC3339Nano(path.SampledAt)
 			item["display_rtt_ms"] = optionalFloat(path.SampledAt, path.DisplayRttMs)
+		}
+		if path.MTR.HopCount > 0 {
+			mtr := gin.H{"loss": path.MTR.Loss, "hop_count": path.MTR.HopCount}
+			if path.MTR.SampledAt > 0 {
+				mtr["sampled_at"] = optionalRFC3339Nano(path.MTR.SampledAt)
+			}
+			item["mtr"] = mtr
 		}
 		items = append(items, item)
 	}

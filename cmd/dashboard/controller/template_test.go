@@ -24,7 +24,7 @@ func TestTelemetryTranslationsExist(t *testing.T) {
 		"TelemetryWalDownsampled", "TelemetryWalRollup", "TelemetryWalCritical", "TelemetryWalDataLoss",
 		"TelemetryLossCompacted", "TelemetryLossHardLimit", "TelemetryLossCorruption",
 		"TelemetryAlertHostOffline", "TelemetryAlertConnectivityDegraded", "TelemetryAlertCollectorOffline",
-		"TelemetryAlertDataLoss", "TelemetrySeverityCritical", "TelemetrySeverityWarning", "TelemetrySeverityInfo",
+		"TelemetryAlertCollectorOnline", "TelemetryAlertDataLoss", "TelemetrySeverityCritical", "TelemetrySeverityWarning", "TelemetrySeverityInfo",
 	}
 	for language := range model.Languages {
 		content, err := resource.I18nFS.ReadFile("l10n/" + language + ".toml")

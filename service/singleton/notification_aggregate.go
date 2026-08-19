@@ -102,6 +102,9 @@ func classifyNotification(desc string) (kind string, names []string, ok bool) {
 	if strings.HasPrefix(desc, "COLLECTOR_OFFLINE") || strings.Contains(desc, "\nCOLLECTOR_OFFLINE") {
 		return "从端离线", extractLegacyField(desc, "collector="), true
 	}
+	if strings.HasPrefix(desc, "COLLECTOR_ONLINE") || strings.Contains(desc, "\nCOLLECTOR_ONLINE") {
+		return "从端上线", extractLegacyField(desc, "collector="), true
+	}
 	if strings.HasPrefix(desc, "CONNECTIVITY_DEGRADED") {
 		return "连通降级", extractLegacyField(desc, "node="), true
 	}
@@ -117,7 +120,7 @@ func classifyNotification(desc string) (kind string, names []string, ok bool) {
 	}
 	kind = strings.TrimSpace(desc[1:end])
 	switch kind {
-	case "离线", "从端离线", "恢复", "连通降级", "探测丢失", "ProbeDown", "ProbeUp", "ProbeLatency":
+	case "离线", "从端离线", "从端上线", "恢复", "连通降级", "探测丢失", "ProbeDown", "ProbeUp", "ProbeLatency":
 		return kind, parseAggregatedNames(desc[end+1:]), true
 	default:
 		return "", nil, false
@@ -196,7 +199,7 @@ func extractLegacyField(desc, prefix string) []string {
 func formatAggregatedNotification(kind string, names []string) string {
 	unit := "条"
 	switch kind {
-	case "离线", "从端离线", "恢复", "连通降级":
+	case "离线", "从端离线", "从端上线", "恢复", "连通降级":
 		unit = "台"
 	}
 	var b strings.Builder
