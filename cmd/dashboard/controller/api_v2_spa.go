@@ -80,6 +80,9 @@ func registerSPAAPIV2(root gin.IRouter) {
 	admin.GET("/probes/trace", v2ProbeTrace)
 	admin.GET("/servers", v2AdminServers)
 	admin.POST("/servers", v2CreateServer)
+	admin.GET("/servers/export", v2ExportServers)
+	admin.POST("/servers/import/preview", v2PreviewServerImport)
+	admin.POST("/servers/import", v2ImportServers)
 	admin.GET("/servers/:id", v2AdminServer)
 	admin.GET("/servers/:id/availability", v2AdminServerAvailability)
 	admin.PATCH("/servers/:id", v2UpdateServer)
@@ -647,28 +650,10 @@ func v2SaveServer(c *gin.Context, id uint64) {
 			return
 		}
 	}
-	server.Name, server.Tag, server.Note = strings.TrimSpace(request.Name), strings.TrimSpace(request.Tag), request.Note
-	publicNote, err := json.Marshal(request.PublicNote)
-	if err != nil {
-		writeV2Problem(c, 400, "invalid_public_note", err.Error())
+	if err := applyServerWriteFields(&server, request, created); err != nil {
+		writeV2Problem(c, 400, "invalid_server", err.Error())
 		return
 	}
-	server.PublicNote = string(publicNote)
-	monitoringOptions, err := json.Marshal(request.MonitoringOptions)
-	if err != nil {
-		writeV2Problem(c, 400, "invalid_monitoring_options", err.Error())
-		return
-	}
-	server.MonitoringOptionsRaw = string(monitoringOptions)
-	server.DisplayIndex, server.HideForGuest, server.EnableDDNS = request.DisplayIndex, request.HideForGuest, request.EnableDDNS
-	server.ProbeTarget = strings.TrimSpace(request.ProbeTarget)
-	server.ProbeTCPPorts = strings.TrimSpace(request.ProbeTCPPorts)
-	server.ProbeEnableICMP = model.BoolPtr(boolOrKeep(request.ProbeEnableICMP, created, model.BoolOrTrue(server.ProbeEnableICMP), true))
-	server.ProbeEnableTCP = model.BoolPtr(boolOrKeep(request.ProbeEnableTCP, created, model.BoolOrTrue(server.ProbeEnableTCP), true))
-	server.ProbeEnableMTR = model.BoolPtr(boolOrKeep(request.ProbeEnableMTR, created, model.BoolOrTrue(server.ProbeEnableMTR), true))
-	server.DDNSProfiles = append([]uint64(nil), request.DDNSProfiles...)
-	raw, _ := utils.Json.Marshal(server.DDNSProfiles)
-	server.DDNSProfilesRaw = string(raw)
 	policies, err := trafficPoliciesFromWrite(request.TrafficPolicies)
 	if err != nil {
 		writeV2Problem(c, 400, "invalid_traffic_policy", err.Error())
@@ -2341,7 +2326,7 @@ func v2ConnectionPaths(c *gin.Context) {
 	for _, path := range paths {
 		items = append(items, gin.H{
 			"server_id": path.ServerID, "server_name": path.ServerName, "display_index": path.DisplayIndex, "tag": path.Tag,
-			"node_uuid": path.NodeUUID,
+			"node_uuid":   path.NodeUUID,
 			"observer_id": path.ObserverID, "observer_kind": path.ObserverKind, "observer_name": path.ObserverName,
 			"assigned": path.Assigned, "last_seen": optionalRFC3339Nano(path.LastSeen),
 			"sink": gin.H{

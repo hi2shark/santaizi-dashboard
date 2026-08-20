@@ -283,6 +283,61 @@ paths:
           $ref: '#/components/responses/ServerResponse'
         default:
           $ref: '#/components/responses/Problem'
+  /api/v2/admin/servers/export:
+    get:
+      tags:
+      - Servers
+      summary: 导出服务器配置
+      description: 导出全部主机配置与流量策略。不含 Secret、运行态与流量用量。
+      operationId: exportServers
+      x-ui-route: /admin/servers
+      responses:
+        '200':
+          $ref: '#/components/responses/ServerBackupResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/v2/admin/servers/import/preview:
+    post:
+      tags:
+      - Servers
+      summary: 预览服务器导入
+      description: 按主机名称精确匹配，返回每条建议动作。不写入。
+      operationId: previewServerImport
+      x-ui-route: /admin/servers
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/ServerBackup'
+      responses:
+        '200':
+          $ref: '#/components/responses/ServerImportPreviewResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/v2/admin/servers/import:
+    post:
+      tags:
+      - Servers
+      summary: 导入服务器配置
+      description: 按预览结果执行新建或覆盖。覆盖时流量策略去掉 id 后全量替换。不含 Secret。
+      operationId: importServers
+      x-ui-route: /admin/servers
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/ServerImportWrite'
+      responses:
+        '200':
+          $ref: '#/components/responses/ServerImportResultResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v2/admin/servers/{serverId}:
     parameters:
     - $ref: '#/components/parameters/ServerId'
@@ -2592,6 +2647,168 @@ components:
         probe_enable_mtr:
           type: boolean
           default: true
+    ServerBackupItem:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        tag:
+          type: string
+          maxLength: 100
+        note:
+          type: string
+          maxLength: 2000
+        public_note:
+          $ref: '#/components/schemas/PublicNote'
+        monitoring_options:
+          $ref: '#/components/schemas/MonitoringOptions'
+        display_index:
+          type: integer
+        hide_for_guest:
+          type: boolean
+        enable_ddns:
+          type: boolean
+        ddns_profiles:
+          type: array
+          items:
+            type: integer
+            format: int64
+        traffic_policies:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrafficPolicyWrite'
+        probe_target:
+          type: string
+          maxLength: 255
+        probe_tcp_ports:
+          type: string
+          maxLength: 64
+        probe_enable_icmp:
+          type: boolean
+          default: true
+        probe_enable_tcp:
+          type: boolean
+          default: true
+        probe_enable_mtr:
+          type: boolean
+          default: true
+        secret:
+          type: string
+          description: 禁止出现。若存在则整份备份被拒绝。
+    ServerBackup:
+      type: object
+      additionalProperties: false
+      required:
+      - format
+      - servers
+      properties:
+        format:
+          type: string
+          enum:
+          - santaizi.servers.v1
+        exported_at:
+          type: string
+          format: date-time
+        servers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServerBackupItem'
+    ServerImportMatch:
+      type: string
+      enum:
+      - create
+      - update
+      - unchanged
+      - ambiguous
+    ServerImportAction:
+      type: string
+      enum:
+      - create
+      - overwrite
+      - skip
+    ServerImportPreviewItem:
+      type: object
+      required:
+      - index
+      - name
+      - match
+      - changes
+      - warnings
+      - suggested_action
+      - allowed_actions
+      properties:
+        index:
+          type: integer
+        name:
+          type: string
+        match:
+          $ref: '#/components/schemas/ServerImportMatch'
+        current_id:
+          type: integer
+          format: int64
+        changes:
+          type: array
+          items:
+            type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        suggested_action:
+          $ref: '#/components/schemas/ServerImportAction'
+        allowed_actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServerImportAction'
+    ServerImportPreview:
+      type: object
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServerImportPreviewItem'
+    ServerImportActionItem:
+      type: object
+      required:
+      - index
+      - action
+      properties:
+        index:
+          type: integer
+        action:
+          $ref: '#/components/schemas/ServerImportAction'
+    ServerImportWrite:
+      type: object
+      required:
+      - document
+      - actions
+      properties:
+        document:
+          $ref: '#/components/schemas/ServerBackup'
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServerImportActionItem'
+    ServerImportResult:
+      type: object
+      required:
+      - created
+      - overwritten
+      - skipped
+      properties:
+        created:
+          type: integer
+        overwritten:
+          type: integer
+        skipped:
+          type: integer
     MonitorScope:
       type: object
       required:
@@ -4486,6 +4703,18 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ServerWrite'
+    ServerBackup:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ServerBackup'
+    ServerImportWrite:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ServerImportWrite'
     MonitorWrite:
       required: true
       content:
@@ -4656,6 +4885,39 @@ components:
                   $ref: '#/components/schemas/Server'
               meta:
                 $ref: '#/components/schemas/Meta'
+    ServerBackupResponse:
+      description: Server backup document
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - data
+            properties:
+              data:
+                $ref: '#/components/schemas/ServerBackup'
+    ServerImportPreviewResponse:
+      description: Server import preview
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - data
+            properties:
+              data:
+                $ref: '#/components/schemas/ServerImportPreview'
+    ServerImportResultResponse:
+      description: Server import result
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - data
+            properties:
+              data:
+                $ref: '#/components/schemas/ServerImportResult'
     MonitorHistoryListResponse:
       description: Public monitor latency history
       content:

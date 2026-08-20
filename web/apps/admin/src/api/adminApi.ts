@@ -2,7 +2,7 @@ import * as api from '@santaizi/api'
 import type {
   AlertRuleWriteBody, CollectorRecord, DDNSProfileWriteBody, MonitorWriteBody,
   NATTunnelWriteBody, NotificationChannelWriteBody, ResourceQuery, ResourceRecord,
-  ScriptCommand, ServerRecord, ServerWriteBody,
+  ScriptCommand, ServerBackup, ServerImportWrite, ServerRecord, ServerWriteBody,
 } from '@santaizi/api'
 import type {
   AlertRuleRecord, DDNSProfileRecord, MonitorRecord,
@@ -54,6 +54,9 @@ export const updateNATTunnel = (id: number, body: NATTunnelWriteBody) => api.upd
 export const deleteNATTunnel = api.deleteNATTunnel
 
 export const createServer = (body: ServerWriteBody) => api.createServer(body)
+export const exportServers = () => api.exportServers()
+export const previewServerImport = (body: ServerBackup) => api.previewServerImport(body)
+export const importServersBackup = (body: ServerImportWrite) => api.importServers(body)
 export const updateServer = (id: number, body: ServerWriteBody) => api.updateServer(id, body)
 export const deleteServer = api.deleteServer
 export const resetServerSecret = api.resetServerSecret

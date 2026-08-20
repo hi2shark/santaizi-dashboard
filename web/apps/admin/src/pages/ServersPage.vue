@@ -4,15 +4,16 @@ import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { AppDialog, AppDrawer, AppEmpty } from '@santaizi/ui'
-import type { ConnectionPath, ProbePath, TrafficPolicyHistory, TrafficSummary } from '@santaizi/api'
+import type { ConnectionPath, ProbePath, ServerBackup, ServerImportPreviewItem, TrafficPolicyHistory, TrafficSummary } from '@santaizi/api'
 import ServerEditorDialog from '@/components/editors/ServerEditorDialog.vue'
 import ServerGroupManagerDialog from '@/components/editors/ServerGroupManagerDialog.vue'
+import ServerImportDialog from '@/components/editors/ServerImportDialog.vue'
 import InstallAgentDialog from '@/components/InstallAgentDialog.vue'
 import UpgradeAgentDialog from '@/components/UpgradeAgentDialog.vue'
 import ProbePathDialog from '@/components/ProbePathDialog.vue'
 import TrafficHistoryPanel from '@/components/TrafficHistoryPanel.vue'
 import CopyableText from '@/components/CopyableText.vue'
-import { batchDeleteServers, batchUpdateServerGroup, deleteOfflineHistory, deleteServer, getServerTrafficHistory, listConnectionPaths, listOfflineHistory, listProbePaths, listServerAvailability, listServers, resetServerAvailability, resetServerSecret, updateServerDisplayIndex, type ResourceRecord, type ServerRecord } from '@/api/adminApi'
+import { batchDeleteServers, batchUpdateServerGroup, deleteOfflineHistory, deleteServer, exportServers, getServerInstallPreview, getServerTrafficHistory, listConnectionPaths, listOfflineHistory, listProbePaths, listServerAvailability, listServers, previewServerImport, resetServerAvailability, resetServerSecret, updateServerDisplayIndex, type ResourceRecord, type ServerRecord } from '@/api/adminApi'
 import { formatAdminValue, formatBytes } from '@/composables/format'
 import { notifyAPIError } from '@/composables/notify'
 import { readStoredPageSize, writeStoredPageSize } from '@/composables/pageSize'
@@ -27,14 +28,16 @@ import {
   type ObserverEvidence,
 } from '@/domain/availability'
 import { hostAddresses } from '@/domain/hostAddress'
+import { defaultInstallPreviewBody } from '@/domain/installAgent'
 import { parsePublicNote } from '@/domain/publicNote'
 import { probeHasNoTarget, probePathKey, probeTargetText } from '@/domain/probePath'
 import { hostCoverageIcon, hostCoverageTone, hostListTone } from '@/domain/serverPresence'
 
 const { t, te, locale } = useI18n()
 const route = useRoute()
-const loading = ref(false), editor = ref(false), installDialog = ref(false), upgradeDialog = ref(false), groupManager = ref(false)
+const loading = ref(false), editor = ref(false), installDialog = ref(false), upgradeDialog = ref(false), groupManager = ref(false), importer = ref(false)
 const items = ref<ServerRecord[]>([]), selected = ref<ServerRecord[]>([]), editing = ref<ServerRecord>(), installServer = ref<ServerRecord>(), installSecret = ref(''), upgradeServer = ref<ServerRecord>()
+const importFile = ref<HTMLInputElement>(), importDocument = ref<ServerBackup>(), importItems = ref<ServerImportPreviewItem[]>([]), exporting = ref(false)
 const total = ref(0)
 const query = reactive({ page: 1, page_size: readStoredPageSize(route.path), q: '', sort: 'display_index', order: 'desc' as const })
 const historyDrawer = ref(false), historyLoading = ref(false), historyServer = ref<ServerRecord>(), historyTab = ref('availability'), history = ref<ResourceRecord[]>([]), availability = ref<ResourceRecord[]>([]), connectionPaths = ref<ConnectionPath[]>([]), probePaths = ref<ProbePath[]>([]), trafficHistories = ref<TrafficPolicyHistory[]>([])
@@ -47,10 +50,57 @@ const sortSaving = ref<Record<number, boolean>>({})
 const hoverCapable = ref(false)
 const noteDialog = ref(false)
 const noteServer = ref<ServerRecord>()
+const copyingInstall = ref<number>()
 let hoverMedia: MediaQueryList | undefined
 
 function onHoverMediaChange() {
   hoverCapable.value = !!hoverMedia?.matches
+}
+
+async function exportAll() {
+  exporting.value = true
+  try {
+    const payload = await exportServers()
+    const now = new Date()
+    const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`
+    const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `santaizi-servers-${stamp}.json`
+    link.click()
+    URL.revokeObjectURL(url)
+  } catch (error) {
+    notifyAPIError(error, t as never, te)
+  } finally {
+    exporting.value = false
+  }
+}
+
+function pickImport() {
+  importFile.value?.click()
+}
+
+async function onImportFile(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  let document: ServerBackup
+  try {
+    document = JSON.parse(await file.text()) as ServerBackup
+  } catch {
+    ElMessage.warning(t('invalidJSON'))
+    return
+  }
+  try {
+    const preview = await previewServerImport(document)
+    importDocument.value = document
+    importItems.value = preview.items
+    importer.value = true
+  } catch (error) {
+    notifyAPIError(error, t as never, te)
+  }
 }
 
 async function load() {
@@ -143,6 +193,19 @@ function openProbe(row: ProbePath) {
 function onSelect(row: ServerRecord, checked: boolean | string | number) { selected.value = toggleRowSelection(selected.value, row, !!checked) }
 function showInstall(server: ServerRecord, secret = '') { installServer.value = server; installSecret.value = secret; installDialog.value = true }
 function showUpgrade(server: ServerRecord) { upgradeServer.value = server; upgradeDialog.value = true }
+async function copyDefaultInstall(server: ServerRecord) {
+  if (copyingInstall.value) return
+  copyingInstall.value = server.id
+  try {
+    const preview = await getServerInstallPreview(server.id, defaultInstallPreviewBody())
+    await navigator.clipboard.writeText(preview.command)
+    ElMessage.success(t('copied'))
+  } catch (error) {
+    notifyAPIError(error, t as never, te)
+  } finally {
+    copyingInstall.value = undefined
+  }
+}
 async function resetSecret(server: ServerRecord) { await ElMessageBox.confirm(t('confirmResetSecret'), t('confirm'), { type: 'warning' }); try { const result = await resetServerSecret(server.id); showInstall(server, result.secret) } catch (error) { notifyAPIError(error, t as never, te) } }
 async function resetAvailabilityHistory(server: ServerRecord) { await ElMessageBox.confirm(t('confirmResetAvailability'), t('confirm'), { type: 'warning' }); try { await resetServerAvailability(server.id); await load(); ElMessage.success(t('saveSuccess')) } catch (error) { notifyAPIError(error, t as never, te) } }
 async function saved(server: ServerRecord, created: boolean) { await load(); if (created) showInstall(server, server.secret || '') }
@@ -286,6 +349,9 @@ onUnmounted(() => { hoverMedia?.removeEventListener('change', onHoverMediaChange
         <el-button type="danger" plain @click="deleteSelected"><i class="ri-delete-bin-6-line"></i>{{ t('batchDelete') }}</el-button>
       </template>
       <span class="toolbar-spacer"></span>
+      <input ref="importFile" class="sr-only" type="file" accept="application/json,.json" @change="onImportFile">
+      <el-button @click="pickImport"><i class="ri-upload-line"></i>{{ t('importServers') }}</el-button>
+      <el-button :loading="exporting" @click="exportAll"><i class="ri-download-line"></i>{{ t('exportServers') }}</el-button>
       <el-button @click="load"><i class="ri-refresh-line"></i>{{ t('refresh') }}</el-button>
     </div>
     <el-table class="desktop-only" v-loading="loading" :data="items" row-key="id" @selection-change="selected=$event">
@@ -366,22 +432,29 @@ onUnmounted(() => { hoverMedia?.removeEventListener('change', onHoverMediaChange
       <el-table-column prop="last_active" :label="t('lastSeen')" width="190">
         <template #default="{row}">{{ display(row.last_active,'last_active') }}</template>
       </el-table-column>
-      <el-table-column :label="t('actions')" width="72" fixed="right">
+      <el-table-column :label="t('actions')" width="108" fixed="right">
         <template #default="{row}">
-          <el-dropdown trigger="click">
-            <el-button text class="actions-more" :aria-label="t('actions')"><i class="ri-more-fill"></i></el-button>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item @click="open(row)"><i class="ri-edit-line"></i>{{ t('edit') }}</el-dropdown-item>
-                <el-dropdown-item @click="showInstall(row)"><i class="ri-download-cloud-2-line"></i>{{ t('installAgent') }}</el-dropdown-item>
-                <el-dropdown-item @click="showUpgrade(row)"><i class="ri-refresh-line"></i>{{ t('upgradeAgent') }}</el-dropdown-item>
-                <el-dropdown-item @click="showHistory(row)"><i class="ri-history-line"></i>{{ t('availabilityHistory') }}</el-dropdown-item>
-                <el-dropdown-item @click="resetSecret(row)"><i class="ri-key-2-line"></i>{{ t('resetSecret') }}</el-dropdown-item>
-                <el-dropdown-item @click="resetAvailabilityHistory(row)"><i class="ri-restart-line"></i>{{ t('resetAvailability') }}</el-dropdown-item>
-                <el-dropdown-item divided @click="removeOne(row)"><i class="ri-delete-bin-6-line"></i>{{ t('delete') }}</el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
+          <div class="inline-actions">
+            <el-tooltip :content="t('copyCommand')" placement="top" :show-after="300" :disabled="!hoverCapable">
+              <el-button text class="actions-icon" :aria-label="t('copyCommand')" :loading="copyingInstall === row.id" @click="copyDefaultInstall(row)">
+                <i class="ri-file-copy-line"></i>
+              </el-button>
+            </el-tooltip>
+            <el-dropdown trigger="click">
+              <el-button text class="actions-more" :aria-label="t('actions')"><i class="ri-more-fill"></i></el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item @click="open(row)"><i class="ri-edit-line"></i>{{ t('edit') }}</el-dropdown-item>
+                  <el-dropdown-item @click="showInstall(row)"><i class="ri-download-cloud-2-line"></i>{{ t('installAgent') }}</el-dropdown-item>
+                  <el-dropdown-item @click="showUpgrade(row)"><i class="ri-refresh-line"></i>{{ t('upgradeAgent') }}</el-dropdown-item>
+                  <el-dropdown-item @click="showHistory(row)"><i class="ri-history-line"></i>{{ t('availabilityHistory') }}</el-dropdown-item>
+                  <el-dropdown-item @click="resetSecret(row)"><i class="ri-key-2-line"></i>{{ t('resetSecret') }}</el-dropdown-item>
+                  <el-dropdown-item @click="resetAvailabilityHistory(row)"><i class="ri-restart-line"></i>{{ t('resetAvailability') }}</el-dropdown-item>
+                  <el-dropdown-item divided @click="removeOne(row)"><i class="ri-delete-bin-6-line"></i>{{ t('delete') }}</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </div>
         </template>
       </el-table-column>
       <template #empty><AppEmpty icon="ri-server-line" :description="t('noData')"/></template>
@@ -407,6 +480,11 @@ onUnmounted(() => { hoverMedia?.removeEventListener('change', onHoverMediaChange
                 </el-button>
               </el-tooltip>
               <span v-else class="admin-note-empty" aria-hidden="true"><i class="ri-sticky-note-line"></i></span>
+              <el-tooltip :content="t('copyCommand')" placement="top" :show-after="300" :disabled="!hoverCapable">
+                <el-button text class="actions-icon" :aria-label="t('copyCommand')" :loading="copyingInstall === row.id" @click="copyDefaultInstall(row)">
+                  <i class="ri-file-copy-line"></i>
+                </el-button>
+              </el-tooltip>
               <el-dropdown trigger="click">
                 <el-button text class="actions-more" :aria-label="t('actions')"><i class="ri-more-fill"></i></el-button>
                 <template #dropdown>
@@ -462,6 +540,7 @@ onUnmounted(() => { hoverMedia?.removeEventListener('change', onHoverMediaChange
   </section>
   <ServerEditorDialog v-model="editor" :value="editing" @saved="saved"/>
   <ServerGroupManagerDialog v-model="groupManager" @changed="load"/>
+  <ServerImportDialog v-model="importer" :document="importDocument" :items="importItems" @applied="load"/>
   <InstallAgentDialog v-model="installDialog" :server="installServer" :secret="installSecret"/>
   <UpgradeAgentDialog v-model="upgradeDialog" :server="upgradeServer"/>
   <AppDialog v-model="noteDialog" :title="`${t('note')} · ${noteServer?.name || ''}`" mode="view" width="min(560px,92vw)">

@@ -817,6 +817,66 @@ func (e ScriptCommandPlatform) Valid() bool {
 	}
 }
 
+// Defines values for ServerBackupFormat.
+const (
+	SantaiziServersV1 ServerBackupFormat = "santaizi.servers.v1"
+)
+
+// Valid indicates whether the value is a known member of the ServerBackupFormat enum.
+func (e ServerBackupFormat) Valid() bool {
+	switch e {
+	case SantaiziServersV1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ServerImportAction.
+const (
+	ServerImportActionCreate    ServerImportAction = "create"
+	ServerImportActionOverwrite ServerImportAction = "overwrite"
+	ServerImportActionSkip      ServerImportAction = "skip"
+)
+
+// Valid indicates whether the value is a known member of the ServerImportAction enum.
+func (e ServerImportAction) Valid() bool {
+	switch e {
+	case ServerImportActionCreate:
+		return true
+	case ServerImportActionOverwrite:
+		return true
+	case ServerImportActionSkip:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ServerImportMatch.
+const (
+	ServerImportMatchAmbiguous ServerImportMatch = "ambiguous"
+	ServerImportMatchCreate    ServerImportMatch = "create"
+	ServerImportMatchUnchanged ServerImportMatch = "unchanged"
+	ServerImportMatchUpdate    ServerImportMatch = "update"
+)
+
+// Valid indicates whether the value is a known member of the ServerImportMatch enum.
+func (e ServerImportMatch) Valid() bool {
+	switch e {
+	case ServerImportMatchAmbiguous:
+		return true
+	case ServerImportMatchCreate:
+		return true
+	case ServerImportMatchUnchanged:
+		return true
+	case ServerImportMatchUpdate:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TelemetryDataLossRecordReason.
 const (
 	TelemetryDataLossRecordReasonCompacted         TelemetryDataLossRecordReason = "compacted"
@@ -2398,6 +2458,38 @@ type Server struct {
 	TrafficSummaries *[]TrafficSummary `json:"traffic_summaries,omitempty"`
 }
 
+// ServerBackup defines model for ServerBackup.
+type ServerBackup struct {
+	ExportedAt *time.Time         `json:"exported_at,omitempty"`
+	Format     ServerBackupFormat `json:"format"`
+	Servers    []ServerBackupItem `json:"servers"`
+}
+
+// ServerBackupFormat defines model for ServerBackup.Format.
+type ServerBackupFormat string
+
+// ServerBackupItem defines model for ServerBackupItem.
+type ServerBackupItem struct {
+	DdnsProfiles      *[]int64           `json:"ddns_profiles,omitempty"`
+	DisplayIndex      *int               `json:"display_index,omitempty"`
+	EnableDdns        *bool              `json:"enable_ddns,omitempty"`
+	HideForGuest      *bool              `json:"hide_for_guest,omitempty"`
+	MonitoringOptions *MonitoringOptions `json:"monitoring_options,omitempty"`
+	Name              string             `json:"name"`
+	Note              *string            `json:"note,omitempty"`
+	ProbeEnableIcmp   *bool              `json:"probe_enable_icmp,omitempty"`
+	ProbeEnableMtr    *bool              `json:"probe_enable_mtr,omitempty"`
+	ProbeEnableTcp    *bool              `json:"probe_enable_tcp,omitempty"`
+	ProbeTarget       *string            `json:"probe_target,omitempty"`
+	ProbeTcpPorts     *string            `json:"probe_tcp_ports,omitempty"`
+	PublicNote        *PublicNote        `json:"public_note,omitempty"`
+
+	// Secret 禁止出现。若存在则整份备份被拒绝。
+	Secret          *string               `json:"secret,omitempty"`
+	Tag             *string               `json:"tag,omitempty"`
+	TrafficPolicies *[]TrafficPolicyWrite `json:"traffic_policies,omitempty"`
+}
+
 // ServerCredential defines model for ServerCredential.
 type ServerCredential struct {
 	GrpcHost string `json:"grpc_host"`
@@ -2459,6 +2551,48 @@ type ServerHost struct {
 
 	// Ipv6 从 `ip` 拆出的 IPv6。管理接口与 Bearer Token 公开请求返回。
 	Ipv6 *string `json:"ipv6,omitempty"`
+}
+
+// ServerImportAction defines model for ServerImportAction.
+type ServerImportAction string
+
+// ServerImportActionItem defines model for ServerImportActionItem.
+type ServerImportActionItem struct {
+	Action ServerImportAction `json:"action"`
+	Index  int                `json:"index"`
+}
+
+// ServerImportMatch defines model for ServerImportMatch.
+type ServerImportMatch string
+
+// ServerImportPreview defines model for ServerImportPreview.
+type ServerImportPreview struct {
+	Items []ServerImportPreviewItem `json:"items"`
+}
+
+// ServerImportPreviewItem defines model for ServerImportPreviewItem.
+type ServerImportPreviewItem struct {
+	AllowedActions  []ServerImportAction `json:"allowed_actions"`
+	Changes         []string             `json:"changes"`
+	CurrentId       *int64               `json:"current_id,omitempty"`
+	Index           int                  `json:"index"`
+	Match           ServerImportMatch    `json:"match"`
+	Name            string               `json:"name"`
+	SuggestedAction ServerImportAction   `json:"suggested_action"`
+	Warnings        []string             `json:"warnings"`
+}
+
+// ServerImportResult defines model for ServerImportResult.
+type ServerImportResult struct {
+	Created     int `json:"created"`
+	Overwritten int `json:"overwritten"`
+	Skipped     int `json:"skipped"`
+}
+
+// ServerImportWrite defines model for ServerImportWrite.
+type ServerImportWrite struct {
+	Actions  []ServerImportActionItem `json:"actions"`
+	Document ServerBackup             `json:"document"`
 }
 
 // ServerSecret defines model for ServerSecret.
@@ -2989,6 +3123,11 @@ type ScriptCommandsResponse struct {
 	Data ScriptCommands `json:"data"`
 }
 
+// ServerBackupResponse defines model for ServerBackupResponse.
+type ServerBackupResponse struct {
+	Data ServerBackup `json:"data"`
+}
+
 // ServerCredentialResponse defines model for ServerCredentialResponse.
 type ServerCredentialResponse struct {
 	Data ServerCredential `json:"data"`
@@ -2998,6 +3137,16 @@ type ServerCredentialResponse struct {
 type ServerGroupListResponse struct {
 	Data []ServerGroup `json:"data"`
 	Meta Meta          `json:"meta"`
+}
+
+// ServerImportPreviewResponse defines model for ServerImportPreviewResponse.
+type ServerImportPreviewResponse struct {
+	Data ServerImportPreview `json:"data"`
+}
+
+// ServerImportResultResponse defines model for ServerImportResultResponse.
+type ServerImportResultResponse struct {
+	Data ServerImportResult `json:"data"`
 }
 
 // ServerListResponse defines model for ServerListResponse.
@@ -3347,6 +3496,18 @@ type BatchUpdateServerGroupParams struct {
 	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
 }
 
+// ImportServersParams defines parameters for ImportServers.
+type ImportServersParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// PreviewServerImportParams defines parameters for PreviewServerImport.
+type PreviewServerImportParams struct {
+	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
+	XCSRFToken *CsrfToken `json:"X-CSRF-Token,omitempty"`
+}
+
 // DeleteServerParams defines parameters for DeleteServer.
 type DeleteServerParams struct {
 	// XCSRFToken Cookie 会话写操作时必填；Bearer Token 调用可省略
@@ -3584,6 +3745,12 @@ type BatchDeleteServersJSONRequestBody = BatchServerDeleteWrite
 
 // BatchUpdateServerGroupJSONRequestBody defines body for BatchUpdateServerGroup for application/json ContentType.
 type BatchUpdateServerGroupJSONRequestBody = BatchServerGroupWrite
+
+// ImportServersJSONRequestBody defines body for ImportServers for application/json ContentType.
+type ImportServersJSONRequestBody = ServerImportWrite
+
+// PreviewServerImportJSONRequestBody defines body for PreviewServerImport for application/json ContentType.
+type PreviewServerImportJSONRequestBody = ServerBackup
 
 // UpdateServerJSONRequestBody defines body for UpdateServer for application/json ContentType.
 type UpdateServerJSONRequestBody = ServerWrite
@@ -4369,6 +4536,15 @@ type ServerInterface interface {
 	// BatchUpdateServerGroup 批量更新服务器分组
 	// (POST /api/v2/admin/servers/batch/group)
 	BatchUpdateServerGroup(c *gin.Context, params BatchUpdateServerGroupParams)
+	// ExportServers 导出服务器配置
+	// (GET /api/v2/admin/servers/export)
+	ExportServers(c *gin.Context)
+	// ImportServers 导入服务器配置
+	// (POST /api/v2/admin/servers/import)
+	ImportServers(c *gin.Context, params ImportServersParams)
+	// PreviewServerImport 预览服务器导入
+	// (POST /api/v2/admin/servers/import/preview)
+	PreviewServerImport(c *gin.Context, params PreviewServerImportParams)
 	// DeleteServer 删除服务器
 	// (DELETE /api/v2/admin/servers/{serverId})
 	DeleteServer(c *gin.Context, serverId ServerId, params DeleteServerParams)
@@ -6640,6 +6816,99 @@ func (siw *ServerInterfaceWrapper) BatchUpdateServerGroup(c *gin.Context) {
 	siw.Handler.BatchUpdateServerGroup(c, params)
 }
 
+// ExportServers operation middleware
+func (siw *ServerInterfaceWrapper) ExportServers(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ExportServers(c)
+}
+
+// ImportServers operation middleware
+func (siw *ServerInterfaceWrapper) ImportServers(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ImportServersParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ImportServers(c, params)
+}
+
+// PreviewServerImport operation middleware
+func (siw *ServerInterfaceWrapper) PreviewServerImport(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PreviewServerImportParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.PreviewServerImport(c, params)
+}
+
 // DeleteServer operation middleware
 func (siw *ServerInterfaceWrapper) DeleteServer(c *gin.Context) {
 
@@ -8376,6 +8645,9 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/api/v2/admin/summary", wrapper.GetAdminSummary)
 	router.GET(options.BaseURL+"/api/v2/admin/servers", wrapper.ListServers)
 	router.POST(options.BaseURL+"/api/v2/admin/servers", wrapper.CreateServer)
+	router.GET(options.BaseURL+"/api/v2/admin/servers/export", wrapper.ExportServers)
+	router.POST(options.BaseURL+"/api/v2/admin/servers/import/preview", wrapper.PreviewServerImport)
+	router.POST(options.BaseURL+"/api/v2/admin/servers/import", wrapper.ImportServers)
 	router.DELETE(options.BaseURL+"/api/v2/admin/servers/:serverId", wrapper.DeleteServer)
 	router.GET(options.BaseURL+"/api/v2/admin/servers/:serverId", wrapper.GetServer)
 	router.PATCH(options.BaseURL+"/api/v2/admin/servers/:serverId", wrapper.UpdateServer)

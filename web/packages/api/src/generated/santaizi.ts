@@ -87,10 +87,15 @@ import type {
   PublicAvailabilityResponseResponse,
   PublicMetricListResponseResponse,
   ScriptCommandsResponseResponse,
+  ServerBackupBody,
+  ServerBackupResponseResponse,
   ServerCredentialResponseResponse,
   ServerDisplayIndexWriteBody,
   ServerGroupListResponseResponse,
   ServerGroupRenameWriteBody,
+  ServerImportPreviewResponseResponse,
+  ServerImportResultResponseResponse,
+  ServerImportWriteBody,
   ServerListResponseResponse,
   ServerResponseResponse,
   ServerSecretResponseResponse,
@@ -299,6 +304,49 @@ const createServer = (
       {url: `/api/v2/admin/servers`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
       data: serverWriteBody
+    },
+      );
+    }
+
+/**
+ * 导出全部主机配置与流量策略。不含 Secret、运行态与流量用量。
+ * @summary 导出服务器配置
+ */
+const exportServers = (
+
+ ) => {
+      return santaiziRequest<ServerBackupResponseResponse>(
+      {url: `/api/v2/admin/servers/export`, method: 'GET'
+    },
+      );
+    }
+
+/**
+ * 按主机名称精确匹配，返回每条建议动作。不写入。
+ * @summary 预览服务器导入
+ */
+const previewServerImport = (
+    serverBackupBody: ServerBackupBody,
+ ) => {
+      return santaiziRequest<ServerImportPreviewResponseResponse>(
+      {url: `/api/v2/admin/servers/import/preview`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: serverBackupBody
+    },
+      );
+    }
+
+/**
+ * 按预览结果执行新建或覆盖。覆盖时流量策略去掉 id 后全量替换。不含 Secret。
+ * @summary 导入服务器配置
+ */
+const importServers = (
+    serverImportWriteBody: ServerImportWriteBody,
+ ) => {
+      return santaiziRequest<ServerImportResultResponseResponse>(
+      {url: `/api/v2/admin/servers/import`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: serverImportWriteBody
     },
       );
     }
@@ -1459,7 +1507,7 @@ const listTelemetryAlerts = (
       );
     }
 
-return {getSession,logout,getPublicBootstrap,createViewPasswordSession,listPublicServers,getPublicServer,listPublicServices,getPublicNetworkHistory,listPublicCycleTransfer,getPublicServerAvailability,getPublicMetrics,getAdminSummary,listServers,createServer,getServer,updateServer,deleteServer,listServerAvailability,updateServerDisplayIndex,listServerGroups,renameServerGroup,resetServerSecret,resetServerAvailability,getServerCredential,getServerInstallPreview,getServerUpgradePreview,getProbeCapabilities,listTrafficPolicies,createTrafficPolicy,getTrafficPolicy,updateTrafficPolicy,deleteTrafficPolicy,getServerTrafficHistory,getTrafficPolicyUsage,batchUpdateServerGroup,batchDeleteServers,listMonitors,createMonitor,getMonitor,updateMonitor,deleteMonitor,listMonitorHistory,listNotifications,createNotification,getNotification,updateNotification,deleteNotification,testNotification,listAlertRules,createAlertRule,getAlertRule,updateAlertRule,deleteAlertRule,listDDNSProviders,listDDNSProfiles,createDDNSProfile,getDDNSProfile,updateDDNSProfile,deleteDDNSProfile,listNATTunnels,createNATTunnel,getNATTunnel,updateNATTunnel,deleteNATTunnel,getSettings,updateSettings,getDatabase,optimizeDatabase,listScriptCommands,listApiTokens,createApiToken,getApiToken,patchApiToken,deleteApiToken,listOfflineHistory,deleteOfflineHistory,cleanupOfflineHistory,getTelemetryOverview,getConnectionSummary,listConnectionPaths,listConnectionLatency,getProbeSummary,listProbePaths,listProbeSamples,getProbeTrace,listCollectors,createCollector,getCollector,updateCollector,deleteCollector,rotateCollectorToken,getCollectorToken,revokeCollector,updateCollectorScope,getCollectorInstallPreview,listObserverAssignments,listAgentReliability,listIncidents,listIncidentRevisions,listTelemetryDataLoss,listTelemetryAlerts}};
+return {getSession,logout,getPublicBootstrap,createViewPasswordSession,listPublicServers,getPublicServer,listPublicServices,getPublicNetworkHistory,listPublicCycleTransfer,getPublicServerAvailability,getPublicMetrics,getAdminSummary,listServers,createServer,exportServers,previewServerImport,importServers,getServer,updateServer,deleteServer,listServerAvailability,updateServerDisplayIndex,listServerGroups,renameServerGroup,resetServerSecret,resetServerAvailability,getServerCredential,getServerInstallPreview,getServerUpgradePreview,getProbeCapabilities,listTrafficPolicies,createTrafficPolicy,getTrafficPolicy,updateTrafficPolicy,deleteTrafficPolicy,getServerTrafficHistory,getTrafficPolicyUsage,batchUpdateServerGroup,batchDeleteServers,listMonitors,createMonitor,getMonitor,updateMonitor,deleteMonitor,listMonitorHistory,listNotifications,createNotification,getNotification,updateNotification,deleteNotification,testNotification,listAlertRules,createAlertRule,getAlertRule,updateAlertRule,deleteAlertRule,listDDNSProviders,listDDNSProfiles,createDDNSProfile,getDDNSProfile,updateDDNSProfile,deleteDDNSProfile,listNATTunnels,createNATTunnel,getNATTunnel,updateNATTunnel,deleteNATTunnel,getSettings,updateSettings,getDatabase,optimizeDatabase,listScriptCommands,listApiTokens,createApiToken,getApiToken,patchApiToken,deleteApiToken,listOfflineHistory,deleteOfflineHistory,cleanupOfflineHistory,getTelemetryOverview,getConnectionSummary,listConnectionPaths,listConnectionLatency,getProbeSummary,listProbePaths,listProbeSamples,getProbeTrace,listCollectors,createCollector,getCollector,updateCollector,deleteCollector,rotateCollectorToken,getCollectorToken,revokeCollector,updateCollectorScope,getCollectorInstallPreview,listObserverAssignments,listAgentReliability,listIncidents,listIncidentRevisions,listTelemetryDataLoss,listTelemetryAlerts}};
 export type GetSessionResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getSession']>>>
 export type LogoutResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['logout']>>>
 export type GetPublicBootstrapResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getPublicBootstrap']>>>
@@ -1474,6 +1522,9 @@ export type GetPublicMetricsResult = NonNullable<Awaited<ReturnType<ReturnType<t
 export type GetAdminSummaryResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getAdminSummary']>>>
 export type ListServersResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['listServers']>>>
 export type CreateServerResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['createServer']>>>
+export type ExportServersResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['exportServers']>>>
+export type PreviewServerImportResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['previewServerImport']>>>
+export type ImportServersResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['importServers']>>>
 export type GetServerResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['getServer']>>>
 export type UpdateServerResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['updateServer']>>>
 export type DeleteServerResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getSantaiziHTTPAPI>['deleteServer']>>>

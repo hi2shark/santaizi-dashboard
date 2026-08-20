@@ -5,8 +5,8 @@ import type {
   CollectorInstallPreview, CollectorInstallPreviewWriteBody, CollectorScopeWriteBody, CollectorToken, CollectorWriteBody, ConnectionLatencyBucket, ConnectionPath, ConnectionSummary, DDNSProfile, DDNSProfileWriteBody, DDNSProvider,
   GetProbeTraceParams, IncidentRecord, IncidentRevisionRecord, InstallPreview, InstallPreviewWriteBody, ListConnectionLatencyParams, ListProbePathsParams, ListProbeSamplesParams, Monitor, MonitorWriteBody, NATTunnel,
   NATTunnelWriteBody, NotificationChannel, NotificationChannelWriteBody, ObserverAssignmentRecord,
-  ProbeCapabilities, ProbePath, ProbeSampleBucket, ProbeSummary, ProbeTrace, ServerCredential, ServerDisplayIndexWriteBody, ServerGroup,
-  ServerGroupRenameWriteBody, ServerWriteBody, ScriptCommands, TelemetryAlertRecord, TelemetryDataLossRecord, TrafficPolicy,
+  ProbeCapabilities, ProbePath, ProbeSampleBucket, ProbeSummary, ProbeTrace, ServerBackup, ServerCredential, ServerDisplayIndexWriteBody, ServerGroup,
+  ServerGroupRenameWriteBody, ServerImportPreview, ServerImportResult, ServerImportWrite, ServerWriteBody, ScriptCommands, TelemetryAlertRecord, TelemetryDataLossRecord, TrafficPolicy,
   TrafficPolicyHistory, TrafficPolicyWriteBody, TrafficUsage, UpgradePreview, UpgradePreviewWriteBody,
   CycleTransfer, GetPublicMetricsParams, GetPublicServerAvailabilityParams, GetServerTrafficHistoryParams, MonitorHistory, PublicAvailability, PublicMetricPoint,
   DatabaseStatus,
@@ -49,6 +49,9 @@ export const getAdminSummary = () => api.getAdminSummary().then(value => data<Re
 export const listServers = (params: ResourceQuery = {}) => api.listServers(params).then(value => list<ServerRecord>(value))
 export const getServer = (id: number) => api.getServer(id).then(value => data<ServerRecord>(value))
 export const createServer = (body: ServerWriteBody) => api.createServer(body).then(value => data<ServerRecord>(value))
+export const exportServers = () => api.exportServers().then(value => data<ServerBackup>(value))
+export const previewServerImport = (body: ServerBackup) => api.previewServerImport(body).then(value => data<ServerImportPreview>(value))
+export const importServers = (body: ServerImportWrite) => api.importServers(body).then(value => data<ServerImportResult>(value))
 export const updateServer = (id: number, body: ServerWriteBody) => api.updateServer(id, body).then(value => data<ServerRecord>(value))
 export const deleteServer = (id: number) => api.deleteServer(id)
 export const resetServerSecret = (id: number) => api.resetServerSecret(id).then(value => data<{ secret: string }>(value))

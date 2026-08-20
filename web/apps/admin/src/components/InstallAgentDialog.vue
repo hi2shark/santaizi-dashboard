@@ -6,41 +6,21 @@ import { AppDialog } from '@santaizi/ui'
 import { getProbeCapabilities, getServerCredential, getServerInstallPreview, type ServerRecord } from '@/api/adminApi'
 import { useEditorSnapshot } from '@/composables/editorSnapshot'
 import { notifyAPIError } from '@/composables/notify'
+import { DEFAULT_CLEAN_INSTALL, DEFAULT_INSTALL_PLATFORM, DEFAULT_INSTALL_PROFILE, INSTALL_PRESETS, type InstallProfile } from '@/domain/installAgent'
 import type { MonitoringOptions, ProbeCapabilitiesMetadata } from '@/types/admin'
-
-type InstallProfile = 'standard_cloud' | 'standard_physical' | 'light' | 'alive'
-
-const fallbackPresets: Record<InstallProfile, MonitoringOptions> = {
-  standard_cloud: {
-    cpu: true, memory: true, disk: true, network: true, connections: true, processes: true,
-    temperature: false, gpu: false, host_info: true, ip_report: true, http_probe: true, icmp_probe: true, tcp_probe: true, nat: false,
-  },
-  standard_physical: {
-    cpu: true, memory: true, disk: true, network: true, connections: true, processes: true,
-    temperature: true, gpu: true, host_info: true, ip_report: true, http_probe: true, icmp_probe: true, tcp_probe: true, nat: false,
-  },
-  light: {
-    cpu: true, memory: true, disk: true, network: true, connections: false, processes: false,
-    temperature: false, gpu: false, host_info: true, ip_report: true, http_probe: true, icmp_probe: true, tcp_probe: true, nat: false,
-  },
-  alive: {
-    cpu: false, memory: false, disk: false, network: false, connections: false, processes: false,
-    temperature: false, gpu: false, host_info: false, ip_report: false, http_probe: false, icmp_probe: false, tcp_probe: false, nat: false,
-  },
-}
 
 const props = defineProps<{ modelValue: boolean; server?: ServerRecord; secret?: string }>()
 const emit = defineEmits<{ 'update:modelValue': [boolean] }>()
 const { t, te } = useI18n()
 const loading = ref(false)
-const platform = ref<'linux' | 'macos' | 'windows'>('linux')
-const profile = ref<InstallProfile>('standard_cloud')
-const cleanInstall = ref(true)
+const platform = ref<'linux' | 'macos' | 'windows'>(DEFAULT_INSTALL_PLATFORM)
+const profile = ref<InstallProfile>(DEFAULT_INSTALL_PROFILE)
+const cleanInstall = ref(DEFAULT_CLEAN_INSTALL)
 const cleanConfirmed = ref(false)
 const secret = ref('')
 const command = ref('')
 const metadata = ref<ProbeCapabilitiesMetadata>({ required: [], optional: [], presets: {} })
-const capabilities = reactive<MonitoringOptions>({ ...fallbackPresets.standard_cloud })
+const capabilities = reactive<MonitoringOptions>({ ...INSTALL_PRESETS[DEFAULT_INSTALL_PROFILE] })
 const ipReportConfig = reactive({ interface: '', country_code: '', prefer_ipv6: false })
 const nicPresets = ['eth0', 'eth1', 'ens33', 'enp0s3', 'wlan0']
 const snapshotValue = computed(() => ({
@@ -64,8 +44,8 @@ const profileOptions = computed(() => [
 ])
 function applyProfile(value: InstallProfile) {
   profile.value = value
-  const preset = metadata.value.presets[value] || fallbackPresets[value]
-  Object.assign(capabilities, fallbackPresets[value], preset)
+  const preset = metadata.value.presets[value] || INSTALL_PRESETS[value]
+  Object.assign(capabilities, INSTALL_PRESETS[value], preset)
 }
 async function refreshPreview() {
   if (!props.server) return
@@ -80,9 +60,9 @@ async function refreshPreview() {
 async function open() {
   if (!props.server) return
   loading.value = true
-  platform.value = 'linux'
-  profile.value = 'standard_cloud'
-  cleanInstall.value = true
+  platform.value = DEFAULT_INSTALL_PLATFORM
+  profile.value = DEFAULT_INSTALL_PROFILE
+  cleanInstall.value = DEFAULT_CLEAN_INSTALL
   cleanConfirmed.value = false
   command.value = ''
   ipReportConfig.interface = ''
@@ -95,7 +75,7 @@ async function open() {
     ])
     secret.value = credential.secret
     metadata.value = available
-    applyProfile('standard_cloud')
+    applyProfile(DEFAULT_INSTALL_PROFILE)
     await refreshPreview()
   } catch (error) {
     notifyAPIError(error, t as never, te)

@@ -128,6 +128,83 @@ test('creates a server with structured public notes and reusable installation cr
   await expect(install.getByText('CPU 与负载', { exact: true })).toBeVisible()
 })
 
+test('exports and imports host backups from host management', async ({ page }) => {
+  let imported: Record<string, unknown> | undefined
+  await page.route('**/api/v2/admin/servers/export', route => fulfillJSON(route, item({
+    format: 'santaizi.servers.v1',
+    exported_at: '2026-08-20T00:00:00Z',
+    servers: [{ name: 'edge-a', tag: 'edge', traffic_policies: [] }],
+  })))
+  await page.route('**/api/v2/admin/servers/import/preview', route => fulfillJSON(route, item({
+    items: [
+      { index: 0, name: 'edge-a', match: 'update', current_id: 7, changes: ['tag'], warnings: [], suggested_action: 'overwrite', allowed_actions: ['overwrite', 'skip'] },
+      { index: 1, name: 'edge-b', match: 'create', changes: [], warnings: [], suggested_action: 'create', allowed_actions: ['create', 'skip'] },
+    ],
+  })))
+  await page.route('**/api/v2/admin/servers/import', route => {
+    imported = route.request().postDataJSON() as Record<string, unknown>
+    return fulfillJSON(route, item({ created: 1, overwritten: 1, skipped: 0 }))
+  })
+
+  await page.goto('/admin/servers')
+  await expect(page.getByRole('button', { name: '导出' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '导入' })).toBeVisible()
+
+  const downloadPromise = page.waitForEvent('download')
+  await page.getByRole('button', { name: '导出' }).click()
+  const download = await downloadPromise
+  expect(download.suggestedFilename()).toMatch(/^santaizi-servers-\d{8}\.json$/)
+
+  await page.getByRole('button', { name: '导入' }).click()
+  await page.locator('input[type="file"]').setInputFiles({
+    name: 'backup.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify({
+      format: 'santaizi.servers.v1',
+      servers: [{ name: 'edge-a', tag: 'core' }, { name: 'edge-b' }],
+    })),
+  })
+  const dialog = page.getByRole('dialog', { name: '导入主机' })
+  await expect(dialog.getByText('edge-a')).toBeVisible()
+  await expect(dialog.getByText('将覆盖', { exact: true })).toBeVisible()
+  await dialog.getByRole('button', { name: '导入' }).click()
+  await page.getByRole('button', { name: '确认' }).click()
+  await expect.poll(() => imported).toMatchObject({
+    actions: [
+      { index: 0, action: 'overwrite' },
+      { index: 1, action: 'create' },
+    ],
+  })
+})
+
+test('copies default agent install command from host management', async ({ page }) => {
+  let preview: Record<string, unknown> | undefined
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: async () => {} },
+    })
+  })
+  await page.route('**/api/v2/admin/servers**', route => {
+    const path = new URL(route.request().url()).pathname
+    if (path.endsWith('/install-preview')) {
+      preview = route.request().postDataJSON() as Record<string, unknown>
+      return fulfillJSON(route, item({ platform: 'linux', command: 'install santaizi-agent --clean-install', clean_install: true, options: preview?.options || {} }))
+    }
+    return fulfillJSON(route, list([{ id: 2, name: 'edge-b', tag: 'edge', online: true, public_note: {}, monitoring_options: {} }]))
+  })
+
+  await page.goto('/admin/servers')
+  await page.getByRole('button', { name: '复制安装命令' }).filter({ visible: true }).first().click()
+  await expect(page.getByRole('dialog', { name: /安装探针/ })).toHaveCount(0)
+  await expect(page.getByText('已复制').filter({ visible: true })).toBeVisible()
+  await expect.poll(() => preview).toMatchObject({
+    platform: 'linux',
+    clean_install: true,
+    options: probeMetadata.presets.standard_cloud,
+  })
+})
+
 test('shows a copyable agent upgrade command from host management', async ({ page }) => {
   await page.route('**/api/v2/admin/servers**', route => {
     const path = new URL(route.request().url()).pathname
