@@ -97,6 +97,60 @@ func TestRawRollupAndPayloadRetentionRequireCompletedMinute(t *testing.T) {
 	}
 }
 
+func TestIngestedStateRollsUpFromMemoryWithoutEvidenceRows(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(
+		&model.TelemetryEvent{}, &model.StateRollup{}, &model.TelemetryObservation{}, &model.TelemetryGap{},
+		&model.TelemetryIngestCursor{}, &model.ObserverHealthBucket{}, &model.ObserverPathBucket{},
+		&model.ObserverAssignment{}, &model.AvailabilityRecomputeQueue{},
+	); err != nil {
+		t.Fatal(err)
+	}
+	buffer := NewStateSampleBuffer()
+	previous := sharedStateBuffer
+	SetSharedStateBuffer(buffer)
+	t.Cleanup(func() { SetSharedStateBuffer(previous) })
+	store := NewStore(db)
+	node, session := bytes.Repeat([]byte{3}, 16), bytes.Repeat([]byte{4}, 16)
+	end := time.Now().Truncate(time.Minute)
+	start := end.Add(-time.Minute)
+	for index, cpu := range []float64{10, 30} {
+		eventID, _ := EventID(node, session, uint64(index+1))
+		collected := start.Add(time.Duration(index+1) * 10 * time.Second)
+		event := &pb.TelemetryEvent{
+			EventId: eventID, NodeUuid: node, SessionId: session, Sequence: uint64(index + 1),
+			EventType: pb.TelemetryEventType_TELEMETRY_EVENT_TYPE_STATE, Priority: pb.TelemetryPriority_TELEMETRY_PRIORITY_P2_NORMAL,
+			CollectedAtUnixNano: collected.UnixNano(), SourceProtocol: pb.SourceProtocol_SOURCE_PROTOCOL_SANTAIZI_V2,
+			Reliability: pb.Reliability_RELIABILITY_RELIABLE_REPLAY,
+			Payload:     &pb.TelemetryEvent_State{State: &pb.State{Cpu: cpu, Uptime: 100, NetInTransfer: 1000 + uint64(index)*250}},
+		}
+		if _, err := store.Ingest(context.Background(), &pb.TelemetryBatch{Records: []*pb.TelemetryRecord{{Record: &pb.TelemetryRecord_Event{Event: event}}}}, "primary", collected); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var events int64
+	if err := db.Model(&model.TelemetryEvent{}).Count(&events).Error; err != nil {
+		t.Fatal(err)
+	}
+	if events != 0 {
+		t.Fatalf("events=%d", events)
+	}
+	worker := NewRollupWorker(db, RetentionPolicy{})
+	if err := worker.RollupPending(context.Background(), end.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	var row model.StateRollup
+	if err := db.First(&row, "node_uuid = ? AND resolution = ? AND window_start = ?", node, "1m", start.UnixNano()).Error; err != nil {
+		t.Fatal(err)
+	}
+	if row.SampleCount != 2 {
+		t.Fatalf("sample_count=%d", row.SampleCount)
+	}
+}
+
 func TestHourlyRollupPreservesMinuteExtremaAndWeightedAverage(t *testing.T) {
 	start := time.Unix(1_800_000_000, 0).Truncate(time.Hour)
 	rows := make([]model.StateRollup, 0, 2)

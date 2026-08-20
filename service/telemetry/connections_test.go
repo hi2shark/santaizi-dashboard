@@ -92,7 +92,7 @@ func TestLoadConnectionPathsJoinsAssignmentPathAndSink(t *testing.T) {
 	db := newConnectionDB(t)
 	now := time.Unix(1_700_000_000, 0)
 	node := bytes.Repeat([]byte{9}, 16)
-	server := model.Server{Name: "edge-a", Secret: "secret"}
+	server := model.Server{Name: "edge-a", Tag: "edge", DisplayIndex: 80, Secret: "secret"}
 	if err := db.Create(&server).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +131,7 @@ func TestLoadConnectionPathsJoinsAssignmentPathAndSink(t *testing.T) {
 		byObserver[path.ObserverID] = path
 	}
 	primary := byObserver[PrimaryObserverID]
-	if primary.ServerID != server.ID || primary.ServerName != "edge-a" || primary.ObserverKind != ObserverKindPrimary || !primary.Sink.Connected || primary.LastSeen != now.UnixNano() || primary.NodeUUID != hex.EncodeToString(node) || primary.Sink.LastRttMs != 12.5 {
+	if primary.ServerID != server.ID || primary.ServerName != "edge-a" || primary.DisplayIndex != 80 || primary.Tag != "edge" || primary.ObserverKind != ObserverKindPrimary || !primary.Sink.Connected || primary.LastSeen != now.UnixNano() || primary.NodeUUID != hex.EncodeToString(node) || primary.Sink.LastRttMs != 12.5 {
 		t.Fatalf("primary=%#v", primary)
 	}
 	east := byObserver["collector-east"]

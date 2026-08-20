@@ -15,6 +15,8 @@ import type { ProbeTCP } from './probeTCP';
 export interface ProbePath {
   server_id: number;
   server_name: string;
+  display_index: number;
+  tag?: string;
   collector_id: string;
   collector_name: string;
   target: ProbeTarget;

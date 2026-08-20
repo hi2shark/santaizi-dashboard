@@ -347,6 +347,7 @@ grpc_tls:
 | `retention.state_one_minute_days` | `30` |
 | `retention.state_one_hour_days` | `365` |
 | `retention.observation_days` | `30` |
+| `retention.evidence_hours` | `48` |
 | `retention.lifecycle_days` | `3650` |
 | `retention.batch_size` | `5000` |
 | `retention.max_runtime_ms` | `20000` |
@@ -354,7 +355,7 @@ grpc_tls:
 | `retention.compact_min_bytes` | `67108864`（64MiB） |
 | `retention.auto_compact` | `true` |
 
-Primary 每 5 分钟限时清过期探测数据。心跳 / 状态 / 压力汇总行及其观测只留 `state_raw_hours`（默认 6 小时）；路径桶 / 健康桶 / 探测告警 / 数据丢失 / HOST 事件与观测同为 30 天；复制回执 7 天。已完成的 1 分钟窗口会立刻剥离 STATE payload。监控历史（按主机 1 天、服务页 30 天）、流量点（48 小时）、探测样本（24 小时）也走同一轮清理。`batch_size` / `max_runtime_ms` 为 0 时用上表默认。
+Primary 每 5 分钟限时清过期探测数据。心跳 / 原始状态 / 探针压力汇总**不写入**事件表；实时状态走内存，完成分钟后写入 1 分钟聚合。路径桶 / 健康桶 / 连接延迟桶 / 探测样本 / 探测快照只留 `evidence_hours`（默认 48 小时）。HOST / 探测告警 / 数据丢失仍 30 天；复制回执 7 天。证据窗外的可用性 30 秒桶按相同连通状态跑长压缩，压缩后的段仍按 `lifecycle_days`（默认约 10 年）保留。已完成的 1 分钟窗口会立刻删除遗留的高频空壳行。监控历史（按主机 1 天、服务页 30 天）、流量点（48 小时）也走同一轮清理。`batch_size` / `max_runtime_ms` 为 0 时用上表默认。
 
 `auto_compact` 为 true 时：每天 03:30 与设置页「优化数据库」在可回收空间 ≥ `compact_min_bytes` 且剩余磁盘不少于当前库文件时执行整库 `VACUUM`。存量 `auto_vacuum=NONE` 的库、或一次可回收 ≥ `compact_min_bytes` 的 8 倍时，5 分钟维护也会自动压缩（6 小时冷却）。压缩会短暂停写，并大约需要一倍空闲磁盘；磁盘不够则跳过。新库启用 `INCREMENTAL` auto_vacuum，日常按批增量回收。设置页按钮只启动后台任务，不在请求线程里 `VACUUM`。
 
@@ -436,6 +437,7 @@ retention:
   state_one_minute_days: 30
   state_one_hour_days: 365
   observation_days: 30
+  evidence_hours: 48
   lifecycle_days: 3650
   batch_size: 5000
   max_runtime_ms: 20000

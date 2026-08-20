@@ -16,6 +16,9 @@ const (
 	ConnectivityFull        = "full"
 	ConnectivityPartial     = "partial"
 	ConnectivityUnavailable = "unavailable"
+
+	AvailabilityResolutionRaw  = "30s"
+	AvailabilityResolutionSpan = "span"
 )
 
 type SchemaMigration struct {
@@ -86,9 +89,9 @@ const (
 	CollectorKindObserver = "observer"
 	CollectorKindProbe    = "probe"
 
-	DefaultProbeIntervalSec = 30
-	DefaultMTRIntervalSec   = 300
-	DefaultProbeTCPPorts    = "22,443"
+	DefaultProbeIntervalSec   = 30
+	DefaultMTRIntervalSec     = 300
+	DefaultProbeTCPPorts      = "22,443"
 	DefaultProbeFailThreshold = 3
 )
 
@@ -255,6 +258,8 @@ type ObserverPathBucket struct {
 type AvailabilityBucket struct {
 	NodeUUID          []byte `gorm:"type:BLOB;size:16;primaryKey"`
 	BucketStart       int64  `gorm:"primaryKey"`
+	WindowEnd         int64  `gorm:"not null;default:0"`
+	Resolution        string `gorm:"size:8;not null;default:'30s';index"`
 	HostState         string `gorm:"size:16;not null;index"`
 	ConnectivityState string `gorm:"size:16;not null;index"`
 	ExpectedObservers uint32 `gorm:"not null"`

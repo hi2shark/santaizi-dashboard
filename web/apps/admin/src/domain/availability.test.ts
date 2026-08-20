@@ -38,6 +38,16 @@ describe('availability segments', () => {
     ])).toBe(60_000)
   })
 
+  it('uses window_end when mixed resolutions are present', () => {
+    const segments = buildAvailabilitySegments([
+      bucket('2026-08-13T04:00:00Z', { window_end: '2026-08-13T05:00:00Z' }),
+      bucket('2026-08-13T06:00:00Z'),
+      bucket('2026-08-13T06:00:30Z'),
+    ])
+    expect((segments[0]?.end ?? 0) - (segments[0]?.start ?? 0)).toBe(3_600_000)
+    expect(segments.map(item => item.kind)).toEqual(['observed', 'gap', 'observed'])
+  })
+
   it('merges consecutive same-state buckets', () => {
     const segments = buildAvailabilitySegments([
       bucket('2026-08-13T06:00:00Z'),

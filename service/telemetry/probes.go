@@ -16,7 +16,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-const ProbeSampleRetention = 24 * time.Hour
+const ProbeSampleRetention = DefaultEvidenceRetain
 
 type ProbeSummary struct {
 	CollectorsTotal   int64
@@ -39,6 +39,8 @@ type ProbeTCPView struct {
 type ProbePath struct {
 	ServerID      uint64
 	ServerName    string
+	DisplayIndex  int
+	Tag           string
 	CollectorID   string
 	CollectorName string
 	TargetSource  string
@@ -225,7 +227,8 @@ func loadProbePaths(db *gorm.DB, filter ProbePathFilter, now time.Time) ([]Probe
 			}
 			target := ResolveProbeTarget(db, server)
 			path := ProbePath{
-				ServerID: server.ID, ServerName: server.Name, CollectorID: collector.CollectorUUID, CollectorName: collector.Name,
+				ServerID: server.ID, ServerName: server.Name, DisplayIndex: server.DisplayIndex, Tag: server.Tag,
+				CollectorID: collector.CollectorUUID, CollectorName: collector.Name,
 				TargetSource: target.Source, Hostname: target.Hostname, IPv4: target.IPv4, IPv6: target.IPv6,
 			}
 			v4, v6 := CollectorIPFamilies(&collector)
@@ -353,7 +356,7 @@ func IngestProbeSamples(db *gorm.DB, collector *model.Collector, batch *pb.Probe
 			return err
 		}
 	}
-	return db.Where("bucket_start < ?", now.Add(-ProbeSampleRetention).UnixNano()).Delete(&model.ProbeSampleBucket{}).Error
+	return nil
 }
 
 func ingestProbeSample(db *gorm.DB, collector *model.Collector, sample *pb.ProbeSample, now time.Time) error {

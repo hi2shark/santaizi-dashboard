@@ -934,6 +934,7 @@ func v2AdminServerAvailability(c *gin.Context) {
 			"expected_observers": row.ExpectedObservers, "healthy_observers": row.HealthyObservers, "seen_observers": row.SeenObservers,
 			"observer_evidence": evidenceRows[i], "revision": row.Revision, "finalized": row.Finalized,
 			"recalculated_at": optionalRFC3339Nano(row.RecalculatedAt),
+			"window_end":      optionalRFC3339Nano(availabilityWindowEnd(row)), "resolution": row.Resolution,
 		})
 	}
 	writeV2List(c, result, v2Meta{NextCursor: next})
@@ -944,6 +945,13 @@ func optionalRFC3339Nano(value int64) any {
 		return nil
 	}
 	return time.Unix(0, value).UTC().Format(time.RFC3339Nano)
+}
+
+func availabilityWindowEnd(row model.AvailabilityBucket) int64 {
+	if row.WindowEnd > row.BucketStart {
+		return row.WindowEnd
+	}
+	return 0
 }
 
 func optionalFloat(sampledAt int64, value float64) any {
@@ -2332,7 +2340,8 @@ func v2ConnectionPaths(c *gin.Context) {
 	items := make([]gin.H, 0, len(paths))
 	for _, path := range paths {
 		items = append(items, gin.H{
-			"server_id": path.ServerID, "server_name": path.ServerName, "node_uuid": path.NodeUUID,
+			"server_id": path.ServerID, "server_name": path.ServerName, "display_index": path.DisplayIndex, "tag": path.Tag,
+			"node_uuid": path.NodeUUID,
 			"observer_id": path.ObserverID, "observer_kind": path.ObserverKind, "observer_name": path.ObserverName,
 			"assigned": path.Assigned, "last_seen": optionalRFC3339Nano(path.LastSeen),
 			"sink": gin.H{
@@ -2417,7 +2426,8 @@ func v2ProbePaths(c *gin.Context) {
 			tcp = append(tcp, gin.H{"port": item.Port, "ok": item.OK, "rtt_ms": item.RttMs, "error": item.Error})
 		}
 		item := gin.H{
-			"server_id": path.ServerID, "server_name": path.ServerName, "collector_id": path.CollectorID, "collector_name": path.CollectorName,
+			"server_id": path.ServerID, "server_name": path.ServerName, "display_index": path.DisplayIndex, "tag": path.Tag,
+			"collector_id": path.CollectorID, "collector_name": path.CollectorName,
 			"target":    gin.H{"source": path.TargetSource, "hostname": path.Hostname, "ipv4": path.IPv4, "ipv6": path.IPv6},
 			"reachable": path.Reachable, "has_trace": path.HasTrace, "last_error": path.LastError,
 			"icmp": gin.H{"ok": path.ICMPOk, "rtt_ms": path.ICMPRttMs, "loss": path.ICMPLoss, "packets_sent": path.ICMPSent, "packets_received": path.ICMPRecv},

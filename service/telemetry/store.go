@@ -22,6 +22,18 @@ const clockSkewLimit = 5 * time.Minute
 type Store struct {
 	db         *gorm.DB
 	bucketSize int64
+	states     *StateSampleBuffer
+}
+
+func persistTelemetryEvent(eventType pb.TelemetryEventType) bool {
+	switch eventType {
+	case pb.TelemetryEventType_TELEMETRY_EVENT_TYPE_HEARTBEAT,
+		pb.TelemetryEventType_TELEMETRY_EVENT_TYPE_STATE,
+		pb.TelemetryEventType_TELEMETRY_EVENT_TYPE_STATE_ROLLUP:
+		return false
+	default:
+		return true
+	}
 }
 
 func NewStore(db *gorm.DB) *Store {
@@ -32,7 +44,7 @@ func NewStoreWithBucketSize(db *gorm.DB, bucketSize time.Duration) *Store {
 	if bucketSize <= 0 {
 		bucketSize = 30 * time.Second
 	}
-	return &Store{db: db, bucketSize: int64(bucketSize)}
+	return &Store{db: db, bucketSize: int64(bucketSize), states: liveStateBuffer()}
 }
 
 func EventID(nodeUUID, sessionID []byte, sequence uint64) ([]byte, error) {
@@ -68,49 +80,46 @@ func (s *Store) Replicate(ctx context.Context, batch *pb.ReplicationBatch, recei
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
+		byEventID := make(map[string]hotEventMeta, len(batch.GetEvents()))
 		for _, event := range batch.GetEvents() {
 			if err := validateEvent(event); err != nil {
 				return err
 			}
-			encoded, err := proto.Marshal(event)
+			meta, err := s.acceptEvent(tx, event, receivedAt)
 			if err != nil {
 				return err
 			}
-			clockUntrusted := absDuration(receivedAt.Sub(time.Unix(0, event.GetCollectedAtUnixNano()))) > clockSkewLimit
-			if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&model.TelemetryEvent{
-				EventID: event.GetEventId(), NodeUUID: event.GetNodeUuid(), SessionID: event.GetSessionId(),
-				Sequence: event.GetSequence(), EventType: int32(event.GetEventType()), Priority: int32(event.GetPriority()),
-				CollectedAt: event.GetCollectedAtUnixNano(), AgentUptimeNano: event.GetAgentUptimeNano(),
-				SessionElapsedNano: event.GetSessionElapsedNano(), ClockUntrusted: clockUntrusted,
-				SourceProtocol: int32(event.GetSourceProtocol()), Reliability: int32(event.GetReliability()),
-				Payload: encoded, PayloadRetained: true,
-			}).Error; err != nil {
-				return err
-			}
+			byEventID[string(event.GetEventId())] = meta
 		}
 		for _, observation := range batch.GetObservations() {
 			if len(observation.GetEventId()) != 16 || observation.GetObserverId() == "" {
 				return errors.New("invalid replicated observation")
 			}
-			var event model.TelemetryEvent
-			if err := tx.Select("node_uuid", "collected_at", "clock_untrusted").First(&event, "event_id = ?", observation.GetEventId()).Error; err != nil {
-				if errors.Is(err, gorm.ErrRecordNotFound) {
-					continue
+			meta, ok := byEventID[string(observation.GetEventId())]
+			if !ok {
+				var row model.TelemetryEvent
+				if err := tx.Select("node_uuid", "collected_at", "clock_untrusted", "event_type").First(&row, "event_id = ?", observation.GetEventId()).Error; err != nil {
+					if errors.Is(err, gorm.ErrRecordNotFound) {
+						continue
+					}
+					return fmt.Errorf("replicated observation references unknown event: %w", err)
 				}
-				return fmt.Errorf("replicated observation references unknown event: %w", err)
+				meta = hotEventMeta{nodeUUID: row.NodeUUID, collectedAt: row.CollectedAt, clockUntrusted: row.ClockUntrusted, persist: persistTelemetryEvent(pb.TelemetryEventType(row.EventType))}
 			}
-			row := model.TelemetryObservation{
-				EventID: observation.GetEventId(), ObserverID: observation.GetObserverId(), NodeUUID: event.NodeUUID,
-				ReceivedAt: observation.GetReceivedAtUnixNano(), ReplicatedAt: receivedAt.UnixNano(), Metadata: observation.GetMetadata(),
+			if meta.persist {
+				row := model.TelemetryObservation{
+					EventID: observation.GetEventId(), ObserverID: observation.GetObserverId(), NodeUUID: meta.nodeUUID,
+					ReceivedAt: observation.GetReceivedAtUnixNano(), ReplicatedAt: receivedAt.UnixNano(), Metadata: observation.GetMetadata(),
+				}
+				if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&row).Error; err != nil {
+					return err
+				}
 			}
-			if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&row).Error; err != nil {
-				return err
-			}
-			evidenceAt := event.CollectedAt
-			if event.ClockUntrusted {
+			evidenceAt := meta.collectedAt
+			if meta.clockUntrusted {
 				evidenceAt = observation.GetReceivedAtUnixNano()
 			}
-			if err := s.recordPathEvidence(tx, event.NodeUUID, observation.GetObserverId(), evidenceAt, time.Unix(0, observation.GetReceivedAtUnixNano())); err != nil {
+			if err := s.recordPathEvidence(tx, meta.nodeUUID, observation.GetObserverId(), evidenceAt, time.Unix(0, observation.GetReceivedAtUnixNano())); err != nil {
 				return err
 			}
 		}
@@ -217,6 +226,7 @@ func (s *Store) Ingest(ctx context.Context, batch *pb.TelemetryBatch, observerID
 	maxBySession := make(map[string]uint64)
 	sessionIDs := make(map[string][]byte)
 	nodeBySession := make(map[string][]byte)
+	batchSeq := make(map[string][]uint64)
 
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		for _, record := range batch.GetRecords() {
@@ -226,41 +236,23 @@ func (s *Store) Ingest(ctx context.Context, batch *pb.TelemetryBatch, observerID
 				if err := validateEvent(event); err != nil {
 					return err
 				}
-				encoded, err := proto.Marshal(event)
+				meta, err := s.acceptEvent(tx, event, receivedAt)
 				if err != nil {
 					return err
 				}
-				clockUntrusted := absDuration(receivedAt.Sub(time.Unix(0, event.GetCollectedAtUnixNano()))) > clockSkewLimit
-				row := model.TelemetryEvent{
-					EventID:            append([]byte(nil), event.GetEventId()...),
-					NodeUUID:           append([]byte(nil), event.GetNodeUuid()...),
-					SessionID:          append([]byte(nil), event.GetSessionId()...),
-					Sequence:           event.GetSequence(),
-					EventType:          int32(event.GetEventType()),
-					Priority:           int32(event.GetPriority()),
-					CollectedAt:        event.GetCollectedAtUnixNano(),
-					AgentUptimeNano:    event.GetAgentUptimeNano(),
-					SessionElapsedNano: event.GetSessionElapsedNano(),
-					ClockUntrusted:     clockUntrusted,
-					SourceProtocol:     int32(event.GetSourceProtocol()),
-					Reliability:        int32(event.GetReliability()),
-					Payload:            encoded,
-					PayloadRetained:    true,
-				}
-				if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&row).Error; err != nil {
-					return err
-				}
-				observation := model.TelemetryObservation{
-					EventID:    append([]byte(nil), event.GetEventId()...),
-					ObserverID: observerID,
-					NodeUUID:   append([]byte(nil), event.GetNodeUuid()...),
-					ReceivedAt: receivedAt.UnixNano(),
-				}
-				if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&observation).Error; err != nil {
-					return err
+				if meta.persist {
+					observation := model.TelemetryObservation{
+						EventID:    append([]byte(nil), event.GetEventId()...),
+						ObserverID: observerID,
+						NodeUUID:   append([]byte(nil), event.GetNodeUuid()...),
+						ReceivedAt: receivedAt.UnixNano(),
+					}
+					if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&observation).Error; err != nil {
+						return err
+					}
 				}
 				evidenceAt := event.GetCollectedAtUnixNano()
-				if clockUntrusted {
+				if meta.clockUntrusted {
 					evidenceAt = receivedAt.UnixNano()
 				}
 				if err := s.recordPathEvidence(tx, event.GetNodeUuid(), observerID, evidenceAt, receivedAt); err != nil {
@@ -272,7 +264,8 @@ func (s *Store) Ingest(ctx context.Context, batch *pb.TelemetryBatch, observerID
 				}
 				sessionIDs[key] = append([]byte(nil), event.GetSessionId()...)
 				nodeBySession[key] = append([]byte(nil), event.GetNodeUuid()...)
-				if !clockUntrusted && receivedAt.Sub(time.Unix(0, event.GetCollectedAtUnixNano())) <= 30*time.Second {
+				batchSeq[key] = append(batchSeq[key], event.GetSequence())
+				if !meta.clockUntrusted && receivedAt.Sub(time.Unix(0, event.GetCollectedAtUnixNano())) <= 30*time.Second {
 					result.FreshEvents = append(result.FreshEvents, event)
 				}
 			case *pb.TelemetryRecord_Gap:
@@ -299,6 +292,7 @@ func (s *Store) Ingest(ctx context.Context, batch *pb.TelemetryBatch, observerID
 				}
 				sessionIDs[key] = append([]byte(nil), gap.GetSessionId()...)
 				nodeBySession[key] = append([]byte(nil), gap.GetNodeUuid()...)
+				batchSeq[key] = append(batchSeq[key], gap.GetEndSequence())
 			default:
 				return errors.New("empty telemetry record")
 			}
@@ -310,7 +304,7 @@ func (s *Store) Ingest(ctx context.Context, batch *pb.TelemetryBatch, observerID
 		}
 		sort.Strings(keys)
 		for _, key := range keys {
-			ack, err := advanceCursor(tx, observerID, nodeBySession[key], sessionIDs[key], maxBySession[key])
+			ack, err := advanceCursor(tx, observerID, nodeBySession[key], sessionIDs[key], maxBySession[key], batchSeq[key])
 			if err != nil {
 				return err
 			}
@@ -322,6 +316,70 @@ func (s *Store) Ingest(ctx context.Context, batch *pb.TelemetryBatch, observerID
 		return nil, err
 	}
 	return result, nil
+}
+
+type hotEventMeta struct {
+	nodeUUID       []byte
+	collectedAt    int64
+	clockUntrusted bool
+	persist        bool
+}
+
+func (s *Store) acceptEvent(tx *gorm.DB, event *pb.TelemetryEvent, receivedAt time.Time) (hotEventMeta, error) {
+	clockUntrusted := absDuration(receivedAt.Sub(time.Unix(0, event.GetCollectedAtUnixNano()))) > clockSkewLimit
+	meta := hotEventMeta{
+		nodeUUID: event.GetNodeUuid(), collectedAt: event.GetCollectedAtUnixNano(),
+		clockUntrusted: clockUntrusted, persist: persistTelemetryEvent(event.GetEventType()),
+	}
+	if event.GetEventType() == pb.TelemetryEventType_TELEMETRY_EVENT_TYPE_STATE && event.GetState() != nil && s.states != nil {
+		s.states.Add(event.GetEventId(), event.GetNodeUuid(), event.GetCollectedAtUnixNano(), event.GetState())
+	}
+	if event.GetEventType() == pb.TelemetryEventType_TELEMETRY_EVENT_TYPE_STATE_ROLLUP && event.GetStateRollup() != nil {
+		if err := upsertStateRollup(tx, event.GetNodeUuid(), event.GetStateRollup()); err != nil {
+			return meta, err
+		}
+	}
+	if !meta.persist {
+		return meta, nil
+	}
+	encoded, err := proto.Marshal(event)
+	if err != nil {
+		return meta, err
+	}
+	row := model.TelemetryEvent{
+		EventID: append([]byte(nil), event.GetEventId()...), NodeUUID: append([]byte(nil), event.GetNodeUuid()...),
+		SessionID: append([]byte(nil), event.GetSessionId()...), Sequence: event.GetSequence(),
+		EventType: int32(event.GetEventType()), Priority: int32(event.GetPriority()),
+		CollectedAt: event.GetCollectedAtUnixNano(), AgentUptimeNano: event.GetAgentUptimeNano(),
+		SessionElapsedNano: event.GetSessionElapsedNano(), ClockUntrusted: clockUntrusted,
+		SourceProtocol: int32(event.GetSourceProtocol()), Reliability: int32(event.GetReliability()),
+		Payload: encoded, PayloadRetained: true,
+	}
+	if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&row).Error; err != nil {
+		return meta, err
+	}
+	return meta, nil
+}
+
+func upsertStateRollup(tx *gorm.DB, nodeUUID []byte, payload *pb.StateRollupPayload) error {
+	if payload == nil || payload.GetWindowStartUnixNano() == 0 {
+		return nil
+	}
+	encoded, err := proto.MarshalOptions{Deterministic: true}.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	row := model.StateRollup{
+		NodeUUID: nodeUUID, Resolution: "1m", WindowStart: payload.GetWindowStartUnixNano(), WindowEnd: payload.GetWindowEndUnixNano(),
+		SampleCount: payload.GetSampleCount(), Payload: encoded, NetInTotal: payload.GetNetInTotal(), NetOutTotal: payload.GetNetOutTotal(),
+	}
+	return tx.Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "node_uuid"}, {Name: "resolution"}, {Name: "window_start"}},
+		DoUpdates: clause.Assignments(map[string]any{
+			"window_end": row.WindowEnd, "sample_count": row.SampleCount, "payload": row.Payload,
+			"net_in_total": row.NetInTotal, "net_out_total": row.NetOutTotal,
+		}),
+	}).Create(&row).Error
 }
 
 func validateEvent(event *pb.TelemetryEvent) error {
@@ -345,7 +403,7 @@ func validateGap(gap *pb.SequenceGap) error {
 	return nil
 }
 
-func advanceCursor(tx *gorm.DB, receiverID string, nodeUUID, sessionID []byte, maxSequence uint64) (uint64, error) {
+func advanceCursor(tx *gorm.DB, receiverID string, nodeUUID, sessionID []byte, maxSequence uint64, batchSequences []uint64) (uint64, error) {
 	var cursor model.TelemetryIngestCursor
 	err := tx.Where("receiver_id = ? AND node_uuid = ? AND session_id = ?", receiverID, nodeUUID, sessionID).First(&cursor).Error
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -363,9 +421,14 @@ func advanceCursor(tx *gorm.DB, receiverID string, nodeUUID, sessionID []byte, m
 		Pluck("sequence", &sequences).Error; err != nil {
 		return 0, err
 	}
-	present := make(map[uint64]bool, len(sequences))
+	present := make(map[uint64]bool, len(sequences)+len(batchSequences))
 	for _, sequence := range sequences {
 		present[sequence] = true
+	}
+	for _, sequence := range batchSequences {
+		if sequence > cursor.AckThrough && sequence <= maxSequence {
+			present[sequence] = true
+		}
 	}
 	var gaps []model.TelemetryGap
 	if err := tx.Where("node_uuid = ? AND session_id = ? AND end_sequence > ? AND start_sequence <= ?", nodeUUID, sessionID, cursor.AckThrough, maxSequence).Find(&gaps).Error; err != nil {

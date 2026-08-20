@@ -62,7 +62,7 @@ func BenchmarkSyntheticTelemetry1000x10(b *testing.B) {
 		if growth := runtime.NumGoroutine() - goroutinesBefore; growth > 2 {
 			b.Fatalf("unexpected goroutine growth in one round: %d", growth)
 		}
-		var events, observations, receipts int64
+		var events, observations, receipts, paths int64
 		if err := db.Model(&model.TelemetryEvent{}).Count(&events).Error; err != nil {
 			b.Fatal(err)
 		}
@@ -72,8 +72,11 @@ func BenchmarkSyntheticTelemetry1000x10(b *testing.B) {
 		if err := db.Model(&model.CollectorReplicationReceipt{}).Count(&receipts).Error; err != nil {
 			b.Fatal(err)
 		}
-		if events != int64(agents) || observations != int64(agents*collectors) || receipts != int64(collectors) {
-			b.Fatalf("events=%d observations=%d receipts=%d", events, observations, receipts)
+		if err := db.Model(&model.ObserverPathBucket{}).Count(&paths).Error; err != nil {
+			b.Fatal(err)
+		}
+		if events != 0 || observations != 0 || receipts != int64(collectors) || paths != int64(agents*collectors) {
+			b.Fatalf("events=%d observations=%d receipts=%d paths=%d", events, observations, receipts, paths)
 		}
 		for _, table := range []string{
 			"telemetry_observations", "telemetry_events", "observer_path_buckets", "observer_health_buckets",

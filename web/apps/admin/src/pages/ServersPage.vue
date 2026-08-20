@@ -11,9 +11,11 @@ import InstallAgentDialog from '@/components/InstallAgentDialog.vue'
 import UpgradeAgentDialog from '@/components/UpgradeAgentDialog.vue'
 import ProbePathDialog from '@/components/ProbePathDialog.vue'
 import TrafficHistoryPanel from '@/components/TrafficHistoryPanel.vue'
+import CopyableText from '@/components/CopyableText.vue'
 import { batchDeleteServers, batchUpdateServerGroup, deleteOfflineHistory, deleteServer, getServerTrafficHistory, listConnectionPaths, listOfflineHistory, listProbePaths, listServerAvailability, listServers, resetServerAvailability, resetServerSecret, updateServerDisplayIndex, type ResourceRecord, type ServerRecord } from '@/api/adminApi'
 import { formatAdminValue, formatBytes } from '@/composables/format'
 import { notifyAPIError } from '@/composables/notify'
+import { readStoredPageSize, writeStoredPageSize } from '@/composables/pageSize'
 import { isRowSelected, toggleRowSelection } from '@/composables/selection'
 import { shortId } from '@/composables/shortId'
 import {
@@ -34,7 +36,7 @@ const route = useRoute()
 const loading = ref(false), editor = ref(false), installDialog = ref(false), upgradeDialog = ref(false), groupManager = ref(false)
 const items = ref<ServerRecord[]>([]), selected = ref<ServerRecord[]>([]), editing = ref<ServerRecord>(), installServer = ref<ServerRecord>(), installSecret = ref(''), upgradeServer = ref<ServerRecord>()
 const total = ref(0)
-const query = reactive({ page: 1, page_size: 20, q: '', sort: 'display_index', order: 'desc' as const })
+const query = reactive({ page: 1, page_size: readStoredPageSize(route.path), q: '', sort: 'display_index', order: 'desc' as const })
 const historyDrawer = ref(false), historyLoading = ref(false), historyServer = ref<ServerRecord>(), historyTab = ref('availability'), history = ref<ResourceRecord[]>([]), availability = ref<ResourceRecord[]>([]), connectionPaths = ref<ConnectionPath[]>([]), probePaths = ref<ProbePath[]>([]), trafficHistories = ref<TrafficPolicyHistory[]>([])
 const probeDialog = ref(false)
 const activeProbe = ref<ProbePath>()
@@ -52,6 +54,7 @@ function onHoverMediaChange() {
 }
 
 async function load() {
+  writeStoredPageSize(route.path, query.page_size)
   loading.value = true
   try {
     const result = await listServers(query)
@@ -106,6 +109,15 @@ function trafficLabel(server: ServerRecord) {
   const summary = primaryTrafficSummary(server)
   if (!summary) return ''
   return `${formatBytes(summary.used_bytes, locale.value)} / ${formatBytes(summary.quota_bytes, locale.value)}`
+}
+function hasReportedTransfer(server: ServerRecord) {
+  const state = server.state
+  if (!state) return false
+  return state.NetInTransfer != null || state.NetOutTransfer != null
+}
+function usedTrafficLabel(server: ServerRecord) {
+  if (!hasReportedTransfer(server)) return ''
+  return formatBytes((server.state?.NetInTransfer || 0) + (server.state?.NetOutTransfer || 0), locale.value)
 }
 function display(value: unknown, key: string) { return formatAdminValue(value, key, locale.value, t as never, te) }
 function observerLabel(item: { observer_kind?: string; observer_name?: string; observer_id?: string }) {
@@ -325,12 +337,14 @@ onUnmounted(() => { hoverMedia?.removeEventListener('change', onHoverMediaChange
       <el-table-column :label="t('agentVersion')" min-width="120">
         <template #default="{row}">{{ agentVersionText(row) }}</template>
       </el-table-column>
-      <el-table-column :label="`${t('ipv4')} / ${t('ipv6')}`" min-width="200">
+      <el-table-column :label="t('ipv4')" min-width="140">
         <template #default="{row}">
-          <div class="server-ip">
-            <span>{{ reportedAddresses(row).ipv4 || '—' }}</span>
-            <span>{{ reportedAddresses(row).ipv6 || '—' }}</span>
-          </div>
+          <CopyableText :value="reportedAddresses(row).ipv4 || null" />
+        </template>
+      </el-table-column>
+      <el-table-column :label="t('ipv6')" min-width="180">
+        <template #default="{row}">
+          <CopyableText :value="reportedAddresses(row).ipv6 || null" />
         </template>
       </el-table-column>
       <el-table-column :label="t('availability')" width="140">
@@ -345,6 +359,8 @@ onUnmounted(() => { hoverMedia?.removeEventListener('change', onHoverMediaChange
           <el-button v-if="primaryTrafficSummary(row)" text class="traffic-entry" :class="trafficTone(primaryTrafficSummary(row)?.status)" :aria-label="t('traffic')" @click="showHistory(row, 'traffic')">
             {{ trafficLabel(row) }}
           </el-button>
+          <span v-else-if="usedTrafficLabel(row)" class="traffic-entry is-ok">{{ usedTrafficLabel(row) }}</span>
+          <span v-else class="muted">—</span>
         </template>
       </el-table-column>
       <el-table-column prop="last_active" :label="t('lastSeen')" width="190">
@@ -415,13 +431,14 @@ onUnmounted(() => { hoverMedia?.removeEventListener('change', onHoverMediaChange
             <el-button v-if="primaryTrafficSummary(row)" text class="traffic-entry" :class="trafficTone(primaryTrafficSummary(row)?.status)" :aria-label="t('traffic')" @click="showHistory(row, 'traffic')">
               {{ trafficLabel(row) }}
             </el-button>
+            <span v-else-if="usedTrafficLabel(row)" class="traffic-entry is-ok">{{ usedTrafficLabel(row) }}</span>
           </div>
           <dl class="mobile-card-meta mobile-card-meta--stats">
             <div><dt>{{ t('platform') }}</dt><dd>{{ row.host?.Platform || '—' }}</dd></div>
             <div><dt>{{ t('agentVersion') }}</dt><dd>{{ agentVersionText(row) }}</dd></div>
             <div><dt>{{ t('lastSeen') }}</dt><dd>{{ display(row.last_active,'last_active') }}</dd></div>
-            <div><dt>{{ t('ipv4') }}</dt><dd>{{ reportedAddresses(row).ipv4 || '—' }}</dd></div>
-            <div><dt>{{ t('ipv6') }}</dt><dd>{{ reportedAddresses(row).ipv6 || '—' }}</dd></div>
+            <div><dt>{{ t('ipv4') }}</dt><dd><CopyableText :value="reportedAddresses(row).ipv4 || null" /></dd></div>
+            <div><dt>{{ t('ipv6') }}</dt><dd><CopyableText :value="reportedAddresses(row).ipv6 || null" /></dd></div>
           </dl>
           <dl class="mobile-card-meta mobile-card-meta--sort">
             <div>
@@ -530,6 +547,4 @@ onUnmounted(() => { hoverMedia?.removeEventListener('change', onHoverMediaChange
 <style scoped>
 .sort-input { width: 112px; }
 .sort-input :deep(.el-input__wrapper) { padding-left: 8px; padding-right: 8px; }
-.server-ip { min-width: 0; font-size: 12px; line-height: 1.35; }
-.server-ip span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 </style>

@@ -26,6 +26,7 @@ function path(serverId: number, observerId: string, kind: 'primary' | 'collector
     server_id: serverId, server_name: `s${serverId}`, node_uuid: 'aa', observer_id: observerId,
     observer_kind: kind, observer_name: observerId === 'primary' ? '' : 'edge', assigned: true,
     sink: { connected, last_rtt_ms: connected ? 12 : undefined },
+    display_index: serverId,
   }
 }
 

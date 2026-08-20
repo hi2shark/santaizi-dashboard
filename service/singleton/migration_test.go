@@ -47,6 +47,9 @@ func TestOpenDBFromPathCreatesVersionedSchema(t *testing.T) {
 	if !db.Migrator().HasColumn(&model.Server{}, "probe_tcp_ports") || !db.Migrator().HasColumn(&model.Server{}, "probe_enable_icmp") {
 		t.Fatal("server probe override columns were not created")
 	}
+	if !db.Migrator().HasColumn(&model.AvailabilityBucket{}, "window_end") || !db.Migrator().HasColumn(&model.AvailabilityBucket{}, "resolution") {
+		t.Fatal("availability window_end/resolution columns were not created")
+	}
 	if !db.Migrator().HasColumn(&model.Collector{}, "enable_ipv4") || !db.Migrator().HasColumn(&model.Collector{}, "enable_ipv6") {
 		t.Fatal("collector ip family columns were not created")
 	}
@@ -122,7 +125,7 @@ func TestMigrateV12AddsCollectorRuntimeSoftwareVersion(t *testing.T) {
 	if err := db.Model(&model.SchemaMigration{}).Select("COALESCE(MAX(version), 0)").Scan(&current).Error; err != nil {
 		t.Fatal(err)
 	}
-	if current != 13 {
+	if current != 14 {
 		t.Fatalf("version = %d", current)
 	}
 	if err := db.Create(&model.CollectorRuntime{CollectorUUID: "c1", Status: "online", SoftwareVersion: "1.2.3"}).Error; err != nil {
@@ -176,7 +179,51 @@ func TestMigrateV13AddsServerProbeOverrides(t *testing.T) {
 	if err := db.Model(&model.SchemaMigration{}).Select("COALESCE(MAX(version), 0)").Scan(&current).Error; err != nil {
 		t.Fatal(err)
 	}
-	if current != 13 {
+	if current != 14 {
+		t.Fatalf("version = %d", current)
+	}
+}
+
+func TestMigrateV14AddsAvailabilityWindow(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "v13.db")
+	db, err := gorm.Open(sqlite.Open(path), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := CloseDB(db); err != nil {
+			t.Errorf("close db: %v", err)
+		}
+	})
+	if err := db.AutoMigrate(&model.SchemaMigration{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec(`CREATE TABLE availability_buckets (
+		node_uuid BLOB,
+		bucket_start INTEGER,
+		host_state TEXT,
+		connectivity_state TEXT,
+		PRIMARY KEY (node_uuid, bucket_start)
+	)`).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.SchemaMigration{Version: 13, AppliedAt: time.Now().UTC()}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if db.Migrator().HasColumn(&model.AvailabilityBucket{}, "window_end") {
+		t.Fatal("fixture should omit window_end")
+	}
+	if err := migrateDatabase(db); err != nil {
+		t.Fatal(err)
+	}
+	if !db.Migrator().HasColumn(&model.AvailabilityBucket{}, "window_end") || !db.Migrator().HasColumn(&model.AvailabilityBucket{}, "resolution") {
+		t.Fatal("v14 should add availability window columns")
+	}
+	var current uint64
+	if err := db.Model(&model.SchemaMigration{}).Select("COALESCE(MAX(version), 0)").Scan(&current).Error; err != nil {
+		t.Fatal(err)
+	}
+	if current != 14 {
 		t.Fatalf("version = %d", current)
 	}
 }

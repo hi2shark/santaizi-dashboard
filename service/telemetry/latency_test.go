@@ -90,7 +90,7 @@ func TestApplyRetentionDeletesOldConnectionLatency(t *testing.T) {
 	if err := db.AutoMigrate(&model.TelemetryEvent{}, &model.StateRollup{}, &model.TelemetryObservation{}, &model.TelemetryGap{}, &model.AvailabilityBucket{}, &model.AvailabilityIncident{}, &model.ConnectionLatencyBucket{}); err != nil {
 		t.Fatal(err)
 	}
-	old := time.Now().Add(-48 * time.Hour).UnixNano()
+	old := time.Now().Add(-49 * time.Hour).UnixNano()
 	fresh := time.Now().Add(-time.Hour).UnixNano()
 	if err := db.Create(&model.ConnectionLatencyBucket{Kind: LatencyKindCollectorHeartbeat, CollectorUUID: "c1", NodeUUID: latencyNodeKey(nil), BucketStart: old, MinMs: 1, MaxMs: 1, SumMs: 1, Count: 1}).Error; err != nil {
 		t.Fatal(err)

@@ -9,6 +9,14 @@ import CopyableId from '@/components/CopyableId.vue'
 import { formatAdminValue, formatClockTime, formatDateTime, formatProductVersion } from '@/composables/format'
 import { notifyAPIError } from '@/composables/notify'
 import { isProbeCollector } from '@/domain/collectorKind'
+import {
+  compareNodeCatalog,
+  DEFAULT_NODE_SORT,
+  groupFilterLabel,
+  matchNodeCatalog,
+  type NodeSortKey,
+  uniqueNodeTags,
+} from '@/domain/nodeCatalog'
 
 const { t, te, locale } = useI18n()
 const router = useRouter()
@@ -23,15 +31,15 @@ const collectorLatencyMeta = reactive({ page: 1, page_size: 20, total: 0 })
 const pathLatencyMeta = reactive({ page: 1, page_size: 20, total: 0 })
 const observerFilter = ref('')
 const linkFilter = ref('')
+const nodeQuery = ref('')
+const tagFilter = ref('')
+const nodeSort = ref<NodeSortKey>(DEFAULT_NODE_SORT)
 const collectorDrawer = ref(false)
 const pathDrawer = ref(false)
 const activeCollector = ref<CollectorRecord>()
 const activePath = ref<ConnectionPath>()
 const POLL_MS = 5000
-const MOBILE_MATRIX_MQ = '(max-width: 860px)'
-const serversAsRows = ref(typeof window !== 'undefined' && window.matchMedia(MOBILE_MATRIX_MQ).matches)
 let timer: ReturnType<typeof setInterval> | undefined
-let axisMq: MediaQueryList | undefined
 let inflight = false
 
 type MatrixObserver = { id: string; name: string; kind: 'primary' | 'collector' }
@@ -40,10 +48,13 @@ type PathMatrixRow = {
   server_id?: number
   node_uuid?: string
   server_name: string
+  display_index: number
+  tag: string
   cells: Record<string, ConnectionPath>
 }
 type MatrixCell = {
   path: ConnectionPath
+  observerName: string
   connected: boolean
   hasError: boolean
   title?: string
@@ -86,6 +97,9 @@ const filteredPaths = computed(() => paths.value.filter((path) => {
   if (observerFilter.value && path.observer_id !== observerFilter.value) return false
   if (linkFilter.value === 'connected' && !pathLive(path)) return false
   if (linkFilter.value === 'disconnected' && pathLive(path)) return false
+  if (!matchNodeCatalog({
+    server_id: path.server_id, server_name: path.server_name, display_index: path.display_index, tag: path.tag,
+  }, nodeQuery.value, tagFilter.value)) return false
   return true
 }))
 
@@ -94,27 +108,36 @@ const matrixObservers = computed(() => {
   return observerOptions.value.filter((item) => item.id === observerFilter.value)
 })
 
-const matrixRows = computed(() => {
+const groupOptions = computed(() => uniqueNodeTags(paths.value.filter(path => !isProbeObserverID(path.observer_id))))
+
+const nodeCards = computed(() => {
   const matching = new Set<string>()
   for (const path of filteredPaths.value) matching.add(rowIdentity(path.server_id, path.node_uuid))
   const rows = new Map<string, PathMatrixRow>()
-  const take = (key: string, serverId: number | undefined, nodeUuid: string | undefined, name: string) => {
+  const take = (path: ConnectionPath) => {
+    const key = rowIdentity(path.server_id, path.node_uuid)
     let row = rows.get(key)
     if (!row) {
-      row = { key, server_id: serverId, node_uuid: nodeUuid, server_name: name, cells: {} }
+      row = {
+        key, server_id: path.server_id, node_uuid: path.node_uuid, server_name: path.server_name || '',
+        display_index: path.display_index || 0, tag: path.tag || '', cells: {},
+      }
       rows.set(key, row)
     }
-    if (!row.server_name && name) row.server_name = name
-    if (!row.server_id && serverId) row.server_id = serverId
-    if (!row.node_uuid && nodeUuid) row.node_uuid = nodeUuid
+    if (!row.server_name && path.server_name) row.server_name = path.server_name
+    if (!row.server_id && path.server_id) row.server_id = path.server_id
+    if (!row.node_uuid && path.node_uuid) row.node_uuid = path.node_uuid
+    if (!row.display_index && path.display_index) row.display_index = path.display_index
+    if (!row.tag && path.tag) row.tag = path.tag
     return row
   }
   for (const path of paths.value) {
+    if (isProbeObserverID(path.observer_id)) continue
     const key = rowIdentity(path.server_id, path.node_uuid)
     if (!matching.has(key)) continue
-    take(key, path.server_id, path.node_uuid, path.server_name || '').cells[path.observer_id] = path
+    take(path).cells[path.observer_id] = path
   }
-  return [...rows.values()]
+  return [...rows.values()].sort((left, right) => compareNodeCatalog(left, right, nodeSort.value))
 })
 
 function pretty(value: unknown, key = '') {
@@ -200,24 +223,25 @@ function observerLabel(path: ConnectionPath) {
   return path.observer_name || path.observer_id
 }
 
-function hasMatrixCell(row: PathMatrixRow, observer: MatrixObserver) {
-  return Boolean(row.cells[observer.id])
-}
-
-function matrixCells(row: PathMatrixRow, observer: MatrixObserver): MatrixCell[] {
-  const path = row.cells[observer.id]
-  if (!path) return []
-  const live = pathLive(path)
-  return [{
-    path,
-    connected: live,
-    hasError: Boolean(path.sink.last_error),
-    title: path.sink.last_error ? lastErrorText(path.sink.last_error) : (live ? sampledTitle(path.sink.rtt_sampled_at) : undefined),
-    text: live
-      ? latencyText(path.sink.last_rtt_ms, path.sink.rtt_sampled_at)
-      : t('disconnected'),
-    sampled: live ? sampledClock(path.sink.rtt_sampled_at) : '',
-  }]
+function nodeEndCells(row: PathMatrixRow): MatrixCell[] {
+  const cells: MatrixCell[] = []
+  for (const observer of matrixObservers.value) {
+    const path = row.cells[observer.id]
+    if (!path) continue
+    const live = pathLive(path)
+    cells.push({
+      path,
+      observerName: observer.name,
+      connected: live,
+      hasError: Boolean(path.sink.last_error),
+      title: path.sink.last_error ? lastErrorText(path.sink.last_error) : (live ? sampledTitle(path.sink.rtt_sampled_at) : undefined),
+      text: live
+        ? latencyText(path.sink.last_rtt_ms, path.sink.rtt_sampled_at)
+        : t('disconnected'),
+      sampled: live ? sampledClock(path.sink.rtt_sampled_at) : '',
+    })
+  }
+  return cells
 }
 
 function cellTone(cell: MatrixCell) {
@@ -296,14 +320,7 @@ function onVisibility() {
   if (!document.hidden) void load(true)
 }
 
-function syncMatrixAxis() {
-  serversAsRows.value = Boolean(axisMq?.matches)
-}
-
 onMounted(async () => {
-  axisMq = window.matchMedia(MOBILE_MATRIX_MQ)
-  syncMatrixAxis()
-  axisMq.addEventListener('change', syncMatrixAxis)
   const observerId = String(route.query.observer_id || '')
   if (observerId) observerFilter.value = observerId
   await load()
@@ -311,7 +328,6 @@ onMounted(async () => {
   document.addEventListener('visibilitychange', onVisibility)
 })
 onUnmounted(() => {
-  axisMq?.removeEventListener('change', syncMatrixAxis)
   if (timer) clearInterval(timer)
   document.removeEventListener('visibilitychange', onVisibility)
 })
@@ -363,8 +379,20 @@ onUnmounted(() => {
 
     <section class="surface table-card connections-nodes">
       <div class="toolbar">
-        <h2 class="table-card-title">{{ t('nodeLinks') }} <small>{{ filteredPaths.length }}</small></h2>
-        <div class="toolbar-filters mobile-only">
+        <h2 class="table-card-title">{{ t('nodeLinks') }} <small>{{ nodeCards.length }}</small></h2>
+        <div class="toolbar-filters">
+          <el-input v-model="nodeQuery" class="toolbar-filter" clearable :placeholder="t('searchServers')">
+            <template #prefix><i class="ri-search-line"></i></template>
+          </el-input>
+          <el-select v-model="tagFilter" class="toolbar-filter" clearable :placeholder="t('allGroups')">
+            <el-option v-for="item in groupOptions" :key="item" :label="groupFilterLabel(item)" :value="item" />
+          </el-select>
+          <el-select v-model="nodeSort" class="toolbar-filter">
+            <el-option :label="t('sortDisplayIndexDesc')" value="display_index_desc" />
+            <el-option :label="t('sortDisplayIndexAsc')" value="display_index_asc" />
+            <el-option :label="t('sortNameAsc')" value="name_asc" />
+            <el-option :label="t('sortNameDesc')" value="name_desc" />
+          </el-select>
           <el-select v-model="observerFilter" class="toolbar-filter" clearable :placeholder="t('allObservers')">
             <el-option v-for="item in observerOptions" :key="item.id" :label="item.name" :value="item.id" />
           </el-select>
@@ -374,111 +402,30 @@ onUnmounted(() => {
           </el-select>
         </div>
       </div>
-      <div class="path-matrix-wrap" v-loading="loading">
-        <AppEmpty v-if="!matrixRows.length && !loading" class="empty-state" icon="ri-links-line" :title="t('noPathsTitle')" :description="t('noPathsHint')" />
-        <div
-          v-else
-          class="path-matrix"
-          :class="serversAsRows ? 'is-servers-y' : 'is-servers-x'"
-          role="table"
-          :style="serversAsRows
-            ? { '--obs-count': String(matrixObservers.length || 1) }
-            : { '--server-count': String(matrixRows.length || 1) }"
-        >
-          <div class="path-matrix__head" role="row">
-            <div class="col-corner" role="columnheader">{{ serversAsRows ? t('server') : '' }}</div>
-            <template v-if="serversAsRows">
-              <div
-                v-for="obs in matrixObservers"
-                :key="obs.id"
-                class="col-observer"
-                role="columnheader"
+      <div class="node-card-grid-wrap" v-loading="loading">
+        <AppEmpty v-if="!nodeCards.length && !loading" class="empty-state" icon="ri-links-line" :title="t('noPathsTitle')" :description="t('noPathsHint')" />
+        <div v-else class="node-card-grid">
+          <article v-for="row in nodeCards" :key="row.key" class="node-card">
+            <strong class="node-card__name" :title="row.server_name || undefined">{{ row.server_name || '—' }}</strong>
+            <div class="node-card__ends">
+              <button
+                v-for="cell in nodeEndCells(row)"
+                :key="pathRowKey(cell.path)"
+                type="button"
+                class="node-end-chip"
+                :class="cellTone(cell)"
+                :title="cell.title"
+                @click="openPath(cell.path)"
               >
-                <span>{{ obs.name }}</span>
-              </div>
-            </template>
-            <template v-else>
-              <div
-                v-for="row in matrixRows"
-                :key="row.key"
-                class="col-server"
-                role="columnheader"
-                :title="row.server_name || undefined"
-              >{{ row.server_name || '—' }}</div>
-            </template>
-          </div>
-          <template v-if="serversAsRows">
-            <div
-              v-for="row in matrixRows"
-              :key="row.key"
-              class="path-matrix__row"
-              role="row"
-            >
-              <div class="path-matrix__stub col-server" role="rowheader" :title="row.server_name || undefined">{{ row.server_name || '—' }}</div>
-              <div
-                v-for="obs in matrixObservers"
-                :key="obs.id"
-                class="col-observer"
-                role="cell"
-              >
-                <button
-                  v-for="cell in matrixCells(row, obs)"
-                  :key="pathRowKey(cell.path)"
-                  type="button"
-                  class="path-matrix__cell"
-                  :class="cellTone(cell)"
-                  :title="cell.title"
-                  @click="openPath(cell.path)"
-                >
-                  <span class="rtt-main">
-                    <i v-if="cell.hasError" class="ri-error-warning-line" aria-hidden="true"></i>
-                    <span class="rtt-value">{{ cell.text }}</span>
-                  </span>
-                  <span v-if="cell.sampled" class="rtt-sampled">{{ cell.sampled }}</span>
-                </button>
-                <span v-if="!hasMatrixCell(row, obs)" class="path-matrix__empty" aria-hidden="true"></span>
-              </div>
+                <span class="node-end-chip__name">{{ cell.observerName }}</span>
+                <span class="rtt-main">
+                  <i v-if="cell.hasError" class="ri-error-warning-line" aria-hidden="true"></i>
+                  <span class="rtt-value">{{ cell.text }}</span>
+                </span>
+                <span v-if="cell.sampled" class="rtt-sampled">{{ cell.sampled }}</span>
+              </button>
             </div>
-          </template>
-          <template v-else>
-            <div
-              v-for="obs in matrixObservers"
-              :key="obs.id"
-              class="path-matrix__row"
-              role="row"
-            >
-              <div
-                class="path-matrix__stub col-observer"
-                role="rowheader"
-                :title="obs.name"
-              >
-                <span>{{ obs.name }}</span>
-              </div>
-              <div
-                v-for="row in matrixRows"
-                :key="row.key"
-                class="col-observer"
-                role="cell"
-              >
-                <button
-                  v-for="cell in matrixCells(row, obs)"
-                  :key="pathRowKey(cell.path)"
-                  type="button"
-                  class="path-matrix__cell"
-                  :class="cellTone(cell)"
-                  :title="cell.title"
-                  @click="openPath(cell.path)"
-                >
-                  <span class="rtt-main">
-                    <i v-if="cell.hasError" class="ri-error-warning-line" aria-hidden="true"></i>
-                    <span class="rtt-value">{{ cell.text }}</span>
-                  </span>
-                  <span v-if="cell.sampled" class="rtt-sampled">{{ cell.sampled }}</span>
-                </button>
-                <span v-if="!hasMatrixCell(row, obs)" class="path-matrix__empty" aria-hidden="true"></span>
-              </div>
-            </div>
-          </template>
+          </article>
         </div>
       </div>
     </section>

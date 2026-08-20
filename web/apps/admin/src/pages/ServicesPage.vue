@@ -1,21 +1,24 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { AppDrawer, AppEmpty } from '@santaizi/ui'
 import MonitorEditorDialog from '@/components/editors/MonitorEditorDialog.vue'
 import { deleteMonitor, listMonitorHistory, listMonitors, type ResourceRecord } from '@/api/adminApi'
 import {formatAdminValue} from '@/composables/format'
 import { notifyAPIError } from '@/composables/notify'
+import { readStoredPageSize, writeStoredPageSize } from '@/composables/pageSize'
 import { isRowSelected, toggleRowSelection } from '@/composables/selection'
 import type { MonitorRecord } from '@/types/admin'
 
 const { t, te, locale } = useI18n()
+const route = useRoute()
 const loading = ref(false), editor = ref(false), historyDrawer = ref(false), historyLoading = ref(false)
 const items = ref<MonitorRecord[]>([]), selected = ref<MonitorRecord[]>([]), editing = ref<MonitorRecord>(), history = ref<ResourceRecord[]>([]), historyTitle = ref('')
 const total = ref(0)
-const query = reactive({ page: 1, page_size: 20, q: '', sort: 'id', order: 'desc' as const })
-async function load() { loading.value = true; try { const result = await listMonitors(query); items.value = result.data; total.value = result.meta.total || result.data.length } catch (error) { notifyAPIError(error, t as never, te) } finally { loading.value = false } }
+const query = reactive({ page: 1, page_size: readStoredPageSize(route.path), q: '', sort: 'id', order: 'desc' as const })
+async function load() { writeStoredPageSize(route.path, query.page_size); loading.value = true; try { const result = await listMonitors(query); items.value = result.data; total.value = result.meta.total || result.data.length } catch (error) { notifyAPIError(error, t as never, te) } finally { loading.value = false } }
 function open(item?: MonitorRecord) { editing.value = item; editor.value = true }
 async function remove(itemsToDelete: MonitorRecord[]) { await ElMessageBox.confirm(t('confirmDelete'), t('dangerousAction'), { type: 'warning' }); try { await Promise.all(itemsToDelete.map(item => deleteMonitor(item.id))); selected.value = []; ElMessage.success(t('deleteSuccess')); await load() } catch (error) { notifyAPIError(error, t as never, te) } }
 async function showHistory(item: MonitorRecord) { historyTitle.value = item.name; historyDrawer.value = true; historyLoading.value = true; try { history.value = (await listMonitorHistory(item.id)).data } catch (error) { notifyAPIError(error, t as never, te) } finally { historyLoading.value = false } }

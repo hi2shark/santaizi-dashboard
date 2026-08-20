@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"sort"
 	"time"
 
 	"github.com/hi2shark/santaizi-dashboard/model"
@@ -18,6 +19,7 @@ type RetentionPolicy struct {
 	StateOneMinute  time.Duration
 	StateOneHour    time.Duration
 	Observation     time.Duration
+	Evidence        time.Duration
 	Lifecycle       time.Duration
 	Receipt         time.Duration
 	BatchSize       int
@@ -30,6 +32,7 @@ const (
 	DefaultRetentionBatch  = 5000
 	DefaultRetentionBudget = 20 * time.Second
 	DefaultReceiptRetain   = 7 * 24 * time.Hour
+	DefaultEvidenceRetain  = 48 * time.Hour
 	DefaultCompactMinBytes = int64(64 << 20)
 )
 
@@ -39,6 +42,7 @@ func PolicyFromConfig(config model.RetentionConfig) RetentionPolicy {
 		StateOneMinute:  time.Duration(config.StateOneMinuteDays) * 24 * time.Hour,
 		StateOneHour:    time.Duration(config.StateOneHourDays) * 24 * time.Hour,
 		Observation:     time.Duration(config.ObservationDays) * 24 * time.Hour,
+		Evidence:        time.Duration(config.EvidenceHours) * time.Hour,
 		Lifecycle:       time.Duration(config.LifecycleDays) * 24 * time.Hour,
 		Receipt:         time.Duration(config.ReceiptDays) * 24 * time.Hour,
 		BatchSize:       config.BatchSize,
@@ -61,6 +65,9 @@ func NormalizeRetentionPolicy(policy RetentionPolicy) RetentionPolicy {
 	if policy.Observation <= 0 {
 		policy.Observation = 30 * 24 * time.Hour
 	}
+	if policy.Evidence <= 0 {
+		policy.Evidence = DefaultEvidenceRetain
+	}
 	if policy.Lifecycle <= 0 {
 		policy.Lifecycle = 10 * 365 * 24 * time.Hour
 	}
@@ -82,10 +89,11 @@ func NormalizeRetentionPolicy(policy RetentionPolicy) RetentionPolicy {
 type RollupWorker struct {
 	db        *gorm.DB
 	retention RetentionPolicy
+	states    *StateSampleBuffer
 }
 
 func NewRollupWorker(db *gorm.DB, policy RetentionPolicy) *RollupWorker {
-	return &RollupWorker{db: db, retention: NormalizeRetentionPolicy(policy)}
+	return &RollupWorker{db: db, retention: NormalizeRetentionPolicy(policy), states: liveStateBuffer()}
 }
 
 func (w *RollupWorker) Run(ctx context.Context) {
@@ -104,11 +112,60 @@ func (w *RollupWorker) Run(ctx context.Context) {
 
 func (w *RollupWorker) RollupPending(ctx context.Context, now time.Time) error {
 	minuteEnd := now.Truncate(time.Minute)
+	if err := w.rollupMemoryBefore(ctx, minuteEnd.UnixNano()); err != nil {
+		return err
+	}
 	if err := w.rollupRawWindow(ctx, minuteEnd.Add(-time.Minute), minuteEnd); err != nil {
 		return err
 	}
 	hourEnd := now.Truncate(time.Hour)
 	return w.rollupHourWindow(ctx, hourEnd.Add(-time.Hour), hourEnd)
+}
+
+func (w *RollupWorker) rollupMemoryBefore(ctx context.Context, cutoff int64) error {
+	samples := w.states.TakeBefore(cutoff)
+	if len(samples) == 0 {
+		return nil
+	}
+	type windowKey struct {
+		node  string
+		start int64
+	}
+	grouped := map[windowKey][]liveStateSample{}
+	nodes := map[string][]byte{}
+	for _, sample := range samples {
+		start := sample.collectedAt / int64(time.Minute) * int64(time.Minute)
+		key := windowKey{node: string(sample.nodeUUID), start: start}
+		grouped[key] = append(grouped[key], sample)
+		nodes[key.node] = sample.nodeUUID
+	}
+	for key, window := range grouped {
+		sort.Slice(window, func(i, j int) bool { return window[i].collectedAt < window[j].collectedAt })
+		states := make([]*pb.State, 0, len(window))
+		for _, sample := range window {
+			states = append(states, sample.state)
+		}
+		start := time.Unix(0, key.start)
+		end := start.Add(time.Minute)
+		payload := aggregateStates(states, start, end)
+		if payload == nil {
+			continue
+		}
+		encoded, err := proto.MarshalOptions{Deterministic: true}.Marshal(payload)
+		if err != nil {
+			return err
+		}
+		row := model.StateRollup{
+			NodeUUID: nodes[key.node], Resolution: "1m", WindowStart: start.UnixNano(), WindowEnd: end.UnixNano(),
+			SampleCount: payload.GetSampleCount(), Payload: encoded, NetInTotal: payload.GetNetInTotal(), NetOutTotal: payload.GetNetOutTotal(),
+		}
+		if err := w.db.WithContext(ctx).Clauses(clause.OnConflict{
+			Columns: []clause.Column{{Name: "node_uuid"}, {Name: "resolution"}, {Name: "window_start"}}, UpdateAll: true,
+		}).Create(&row).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (w *RollupWorker) rollupRawWindow(ctx context.Context, start, end time.Time) error {
@@ -365,18 +422,13 @@ func DrainRetention(ctx context.Context, db *gorm.DB, policy RetentionPolicy, no
 	}
 
 	completedMinute := now.Truncate(time.Minute).UnixNano()
-	stateRawBefore := now.Add(-policy.StateRaw).UnixNano()
-	if completedMinute < stateRawBefore {
-		stateRawBefore = completedMinute
-	}
-	highFreq := highFrequencyEventTypesSQL()
 	if sqliteTableExists(db, "telemetry_events") {
 		if err := add(drainUntil(ctx, db, deadline, batch, "telemetry_observations",
-			"event_id IN (SELECT event_id FROM telemetry_events WHERE event_type IN ("+highFreq+") AND collected_at < ?)", stateRawBefore)); err != nil {
+			"event_id IN (SELECT event_id FROM telemetry_events WHERE event_type IN ("+highFrequencyEventTypesSQL()+") AND collected_at < ?)", completedMinute)); err != nil {
 			return deleted, err
 		}
 		if err := add(drainUntil(ctx, db, deadline, batch, "telemetry_events",
-			"collected_at < ? AND event_type IN ("+highFreq+")", stateRawBefore)); err != nil {
+			"collected_at < ? AND event_type IN ("+highFrequencyEventTypesSQL()+")", completedMinute)); err != nil {
 			return deleted, err
 		}
 		stripped, err := updateUntil(ctx, db, deadline, batch, `UPDATE telemetry_events SET payload = NULL, payload_retained = 0
@@ -390,16 +442,20 @@ func DrainRetention(ctx context.Context, db *gorm.DB, policy RetentionPolicy, no
 	}
 
 	observationBefore := now.Add(-policy.Observation).UnixNano()
+	evidenceBefore := now.Add(-policy.Evidence).UnixNano()
 	if err := add(drainUntil(ctx, db, deadline, batch, "telemetry_observations", "received_at < ?", observationBefore)); err != nil {
 		return deleted, err
 	}
 	if err := add(drainUntil(ctx, db, deadline, batch, "telemetry_events", "collected_at < ? AND event_type != "+itoa(int(pb.TelemetryEventType_TELEMETRY_EVENT_TYPE_LIFECYCLE)), observationBefore)); err != nil {
 		return deleted, err
 	}
-	if err := add(drainUntil(ctx, db, deadline, batch, "observer_path_buckets", "bucket_start < ?", observationBefore)); err != nil {
+	if err := add(drainUntil(ctx, db, deadline, batch, "observer_path_buckets", "bucket_start < ?", evidenceBefore)); err != nil {
 		return deleted, err
 	}
-	if err := add(drainUntil(ctx, db, deadline, batch, "observer_health_buckets", "bucket_start < ?", observationBefore)); err != nil {
+	if err := add(drainUntil(ctx, db, deadline, batch, "observer_health_buckets", "bucket_start < ?", evidenceBefore)); err != nil {
+		return deleted, err
+	}
+	if err := add(drainUntil(ctx, db, deadline, batch, "availability_recompute_queues", "bucket_start < ?", evidenceBefore)); err != nil {
 		return deleted, err
 	}
 	if err := add(drainUntil(ctx, db, deadline, batch, "telemetry_alerts", "occurred_at < ?", observationBefore)); err != nil {
@@ -411,6 +467,11 @@ func DrainRetention(ctx context.Context, db *gorm.DB, policy RetentionPolicy, no
 	if err := add(drainUntil(ctx, db, deadline, batch, "collector_replication_receipts", "created_at < ?", now.Add(-policy.Receipt))); err != nil {
 		return deleted, err
 	}
+	compacted, err := compactAvailabilitySpans(ctx, db, deadline, batch, evidenceBefore)
+	if err != nil {
+		return deleted, err
+	}
+	deleted += compacted
 
 	lifecycleBefore := now.Add(-policy.Lifecycle).UnixNano()
 	if err := add(drainUntil(ctx, db, deadline, batch, "incident_revisions", "incident_id IN (SELECT id FROM availability_incidents WHERE started_at < ?)", lifecycleBefore)); err != nil {
@@ -427,8 +488,10 @@ func DrainRetention(ctx context.Context, db *gorm.DB, policy RetentionPolicy, no
 		{"availability_incidents", "started_at < ?", lifecycleBefore},
 		{"state_rollups", "resolution = '1m' AND window_start < ?", now.Add(-policy.StateOneMinute).UnixNano()},
 		{"state_rollups", "resolution = '1h' AND window_start < ?", now.Add(-policy.StateOneHour).UnixNano()},
-		{"connection_latency_buckets", "bucket_start < ?", now.Add(-ConnectionLatencyRetention).UnixNano()},
-		{"probe_sample_buckets", "bucket_start < ?", now.Add(-ProbeSampleRetention).UnixNano()},
+		{"connection_latency_buckets", "bucket_start < ?", evidenceBefore},
+		{"probe_sample_buckets", "bucket_start < ?", evidenceBefore},
+		{"probe_latests", "sampled_at < ?", evidenceBefore},
+		{"probe_traces", "sampled_at < ?", evidenceBefore},
 	} {
 		if err := add(drainUntil(ctx, db, deadline, batch, item.table, item.condition, item.before)); err != nil {
 			return deleted, err
@@ -520,7 +583,7 @@ func retentionTableAllowed(table string) bool {
 		"state_rollups", "connection_latency_buckets",
 		"observer_path_buckets", "observer_health_buckets",
 		"collector_replication_receipts", "telemetry_alerts", "telemetry_data_losses",
-		"probe_sample_buckets", "monitor_histories", "transfers":
+		"probe_sample_buckets", "probe_latests", "probe_traces", "monitor_histories", "transfers", "availability_recompute_queues":
 		return true
 	default:
 		return false

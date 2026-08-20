@@ -1,20 +1,23 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { AppEmpty } from '@santaizi/ui'
 import NATEditorDialog from '@/components/editors/NATEditorDialog.vue'
 import { deleteNATTunnel, listAllServers, listNATTunnels, type ServerRecord } from '@/api/adminApi'
 import { notifyAPIError } from '@/composables/notify'
+import { readStoredPageSize, writeStoredPageSize } from '@/composables/pageSize'
 import { isRowSelected, toggleRowSelection } from '@/composables/selection'
 import type { NATTunnelRecord } from '@/types/admin'
 
 const { t, te } = useI18n()
+const route = useRoute()
 const loading = ref(false), editor = ref(false), total = ref(0)
 const items = ref<NATTunnelRecord[]>([]), selected = ref<NATTunnelRecord[]>([]), editing = ref<NATTunnelRecord>(), servers = ref<ServerRecord[]>([])
 const serverNames = computed(() => Object.fromEntries(servers.value.map(server => [server.id, server.name])))
-const query = reactive({ page: 1, page_size: 20, q: '', sort: 'id', order: 'desc' as const })
-async function load() { loading.value = true; try { const [result, serverResult] = await Promise.all([listNATTunnels(query), listAllServers()]); items.value = result.data; total.value = result.meta.total || result.data.length; servers.value = serverResult.data } catch (error) { notifyAPIError(error, t as never, te) } finally { loading.value = false } }
+const query = reactive({ page: 1, page_size: readStoredPageSize(route.path), q: '', sort: 'id', order: 'desc' as const })
+async function load() { writeStoredPageSize(route.path, query.page_size); loading.value = true; try { const [result, serverResult] = await Promise.all([listNATTunnels(query), listAllServers()]); items.value = result.data; total.value = result.meta.total || result.data.length; servers.value = serverResult.data } catch (error) { notifyAPIError(error, t as never, te) } finally { loading.value = false } }
 function open(item?: NATTunnelRecord) { editing.value = item; editor.value = true }
 async function remove(rows: NATTunnelRecord[]) { await ElMessageBox.confirm(t('confirmDelete'), t('dangerousAction'), { type: 'warning' }); try { await Promise.all(rows.map(row => deleteNATTunnel(row.id))); selected.value = []; await load(); ElMessage.success(t('deleteSuccess')) } catch (error) { notifyAPIError(error, t as never, te) } }
 function onSelect(row: NATTunnelRecord, checked: boolean | string | number) { selected.value = toggleRowSelection(selected.value, row, !!checked) }

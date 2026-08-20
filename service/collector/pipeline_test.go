@@ -62,11 +62,12 @@ func TestAgentCollectorPrimaryPipelineSurvivesLostReplicationAck(t *testing.T) {
 	if err := collectorStore.CommitReplicationAck(context.Background(), outbox.Through); err != nil {
 		t.Fatal(err)
 	}
-	var events, observations, pending int64
+	var events, observations, pending, paths int64
 	primaryDB.Model(&model.TelemetryEvent{}).Count(&events)
 	primaryDB.Model(&model.TelemetryObservation{}).Count(&observations)
 	collectorStore.db.Model(&model.CollectorOutbox{}).Count(&pending)
-	if events != 1 || observations != 1 || pending != 0 {
-		t.Fatalf("events=%d observations=%d pending=%d", events, observations, pending)
+	primaryDB.Model(&model.ObserverPathBucket{}).Count(&paths)
+	if events != 0 || observations != 0 || pending != 0 || paths != 1 {
+		t.Fatalf("events=%d observations=%d pending=%d paths=%d", events, observations, pending, paths)
 	}
 }

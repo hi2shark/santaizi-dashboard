@@ -45,6 +45,15 @@ func event(t *testing.T, node, session []byte, sequence uint64, collected time.T
 	}
 }
 
+func hostEvent(t *testing.T, node, session []byte, sequence uint64, collected time.Time) *pb.TelemetryEvent {
+	t.Helper()
+	item := event(t, node, session, sequence, collected)
+	item.EventType = pb.TelemetryEventType_TELEMETRY_EVENT_TYPE_HOST
+	item.Priority = pb.TelemetryPriority_TELEMETRY_PRIORITY_P1_IMPORTANT
+	item.Payload = &pb.TelemetryEvent_Host{Host: &pb.Host{Platform: "linux"}}
+	return item
+}
+
 func TestIngestDeduplicatesAndAcknowledgesContiguousEvents(t *testing.T) {
 	store, db := newTelemetryStore(t)
 	now := time.Now()
@@ -62,10 +71,28 @@ func TestIngestDeduplicatesAndAcknowledgesContiguousEvents(t *testing.T) {
 			t.Fatalf("acks=%#v", result.Acks)
 		}
 	}
+	var eventCount, observationCount, paths int64
+	db.Model(&model.TelemetryEvent{}).Count(&eventCount)
+	db.Model(&model.TelemetryObservation{}).Count(&observationCount)
+	db.Model(&model.ObserverPathBucket{}).Count(&paths)
+	if eventCount != 0 || observationCount != 0 || paths != 1 {
+		t.Fatalf("event=%d observation=%d paths=%d", eventCount, observationCount, paths)
+	}
+}
+
+func TestIngestPersistsHostFacts(t *testing.T) {
+	store, db := newTelemetryStore(t)
+	now := time.Now()
+	node, session := bytes.Repeat([]byte{0x11}, 16), bytes.Repeat([]byte{0x12}, 16)
+	if _, err := store.Ingest(context.Background(), &pb.TelemetryBatch{Records: []*pb.TelemetryRecord{
+		{Record: &pb.TelemetryRecord_Event{Event: hostEvent(t, node, session, 1, now)}},
+	}}, "primary", now); err != nil {
+		t.Fatal(err)
+	}
 	var eventCount, observationCount int64
 	db.Model(&model.TelemetryEvent{}).Count(&eventCount)
 	db.Model(&model.TelemetryObservation{}).Count(&observationCount)
-	if eventCount != 2 || observationCount != 2 {
+	if eventCount != 1 || observationCount != 1 {
 		t.Fatalf("event=%d observation=%d", eventCount, observationCount)
 	}
 }
@@ -119,9 +146,20 @@ func TestReplicationAckLossRetryIsIdempotent(t *testing.T) {
 		if err := db.Model(modelValue).Count(&count).Error; err != nil {
 			t.Fatal(err)
 		}
-		if count != 1 {
-			t.Fatalf("%s count=%d", table, count)
+		want := int64(0)
+		if table == "receipts" {
+			want = 1
 		}
+		if count != want {
+			t.Fatalf("%s count=%d want=%d", table, count, want)
+		}
+	}
+	var paths int64
+	if err := db.Model(&model.ObserverPathBucket{}).Count(&paths).Error; err != nil {
+		t.Fatal(err)
+	}
+	if paths != 1 {
+		t.Fatalf("paths=%d", paths)
 	}
 }
 
@@ -159,12 +197,12 @@ func TestClockRollbackUsesReceiveTimeAndCannotBecomeFreshRuntime(t *testing.T) {
 	if len(result.FreshEvents) != 0 {
 		t.Fatal("clock-rolled-back history was classified as fresh runtime")
 	}
-	var fact model.TelemetryEvent
-	if err := db.First(&fact, "node_uuid = ?", node).Error; err != nil {
+	var paths int64
+	if err := db.Model(&model.TelemetryEvent{}).Count(&paths).Error; err != nil {
 		t.Fatal(err)
 	}
-	if !fact.ClockUntrusted {
-		t.Fatal("clock-skewed fact was not marked untrusted")
+	if paths != 0 {
+		t.Fatal("heartbeat should not persist an evidence row")
 	}
 	var path model.ObserverPathBucket
 	if err := db.First(&path, "node_uuid = ?", node).Error; err != nil {

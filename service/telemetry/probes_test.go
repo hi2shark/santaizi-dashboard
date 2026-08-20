@@ -109,6 +109,8 @@ func TestLoadProbePathsFiltersAndEmptyTrace(t *testing.T) {
 	}
 	alpha := probeServer(4, "alpha", "secret-4")
 	alpha.ProbeTarget = "1.1.1.1"
+	alpha.DisplayIndex = 42
+	alpha.Tag = "edge"
 	if err := db.Create(&alpha).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +122,7 @@ func TestLoadProbePathsFiltersAndEmptyTrace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(paths) != 1 || paths[0].CollectorID != "probe-c" || paths[0].ServerID != 4 || paths[0].TargetSource != "override" {
+	if len(paths) != 1 || paths[0].CollectorID != "probe-c" || paths[0].ServerID != 4 || paths[0].TargetSource != "override" || paths[0].DisplayIndex != 42 || paths[0].Tag != "edge" {
 		t.Fatalf("%+v", paths)
 	}
 	none, err := LoadProbePaths(db, ProbePathFilter{CollectorID: "probe-c", ServerID: 5})

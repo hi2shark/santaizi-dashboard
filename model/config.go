@@ -155,6 +155,7 @@ type RetentionConfig struct {
 	StateOneMinuteDays uint64 `koanf:"state_one_minute_days" yaml:"state_one_minute_days"`
 	StateOneHourDays   uint64 `koanf:"state_one_hour_days" yaml:"state_one_hour_days"`
 	ObservationDays    uint64 `koanf:"observation_days" yaml:"observation_days"`
+	EvidenceHours      uint64 `koanf:"evidence_hours" yaml:"evidence_hours"`
 	LifecycleDays      uint64 `koanf:"lifecycle_days" yaml:"lifecycle_days"`
 	BatchSize          int    `koanf:"batch_size" yaml:"batch_size"`
 	MaxRuntimeMs       uint64 `koanf:"max_runtime_ms" yaml:"max_runtime_ms"`
@@ -384,6 +385,9 @@ func (c *Config) Read(path string) error {
 	}
 	if c.Retention.ObservationDays == 0 {
 		c.Retention.ObservationDays = 30
+	}
+	if c.Retention.EvidenceHours == 0 {
+		c.Retention.EvidenceHours = 48
 	}
 	if c.Retention.LifecycleDays == 0 {
 		c.Retention.LifecycleDays = 3650

@@ -596,7 +596,7 @@ test('overview latency list scrolls inside the panel on desktop', async ({ page 
   await expect(lastRow).toBeInViewport()
 })
 
-test('connection observation shows collector links and node paths', async ({ page }, testInfo) => {
+test('connection observation shows collector links and node paths', async ({ page }) => {
   const collector = {
     id: 'collector-1', name: 'Shanghai edge', address: 'collector.example.com:5555', tls: true, insecure_tls: false,
     generation: 1, config_version: 1, status: 'online', revoked: false, connected_agents: 3, pending_records: 1,
@@ -625,20 +625,12 @@ test('connection observation shows collector links and node paths', async ({ pag
   await expect(page.locator('.collector-grid .rtt-sampled').filter({ visible: true }).first()).toHaveText(/\d{1,2}:\d{2}:\d{2}/)
   await expect(page.getByText('节点连接').filter({ visible: true })).toBeVisible()
   const pathFilters = page.locator('.connections-page .toolbar-filters')
-  const matrix = page.locator('.path-matrix').filter({ visible: true })
-  if (testInfo.project.name === 'admin-mobile') {
-    await expect(pathFilters).toBeVisible()
-    await expect(pathFilters.getByRole('combobox')).toHaveCount(2)
-    await expect(matrix.getByRole('columnheader', { name: 'Shanghai edge' })).toBeVisible()
-    await expect(matrix.getByRole('rowheader', { name: 'edge-a' })).toBeVisible()
-  } else {
-    await expect(pathFilters).toBeHidden()
-    await expect(matrix.getByRole('rowheader', { name: 'Shanghai edge' })).toBeVisible()
-    await expect(matrix.getByRole('columnheader', { name: 'edge-a' })).toBeVisible()
-  }
-  await expect(page.getByText('edge-a').filter({ visible: true })).toBeVisible()
-  await expect(page.getByText('12.5 ms').filter({ visible: true }).first()).toBeVisible()
-  await expect(page.locator('.path-matrix__cell .rtt-sampled').filter({ visible: true }).first()).toHaveText(/\d{1,2}:\d{2}:\d{2}/)
+  await expect(pathFilters).toBeVisible()
+  await expect(pathFilters.getByRole('combobox')).toHaveCount(4)
+  const card = page.locator('.node-card').filter({ visible: true })
+  await expect(card.getByText('edge-a')).toBeVisible()
+  await expect(card.getByText('12.5 ms').filter({ visible: true }).first()).toBeVisible()
+  await expect(page.locator('.node-end-chip .rtt-sampled').filter({ visible: true }).first()).toHaveText(/\d{1,2}:\d{2}:\d{2}/)
   await collectorGrid.getByText('Shanghai edge').click()
   const drawer = page.locator('.el-drawer').filter({ visible: true })
   await expect(drawer.getByText('从端版本').filter({ visible: true })).toBeVisible()
@@ -670,16 +662,15 @@ test('connection observation truncates long path errors until the drawer opens',
   await expect(collectorList.getByText('已跟上').filter({ visible: true })).toBeVisible()
   await expect(collectorList.getByText('collector-2aee9892…').filter({ visible: true })).toBeVisible()
   await expect(collectorList).not.toContainText(collectorId)
-  const matrix = page.locator('.path-matrix').filter({ visible: true })
-  await expect(matrix.getByText('LAX-DMIT.PRO').filter({ visible: true })).toBeVisible()
-  await expect(matrix).not.toContainText(lastError)
-  await matrix.getByRole('button').filter({ hasText: '未连接' }).click()
+  const card = page.locator('.node-card').filter({ visible: true })
+  await expect(card.getByText('LAX-DMIT.PRO').filter({ visible: true })).toBeVisible()
+  await expect(card).not.toContainText(lastError)
+  await card.getByRole('button').filter({ hasText: '未连接' }).click()
   const drawer = page.locator('.el-drawer').filter({ visible: true })
   await expect(drawer.getByText(lastError).filter({ visible: true })).toBeVisible()
 })
 
-test('connection observation shows node paths as a server-observer matrix', async ({ page }, testInfo) => {
-  const mobile = testInfo.project.name === 'admin-mobile'
+test('connection observation shows node paths as observer chips on node cards', async ({ page }) => {
   const collector = {
     id: 'collector-1', name: 'Shanghai edge', address: 'collector.example.com:5555', tls: true, insecure_tls: false,
     generation: 1, config_version: 1, status: 'online', revoked: false, connected_agents: 3, pending_records: 1,
@@ -699,35 +690,20 @@ test('connection observation shows node paths as a server-observer matrix', asyn
     { server_id: 8, server_name: 'edge-b', node_uuid: '0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a', observer_id: 'collector-1', observer_kind: 'collector', observer_name: 'Shanghai edge', assigned: true, last_seen: '2026-08-13T06:00:00Z', sink: sinks.far },
   ])))
   await page.goto('/admin/connections')
-  const matrix = page.locator('.path-matrix').filter({ visible: true })
-  if (mobile) {
-    await expect(matrix.getByRole('columnheader', { name: '服务器' })).toBeVisible()
-    await expect(matrix.getByRole('columnheader', { name: '主面板' })).toBeVisible()
-    await expect(matrix.getByRole('columnheader', { name: 'Shanghai edge' })).toBeVisible()
-    await expect(matrix.getByRole('rowheader', { name: 'edge-a' })).toBeVisible()
-    await expect(matrix.getByRole('rowheader', { name: 'edge-b' })).toBeVisible()
-  } else {
-    await expect(matrix.getByRole('columnheader', { name: '服务器' })).toHaveCount(0)
-    await expect(matrix.getByRole('columnheader', { name: 'edge-a' })).toBeVisible()
-    await expect(matrix.getByRole('columnheader', { name: 'edge-b' })).toBeVisible()
-    await expect(matrix.getByRole('rowheader', { name: '主面板' })).toBeVisible()
-    await expect(matrix.getByRole('rowheader', { name: 'Shanghai edge' })).toBeVisible()
-  }
-  await expect(matrix.getByRole('button', { name: /12\.5 ms/ })).toBeVisible()
-  await expect(matrix.getByRole('button', { name: /40 ms/ })).toBeVisible()
-  await expect(matrix.locator('.rtt-sampled')).toHaveCount(2)
-  await expect(matrix.getByRole('button', { name: '未连接' })).toHaveCount(2)
-  const observerHeads = mobile
-    ? matrix.locator('[role=columnheader].col-observer')
-    : matrix.locator('[role=rowheader].col-observer')
-  await expect(observerHeads).toHaveCount(2)
-  const widths = await observerHeads.evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().width))
-  expect(Math.abs(widths[0] - widths[1])).toBeLessThan(2)
-  const chipWidths = await matrix.locator('.path-matrix__cell').evaluateAll(nodes => nodes.map(node => Math.round(node.getBoundingClientRect().width)))
-  expect(new Set(chipWidths).size).toBe(1)
+  const cards = page.locator('.node-card').filter({ visible: true })
+  await expect(cards).toHaveCount(2)
+  const edgeA = cards.filter({ hasText: 'edge-a' })
+  const edgeB = cards.filter({ hasText: 'edge-b' })
+  await expect(edgeA.getByRole('button', { name: /12\.5 ms/ })).toBeVisible()
+  await expect(edgeA.getByRole('button', { name: /未连接/ })).toBeVisible()
+  await expect(edgeB.getByRole('button', { name: /40 ms/ })).toBeVisible()
+  await expect(edgeB.getByRole('button', { name: /未连接/ })).toBeVisible()
+  await expect(page.locator('.node-end-chip .rtt-sampled')).toHaveCount(2)
+  await expect(page.locator('.node-end-chip').filter({ hasText: '主面板' })).toHaveCount(2)
+  await expect(page.locator('.node-end-chip').filter({ hasText: 'Shanghai edge' })).toHaveCount(2)
 })
 
-test('connection matrix stays within the page and scrolls internally', async ({ page }, testInfo) => {
+test('connection node cards stay within the page and scroll internally', async ({ page }) => {
   const servers = Array.from({ length: 40 }, (_, index) => ({
     id: index + 1,
     name: `srv-${String(index + 1).padStart(2, '0')}`,
@@ -752,21 +728,15 @@ test('connection matrix stays within the page and scrolls internally', async ({ 
     },
   ])))))
   await page.goto('/admin/connections')
-  const wrap = page.locator('.path-matrix-wrap')
-  await expect(page.locator('.path-matrix')).toBeVisible()
+  const wrap = page.locator('.node-card-grid-wrap')
+  await expect(page.locator('.node-card').first()).toBeVisible()
   await expect(page.getByText('srv-40').first()).toBeAttached()
   await assertAdminContentDoesNotScroll(page)
   const metrics = await wrap.evaluate((el: HTMLElement) => ({
-    scrollWidth: el.scrollWidth,
-    clientWidth: el.clientWidth,
     scrollHeight: el.scrollHeight,
     clientHeight: el.clientHeight,
   }))
-  if (testInfo.project.name === 'admin-mobile') {
-    expect(metrics.scrollHeight).toBeGreaterThan(metrics.clientHeight)
-  } else {
-    expect(metrics.scrollWidth).toBeGreaterThan(metrics.clientWidth)
-  }
+  expect(metrics.scrollHeight).toBeGreaterThan(metrics.clientHeight)
 })
 
 test('connection observation hides stale RTT when collector is offline', async ({ page }) => {
@@ -806,12 +776,12 @@ test('connection observation hides stale RTT when collector is offline', async (
   await expect(collectorGrid.getByText('离线').filter({ visible: true })).toHaveCount(1)
   await expect(collectorGrid).not.toContainText('18.5 ms')
   await expect(collectorGrid).not.toContainText('9 ms')
-  const matrix = page.locator('.path-matrix').filter({ visible: true })
-  await expect(matrix.getByRole('button', { name: /12\.5 ms/ })).toBeVisible()
-  await expect(matrix.getByRole('button', { name: '未连接' })).toHaveCount(1)
-  await expect(matrix).not.toContainText('SLC probe')
-  await expect(matrix).not.toContainText('99.9 ms')
-  await expect(matrix).not.toContainText('21.5 ms')
+  const cards = page.locator('.node-card').filter({ visible: true })
+  await expect(cards.getByRole('button', { name: /12\.5 ms/ })).toBeVisible()
+  await expect(cards.getByRole('button', { name: /未连接/ })).toHaveCount(1)
+  await expect(cards).not.toContainText('SLC probe')
+  await expect(cards).not.toContainText('99.9 ms')
+  await expect(cards).not.toContainText('21.5 ms')
 })
 
 test('probe observation shows ICMP paths separately from node links', async ({ page }) => {
@@ -835,7 +805,7 @@ test('probe observation shows ICMP paths separately from node links', async ({ p
   await page.route('**/api/v2/admin/probes/samples**', route => fulfillJSON(route, list()))
   await page.route('**/api/v2/admin/probes/trace**', route => fulfillJSON(route, item(null)))
   await page.goto('/admin/probes')
-  await expect(page.getByRole('heading', { name: '探测观测' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '探针观察' })).toBeVisible()
   const group = page.locator('.probe-group').filter({ visible: true })
   await expect(group.locator('.collector-tile').getByText('SLC probe')).toBeVisible()
   await expect(group).not.toContainText('Frankfurt edge')
@@ -855,7 +825,7 @@ test('probe observation shows ICMP paths separately from node links', async ({ p
   await expect(page.locator('.el-drawer').filter({ visible: true })).toHaveCount(0)
 })
 
-test('connection observation refreshes matrix latency on poll', async ({ page }) => {
+test('connection observation refreshes node chip latency on poll', async ({ page }) => {
   await page.clock.install()
   const path = {
     server_id: 7, server_name: 'edge-a', node_uuid: '09090909090909090909090909090909', observer_id: 'primary',
@@ -873,10 +843,10 @@ test('connection observation refreshes matrix latency on poll', async ({ page })
     }]))
   })
   await page.goto('/admin/connections')
-  const matrix = page.locator('.path-matrix').filter({ visible: true })
-  await expect(matrix.getByRole('button', { name: /12\.5 ms/ })).toBeVisible()
+  const chips = page.locator('.node-end-chip').filter({ visible: true })
+  await expect(chips.filter({ hasText: /12\.5 ms/ })).toBeVisible()
   await page.clock.fastForward(5000)
-  await expect(matrix.getByRole('button', { name: /88 ms/ })).toBeVisible()
+  await expect(chips.filter({ hasText: /88 ms/ })).toBeVisible()
 })
 
 test('servers list shows reported agent version', async ({ page }) => {
@@ -987,14 +957,17 @@ test('servers list shows traffic usage and hourly plus daily history', async ({ 
         id: 8, name: 'edge-b', tag: 'edge', online: true, public_note: {}, monitoring_options: {},
         display_index: 2, hide_for_guest: false, enable_ddns: false,
         traffic_summaries: [],
+        state: { NetInTransfer: 400, NetOutTransfer: 600 },
         telemetry: { host: 'online', connectivity: 'full', available: true, coverage: '1/1' },
       },
     ]))
   })
   await page.goto('/admin/servers')
-  await expect(page.locator('.traffic-entry').filter({ visible: true })).toHaveCount(1)
-  await expect(page.locator('.traffic-entry').filter({ visible: true })).toContainText('100 B / 1,000 B')
-  await page.locator('.traffic-entry').filter({ visible: true }).click()
+  await expect(page.locator('button.traffic-entry').filter({ visible: true })).toHaveCount(1)
+  await expect(page.locator('button.traffic-entry').filter({ visible: true })).toContainText('100 B / 1,000 B')
+  await expect(page.locator('span.traffic-entry').filter({ visible: true })).toContainText('1,000 B')
+  await expect(page.locator('span.traffic-entry').filter({ visible: true })).not.toContainText('/')
+  await page.locator('button.traffic-entry').filter({ visible: true }).click()
   const drawer = page.locator('.el-drawer').filter({ visible: true })
   await expect(drawer.getByText('详情 · edge-a')).toBeVisible()
   await expect(drawer.getByRole('tab', { name: '流量' })).toBeVisible()
@@ -1009,6 +982,52 @@ test('servers list shows traffic usage and hourly plus daily history', async ({ 
   const next = page.locator('.el-drawer').filter({ visible: true })
   await expect(next.getByText('详情 · edge-b')).toBeVisible()
   await expect(next.getByRole('tab', { name: '流量' })).toHaveCount(0)
+})
+
+test('servers list copies IPv4 and IPv6 from separate columns', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: async () => {} },
+    })
+  })
+  await page.route('**/api/v2/admin/servers**', route => {
+    const path = new URL(route.request().url()).pathname
+    if (path.endsWith('/availability')) return fulfillJSON(route, list())
+    return fulfillJSON(route, list([{
+      id: 7, name: 'edge-a', tag: 'edge', online: true, last_active: '2026-08-14T03:36:00Z',
+      host: { Platform: 'debian', Version: '1.0.0', ipv4: '192.0.2.10', ipv6: '2001:db8::10' },
+      public_note: {}, telemetry: { available: true, coverage: '1/1' },
+    }]))
+  })
+  await page.goto('/admin/servers')
+  const ipv4 = page.locator('.copyable-text').filter({ hasText: '192.0.2.10' }).filter({ visible: true })
+  const ipv6 = page.locator('.copyable-text').filter({ hasText: '2001:db8::10' }).filter({ visible: true })
+  await expect(ipv4).toBeVisible()
+  await expect(ipv6).toBeVisible()
+  await ipv4.click()
+  await expect(page.getByText('已复制').filter({ visible: true })).toBeVisible()
+})
+
+test('servers list stores page size in localStorage', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === 'admin-mobile', 'sizes selector is hidden below 600px')
+  const sizes: string[] = []
+  await page.route('**/api/v2/admin/servers**', route => {
+    const url = new URL(route.request().url())
+    if (url.pathname.endsWith('/servers')) sizes.push(url.searchParams.get('page_size') || '')
+    return fulfillJSON(route, list([{
+      id: 7, name: 'edge-a', tag: 'edge', online: true, last_active: '2026-08-14T03:36:00Z',
+      host: { Platform: 'debian', Version: '1.0.0' }, public_note: {}, telemetry: { available: true, coverage: '1/1' },
+    }]))
+  })
+  await page.goto('/admin/servers')
+  const sizesSelect = page.locator('.el-pagination__sizes')
+  await sizesSelect.scrollIntoViewIfNeeded()
+  await expect(sizesSelect).toBeVisible()
+  await sizesSelect.click()
+  await page.getByRole('option', { name: /50/ }).click()
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('santaizi-admin-page-size:/servers'))).toBe('50')
+  await expect.poll(() => sizes.includes('50')).toBeTruthy()
 })
 
 test('telemetry datasets show readable rows without blobs or full uuids', async ({ page }) => {

@@ -157,6 +157,18 @@ func (e *Engine) Recompute(ctx context.Context, nodeUUID []byte, bucketStart int
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
+		if err == nil && existing.Resolution == model.AvailabilityResolutionSpan {
+			return nil
+		}
+		var covering model.AvailabilityBucket
+		coverErr := tx.Where("node_uuid = ? AND resolution = ? AND bucket_start <= ? AND window_end > ?",
+			nodeUUID, model.AvailabilityResolutionSpan, bucketStart, bucketStart).First(&covering).Error
+		if coverErr == nil {
+			return nil
+		}
+		if coverErr != nil && !errors.Is(coverErr, gorm.ErrRecordNotFound) {
+			return coverErr
+		}
 		revision := uint64(1)
 		changed := true
 		if err == nil {
@@ -167,7 +179,8 @@ func (e *Engine) Recompute(ctx context.Context, nodeUUID []byte, bucketStart int
 			}
 		}
 		row := model.AvailabilityBucket{
-			NodeUUID: nodeUUID, BucketStart: bucketStart, HostState: hostState, ConnectivityState: connectivity,
+			NodeUUID: nodeUUID, BucketStart: bucketStart, WindowEnd: bucketStart + e.bucketSize,
+			Resolution: model.AvailabilityResolutionRaw, HostState: hostState, ConnectivityState: connectivity,
 			ExpectedObservers: uint32(len(observers)), HealthyObservers: healthy, SeenObservers: seen,
 			ObserverSummary: summary, Revision: revision, Finalized: bucketStart+e.bucketSize < recalculatedAt.Add(-time.Duration(e.bucketSize)).UnixNano(),
 			RecalculatedAt: recalculatedAt.UnixNano(),
@@ -216,7 +229,10 @@ func incidentClassification(bucket model.AvailabilityBucket) string {
 
 func reviseIncident(tx *gorm.DB, bucket model.AvailabilityBucket, bucketSize int64, recalculatedAt time.Time) error {
 	classification := incidentClassification(bucket)
-	bucketEnd := bucket.BucketStart + bucketSize
+	bucketEnd := bucket.WindowEnd
+	if bucketEnd <= bucket.BucketStart {
+		bucketEnd = bucket.BucketStart + bucketSize
+	}
 	incident, found, err := lookupIncident(tx, bucket.NodeUUID, bucket.BucketStart, bucketEnd)
 	if err != nil {
 		return err

@@ -94,6 +94,8 @@ type PathSink struct {
 type ConnectionPath struct {
 	ServerID     uint64
 	ServerName   string
+	DisplayIndex int
+	Tag          string
 	NodeUUID     string
 	ObserverID   string
 	ObserverKind string
@@ -235,14 +237,15 @@ func loadConnectionPaths(db *gorm.DB, filter PathFilter, now time.Time) ([]Conne
 		if idx.isProbeObserver(assignment.ObserverID) {
 			continue
 		}
-		serverID, serverName := idx.host(assignment.NodeUUID)
+		server := idx.lookupServer(assignment.NodeUUID)
 		kind, name := idx.observer(assignment.ObserverID)
 		sink := sinks[pathKey(assignment.NodeUUID, assignment.ObserverID)]
 		if !sinkHandshaked(assignment.ObserverID, sink, observerLastSeen, now) {
 			clearUnhandshakedSink(&sink)
 		}
 		paths = append(paths, ConnectionPath{
-			ServerID: serverID, ServerName: serverName, NodeUUID: hex.EncodeToString(assignment.NodeUUID),
+			ServerID: server.ID, ServerName: server.Name, DisplayIndex: server.DisplayIndex, Tag: server.Tag,
+			NodeUUID: hex.EncodeToString(assignment.NodeUUID),
 			ObserverID: assignment.ObserverID, ObserverKind: kind, ObserverName: name, Assigned: true,
 			LastSeen: lastSeen[pathKey(assignment.NodeUUID, assignment.ObserverID)],
 			Sink:     sink,
@@ -371,11 +374,16 @@ type hostIndex struct {
 }
 
 func (idx hostIndex) host(nodeUUID []byte) (uint64, string) {
+	server := idx.lookupServer(nodeUUID)
+	return server.ID, server.Name
+}
+
+func (idx hostIndex) lookupServer(nodeUUID []byte) model.Server {
 	id := idx.serverByNode[string(nodeUUID)]
 	if server, ok := idx.servers[id]; ok {
-		return id, server.Name
+		return server
 	}
-	return id, ""
+	return model.Server{Common: model.Common{ID: id}}
 }
 
 func (idx hostIndex) observer(id string) (kind, name string) {
@@ -411,7 +419,7 @@ func loadHostIndex(db *gorm.DB, nodeIDs [][]byte, observerIDs []string) (hostInd
 		}
 		if len(serverIDs) > 0 {
 			var rows []model.Server
-			if err := db.Select("id", "name").Where("id IN ?", serverIDs).Find(&rows).Error; err != nil {
+			if err := db.Select("id", "name", "tag", "display_index").Where("id IN ?", serverIDs).Find(&rows).Error; err != nil {
 				return idx, err
 			}
 			for _, row := range rows {

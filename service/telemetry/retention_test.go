@@ -175,8 +175,8 @@ func TestPolicyFromConfigUsesDocumentedDefaults(t *testing.T) {
 	if policy.BatchSize != DefaultRetentionBatch || policy.MaxRuntime != DefaultRetentionBudget {
 		t.Fatalf("batch=%d runtime=%s", policy.BatchSize, policy.MaxRuntime)
 	}
-	if policy.Receipt != DefaultReceiptRetain || policy.CompactMinBytes != DefaultCompactMinBytes || !policy.AutoCompact {
-		t.Fatalf("receipt=%s compact=%d auto=%v", policy.Receipt, policy.CompactMinBytes, policy.AutoCompact)
+	if policy.Receipt != DefaultReceiptRetain || policy.Evidence != DefaultEvidenceRetain || policy.CompactMinBytes != DefaultCompactMinBytes || !policy.AutoCompact {
+		t.Fatalf("receipt=%s evidence=%s compact=%d auto=%v", policy.Receipt, policy.Evidence, policy.CompactMinBytes, policy.AutoCompact)
 	}
 	off := false
 	if PolicyFromConfig(model.RetentionConfig{AutoCompact: &off}).AutoCompact {
@@ -210,7 +210,7 @@ func TestPayloadRetentionSkipsCurrentMinute(t *testing.T) {
 	}
 }
 
-func TestDrainRetentionStripsCompletedMinuteButKeepsSixHourRow(t *testing.T) {
+func TestDrainRetentionDeletesCompletedMinuteHighFreqRows(t *testing.T) {
 	db := newRetentionDB(t)
 	now := time.Now().Truncate(time.Minute).Add(30 * time.Second)
 	node, session := bytes.Repeat([]byte{7}, 16), bytes.Repeat([]byte{8}, 16)
@@ -226,12 +226,8 @@ func TestDrainRetentionStripsCompletedMinuteButKeepsSixHourRow(t *testing.T) {
 	if _, err := DrainRetention(context.Background(), db, RetentionPolicy{MaxRuntime: time.Minute}, now); err != nil {
 		t.Fatal(err)
 	}
-	var row model.TelemetryEvent
-	if err := db.First(&row, "event_id = ?", eventID).Error; err != nil {
-		t.Fatal(err)
-	}
-	if row.PayloadRetained || len(row.Payload) != 0 {
-		t.Fatalf("completed-minute payload should be stripped: %#v", row)
+	if err := db.First(&model.TelemetryEvent{}, "event_id = ?", eventID).Error; err == nil {
+		t.Fatal("completed-minute STATE row should be deleted")
 	}
 }
 
@@ -259,5 +255,124 @@ func TestDrainRetentionDeletesStaleMonitorHistory(t *testing.T) {
 	}
 	if len(remaining) != 2 {
 		t.Fatalf("remaining=%d %#v", len(remaining), remaining)
+	}
+}
+
+func TestDrainRetentionDropsPathBucketsOutsideEvidenceWindow(t *testing.T) {
+	db := newRetentionDB(t)
+	now := time.Now()
+	node := bytes.Repeat([]byte{0x21}, 16)
+	stale := now.Add(-72 * time.Hour).UnixNano()
+	fresh := now.Add(-time.Hour).UnixNano()
+	if err := db.Create(&model.ObserverPathBucket{NodeUUID: node, ObserverID: "primary", BucketStart: stale}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.ObserverPathBucket{NodeUUID: node, ObserverID: "primary", BucketStart: fresh}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DrainRetention(context.Background(), db, RetentionPolicy{MaxRuntime: time.Minute}, now); err != nil {
+		t.Fatal(err)
+	}
+	var count int64
+	if err := db.Model(&model.ObserverPathBucket{}).Count(&count).Error; err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("paths=%d", count)
+	}
+}
+
+func TestDrainRetentionDeletesStaleEndpointSnapshots(t *testing.T) {
+	db := newRetentionDB(t)
+	if err := db.AutoMigrate(&model.ProbeLatest{}, &model.ProbeTrace{}, &model.ProbeSampleBucket{}, &model.ConnectionLatencyBucket{}); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	stale := now.Add(-49 * time.Hour).UnixNano()
+	fresh := now.Add(-47 * time.Hour).UnixNano()
+	if err := db.Create(&model.ProbeLatest{CollectorUUID: "c1", ServerID: 1, SampledAt: stale}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.ProbeLatest{CollectorUUID: "c1", ServerID: 2, SampledAt: fresh}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.ProbeTrace{CollectorUUID: "c1", ServerID: 1, SampledAt: stale}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.ProbeTrace{CollectorUUID: "c1", ServerID: 2, SampledAt: fresh}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.ProbeSampleBucket{CollectorUUID: "c1", ServerID: 1, Kind: "icmp", BucketStart: stale, Count: 1}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.ProbeSampleBucket{CollectorUUID: "c1", ServerID: 2, Kind: "icmp", BucketStart: fresh, Count: 1}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.ConnectionLatencyBucket{Kind: LatencyKindPath, ObserverID: "primary", NodeUUID: latencyNodeKey(nil), BucketStart: stale, Count: 1}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.ConnectionLatencyBucket{Kind: LatencyKindPath, ObserverID: "primary", NodeUUID: latencyNodeKey(nil), BucketStart: fresh, Count: 1}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DrainRetention(context.Background(), db, RetentionPolicy{MaxRuntime: time.Minute}, now); err != nil {
+		t.Fatal(err)
+	}
+	var latest, traces, samples, latency int64
+	if err := db.Model(&model.ProbeLatest{}).Count(&latest).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Model(&model.ProbeTrace{}).Count(&traces).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Model(&model.ProbeSampleBucket{}).Count(&samples).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Model(&model.ConnectionLatencyBucket{}).Count(&latency).Error; err != nil {
+		t.Fatal(err)
+	}
+	if latest != 1 || traces != 1 || samples != 1 || latency != 1 {
+		t.Fatalf("latest=%d traces=%d samples=%d latency=%d", latest, traces, samples, latency)
+	}
+}
+
+func TestDrainRetentionCompactsOldAvailabilityRuns(t *testing.T) {
+	db := newRetentionDB(t)
+	now := time.Now()
+	hour := now.Add(-72 * time.Hour).Truncate(time.Hour)
+	node := bytes.Repeat([]byte{0x22}, 16)
+	step := int64(30 * time.Second)
+	for i := 0; i < 4; i++ {
+		start := hour.UnixNano() + int64(i)*step
+		if err := db.Create(&model.AvailabilityBucket{
+			NodeUUID: node, BucketStart: start, WindowEnd: start + step,
+			Resolution: model.AvailabilityResolutionRaw, HostState: model.HostStateOnline,
+			ConnectivityState: model.ConnectivityFull, ExpectedObservers: 1, HealthyObservers: 1, SeenObservers: 1,
+		}).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	recent := now.Add(-time.Hour).UnixNano()
+	if err := db.Create(&model.AvailabilityBucket{
+		NodeUUID: node, BucketStart: recent, WindowEnd: recent + step,
+		Resolution: model.AvailabilityResolutionRaw, HostState: model.HostStateOnline,
+		ConnectivityState: model.ConnectivityFull, ExpectedObservers: 1, HealthyObservers: 1, SeenObservers: 1,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DrainRetention(context.Background(), db, RetentionPolicy{MaxRuntime: time.Minute}, now); err != nil {
+		t.Fatal(err)
+	}
+	var rows []model.AvailabilityBucket
+	if err := db.Order("bucket_start ASC").Find(&rows).Error; err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("rows=%d %#v", len(rows), rows)
+	}
+	if rows[0].Resolution != model.AvailabilityResolutionSpan || rows[0].WindowEnd != hour.UnixNano()+4*step {
+		t.Fatalf("compacted=%#v", rows[0])
+	}
+	if rows[1].BucketStart != recent || rows[1].Resolution != model.AvailabilityResolutionRaw {
+		t.Fatalf("recent=%#v", rows[1])
 	}
 }

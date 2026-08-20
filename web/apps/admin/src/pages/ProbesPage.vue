@@ -11,6 +11,14 @@ import { formatAdminValue, formatClockTime, formatDateTime, formatProductVersion
 import { notifyAPIError } from '@/composables/notify'
 import { isProbeCollector } from '@/domain/collectorKind'
 import {
+  compareNodeCatalog,
+  DEFAULT_NODE_SORT,
+  groupFilterLabel,
+  matchNodeCatalog,
+  type NodeSortKey,
+  uniqueNodeTags,
+} from '@/domain/nodeCatalog'
+import {
   probeHasNoTarget,
   probeICMPMetric,
   probeMTRMetric,
@@ -26,6 +34,9 @@ const collectors = ref<CollectorRecord[]>([])
 const probePaths = ref<ProbePath[]>([])
 const collectorFilter = ref('')
 const statusFilter = ref('')
+const nodeQuery = ref('')
+const tagFilter = ref('')
+const nodeSort = ref<NodeSortKey>(DEFAULT_NODE_SORT)
 const collectorDrawer = ref(false)
 const probeDialog = ref(false)
 const activeCollector = ref<CollectorRecord>()
@@ -47,9 +58,14 @@ function probeStatus(path: ProbePath) {
 
 const filteredProbePaths = computed(() => probePaths.value.filter((path) => {
   if (collectorFilter.value && path.collector_id !== collectorFilter.value) return false
+  if (!matchNodeCatalog({
+    server_id: path.server_id, server_name: path.server_name, display_index: path.display_index, tag: path.tag,
+  }, nodeQuery.value, tagFilter.value)) return false
   if (!statusFilter.value) return true
   return probeStatus(path) === statusFilter.value
 }))
+
+const groupOptions = computed(() => uniqueNodeTags(probePaths.value))
 
 const probeGroups = computed(() => {
   const rows = collectorFilter.value
@@ -57,9 +73,11 @@ const probeGroups = computed(() => {
     : probeCollectors.value
   const groups = rows.map(collector => ({
     collector,
-    paths: filteredProbePaths.value.filter(path => path.collector_id === collector.id),
+    paths: filteredProbePaths.value
+      .filter(path => path.collector_id === collector.id)
+      .sort((left, right) => compareNodeCatalog(left, right, nodeSort.value)),
   }))
-  if (statusFilter.value) return groups.filter(group => group.paths.length)
+  if (statusFilter.value || nodeQuery.value || tagFilter.value) return groups.filter(group => group.paths.length)
   return groups
 })
 
@@ -180,6 +198,18 @@ onUnmounted(() => {
   <div class="page-head">
     <h1>{{ t('probeObservation') }}</h1>
     <div class="page-actions">
+      <el-input v-model="nodeQuery" class="toolbar-filter" clearable :placeholder="t('searchServers')">
+        <template #prefix><i class="ri-search-line"></i></template>
+      </el-input>
+      <el-select v-model="tagFilter" class="toolbar-filter" clearable :placeholder="t('allGroups')">
+        <el-option v-for="item in groupOptions" :key="item" :label="groupFilterLabel(item)" :value="item" />
+      </el-select>
+      <el-select v-model="nodeSort" class="toolbar-filter">
+        <el-option :label="t('sortDisplayIndexDesc')" value="display_index_desc" />
+        <el-option :label="t('sortDisplayIndexAsc')" value="display_index_asc" />
+        <el-option :label="t('sortNameAsc')" value="name_asc" />
+        <el-option :label="t('sortNameDesc')" value="name_desc" />
+      </el-select>
       <el-select v-model="collectorFilter" class="toolbar-filter" clearable :placeholder="t('allProbes')">
         <el-option v-for="item in collectorOptions" :key="item.id" :label="item.name" :value="item.id" />
       </el-select>

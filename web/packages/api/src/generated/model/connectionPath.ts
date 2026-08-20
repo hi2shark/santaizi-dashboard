@@ -13,6 +13,8 @@ import type { ConnectionPathSink } from './connectionPathSink';
 export interface ConnectionPath {
   server_id: number;
   server_name: string;
+  display_index: number;
+  tag?: string;
   node_uuid: string;
   observer_id: string;
   observer_kind: ConnectionPathObserverKind;

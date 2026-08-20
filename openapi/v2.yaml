@@ -3784,6 +3784,7 @@ components:
       required:
       - server_id
       - server_name
+      - display_index
       - node_uuid
       - observer_id
       - observer_kind
@@ -3795,6 +3796,10 @@ components:
           type: integer
           format: int64
         server_name:
+          type: string
+        display_index:
+          type: integer
+        tag:
           type: string
         node_uuid:
           type: string
@@ -3951,6 +3956,7 @@ components:
       required:
       - server_id
       - server_name
+      - display_index
       - collector_id
       - collector_name
       - target
@@ -3961,6 +3967,10 @@ components:
           type: integer
           format: int64
         server_name:
+          type: string
+        display_index:
+          type: integer
+        tag:
           type: string
         collector_id:
           type: string

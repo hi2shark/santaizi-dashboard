@@ -1,19 +1,22 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { AppEmpty } from '@santaizi/ui'
 import AlertRuleEditorDialog from '@/components/editors/AlertRuleEditorDialog.vue'
 import { deleteAlertRule, listAlertRules } from '@/api/adminApi'
 import { cleanupOfflineHistory, getSettings, updateSettings } from '@santaizi/api'
 import { notifyAPIError } from '@/composables/notify'
+import { readStoredPageSize, writeStoredPageSize } from '@/composables/pageSize'
 import { isRowSelected, toggleRowSelection } from '@/composables/selection'
 import type { AlertRuleRecord } from '@/types/admin'
 
 const { t, te } = useI18n()
+const route = useRoute()
 const loading = ref(false), saving = ref(false), editor = ref(false), total = ref(0)
 const items = ref<AlertRuleRecord[]>([]), selected = ref<AlertRuleRecord[]>([]), editing = ref<AlertRuleRecord>()
-const query = reactive({ page: 1, page_size: 20, q: '', sort: 'id', order: 'desc' as const })
+const query = reactive({ page: 1, page_size: readStoredPageSize(route.path), q: '', sort: 'id', order: 'desc' as const })
 const SETTINGS_KEYS = ['enable_offline_history', 'offline_threshold', 'check_interval', 'merge_gap', 'retention_days', 'notify_offline', 'notify_recovery', 'connectivity_notification', 'correction_notification', 'collector_offline_notification', 'collector_online_notification', 'data_loss_notification', 'plain_ip_in_notification'] as const
 const form = reactive<Record<string, unknown>>({
   enable_offline_history: true, offline_threshold: 30, check_interval: 5, merge_gap: 0, retention_days: 30,
@@ -21,6 +24,7 @@ const form = reactive<Record<string, unknown>>({
   collector_offline_notification: true, collector_online_notification: true, data_loss_notification: true, plain_ip_in_notification: false,
 })
 async function load() {
+  writeStoredPageSize(route.path, query.page_size)
   loading.value = true
   try {
     const [settings, result] = await Promise.all([getSettings(), listAlertRules(query)])

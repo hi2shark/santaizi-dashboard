@@ -16,7 +16,7 @@ const (
 	LatencyKindCollectorHeartbeat   = "collector_heartbeat"
 	LatencyKindCollectorReplication = "collector_replication"
 	LatencyKindPath                 = "path"
-	ConnectionLatencyRetention      = 24 * time.Hour
+	ConnectionLatencyRetention      = DefaultEvidenceRetain
 	latencyBucketSize               = int64(time.Minute)
 )
 

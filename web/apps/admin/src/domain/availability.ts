@@ -10,6 +10,7 @@ export type ObserverEvidence = {
 
 export type AvailabilityBucketLike = {
   bucket_start?: unknown
+  window_end?: unknown
   host?: unknown
   connectivity?: unknown
   expected_observers?: unknown
@@ -105,6 +106,7 @@ export function inferBucketMs(rows: AvailabilityBucketLike[]): number {
 
 type parsedBucket = {
   start: number
+  end: number
   host: string
   connectivity: string
   expectedObservers: number
@@ -114,9 +116,11 @@ type parsedBucket = {
   signature: string
 }
 
-function parseBucket(row: AvailabilityBucketLike): parsedBucket | null {
+function parseBucket(row: AvailabilityBucketLike, fallbackMs: number): parsedBucket | null {
   const start = toEpochMs(row.bucket_start)
   if (start == null) return null
+  const explicitEnd = toEpochMs(row.window_end)
+  const end = explicitEnd != null && explicitEnd > start ? explicitEnd : start + fallbackMs
   const host = asText(row.host) || 'unknown'
   const connectivity = asText(row.connectivity) || 'unknown'
   const expectedObservers = asNumber(row.expected_observers)
@@ -124,7 +128,7 @@ function parseBucket(row: AvailabilityBucketLike): parsedBucket | null {
   const seenObservers = asNumber(row.seen_observers)
   const observerEvidence = asEvidence(row.observer_evidence)
   return {
-    start, host, connectivity, expectedObservers, healthyObservers, seenObservers, observerEvidence,
+    start, end, host, connectivity, expectedObservers, healthyObservers, seenObservers, observerEvidence,
     signature: bucketSignature(host, connectivity, expectedObservers, healthyObservers, seenObservers, observerEvidence),
   }
 }
@@ -137,12 +141,12 @@ function gapSegment(start: number, end: number): AvailabilitySegment {
 }
 
 export function buildAvailabilitySegments(rows: AvailabilityBucketLike[], bucketMs = inferBucketMs(rows)): AvailabilitySegment[] {
-  const parsed = rows.map(parseBucket).filter((row): row is parsedBucket => row != null)
-  parsed.sort((a, b) => a.start - b.start)
   const size = bucketMs > 0 ? bucketMs : DEFAULT_BUCKET_MS
+  const parsed = rows.map(row => parseBucket(row, size)).filter((row): row is parsedBucket => row != null)
+  parsed.sort((a, b) => a.start - b.start)
   const segments: AvailabilitySegment[] = []
   for (const bucket of parsed) {
-    const end = bucket.start + size
+    const end = bucket.end
     const last = segments[segments.length - 1]
     if (last?.kind === 'observed' && last.host === bucket.host && bucketSignature(last.host, last.connectivity, last.expectedObservers, last.healthyObservers, last.seenObservers, last.observerEvidence) === bucket.signature && bucket.start <= last.end) {
       last.end = Math.max(last.end, end)

@@ -11,6 +11,7 @@ import { deleteCollector, getCollectorToken, listCollectors, revokeCollector, ro
 import { AppDialog, AppDrawer, AppEmpty } from '@santaizi/ui'
 import { formatAdminValue, formatProductVersion } from '@/composables/format'
 import { notifyAPIError } from '@/composables/notify'
+import { readStoredPageSize, writeStoredPageSize } from '@/composables/pageSize'
 import CollectorEditorDialog from '@/components/editors/CollectorEditorDialog.vue'
 import InstallCollectorDialog from '@/components/InstallCollectorDialog.vue'
 import CopyableId from '@/components/CopyableId.vue'
@@ -26,7 +27,7 @@ const active = ref('collectors'), loading = ref(false), editor = ref(false)
 const actionBusy = ref('')
 const collectors = ref<CollectorRecord[]>([]), records = ref<DatasetRow[]>([])
 const total = ref(0)
-const query = reactive({ page: 1, page_size: 20 })
+const query = reactive({ page: 1, page_size: readStoredPageSize(route.path) })
 const editing = ref<CollectorRecord>()
 const token = ref(''), tokenDialog = ref(false)
 const installDialog = ref(false)
@@ -47,6 +48,7 @@ const lossRow = computed(() => active.value === 'loss' ? activeRow.value as Tele
 const alertRow = computed(() => active.value === 'alerts' ? activeRow.value as TelemetryAlertRecord | undefined : undefined)
 
 async function load() {
+  writeStoredPageSize(route.path, query.page_size)
   loading.value = true
   try {
     if (active.value === 'collectors') collectors.value = (await listCollectors()).data

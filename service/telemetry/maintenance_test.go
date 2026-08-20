@@ -148,3 +148,16 @@ func TestDataLossTableNameMatchesDrain(t *testing.T) {
 		t.Fatal("expected collector_replication_receipts")
 	}
 }
+
+func TestProbeSnapshotTableNamesMatchDrain(t *testing.T) {
+	db := newRetentionDB(t)
+	if err := db.AutoMigrate(&model.ProbeLatest{}, &model.ProbeTrace{}); err != nil {
+		t.Fatal(err)
+	}
+	if !sqliteTableExists(db, "probe_latests") {
+		t.Fatal("expected probe_latests")
+	}
+	if !sqliteTableExists(db, "probe_traces") {
+		t.Fatal("expected probe_traces")
+	}
+}

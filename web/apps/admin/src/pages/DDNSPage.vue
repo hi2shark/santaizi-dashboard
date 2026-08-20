@@ -1,19 +1,22 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { AppEmpty } from '@santaizi/ui'
 import DDNSEditorDialog from '@/components/editors/DDNSEditorDialog.vue'
 import { deleteDDNSProfile, listDDNSProfiles } from '@/api/adminApi'
 import { notifyAPIError } from '@/composables/notify'
+import { readStoredPageSize, writeStoredPageSize } from '@/composables/pageSize'
 import { isRowSelected, toggleRowSelection } from '@/composables/selection'
 import type { DDNSProfileRecord } from '@/types/admin'
 
 const { t, te } = useI18n()
+const route = useRoute()
 const loading = ref(false), editor = ref(false), total = ref(0)
 const items = ref<DDNSProfileRecord[]>([]), selected = ref<DDNSProfileRecord[]>([]), editing = ref<DDNSProfileRecord>()
-const query = reactive({ page: 1, page_size: 20, q: '', sort: 'id', order: 'desc' as const })
-async function load() { loading.value = true; try { const result = await listDDNSProfiles(query); items.value = result.data; total.value = result.meta.total || result.data.length } catch (error) { notifyAPIError(error, t as never, te) } finally { loading.value = false } }
+const query = reactive({ page: 1, page_size: readStoredPageSize(route.path), q: '', sort: 'id', order: 'desc' as const })
+async function load() { writeStoredPageSize(route.path, query.page_size); loading.value = true; try { const result = await listDDNSProfiles(query); items.value = result.data; total.value = result.meta.total || result.data.length } catch (error) { notifyAPIError(error, t as never, te) } finally { loading.value = false } }
 function open(item?: DDNSProfileRecord) { editing.value = item; editor.value = true }
 async function remove(rows: DDNSProfileRecord[]) { await ElMessageBox.confirm(t('confirmDelete'), t('dangerousAction'), { type: 'warning' }); try { await Promise.all(rows.map(row => deleteDDNSProfile(row.id))); selected.value = []; await load(); ElMessage.success(t('deleteSuccess')) } catch (error) { notifyAPIError(error, t as never, te) } }
 function onSelect(row: DDNSProfileRecord, checked: boolean | string | number) { selected.value = toggleRowSelection(selected.value, row, !!checked) }

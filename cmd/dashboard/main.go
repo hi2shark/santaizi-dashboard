@@ -42,6 +42,7 @@ func init() {
 func initSystem() {
 	// 启动 singleton 包下的所有服务
 	singleton.LoadSingleton()
+	telemetryservice.SetSharedStateBuffer(telemetryservice.NewStateSampleBuffer())
 	availabilityEngine := availability.NewEngine(singleton.DB,
 		time.Duration(singleton.Conf.Telemetry.AvailabilityBucketSeconds)*time.Second,
 		singleton.Conf.Telemetry.MinObservers)

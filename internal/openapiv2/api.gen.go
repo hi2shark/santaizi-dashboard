@@ -1724,6 +1724,7 @@ type ConnectionLatencyBucketKind string
 // ConnectionPath defines model for ConnectionPath.
 type ConnectionPath struct {
 	Assigned     bool                       `json:"assigned"`
+	DisplayIndex int                        `json:"display_index"`
 	LastSeen     *time.Time                 `json:"last_seen,omitempty"`
 	NodeUuid     string                     `json:"node_uuid"`
 	ObserverId   string                     `json:"observer_id"`
@@ -1732,6 +1733,7 @@ type ConnectionPath struct {
 	ServerId     int64                      `json:"server_id"`
 	ServerName   string                     `json:"server_name"`
 	Sink         ConnectionPathSink         `json:"sink"`
+	Tag          *string                    `json:"tag,omitempty"`
 }
 
 // ConnectionPathObserverKind defines model for ConnectionPath.ObserverKind.
@@ -2158,6 +2160,7 @@ type ProbeMTRHop struct {
 type ProbePath struct {
 	CollectorId   string      `json:"collector_id"`
 	CollectorName string      `json:"collector_name"`
+	DisplayIndex  int         `json:"display_index"`
 	DisplayRttMs  *float64    `json:"display_rtt_ms,omitempty"`
 	HasTrace      bool        `json:"has_trace"`
 	Icmp          *ProbeICMP  `json:"icmp,omitempty"`
@@ -2167,6 +2170,7 @@ type ProbePath struct {
 	SampledAt     *time.Time  `json:"sampled_at,omitempty"`
 	ServerId      int64       `json:"server_id"`
 	ServerName    string      `json:"server_name"`
+	Tag           *string     `json:"tag,omitempty"`
 	Target        ProbeTarget `json:"target"`
 	Tcp           *[]ProbeTCP `json:"tcp,omitempty"`
 }

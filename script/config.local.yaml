@@ -46,6 +46,7 @@ retention:
   state_one_minute_days: 30
   state_one_hour_days: 365
   observation_days: 30
+  evidence_hours: 48
   lifecycle_days: 3650
   batch_size: 5000
   max_runtime_ms: 20000
