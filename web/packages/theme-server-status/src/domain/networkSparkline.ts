@@ -1,4 +1,5 @@
 import type { MonitorHistory, ServerRecord } from '@santaizi/api'
+import { isHostOnline } from '@santaizi/api'
 import { flagCode } from './publicNoteView'
 
 export interface SparklineGeometry {
@@ -78,7 +79,7 @@ export function toNetworkHostTile(server: ServerRecord): NetworkHostTile {
   return {
     id: server.id,
     name: server.name || `#${server.id}`,
-    online: server.online === true,
+    online: isHostOnline(server),
     platform: String(host.Platform || ''),
     flagCode: flagCode(server.public_note, host.CountryCode),
   }

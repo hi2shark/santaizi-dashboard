@@ -1,4 +1,4 @@
-import type { ServerHost, ServerRecord, ServerState } from '@santaizi/api'
+import { isHostOnline, type ServerHost, type ServerRecord, type ServerState } from '@santaizi/api'
 
 function pick(object: Record<string, unknown>, ...keys: string[]) {
   for (const key of keys) {
@@ -28,12 +28,19 @@ function asNumber(raw: unknown, fallback = 0) {
   return Number.isFinite(n) ? n : fallback
 }
 
-function deriveOnline(raw: unknown, lastActive: string) {
+function asBoolean(raw: unknown): boolean | undefined {
   if (typeof raw === 'boolean') return raw
-  if (!lastActive) return false
-  const ts = Date.parse(lastActive)
-  if (Number.isNaN(ts)) return false
-  return Date.now() - ts < 30_000
+  return undefined
+}
+
+function telemetryPresentation(raw: Record<string, unknown> | undefined) {
+  if (!raw) return undefined
+  return {
+    host: String(pick(raw, 'host', 'Host') ?? ''),
+    connectivity: String(pick(raw, 'connectivity', 'Connectivity') ?? ''),
+    available: (pick(raw, 'available', 'Available') as boolean | null | undefined) ?? null,
+    coverage: String(pick(raw, 'coverage', 'Coverage') ?? ''),
+  }
 }
 
 export function normalizeServer(raw: Record<string, unknown>): ServerRecord {
@@ -44,7 +51,8 @@ export function normalizeServer(raw: Record<string, unknown>): ServerRecord {
       : raw
   )
   const lastActive = String(pick(value, 'last_active', 'LastActive') ?? '')
-  const telemetryRaw = asRecord(pick(value, 'telemetry', 'Telemetry'))
+  const telemetry = telemetryPresentation(asRecord(pick(value, 'telemetry', 'Telemetry')))
+  const onlineFlag = asBoolean(pick(value, 'online', 'Online'))
   return {
     id: asNumber(pick(value, 'id', 'ID')),
     name: String(pick(value, 'name', 'Name') ?? ''),
@@ -56,15 +64,8 @@ export function normalizeServer(raw: Record<string, unknown>): ServerRecord {
     host: asRecord(pick(value, 'host', 'Host')) as ServerHost | undefined,
     state: asRecord(pick(value, 'state', 'State')) as ServerState | undefined,
     last_active: lastActive,
-    online: deriveOnline(pick(value, 'online', 'Online'), lastActive),
-    telemetry: telemetryRaw
-      ? {
-          host: String(pick(telemetryRaw, 'host', 'Host') ?? ''),
-          connectivity: String(pick(telemetryRaw, 'connectivity', 'Connectivity') ?? ''),
-          available: (pick(telemetryRaw, 'available', 'Available') as boolean | null | undefined) ?? null,
-          coverage: String(pick(telemetryRaw, 'coverage', 'Coverage') ?? ''),
-        }
-      : undefined,
+    online: telemetry || onlineFlag !== undefined ? isHostOnline({ online: onlineFlag, telemetry }) : undefined,
+    telemetry,
   }
 }
 
@@ -98,8 +99,11 @@ function mergePublicNote(
 
 /** WS 帧可能缺 public_note/name；用已有 HTTP 快照补齐，避免整表覆盖冲掉公开备注 */
 export function mergeServerSnapshot(prev: ServerRecord | undefined, next: ServerRecord): ServerRecord {
-  if (!prev) return next
-  return {
+  if (!prev) {
+    return { ...next, online: isHostOnline(next) }
+  }
+  const telemetry = next.telemetry || prev.telemetry
+  const merged: ServerRecord = {
     ...prev,
     ...next,
     name: next.name || prev.name,
@@ -107,6 +111,12 @@ export function mergeServerSnapshot(prev: ServerRecord | undefined, next: Server
     public_note: mergePublicNote(prev.public_note, next.public_note),
     host: isEmptyRecord(next.host) ? prev.host : next.host,
     state: isEmptyRecord(next.state) ? prev.state : next.state,
-    telemetry: next.telemetry || prev.telemetry,
+    telemetry,
+    last_active: next.last_active || prev.last_active,
   }
+  merged.online = isHostOnline({
+    online: next.online !== undefined ? next.online : prev.online,
+    telemetry,
+  })
+  return merged
 }

@@ -1,4 +1,5 @@
 import type { CycleTransfer, ResourceRecord, SensorTemperature, ServerRecord } from '@santaizi/api'
+import { isHostOnline } from '@santaizi/api'
 import { buildPublicNoteView, decodeOrderLink, formatTransfer, resolveFlagCode, type PublicNoteView } from '@santaizi/theme-server-status'
 import { formatDonutDisk, formatDonutMem, formatSpec } from '../utils/host'
 import { resolveServerLocation, type ServerLocation } from '../utils/worldMap'
@@ -262,7 +263,7 @@ export function toNazhuaServerView(
     source: server,
     name: server.name,
     group: server.tag || 'default',
-    online: server.online === true,
+    online: isHostOnline(server),
     platform: text(host?.Platform),
     platformVersion: text(host?.PlatformVersion),
     arch: text(host?.Arch),

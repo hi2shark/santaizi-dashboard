@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
-import { getAdminSummary, getSettings } from '@santaizi/api'
+import { getAdminSummary, getSettings, isHostOnline } from '@santaizi/api'
 import type { CollectorRecord, ConnectionPath, ServerRecord } from '@santaizi/api'
 import { AppEmpty } from '@santaizi/ui'
 import { listAllServersPaged, listCollectors, listConnectionPaths } from '@/api/adminApi'
@@ -25,7 +25,7 @@ const highlightId = ref('')
 
 const cards = computed(() => [
   ['ri-server-line', 'totalServers', Number(summary.value.total_servers || 0), 'blue'],
-  ['ri-pulse-line', 'onlineServers', Number(summary.value.online_servers || 0), 'green'],
+  ['ri-pulse-line', 'onlineServers', servers.value.filter(isHostOnline).length, 'green'],
   ['ri-alarm-warning-line', 'activeIncidents', Number(summary.value.active_incidents || 0), 'amber'],
   ['ri-radar-line', 'activeCollectors', Number(summary.value.active_collectors || 0), 'violet'],
 ])

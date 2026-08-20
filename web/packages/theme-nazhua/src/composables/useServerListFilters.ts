@@ -1,5 +1,6 @@
 import { computed, ref, toValue, type MaybeRefOrGetter } from 'vue'
 import type { ServerRecord } from '@santaizi/api'
+import { isHostOnline } from '@santaizi/api'
 import { parseCpuCores } from '../domain/nazhuaServerView'
 import { resolveServerLocation, count2size } from '../utils/worldMap'
 
@@ -116,7 +117,7 @@ function sortValue(server: ServerRecord, prop: SortProp): number | string {
     case 'name':
       return server.name
     case 'online':
-      return Number(server.online)
+      return Number(isHostOnline(server))
     case 'country_code':
       return text(host, 'CountryCode', 'country_code').toLowerCase()
     case 'platform':
@@ -168,8 +169,8 @@ export function filterAndSortServers(source: ServerRecord[], query: ServerListQu
   const q = query.search.trim().toLowerCase()
   const list = source.filter((server) => {
     if (query.tag && (server.tag || 'default') !== query.tag) return false
-    if (query.online === 'online' && !server.online) return false
-    if (query.online === 'offline' && server.online) return false
+    if (query.online === 'online' && !isHostOnline(server)) return false
+    if (query.online === 'offline' && isHostOnline(server)) return false
     if (q) {
       const host = asRecord(server.host)
       const hay = [
@@ -224,8 +225,8 @@ export function useServerListFilters(servers: MaybeRefOrGetter<ServerRecord[]>) 
     const list = toValue(servers)
     return {
       total: list.length,
-      online: list.filter(s => s.online).length,
-      offline: list.filter(s => !s.online).length,
+      online: list.filter(s => isHostOnline(s)).length,
+      offline: list.filter(s => !isHostOnline(s)).length,
     }
   })
 
@@ -248,7 +249,7 @@ export function useServerListFilters(servers: MaybeRefOrGetter<ServerRecord[]>) 
       const bucket = buckets.get(loc.code) || { x: loc.x, y: loc.y, count: 0, labels: [], online: 0, offline: 0 }
       bucket.count += 1
       bucket.labels.push(server.name)
-      if (server.online) bucket.online += 1
+      if (isHostOnline(server)) bucket.online += 1
       else bucket.offline += 1
       buckets.set(loc.code, bucket)
     }
@@ -304,7 +305,7 @@ export function useNavbarStats(servers: MaybeRefOrGetter<ServerRecord[]>) {
     let speedIn = 0
     let speedOut = 0
     for (const server of toValue(servers)) {
-      if (!server.online || !server.state) continue
+      if (!isHostOnline(server) || !server.state) continue
       const state = asRecord(server.state)
       transferIn += num(state, 'NetInTransfer', 'net_in_transfer')
       transferOut += num(state, 'NetOutTransfer', 'net_out_transfer')

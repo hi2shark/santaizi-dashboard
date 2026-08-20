@@ -87,4 +87,43 @@ describe('ServerStatus runtime normalization', () => {
     expect(merged.host).toEqual({ Platform: 'linux' })
     expect(merged.state).toEqual({ CPU: 9 })
   })
+
+  it('does not infer online from a fresh last_active timestamp', () => {
+    expect(normalizeServer({
+      id: 5,
+      name: 'fresh',
+      last_active: new Date().toISOString(),
+    }).online).toBeUndefined()
+  })
+
+  it('prefers observer telemetry over the LastActive online flag', () => {
+    expect(normalizeServer({
+      id: 6,
+      name: 'seen',
+      online: false,
+      telemetry: { host: 'online', connectivity: 'partial', available: true, coverage: '1/2' },
+    }).online).toBe(true)
+    expect(normalizeServer({
+      id: 7,
+      name: 'gone',
+      online: true,
+      telemetry: { host: 'offline', connectivity: 'unavailable', available: false, coverage: '0/2' },
+    }).online).toBe(false)
+  })
+
+  it('keeps previous online state when a WS frame omits online and telemetry', () => {
+    const prev = normalizeServer({
+      id: 8,
+      name: 'edge',
+      online: true,
+      telemetry: { host: 'online', connectivity: 'full', available: true, coverage: '2/2' },
+    })
+    const next = normalizeServer({
+      ID: 8,
+      Name: 'edge',
+      State: { CPU: 4 },
+    })
+    expect(mergeServerSnapshot(prev, next).online).toBe(true)
+    expect(mergeServerSnapshot(prev, next).telemetry).toEqual(prev.telemetry)
+  })
 })

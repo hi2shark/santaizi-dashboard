@@ -9,6 +9,20 @@ describe('host list presence', () => {
     expect(hostListTone({ online: false, telemetry: { connectivity: 'unknown', available: null } })).toBe('')
   })
 
+  it('treats host online as present even when LastActive flag is false', () => {
+    expect(hostListTone({
+      online: false,
+      telemetry: { host: 'online', connectivity: 'unknown', available: null },
+    })).toBe('online')
+  })
+
+  it('treats unavailable observers as offline even when LastActive flag is true', () => {
+    expect(hostListTone({
+      online: true,
+      telemetry: { host: 'offline', connectivity: 'unavailable', available: false },
+    })).toBe('offline')
+  })
+
   it('falls back to online flag when telemetry connectivity is missing', () => {
     expect(hostListTone({ online: true })).toBe('online')
     expect(hostListTone({ online: false })).toBe('offline')

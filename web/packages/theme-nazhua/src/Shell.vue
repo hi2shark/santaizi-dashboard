@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useInjectedStatusStore } from '@santaizi/status-core'
+import { isHostOnline } from '@santaizi/api'
 import bgImage from './assets/bg.webp?url'
 import NazhuaHeader from './components/layout/NazhuaHeader.vue'
 import { useNavbarStats } from './composables/useServerListFilters'
@@ -28,8 +29,8 @@ const versionLine = computed(() => formatProductVersion(store.bootstrap?.version
 const navbarStats = useNavbarStats(() => store.servers)
 const counts = computed(() => ({
   total: store.servers.length,
-  online: store.servers.filter(server => server.online).length,
-  offline: store.servers.filter(server => !server.online).length,
+  online: store.servers.filter(isHostOnline).length,
+  offline: store.servers.filter(server => !isHostOnline(server)).length,
 }))
 
 function menuCommand(command: string) {

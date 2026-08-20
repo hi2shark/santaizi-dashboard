@@ -4,11 +4,12 @@ import type { ConnectionPath } from '@santaizi/api'
 import { DEFAULT_VIEW } from './geo'
 import { allMarkers, buildTopology, layoutSite, primaryLatencyRows, siteClusterRadius, siteOffsets, visibleLinks } from './topology'
 
-function server(id: number, name: string, extra: { country?: string; note?: Record<string, unknown>; online?: boolean } = {}): ServerRecord {
+function server(id: number, name: string, extra: { country?: string; note?: Record<string, unknown>; online?: boolean; telemetry?: ServerRecord['telemetry'] } = {}): ServerRecord {
   return {
     id, name, tag: 'edge', display_index: id, hide_for_guest: false, enable_ddns: false, online: extra.online ?? true,
     host: extra.country ? { CountryCode: extra.country } : undefined,
     public_note: extra.note,
+    telemetry: extra.telemetry,
   }
 }
 
@@ -174,6 +175,14 @@ describe('buildTopology', () => {
       [path(1, 'primary', 'primary', false)],
     )
     expect(rows[0]).toMatchObject({ online: false, rttMs: undefined })
+  })
+
+  it('keeps a host online when observers still see it despite a stale LastActive flag', () => {
+    const rows = primaryLatencyRows(
+      [server(1, 'tokyo', { online: false, telemetry: { host: 'online', connectivity: 'partial', available: true, coverage: '1/2' } })],
+      [path(1, 'primary', 'primary', true)],
+    )
+    expect(rows[0]).toMatchObject({ online: true, rttMs: 12 })
   })
 
   it('keeps hand-filled primary, collector and node on the same city', () => {

@@ -2,6 +2,7 @@
 import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useInjectedStatusStore } from '@santaizi/status-core'
+import { isHostOnline } from '@santaizi/api'
 import { resolveServerLocation } from '../utils/worldMap'
 import ServerNameBlock from '../components/detail/ServerNameBlock.vue'
 import ServerStatusBox from '../components/detail/ServerStatusBox.vue'
@@ -25,7 +26,7 @@ watch(server, (value) => {
 </script>
 
 <template>
-  <div v-if="server" class="nazhua-detail" :class="{ offline: !server.online }">
+  <div v-if="server" class="nazhua-detail" :class="{ offline: !isHostOnline(server) }">
     <ServerNameBlock :server="server" :location="location" />
     <ServerStatusBox :server="server" />
     <ServerResourceHistory :server="server" />

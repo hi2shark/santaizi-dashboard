@@ -1,5 +1,4 @@
-import type { CollectorRecord, ServerRecord } from '@santaizi/api'
-import type { ConnectionPath } from '@santaizi/api'
+import { isHostOnline, type CollectorRecord, type ConnectionPath, type ServerRecord } from '@santaizi/api'
 import { DEFAULT_VIEW, locationKey, parseLocation, resolveServerGeo, sphericalMean, type GeoPoint } from './geo'
 
 export type MarkerKind = 'primary' | 'collector' | 'node'
@@ -153,16 +152,17 @@ export function buildTopology(input: TopologyInput): TopologyGraph {
     const key = locationKey(point)
     const id = `node:${key}`
     serverMarkerId.set(server.id, id)
-    const online = server.online ? 1 : 0
-    const offline = server.online ? 0 : 1
+    const present = isHostOnline(server)
+    const online = present ? 1 : 0
+    const offline = present ? 0 : 1
     const existing = nodeGroups.get(id)
     if (!existing) {
       nodeGroups.set(id, {
         online, offline,
         marker: {
           id, kind: 'node', name: server.name, lon: point.lon, lat: point.lat, derived: false,
-          status: server.online ? 'online' : 'offline', href: `/servers?q=${encodeURIComponent(server.name)}`,
-          count: 1, names: [server.name], onlines: [Boolean(server.online)],
+          status: present ? 'online' : 'offline', href: `/servers?q=${encodeURIComponent(server.name)}`,
+          count: 1, names: [server.name], onlines: [present],
         },
       })
       continue
@@ -171,7 +171,7 @@ export function buildTopology(input: TopologyInput): TopologyGraph {
     existing.offline += offline
     existing.marker.count += 1
     existing.marker.names.push(server.name)
-    existing.marker.onlines.push(Boolean(server.online))
+    existing.marker.onlines.push(present)
     existing.marker.status = mixStatus(existing.online, existing.offline)
     existing.marker.name = existing.marker.count === 2
       ? existing.marker.names.join(' · ')
@@ -457,7 +457,7 @@ export function primaryLatencyRows(servers: ServerRecord[], paths: ConnectionPat
     .sort((a, b) => (a.display_index - b.display_index) || a.id - b.id)
     .map((server) => {
       const path = primaryByServer.get(server.id)
-      const online = Boolean(server.online && path?.sink.connected)
+      const online = Boolean(isHostOnline(server) && path?.sink.connected)
       return {
         id: String(server.id),
         name: server.name,

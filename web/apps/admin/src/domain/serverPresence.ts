@@ -1,20 +1,19 @@
+import { isHostOnline, type HostPresenceInput } from '@santaizi/api'
+
 export type HostListTone = 'online' | 'degraded' | 'offline' | ''
 
-export type HostListServer = {
-  online?: boolean
-  telemetry?: {
-    connectivity?: string | null
-    available?: boolean | null
-  } | null
-}
+export type HostListServer = HostPresenceInput
 
 export function hostListTone(server: HostListServer): HostListTone {
   const connectivity = server.telemetry?.connectivity
   if (connectivity === 'full') return 'online'
   if (connectivity === 'partial') return 'degraded'
   if (connectivity === 'unavailable') return 'offline'
+  const host = server.telemetry?.host
+  if (host === 'offline') return 'offline'
+  if (host === 'online') return 'online'
   if (connectivity === 'unknown') return ''
-  return server.online ? 'online' : 'offline'
+  return isHostOnline(server) ? 'online' : 'offline'
 }
 
 export function hostCoverageTone(server: HostListServer): 'is-ok' | 'is-warn' | 'is-bad' | 'is-unknown' {

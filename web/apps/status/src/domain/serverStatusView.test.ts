@@ -105,7 +105,7 @@ describe('ServerStatus view adapter', () => {
     expect(view.location).toBe('新加坡')
   })
 
-  it('omits empty GPU/swap and does not infer online from telemetry', () => {
+  it('omits empty GPU/swap and keeps unknown telemetry offline', () => {
     const view = toServerStatusView(server({
       online: false,
       host: { Platform: 'linux', MemTotal: 1024 },
@@ -118,6 +118,14 @@ describe('ServerStatus view adapter', () => {
     expect(view.tcp).toBeNull()
     expect(view.hasLoad).toBe(false)
     expect(view.available).toBeNull()
+  })
+
+  it('treats observer-seen hosts as online even when the LastActive flag is false', () => {
+    const view = toServerStatusView(server({
+      online: false,
+      telemetry: { host: 'online', connectivity: 'partial', available: true, coverage: '1/2' },
+    }))
+    expect(view.online).toBe(true)
   })
 
   it('shows GPU names in specs without a usage bar when percent is absent', () => {

@@ -25,7 +25,7 @@ const view = computed(() => toNazhuaServerView(props.server))
           <span v-if="view.spec" class="nazhua-detail-name__spec">
             <OsLogo :platform="view.platform" />{{ view.spec }}
           </span>
-          <span v-if="!server.online" class="offline">
+          <span v-if="!view.online" class="offline">
             <i class="ri-indeterminate-circle-fill"></i>
             {{ t('nazhua.offline') }}
           </span>

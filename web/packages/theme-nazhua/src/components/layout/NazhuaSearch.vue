@@ -3,6 +3,7 @@ import { computed, nextTick, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import type { ServerRecord } from '@santaizi/api'
+import { isHostOnline } from '@santaizi/api'
 import { AppDialog } from '@santaizi/ui'
 
 const props = defineProps<{ servers: ServerRecord[]; modelValue: string }>()
@@ -58,7 +59,7 @@ function openDetail(id: number) {
     <ul class="nazhua-search-results" :aria-label="t('nazhua.search')">
       <li v-for="server in results" :key="server.id">
         <el-button text @click="openDetail(server.id)">
-          <i :class="server.online ? 'ri-checkbox-circle-fill online' : 'ri-indeterminate-circle-fill offline'"></i>
+          <i :class="isHostOnline(server) ? 'ri-checkbox-circle-fill online' : 'ri-indeterminate-circle-fill offline'"></i>
           <span>{{ server.name }}</span>
           <small>{{ server.tag || 'default' }}</small>
         </el-button>

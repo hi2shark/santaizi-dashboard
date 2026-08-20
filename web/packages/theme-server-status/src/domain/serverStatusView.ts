@@ -1,4 +1,5 @@
 import type { CycleTransfer, ResourceRecord, ServerHost, ServerState, ServerRecord } from '@santaizi/api'
+import { isHostOnline } from '@santaizi/api'
 import {
   buildPublicNoteView,
   decodeOrderLink,
@@ -332,7 +333,7 @@ export function toServerStatusView(
     source: server,
     name: server.name,
     group: server.tag || 'default',
-    online: server.online === true,
+    online: isHostOnline(server),
     flagCode: flagCode(server.public_note, country),
     location: publicLocation(server.public_note, country, locale),
     slogan: publicNote.presentation.slogan,
